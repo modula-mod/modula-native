@@ -85,6 +85,8 @@ struct Conversation: Identifiable, Hashable, Sendable {
     let unreadCount: Int
     let updatedAt: Date
     let titleOverride: String?
+    var isMuted = false
+    var isArchived = false
 
     var title: String {
         if let titleOverride, !titleOverride.isEmpty { return titleOverride }
@@ -109,6 +111,10 @@ struct Message: Identifiable, Hashable, Sendable {
     var delivery: MessageDeliveryState
     let isOwn: Bool
     var localDraft: String?
+    var reactions: [MessageReaction] = []
+    var replyTo: MessageReplyPreview? = nil
+    var editedAt: Date? = nil
+    var isDeleted = false
 
     var previewText: String { body.text }
 }
@@ -116,6 +122,7 @@ struct Message: Identifiable, Hashable, Sendable {
 struct MessageDraft: Hashable, Sendable {
     var conversationID: ConversationID
     var text: String
+    var replyToID: MessageID? = nil
 }
 
 struct ConversationPage: Sendable, Equatable {
@@ -170,6 +177,10 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var realtime = false
     /// Client-side quote reply: quotes the message into the text (no reply-to field on the send route).
     var quoteReply = true
+    /// Messaging v2 (`PUT /v1/conversations/:id/messages/:messageId/reactions`). Probed at runtime.
+    var reactions = false
+    /// `POST /v1/profiles/:id/block` (live).
+    var block = false
 
     /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
     static let production = MessagingBackendCapabilities(
@@ -254,7 +265,9 @@ enum MessagingPayloadDecoder {
             lastMessage: last,
             unreadCount: value["unreadCount"]?.int ?? value["unread_count"]?.int ?? 0,
             updatedAt: updated,
-            titleOverride: emptyToNil(value["title"]?.string ?? value["name"]?.string)
+            titleOverride: emptyToNil(value["title"]?.string ?? value["name"]?.string),
+            isMuted: value["muted"]?.bool ?? false,
+            isArchived: value["archived"]?.bool ?? false
         )
     }
 
@@ -278,7 +291,17 @@ enum MessagingPayloadDecoder {
             sentAt: sentAt,
             delivery: MessageDeliveryState(parsing: value["delivery"]?.string ?? value["status"]?.string),
             isOwn: own,
-            localDraft: nil
+            localDraft: nil,
+            reactions: (value["reactions"]?.array ?? []).compactMap { r in
+                r["emoji"]?.string.map { MessageReaction(emoji: $0, count: r["count"]?.int ?? 1, mine: r["mine"]?.bool ?? false) }
+            },
+            replyTo: value["replyTo"].flatMap { r in
+                r["id"]?.string.map {
+                    MessageReplyPreview(id: $0, senderName: r["senderName"]?.string ?? "", body: r["body"]?.string ?? "", deleted: r["deleted"]?.bool ?? false)
+                }
+            },
+            editedAt: decodeDate(value["editedAt"]?.string),
+            isDeleted: value["deleted"]?.bool ?? false
         )
     }
 
@@ -342,4 +365,18 @@ enum MessagingOrdering {
     static func messagesChronological(_ items: [Message]) -> [Message] {
         items.sorted { $0.sentAt < $1.sentAt }
     }
+}
+
+
+struct MessageReaction: Hashable, Sendable {
+    let emoji: String
+    var count: Int
+    var mine: Bool
+}
+
+struct MessageReplyPreview: Hashable, Sendable {
+    let id: MessageID
+    let senderName: String
+    let body: String
+    let deleted: Bool
 }

@@ -64,7 +64,7 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         let value: JSONValue = try await client.authenticatedJSON(
             "POST",
             path: MessagingBackendCapabilities.Paths.send(conversationID: conversation),
-            body: .object(["text": .string(message.text)])
+            body: .object(message.replyToID.map { ["text": .string(message.text), "replyToMessageId": .string($0)] } ?? ["text": .string(message.text)])
         )
         log(op: "send", id: conversation, started: started)
         let payload = value["message"] ?? value
@@ -148,6 +148,92 @@ actor GreenfieldMessagingRepository: MessagingRepository {
             path: MessagingBackendCapabilities.Paths.unreadSummary
         )
         return value["unreadCount"]?.int ?? value["count"]?.int
+    }
+
+    // MARK: Messaging v2
+
+    /// Is the messaging v2 API deployed? A made-up chat id gets the API's own NOT_FOUND envelope when the
+    /// route exists; an unknown route gets a non-envelope 404 (decoded as invalidResponse / REQUEST_FAILED).
+    func probeV2() async -> Bool {
+        do {
+            let _: JSONValue = try await client.authenticatedJSON("GET", path: "/v1/conversations/modula-route-probe/typing")
+            return true
+        } catch APIError.rejected(404, "NOT_FOUND") {
+            return true
+        } catch APIError.rejected(403, _) {
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private static func esc(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
+    }
+
+    private static func messagePath(_ conversation: ConversationID, _ message: MessageID) -> String {
+        "/v1/conversations/\(esc(conversation))/messages/\(esc(message))"
+    }
+
+    func react(conversation: ConversationID, message: MessageID, emoji: String, on: Bool) async throws -> [MessageReaction] {
+        let base = Self.messagePath(conversation, message) + "/reactions"
+        let value: JSONValue
+        if on {
+            value = try await client.authenticatedJSON("PUT", path: base, body: .object(["emoji": .string(emoji)]))
+        } else {
+            let q = emoji.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? emoji
+            value = try await client.authenticatedJSON("DELETE", path: base + "?emoji=\(q)", body: nil)
+        }
+        return (value["reactions"]?.array ?? []).compactMap { r in
+            r["emoji"]?.string.map { MessageReaction(emoji: $0, count: r["count"]?.int ?? 1, mine: r["mine"]?.bool ?? false) }
+        }
+    }
+
+    func edit(conversation: ConversationID, message: MessageID, text: String) async throws -> Message {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "PATCH", path: Self.messagePath(conversation, message), body: .object(["text": .string(text)])
+        )
+        guard let decoded = MessagingPayloadDecoder.message(value["message"] ?? value, conversationID: conversation, viewerID: nil) else {
+            throw APIError.invalidResponse
+        }
+        return decoded
+    }
+
+    func unsend(conversation: ConversationID, message: MessageID) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("DELETE", path: Self.messagePath(conversation, message), body: nil)
+    }
+
+    func pingTyping(conversation: ConversationID) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("POST", path: "/v1/conversations/\(Self.esc(conversation))/typing", body: .object([:]))
+    }
+
+    func typing(conversation: ConversationID) async throws -> [ConversationParticipant] {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: "/v1/conversations/\(Self.esc(conversation))/typing")
+        return (value["typing"]?.array ?? []).compactMap(MessagingPayloadDecoder.participant)
+    }
+
+    func setMuted(conversation: ConversationID, muted: Bool) async throws {
+        let _: JSONValue = try await client.authenticatedJSON(
+            "POST", path: "/v1/conversations/\(Self.esc(conversation))/mute", body: .object(["muted": .bool(muted)])
+        )
+    }
+
+    func setArchived(conversation: ConversationID, archived: Bool) async throws {
+        let _: JSONValue = try await client.authenticatedJSON(
+            "POST", path: "/v1/conversations/\(Self.esc(conversation))/archive", body: .object(["archived": .bool(archived)])
+        )
+    }
+
+    /// Live routes (already deployed): block a profile and report a message or profile.
+    func block(profile: String) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("POST", path: "/v1/profiles/\(Self.esc(profile))/block", body: .object([:]))
+    }
+
+    func report(targetType: String, targetID: String, category: String) async throws {
+        let _: JSONValue = try await client.authenticatedJSON(
+            "POST", path: "/v1/reports",
+            body: .object(["targetType": .string(targetType), "targetId": .string(targetID), "category": .string(category)])
+        )
     }
 
     private func log(op: String, id: String?, started: Date) {

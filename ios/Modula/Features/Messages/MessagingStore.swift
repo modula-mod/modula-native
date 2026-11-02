@@ -4,7 +4,15 @@ import Observation
 @MainActor @Observable
 final class MessagingStore {
     private let repository: GreenfieldMessagingRepository
-    let capabilities: MessagingBackendCapabilities
+    private(set) var capabilities: MessagingBackendCapabilities
+    /// People typing in each open chat (`GET /v1/conversations/:id/typing`, v2 only).
+    private(set) var typingPeople: [ConversationID: [ConversationParticipant]] = [:]
+    private var lastTypingPing: [ConversationID: Date] = [:]
+    private var probedV2 = false
+    /// Device-only personal touches (never synced, never shown to the other person).
+    private(set) var nicknames: [ConversationID: String] = MessagingLocalStore.dictionary("messages.nicknames.v1")
+    private(set) var wallpapers: [ConversationID: String] = MessagingLocalStore.dictionary("messages.wallpapers.v1")
+    private(set) var starredIDs: Set<MessageID> = Set(UserDefaults.standard.stringArray(forKey: "messages.starred.v1") ?? [])
 
     private(set) var conversations: [Conversation] = []
     private(set) var conversationCursor: String?
@@ -35,7 +43,10 @@ final class MessagingStore {
 
     init(client: GreenfieldClient, capabilities: MessagingBackendCapabilities = .production) {
         self.repository = GreenfieldMessagingRepository(client: client, capabilities: capabilities)
-        self.capabilities = capabilities
+        var caps = capabilities
+        caps.report = true
+        caps.block = true
+        self.capabilities = caps
     }
 
     func isPinned(_ id: ConversationID) -> Bool { pinnedIDs.contains(id) }
@@ -163,7 +174,11 @@ final class MessagingStore {
         guard capabilities.listMessages, threadState[id] == .loaded, !id.hasPrefix("pending-direct:"),
               sendingIDs.isEmpty else { return 0 }
         guard let page = try? await repository.conversation(id, cursor: nil) else { return 0 }
+        if capabilities.typing {
+            typingPeople[id] = (try? await repository.typing(conversation: id)) ?? []
+        }
         let added = mergeLatest(page, into: id).filter { !$0.isOwn }
+        if !added.isEmpty { typingPeople[id] = [] }
         if !added.isEmpty, capabilities.markRead, (try? await repository.markRead(conversation: id)) != nil {
             clearUnreadLocally(id)
         }
@@ -178,6 +193,176 @@ final class MessagingStore {
         conversations = page.items + conversations.filter { !fresh.contains($0.id) }
         await refreshUnreadSummary()
         if capabilities.messageRequests, let items = try? await repository.messageRequests() { requests = items }
+    }
+
+    // MARK: Messaging v2 (lights up once the API is deployed)
+
+    /// One probe per launch. `messages.v2.disabled` (debug default) keeps v2 hidden even when deployed.
+    func probeCapabilities() async {
+        guard !probedV2 else { return }
+        probedV2 = true
+        if UserDefaults.standard.bool(forKey: "messages.v2.disabled") { return }
+        #if DEBUG
+        if MessagingDebugFixture.isEnabled { return }
+        #endif
+        guard await repository.probeV2() else { return }
+        capabilities.reactions = true
+        capabilities.reply = true
+        capabilities.edit = true
+        capabilities.deleteOwn = true
+        capabilities.typing = true
+        capabilities.mute = true
+        capabilities.archive = true
+    }
+
+    private func updateMessage(_ id: MessageID, in conversation: ConversationID, _ change: (inout Message) -> Void) {
+        guard var items = threads[conversation], let index = items.firstIndex(where: { $0.id == id }) else { return }
+        change(&items[index])
+        threads[conversation] = items
+    }
+
+    /// Toggle a reaction: instant locally, reconciled with the server's counts, rolled back on failure.
+    func toggleReaction(_ emoji: String, on message: Message) async {
+        guard capabilities.reactions, !message.id.hasPrefix("local-") else { return }
+        let before = message.reactions
+        let adding = !(before.first { $0.emoji == emoji }?.mine ?? false)
+        updateMessage(message.id, in: message.conversationID) { m in
+            if let i = m.reactions.firstIndex(where: { $0.emoji == emoji }) {
+                m.reactions[i].count += adding ? 1 : -1
+                m.reactions[i].mine = adding
+                if m.reactions[i].count <= 0 { m.reactions.remove(at: i) }
+            } else if adding {
+                m.reactions.append(MessageReaction(emoji: emoji, count: 1, mine: true))
+            }
+        }
+        HapticEngine.shared.play(adding ? .lightImpact : .selection)
+        do {
+            let server = try await repository.react(conversation: message.conversationID, message: message.id, emoji: emoji, on: adding)
+            updateMessage(message.id, in: message.conversationID) { $0.reactions = server }
+        } catch {
+            updateMessage(message.id, in: message.conversationID) { $0.reactions = before }
+            actionError = "Couldn't react."
+        }
+    }
+
+    func edit(_ message: Message, text: String) async -> Bool {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard capabilities.edit, !clean.isEmpty else { return false }
+        do {
+            let updated = try await repository.edit(conversation: message.conversationID, message: message.id, text: clean)
+            updateMessage(message.id, in: message.conversationID) { m in
+                m = Message(id: m.id, conversationID: m.conversationID, sender: m.sender, body: .text(clean), sentAt: m.sentAt,
+                            delivery: m.delivery, isOwn: true, localDraft: nil, reactions: updated.reactions,
+                            replyTo: m.replyTo, editedAt: updated.editedAt ?? Date(), isDeleted: false)
+            }
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = "Couldn't edit message. You can edit for 15 minutes after sending."
+            HapticEngine.shared.play(.failure)
+            return false
+        }
+    }
+
+    func unsend(_ message: Message) async {
+        guard capabilities.deleteOwn else { return }
+        let before = message
+        updateMessage(message.id, in: message.conversationID) { m in
+            m = Message(id: m.id, conversationID: m.conversationID, sender: m.sender, body: .text(""), sentAt: m.sentAt,
+                        delivery: m.delivery, isOwn: true, localDraft: nil, isDeleted: true)
+        }
+        do {
+            try await repository.unsend(conversation: message.conversationID, message: message.id)
+            HapticEngine.shared.play(.success)
+        } catch {
+            updateMessage(message.id, in: message.conversationID) { $0 = before }
+            actionError = "Couldn't unsend message."
+        }
+    }
+
+    /// Throttled "I'm typing" ping (at most every 3 s while the composer changes).
+    func noteTyping(_ id: ConversationID) {
+        guard capabilities.typing, !id.hasPrefix("pending-direct:") else { return }
+        let now = Date()
+        if let last = lastTypingPing[id], now.timeIntervalSince(last) < 3 { return }
+        lastTypingPing[id] = now
+        Task { try? await repository.pingTyping(conversation: id) }
+    }
+
+    func toggleMute(_ id: ConversationID) async {
+        guard capabilities.mute, let index = conversations.firstIndex(where: { $0.id == id }) else { return }
+        let muted = !conversations[index].isMuted
+        conversations[index].isMuted = muted
+        HapticEngine.shared.play(.selection)
+        do { try await repository.setMuted(conversation: id, muted: muted) } catch {
+            if let i = conversations.firstIndex(where: { $0.id == id }) { conversations[i].isMuted = !muted }
+            actionError = "Couldn't update mute."
+        }
+    }
+
+    func archive(_ id: ConversationID) async {
+        guard capabilities.archive, let removed = conversation(id: id) else { return }
+        conversations.removeAll { $0.id == id }
+        HapticEngine.shared.play(.confirmation)
+        do { try await repository.setArchived(conversation: id, archived: true) } catch {
+            conversations.append(removed)
+            actionError = "Couldn't archive this chat."
+        }
+    }
+
+    /// Block (live route). Also declines a pending request from them.
+    func block(_ person: ConversationParticipant) async -> Bool {
+        guard capabilities.block else { return false }
+        do {
+            try await repository.block(profile: person.handle.isEmpty ? person.id : person.handle)
+            if let request = requests.first(where: { $0.sender.id == person.id }) { await declineRequest(request) }
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = "Couldn't block this account."
+            return false
+        }
+    }
+
+    func report(message: Message) async -> Bool {
+        do {
+            try await repository.report(targetType: "message", targetID: message.id, category: "other")
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = "Couldn't send the report."
+            return false
+        }
+    }
+
+    // MARK: Device-only personal touches
+
+    func title(for conversation: Conversation) -> String {
+        let nick = (nicknames[conversation.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return nick.isEmpty ? conversation.title : nick
+    }
+
+    func setNickname(_ name: String, for id: ConversationID) {
+        let clean = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
+        nicknames[id] = clean.isEmpty ? nil : clean
+        MessagingLocalStore.save(nicknames, "messages.nicknames.v1")
+    }
+
+    func wallpaper(for id: ConversationID) -> MessagesWallpaperTheme {
+        MessagesWallpaperTheme(rawValue: wallpapers[id] ?? "") ?? .none
+    }
+
+    func setWallpaper(_ theme: MessagesWallpaperTheme, for id: ConversationID) {
+        wallpapers[id] = theme == .none ? nil : theme.rawValue
+        MessagingLocalStore.save(wallpapers, "messages.wallpapers.v1")
+    }
+
+    func isStarred(_ id: MessageID) -> Bool { starredIDs.contains(id) }
+
+    func toggleStar(_ id: MessageID) {
+        if starredIDs.contains(id) { starredIDs.remove(id) } else { starredIDs.insert(id) }
+        UserDefaults.standard.set(Array(starredIDs.prefix(500)), forKey: "messages.starred.v1")
+        HapticEngine.shared.play(.selection)
     }
 
     func loadThreadIfNeeded(_ id: ConversationID) async {
@@ -249,7 +434,7 @@ final class MessagingStore {
         }
     }
 
-    func send(conversation id: ConversationID, viewer: ConversationParticipant) async {
+    func send(conversation id: ConversationID, viewer: ConversationParticipant, replyTo: Message? = nil) async {
         let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         guard capabilities.send else {
@@ -266,7 +451,8 @@ final class MessagingStore {
             sentAt: Date(),
             delivery: .sending,
             isOwn: true,
-            localDraft: text
+            localDraft: text,
+            replyTo: replyTo.map { MessageReplyPreview(id: $0.id, senderName: $0.sender.displayName, body: $0.body.text, deleted: $0.isDeleted) }
         )
         var items = threads[id] ?? []
         items.append(optimistic)
@@ -276,7 +462,7 @@ final class MessagingStore {
         do {
             let confirmed = try await repository.send(
                 conversation: id,
-                message: MessageDraft(conversationID: id, text: text)
+                message: MessageDraft(conversationID: id, text: text, replyToID: capabilities.reply ? replyTo?.id : nil)
             )
             replace(localID: localID, in: id, with: Message(
                 id: confirmed.id,
@@ -286,7 +472,8 @@ final class MessagingStore {
                 sentAt: confirmed.sentAt,
                 delivery: confirmed.delivery == .unknown ? .sent : confirmed.delivery,
                 isOwn: true,
-                localDraft: nil
+                localDraft: nil,
+                replyTo: confirmed.replyTo ?? optimistic.replyTo
             ))
             sendingIDs.remove(localID)
             HapticEngine.shared.play(.success)
@@ -451,7 +638,8 @@ final class MessagingStore {
         guard c.unreadCount != 0 else { return }
         conversations[index] = Conversation(
             id: c.id, kind: c.kind, participants: c.participants, lastMessage: c.lastMessage,
-            unreadCount: 0, updatedAt: c.updatedAt, titleOverride: c.titleOverride
+            unreadCount: 0, updatedAt: c.updatedAt, titleOverride: c.titleOverride,
+            isMuted: c.isMuted, isArchived: c.isArchived
         )
     }
 
@@ -507,7 +695,9 @@ final class MessagingStore {
             lastMessage: MessagePreview(id: message.id, body: preview, sentAt: message.sentAt, senderID: message.sender.id),
             unreadCount: current.unreadCount,
             updatedAt: message.sentAt,
-            titleOverride: current.titleOverride
+            titleOverride: current.titleOverride,
+            isMuted: current.isMuted,
+            isArchived: current.isArchived
         )
     }
 
@@ -575,5 +765,15 @@ enum MessagingPinStore {
     }
     static func save(_ ids: [ConversationID], _ defaults: UserDefaults = .standard) {
         defaults.set(Array(ids.prefix(limit)), forKey: key)
+    }
+}
+
+
+enum MessagingLocalStore {
+    static func dictionary(_ key: String) -> [String: String] {
+        (UserDefaults.standard.dictionary(forKey: key) as? [String: String]) ?? [:]
+    }
+    static func save(_ value: [String: String], _ key: String) {
+        if value.isEmpty { UserDefaults.standard.removeObject(forKey: key) } else { UserDefaults.standard.set(value, forKey: key) }
     }
 }

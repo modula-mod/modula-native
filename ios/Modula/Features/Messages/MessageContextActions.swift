@@ -15,7 +15,7 @@ enum MessageContextActions {
             items.append(.init(id: "edit", title: "Edit", systemImage: "pencil"))
         }
         if capabilities.deleteOwn {
-            items.append(.init(id: "delete", title: "Delete", systemImage: "trash", role: .destructive))
+            items.append(.init(id: "delete", title: "Unsend", systemImage: "arrow.uturn.backward", role: .destructive))
         }
         if delivery == .failed {
             items.append(.init(id: "retry", title: "Retry", systemImage: "arrow.clockwise"))
