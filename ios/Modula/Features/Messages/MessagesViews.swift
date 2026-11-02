@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -560,12 +561,13 @@ struct ConversationAvatar: View {
             }
         }
         .frame(width: size, height: size)
-        .overlay(alignment: .topTrailing) {
+        // Unread = an accent ring around the avatar (pre-attentive, no extra dot to parse).
+        .overlay {
             if unread {
-                Circle().fill(app.appearance.liveAccent)
-                    .frame(width: 12, height: 12)
-                    .overlay(Circle().stroke(canvas, lineWidth: 2))
-                    .offset(x: 1, y: -1)
+                let accent = app.appearance.liveAccent
+                Circle()
+                    .strokeBorder(AngularGradient(colors: [accent, accent.mix(with: .white, by: 0.35), accent], center: .center), lineWidth: 2.5)
+                    .padding(-4)
                     .accessibilityHidden(true)
             }
         }
@@ -591,18 +593,42 @@ struct ConversationView: View {
     @State private var composerFocused = false
     @State private var isAtBottom = true
     @State private var unseenCount = 0
+    @State private var forwarding: Message?
+    @State private var showInfo = false
+    @State private var jumpTarget: MessageID?
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         thread
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Composer floats over the thread so messages scroll under its glass.
-            .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    smartReplies
+                    composer
+                }
+            }
+            .sheet(item: $forwarding) { message in
+                ForwardMessageSheet(message: message, excluding: conversationID)
+            }
+            .sheet(isPresented: $showInfo) {
+                ChatInfoSheet(conversationID: conversationID) { id in jumpTarget = id }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
             .toolbar {
                 ToolbarItem(placement: .principal) { header }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        HapticEngine.shared.play(.navigation)
+                        showInfo = true
+                    } label: {
+                        Label("Chat info", systemImage: "info.circle")
+                    }
+                    .tint(app.appearance.liveAccent)
+                    .accessibilityIdentifier("messages.conversation.info")
+                }
             }
         .task { await app.messaging.loadThreadIfNeeded(conversationID) }
         .task(id: conversationID) { await pollLoop() }
@@ -716,7 +742,51 @@ struct ConversationView: View {
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { unseenCount += 1 }
                     }
                 }
+                .onChange(of: jumpTarget) { _, target in
+                    guard let target else { return }
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.35)) { proxy.scrollTo(target, anchor: .center) }
+                    jumpTarget = nil
+                }
                 .overlay(alignment: .bottomTrailing) { jumpControl(items: items, proxy: proxy) }
+            }
+        }
+    }
+
+    /// On-device reply suggestions for the latest incoming message. Tapping only fills the composer
+    /// (the user stays in control; nothing is sent for them and nothing leaves the device).
+    @ViewBuilder
+    private var smartReplies: some View {
+        let items = app.messaging.messages(for: conversationID)
+        let draftEmpty = (app.messaging.drafts[conversationID] ?? "").isEmpty
+        if draftEmpty, let last = items.last, !last.isOwn {
+            let options = MessageSmartReplies.suggestions(for: last.body.text)
+            if !options.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ModulaGlassGroup(spacing: 8) {
+                        HStack(spacing: 8) {
+                            ForEach(options, id: \.self) { option in
+                                Button {
+                                    app.messaging.drafts[conversationID] = option
+                                    composerFocused = true
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    Text(option)
+                                        .font(.subheadline.weight(.medium))
+                                        .padding(.horizontal, 14)
+                                        .frame(minHeight: 36)
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                                .modulaGlass(in: Capsule(), interactive: true)
+                                .accessibilityHint("Puts this reply in the message box")
+                            }
+                        }
+                        .padding(.horizontal, ModulaLayout.contentInset)
+                    }
+                }
+                .scrollClipDisabled()
+                .padding(.top, 6)
+                .accessibilityIdentifier("messages.smartReplies")
             }
         }
     }
@@ -847,6 +917,10 @@ struct ConversationView: View {
             HapticEngine.shared.play(.confirmation)
         case "retry":
             Task { await app.messaging.retry(message: message, viewer: viewer) }
+        case "forward":
+            forwarding = message
+        case "speak":
+            MessageSpeech.speak(message.body.text)
         case "reply":
             // Swipe-to-reply (Settings → Gestures): quote the message into the composer.
             // There is no reply-to field on POST /v1/conversations/:id/messages, so the quote stays in the text.
@@ -932,11 +1006,11 @@ struct MessageBubble: View {
                         .textSelection(.disabled)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(bubbleFill, in: bubbleShape)
+                        .background { bubbleBackground }
                         .background(alignment: message.isOwn ? .bottomTrailing : .bottomLeading) {
-                            if position.endsGroup {
+                            if position.endsGroup && message.isOwn {
                                 MessageBubbleTail()
-                                    .fill(bubbleFill)
+                                    .fill(ownGradient)
                                     .frame(width: 7, height: 13)
                                     .scaleEffect(x: message.isOwn ? 1 : -1)
                                     .offset(x: message.isOwn ? 7 : -7)
@@ -1038,11 +1112,31 @@ struct MessageBubble: View {
         }
         return UnevenRoundedRectangle(
             topLeadingRadius: topJoin ? tight : large,
-            bottomLeadingRadius: bottomJoin ? tight : tail,
+            bottomLeadingRadius: bottomJoin ? tight : large,
             bottomTrailingRadius: large,
             topTrailingRadius: large,
             style: .continuous
         )
+    }
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    /// Sent: a soft top-lit accent gradient (one strong colour = "mine", Gestalt similarity).
+    private var ownGradient: LinearGradient {
+        let accent = app.appearance.liveAccent
+        return LinearGradient(colors: [accent.mix(with: .white, by: 0.14), accent], startPoint: .top, endPoint: .bottom)
+    }
+
+    /// Received: Liquid Glass; a solid tint under Reduce Transparency.
+    @ViewBuilder
+    private var bubbleBackground: some View {
+        if message.isOwn {
+            bubbleShape.fill(ownGradient)
+        } else if reduceTransparency {
+            bubbleShape.fill(bubbleFill)
+        } else {
+            Color.clear.modulaGlass(in: bubbleShape, interactive: false)
+        }
     }
 
     private var bubbleFill: Color {
@@ -2069,5 +2163,220 @@ struct MessagesThreadSkeleton: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading messages")
+    }
+}
+
+
+// MARK: - Smart replies, read aloud, forward, chat info
+
+/// Tiny on-device heuristics; no text leaves the phone.
+enum MessageSmartReplies {
+    static func suggestions(for text: String) -> [String] {
+        let t = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, t.count < 400 else { return [] }
+        let words = Set(t.split { !$0.isLetter }.map(String.init))
+        if t.contains("thank") { return ["You’re welcome!", "Anytime 😊", "❤️"] }
+        if t.hasSuffix("?") {
+            if words.contains("when") || t.contains("what time") { return ["Later today?", "Tomorrow works", "Let me check"] }
+            if t.contains("how are") || t.contains("how’s it") || t.contains("how's it") { return ["Good, you?", "Pretty great!", "Busy but good"] }
+            return ["Yes!", "Not sure yet", "Let me check"]
+        }
+        if !words.isDisjoint(with: ["hey", "hi", "hello", "yo", "hiya"]) { return ["Hey! 👋", "Hi!", "What’s up?"] }
+        if !words.isDisjoint(with: ["haha", "lol", "lmao"]) || t.contains("😂") { return ["😂", "Haha", "Too good"] }
+        return ["👍", "Sounds good", "Love it"]
+    }
+}
+
+/// VoiceOver-independent read-aloud from the long-press menu.
+@MainActor
+enum MessageSpeech {
+    private static let synthesizer = AVSpeechSynthesizer()
+    static func speak(_ text: String) {
+        synthesizer.stopSpeaking(at: .immediate)
+        synthesizer.speak(AVSpeechUtterance(string: text))
+    }
+}
+
+/// Forward a message to other chats with the real send route. Each row confirms in place.
+struct ForwardMessageSheet: View {
+    let message: Message
+    let excluding: ConversationID
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var sentTo: Set<ConversationID> = []
+    @State private var busy: Set<ConversationID> = []
+
+    var body: some View {
+        NavigationStack {
+            List(app.messaging.visibleConversations.filter { $0.id != excluding }) { conversation in
+                HStack(spacing: 12) {
+                    ConversationAvatar(participants: conversation.participants, size: 40)
+                    Text(conversation.title).font(.body.weight(.medium)).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Button {
+                        busy.insert(conversation.id)
+                        Task {
+                            if await app.messaging.sendPrepared(text: message.body.text, conversation: conversation.id) {
+                                sentTo.insert(conversation.id)
+                                HapticEngine.shared.play(.success)
+                            }
+                            busy.remove(conversation.id)
+                        }
+                    } label: {
+                        Text(sentTo.contains(conversation.id) ? "Sent" : "Send")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 36)
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .lightImpact))
+                    .modulaAccentCTA()
+                    .disabled(sentTo.contains(conversation.id) || busy.contains(conversation.id))
+                    .accessibilityLabel(sentTo.contains(conversation.id) ? "Sent to \(conversation.title)" : "Send to \(conversation.title)")
+                }
+                .listRowBackground(Color.clear)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Forward")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.tint(app.appearance.liveAccent)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .accessibilityIdentifier("messages.forward")
+    }
+}
+
+/// Chat info: who, quick actions, search inside this chat and the links you've shared.
+struct ChatInfoSheet: View {
+    let conversationID: ConversationID
+    var onJump: (MessageID) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
+    private var messages: [Message] { app.messaging.messages(for: conversationID) }
+    private var matches: [Message] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return [] }
+        return Array(messages.filter { $0.body.text.lowercased().contains(q) }.reversed().prefix(50))
+    }
+    private var links: [URL] {
+        var seen = Set<URL>()
+        return messages.reversed().compactMap { MessageInlineContent.firstURL(in: $0.body.text) }.filter { seen.insert($0).inserted }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 18) {
+                    ConversationAvatar(participants: conversation?.participants ?? [], size: 84)
+                        .padding(.top, 8)
+                    VStack(spacing: 2) {
+                        Text(conversation?.title ?? "Chat").font(.title3.weight(.bold))
+                        if let handle = conversation?.handleLabel {
+                            Text(handle).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                    HStack(spacing: 10) {
+                        if let person = conversation?.participants.first {
+                            actionTile("Profile", symbol: "person.crop.circle") {
+                                dismiss()
+                                app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
+                            }
+                        }
+                        actionTile(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
+                                   symbol: app.messaging.isPinned(conversationID) ? "pin.slash" : "pin") {
+                            app.messaging.togglePin(conversationID)
+                            HapticEngine.shared.play(.selection)
+                        }
+                    }
+                    MessagesGlassSearchField(text: $query, prompt: "Search this chat")
+                    if !query.isEmpty {
+                        searchResults
+                    } else if !links.isEmpty {
+                        linksSection
+                    }
+                    Text("Search covers the messages loaded on this device.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Chat info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.tint(app.appearance.liveAccent)
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .accessibilityIdentifier("messages.info")
+    }
+
+    private func actionTile(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.title3.weight(.semibold))
+                Text(title).font(.caption.weight(.semibold))
+            }
+            .frame(width: 88, height: 64)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .lightImpact))
+        .modulaAccentCTA(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var searchResults: some View {
+        if matches.isEmpty {
+            Text("No messages match “\(query)”.").font(.subheadline).foregroundStyle(.secondary).padding(.top, 12)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(matches) { message in
+                    Button {
+                        dismiss()
+                        onJump(message.id)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("\(message.isOwn ? "You" : message.sender.displayName) · \(MessageTimeline.label(for: message.sentAt))")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            Text(message.body.text).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 10)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Divider()
+                }
+            }
+        }
+    }
+
+    private var linksSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Shared links").font(.headline).accessibilityAddTraits(.isHeader)
+            ForEach(links.prefix(20), id: \.self) { url in
+                Link(destination: url) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "link").foregroundStyle(app.appearance.liveAccent)
+                        Text(url.host() ?? url.absoluteString).font(.subheadline).lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
