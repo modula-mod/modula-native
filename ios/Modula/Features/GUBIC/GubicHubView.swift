@@ -75,6 +75,12 @@ struct GubicStateView: View {
     }
 }
 
+/// Routed entry (`/product-hub/gubic`) used by the sidebar.
+struct GubicRouteView: View {
+    @Environment(AppEnvironment.self) private var app
+    var body: some View { GubicHubView(client: app.client) }
+}
+
 // MARK: Product Hub entry
 
 /// One GUBIC card at the top of Product Hub, shown only when the feature flag is on.

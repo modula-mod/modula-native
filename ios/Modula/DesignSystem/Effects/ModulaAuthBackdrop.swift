@@ -17,7 +17,7 @@ struct ModulaAuthBackdrop: View {
             SpectralDrapeView(interactive: false)
                 .opacity(reduceTransparency ? 0.45 : 1)
             LinearGradient(
-                colors: [ink.opacity(0.55), .clear, .clear, ink.opacity(0.85)],
+                colors: [ink.opacity(0.35), .clear, .clear, ink.opacity(0.8)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -26,4 +26,40 @@ struct ModulaAuthBackdrop: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
+}
+
+private struct AuthBackdropHoistedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True under `PreShellAuthHost`, which draws one `ModulaAuthBackdrop` above the whole
+    /// signed-out flow (landing, onboarding, every auth screen). Screens then stay clear so
+    /// the wave keeps animating across navigation instead of restarting per screen.
+    var authBackdropHoisted: Bool {
+        get { self[AuthBackdropHoistedKey.self] }
+        set { self[AuthBackdropHoistedKey.self] = newValue }
+    }
+}
+
+private struct AuthBackdropModifier: ViewModifier {
+    @Environment(\.authBackdropHoisted) private var hoisted
+
+    func body(content: Content) -> some View {
+        if hoisted {
+            content
+                .scrollContentBackground(.hidden)
+                .containerBackground(.clear, for: .navigation)
+        } else {
+            content
+                .scrollContentBackground(.hidden)
+                .background { ModulaAuthBackdrop() }
+        }
+    }
+}
+
+extension View {
+    /// Auth screen background: transparent over the hoisted backdrop, or its own
+    /// `ModulaAuthBackdrop` when shown on its own (e.g. from Settings).
+    func modulaAuthBackdrop() -> some View { modifier(AuthBackdropModifier()) }
 }

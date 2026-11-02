@@ -361,6 +361,21 @@ final class PushNotificationController {
         }
     }
 
+    /// Whether onboarding may show its notification primer. Same back-off as the soft
+    /// pre-prompt (at most three "Another time", growing cool-down) and still never on
+    /// launch: the user reaches it by tapping through onboarding. Allowed before sign-in;
+    /// the token registers on the next sign-in via `accountChanged`.
+    var offersOnboardingPrimer: Bool {
+        guard flagEnabled, authorization == .notDetermined else { return false }
+        let p = policy
+        guard p.dismissals < PushPrePromptPolicy.maxDismissals else { return false }
+        if let last = p.lastDismissedAt,
+           Date().timeIntervalSince(last) < PushPrePromptPolicy.coolDown * Double(max(1, p.dismissals)) {
+            return false
+        }
+        return true
+    }
+
     /// "Turn On" in the soft pre-prompt: only now does iOS show its one-time alert.
     func requestPermission() async {
         prePromptPresented = false
