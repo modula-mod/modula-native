@@ -15,6 +15,7 @@ final class AppEnvironment {
     let auth: AuthenticationStore
     let activity: ActivityStore
     let discover: DiscoverStore
+    let communities: CommunityStore
     let posts: PostStateStore
     let postActions: PostActionController
     let home: HomeStore
@@ -98,6 +99,7 @@ final class AppEnvironment {
         }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
+        communities = CommunityStore(client: client)
         posts = PostStateStore()
         postActions = PostActionController(client: client, state: posts)
         home = HomeStore(client: client, posts: posts, postActions: postActions)
@@ -151,6 +153,7 @@ final class AppEnvironment {
             catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
             self?.molibooOwnership.setAccountID(account?.accountId)
+            self?.communities.resetForAccountChange()
             Task {
                 await catalogueStore?.load()
                 await self?.molibooOwnership.refresh()

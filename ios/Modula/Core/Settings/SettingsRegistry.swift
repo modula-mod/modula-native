@@ -325,7 +325,7 @@ enum FeatureFlagRegistry {
         .init(id: "reactions.v2", title: "Multi-reactions", detail: "Capability-gated until Greenfield reaction types are verified.", exposedToProduction: false, enabled: false),
         .init(id: "app.lock", title: "App Lock", detail: "Local passcode and biometrics.", exposedToProduction: true, enabled: true),
         .init(id: "command.center", title: "Command Center", detail: "Native command palette.", exposedToProduction: true, enabled: true),
-        .init(id: "community.shell", title: "Community shell", detail: "Debug-only preview. Always off in Release. Greenfield has no communities routes.", exposedToProduction: false, enabled: false),
+        .init(id: "community.api", title: "Communities", detail: "Server-persisted discovery, membership, posts, polls and events.", exposedToProduction: true, enabled: true),
         .init(id: "profile.progression", title: "Profile levels & badges", detail: "Level ring and achievement badges. Off until Greenfield serves profile progression.", exposedToProduction: false, enabled: false),
         .init(id: "profile.pinnedPosts", title: "Pinned posts", detail: "Pinned posts shelf. Off until Greenfield exposes post pinning on profiles.", exposedToProduction: false, enabled: false)
     ]
