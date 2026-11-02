@@ -939,10 +939,10 @@ struct PrivacySafetySettingsPage: View {
                         Picker("Lock Backdrop", selection: $lockBackdrop) {
                             Text("Aurora").tag("aurora")
                             Text("Spectral Drape").tag("drape")
-                            Text("Perspective Grid").tag("grid")
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
+                        .onAppear { if lockBackdrop == "grid" { lockBackdrop = "drape" } }
                     }
                     .frame(minHeight: 52)
                     SettingsDivider()

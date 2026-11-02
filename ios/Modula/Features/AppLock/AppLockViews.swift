@@ -151,10 +151,9 @@ struct AppLockView: View {
         // a normal background, never a blank or garbled screen.
         // Backdrop only: lock content renders independently of it.
         .background {
-            if lockBackdrop == "drape" {
+            // "grid" (the retired purple Perspective Grid) falls back to the drape.
+            if lockBackdrop == "drape" || lockBackdrop == "grid" {
                 SpectralDrapeView(interactive: false).ignoresSafeArea()
-            } else if lockBackdrop == "grid" {
-                PerspectiveGridView().ignoresSafeArea()
             } else {
                 LockShaderAurora(animated: effects).ignoresSafeArea()
             }

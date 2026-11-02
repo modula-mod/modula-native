@@ -126,8 +126,11 @@ enum OnboardingLanding {
             // Far particles rise slower.
             let lifetime = maxLifetime - (maxLifetime - minLifetime) * depth * (0.8 + 0.2 * rng.unit())
             // Alternate sides (with the odd surprise) so the stream fans out evenly.
-            let side = (index.isMultiple(of: 2) ? 1.0 : -1.0) * (rng.unit() < 0.18 ? -1 : 1)
-            let spread = side * (16 + 160 * pow(rng.unit(), 0.8))
+            // Golden-ratio lanes: consecutive spawns land far apart across the fan, so the
+            // stream fills evenly instead of clumping near the + (small jitter keeps it organic).
+            let lane = (Double(index) * 0.618_033_988_75).truncatingRemainder(dividingBy: 1)
+            _ = rng.unit()
+            let spread = (lane * 2 - 1) * 168 + (rng.unit() - 0.5) * 14
             return Particle(
                 index: index,
                 spawnTime: Double(index) * interval + jitter * interval * 0.7,
@@ -159,7 +162,9 @@ enum OnboardingLanding {
             // stream), then accelerates up and out of the top.
             // Snappy, slightly springy pop (critically damped-ish, a touch of overshoot).
             let popOut = pop * (1 - exp(-age * 5.2) * (1 + age * 2.2))
-            let climb = pow(t, 1.75)
+            // Eases into the climb a little sooner than before, so newborns clear the + and
+            // don't pile up just above it.
+            let climb = pow(t, 1.55)
             // Rise as a column straight out of the +, then spread wider as they climb.
             let fan = smoothstep(0.03, 0.78, t)
             let swayIn = smoothstep(0.04, 0.3, t)

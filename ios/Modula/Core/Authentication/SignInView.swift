@@ -55,14 +55,7 @@ struct SignInView: View {
                 }
             }
         }
-        .background {
-            PerspectiveGridView()
-                .ignoresSafeArea()
-                .overlay {
-                    // Legibility scrim over the grid for the form.
-                    Color(uiColor: .systemBackground).opacity(0.35).ignoresSafeArea()
-                }
-        }
+        .background { ModulaAuthBackdrop() }
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("auth.login")
@@ -163,10 +156,9 @@ struct SignInView: View {
                 errorBanner(error)
             }
 
-            ModulaButton(title: "Sign In", isLoading: app.auth.busy, loadingTitle: "Signing in…") {
+            AuthPrimaryButton(title: "Sign In", busy: app.auth.busy, enabled: canSubmit) {
                 Task { await submit() }
             }
-            .disabled(!canSubmit)
             .accessibilityIdentifier("auth.sign-in")
             .padding(.top, ModulaSpacing.xxs)
         }
@@ -366,36 +358,6 @@ private struct SignInBrandMark: View {
     }
 }
 
-/// Full-bleed canvas with a restrained accent wash at the top and a quieter
-/// counter-glow at the bottom; flattens under Reduce Transparency.
-private struct SignInBackdrop: View {
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
-        let accent = app.appearance.liveAccent
-        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        let strength = (scheme == .dark ? 0.34 : 0.22) * (opaque ? 0.5 : 1)
-        ZStack {
-            palette.canvas
-            GeometryReader { proxy in
-                let width = proxy.size.width
-                ZStack {
-                    RadialGradient(colors: [accent.opacity(strength), .clear], center: .top,
-                                   startRadius: 0, endRadius: max(width, 320) * 0.95)
-                    RadialGradient(colors: [accent.opacity(strength * 0.45), .clear], center: .bottomTrailing,
-                                   startRadius: 0, endRadius: max(width, 320) * 0.8)
-                }
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
-
 struct RegisterPlaceholderView: View {
     @Environment(AppEnvironment.self) private var app
 
@@ -413,6 +375,8 @@ struct RegisterPlaceholderView: View {
                 .accessibilityIdentifier("auth.register.back")
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { ModulaAuthBackdrop() }
         .modulaSoftScrollEdge()
         .navigationTitle("Create Account")
         .accessibilityIdentifier("auth.register")
@@ -437,21 +401,20 @@ struct ForgotPasswordView: View {
                 Text("If an account exists for this email, we’ll send reset instructions.")
             }
             Section {
-                Button {
+                AuthPrimaryButton(
+                    title: "Send Reset Link",
+                    busy: app.auth.busy,
+                    enabled: !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ) {
                     Task {
                         let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
                         sent = await app.auth.requestPasswordReset(email: trimmed)
                         if sent { HapticEngine.shared.play(.confirmation) }
                         else { HapticEngine.shared.play(.failure) }
                     }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if app.auth.busy { ProgressView() } else { Text("Send Reset Link") }
-                        Spacer()
-                    }
                 }
-                .disabled(email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.auth.busy)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
                 .accessibilityIdentifier("auth.forgot.submit")
 
                 Button("Back to Sign In") {
@@ -471,6 +434,8 @@ struct ForgotPasswordView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { ModulaAuthBackdrop() }
         .modulaSoftScrollEdge()
         .navigationTitle("Forgot Password")
         .accessibilityIdentifier("auth.forgot")
