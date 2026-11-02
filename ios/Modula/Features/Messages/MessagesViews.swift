@@ -36,9 +36,21 @@ struct ConversationListView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var filter: InboxFilter = .all
+    @State private var circleOpen = false
+    @State private var showCompose = false
+
+    /// "Your circle": the people from your most recent 1:1 chats (real data, no guessing).
+    private var circle: [(ConversationID, ConversationParticipant)] {
+        MessagingOrdering.conversationsNewestFirst(app.messaging.conversations)
+            .filter { $0.kind == .direct && $0.participants.count == 1 }
+            .prefix(8)
+            .map { ($0.id, $0.participants[0]) }
+    }
 
     enum InboxFilter: String, CaseIterable, Identifiable {
         case all, unread, needsReply, groups
+        /// Three choices, not four (Hick's law). "Needs reply" stays reachable from code paths only.
+        static var allCases: [InboxFilter] { [.all, .unread, .groups] }
         var id: Self { self }
         var title: String {
             switch self {
@@ -68,14 +80,34 @@ struct ConversationListView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        app.navigation.push(.messages(.new))
-                        HapticEngine.shared.play(.navigation)
-                    } label: {
-                        Label("New message", systemImage: "square.and.pencil")
+                    HStack(spacing: 10) {
+                        if !circle.isEmpty {
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.62)) {
+                                    circleOpen.toggle()
+                                }
+                            } label: {
+                                MessagesCircleStack(people: Array(circle.prefix(3)))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(circleOpen ? "Hide your circle" : "Show your circle")
+                            .accessibilityIdentifier("messages.circle.toggle")
+                        }
+                        Button {
+                            HapticEngine.shared.play(.navigation)
+                            showCompose = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.body.weight(.bold))
+                                .frame(width: 36, height: 36)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                        .modulaAccentCTA(in: Circle())
+                        .accessibilityLabel("New message")
+                        .accessibilityIdentifier("messages.compose")
                     }
-                    .tint(app.appearance.liveAccent)
-                    .accessibilityIdentifier("messages.compose")
                 }
             }
             .task {
@@ -103,6 +135,11 @@ struct ConversationListView: View {
                 await app.messaging.refreshInbox()
                 await app.messaging.refreshRequests()
             }
+            .sheet(isPresented: $showCompose) {
+                NavigationStack { NewConversationView(presentedAsSheet: true) }
+                    .presentationDetents([.large])
+                    .presentationCornerRadius(32)
+            }
             .overlay(alignment: .bottom) { errorBanner }
             .accessibilityIdentifier("messages.inbox")
             .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
@@ -112,12 +149,52 @@ struct ConversationListView: View {
     /// collapses normally instead of starting half-faded under a tall pinned bar.
     private var header: some View {
         VStack(spacing: 8) {
+            if circleOpen && !circle.isEmpty {
+                circleRow
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+            }
             MessagesScopePicker(selection: .inbox)
-            MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Search chats")
+            MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Find a conversation")
                 .padding(.horizontal, ModulaLayout.contentInset)
             filterRow
         }
         .padding(.bottom, 6)
+    }
+
+    /// The circle springs open into a scrollable row; tap a face to jump into that chat (Fitts: big targets).
+    private var circleRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Your circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(circle, id: \.0) { item in
+                        Button {
+                            HapticEngine.shared.play(.navigation)
+                            app.navigation.push(.messages(.conversation(item.0)))
+                        } label: {
+                            VStack(spacing: 6) {
+                                ModulaAvatar(initials: item.1.initials, url: item.1.avatarURL, size: 58, name: item.1.displayName)
+                                Text(item.1.displayName.split(separator: " ").first.map(String.init) ?? item.1.displayName)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                    .frame(width: 66)
+                            }
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                        .accessibilityLabel("Chat with \(item.1.displayName)")
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+            }
+            .scrollClipDisabled()
+        }
+        .padding(.top, 4)
+        .accessibilityIdentifier("messages.circle")
     }
 
     private var filterRow: some View {
@@ -138,13 +215,13 @@ struct ConversationListView: View {
                                 Text(item.title).font(.subheadline.weight(.semibold))
                                 if (item == .unread && unread > 0) || (item == .needsReply && needsReply > 0) {
                                     Text("\(item == .unread ? unread : needsReply)").font(.caption2.weight(.bold)).monospacedDigit()
-                                        .foregroundStyle(on ? Color.white.opacity(0.9) : app.appearance.liveAccent)
+                                        .foregroundStyle(app.appearance.liveAccent)
                                 }
                             }
-                            .foregroundStyle(on ? Color.white : Color.primary)
-                            .padding(.horizontal, 14).frame(height: 34)
-                            .background { if on { Capsule().fill(app.appearance.liveAccent) } }
-                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? app.appearance.liveAccent.opacity(0.35) : nil)
+                            .foregroundStyle(on ? app.appearance.liveAccent : Color.primary)
+                            .padding(.horizontal, 16).frame(height: 36)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .overlay { if on { Capsule().strokeBorder(app.appearance.liveAccent, lineWidth: 1.5) } }
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
                         .accessibilityAddTraits(on ? .isSelected : [])
@@ -466,11 +543,9 @@ struct ConversationRow: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if unread {
-                        Text(conversation.unreadCount > 99 ? "99+" : "\(conversation.unreadCount)")
-                            .font(.caption2.weight(.bold)).monospacedDigit()
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 7).frame(minWidth: 22, minHeight: 22)
-                            .background(Capsule().fill(accent))
+                        Circle().fill(accent)
+                            .frame(width: 10, height: 10)
+                            .padding(.trailing, 4)
                             .accessibilityHidden(true)
                     }
                 }
@@ -624,9 +699,14 @@ struct ConversationView: View {
                         HapticEngine.shared.play(.navigation)
                         showInfo = true
                     } label: {
-                        Label("Chat info", systemImage: "info.circle")
+                        Image(systemName: "ellipsis")
+                            .font(.body.weight(.bold))
+                            .frame(width: 36, height: 36)
+                            .contentShape(Circle())
                     }
-                    .tint(app.appearance.liveAccent)
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                    .modulaAccentCTA(in: Circle())
+                    .accessibilityLabel("Chat info")
                     .accessibilityIdentifier("messages.conversation.info")
                 }
             }
@@ -1007,16 +1087,6 @@ struct MessageBubble: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background { bubbleBackground }
-                        .background(alignment: message.isOwn ? .bottomTrailing : .bottomLeading) {
-                            if position.endsGroup && message.isOwn {
-                                MessageBubbleTail()
-                                    .fill(ownGradient)
-                                    .frame(width: 7, height: 13)
-                                    .scaleEffect(x: message.isOwn ? 1 : -1)
-                                    .offset(x: message.isOwn ? 7 : -7)
-                                    .accessibilityHidden(true)
-                            }
-                        }
                         .foregroundStyle(message.isOwn ? Color.white : Color.primary)
                 }
                 if !parsed.stickers.isEmpty {
@@ -1098,14 +1168,14 @@ struct MessageBubble: View {
 
     /// Large outer corners, tighter corners where bubbles of a run meet.
     private var bubbleShape: UnevenRoundedRectangle {
-        let large = 18.0, tight = 6.0, tail = 4.0
+        let large = 22.0, tight = 8.0
         let topJoin = !position.startsGroup
         let bottomJoin = !position.endsGroup
         if message.isOwn {
             return UnevenRoundedRectangle(
                 topLeadingRadius: large,
                 bottomLeadingRadius: large,
-                bottomTrailingRadius: bottomJoin ? tight : tail,
+                bottomTrailingRadius: bottomJoin ? tight : large,
                 topTrailingRadius: topJoin ? tight : large,
                 style: .continuous
             )
@@ -1209,7 +1279,7 @@ struct MessageComposer: View {
                 }
                 ModulaComposer(
                     text: $text,
-                    prompt: "Add a message...",
+                    prompt: "Say something good…",
                     enabled: canSend,
                     showsAttachmentButton: showsAttachments,
                     externalFocus: focus,
@@ -1378,7 +1448,22 @@ struct MessageRequestRow: View {
 /// Pick someone to talk to. Every row starts or opens a chat with that person (never a Follow button):
 /// recent 1:1 chats first, then real suggested people (fixtures and machine-made accounts filtered).
 struct NewConversationView: View {
+    var presentedAsSheet = false
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    /// From the sheet: close it first, then open the chat underneath.
+    private func go(_ route: AppRoute) {
+        if presentedAsSheet {
+            dismiss()
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                app.navigation.push(route)
+            }
+        } else {
+            app.navigation.push(route)
+        }
+    }
     @State private var people: [DiscoverPerson] = []
     @State private var query = ""
     @State private var results: [DiscoverPerson] = []
@@ -1401,7 +1486,7 @@ struct NewConversationView: View {
             VStack(alignment: .leading, spacing: 16) {
                 ModulaGlassGroup(spacing: 10) {
                     VStack(spacing: 10) {
-                        MessagesGlassSearchField(text: $query, prompt: "Search people")
+                        MessagesGlassSearchField(text: $query, prompt: "Find a friend")
                             .accessibilityIdentifier("messages.new.search")
                         if app.inMail.capabilities.send {
                             Button {
@@ -1423,12 +1508,12 @@ struct NewConversationView: View {
                     searchResultsSection
                 } else {
                 if !recentDirect.isEmpty {
-                    section("Recent") {
+                    section("Your circle") {
                         ForEach(recentDirect) { c in
                             let p = c.participants[0]
                             MessagePersonRow(name: c.title, handle: p.handle, avatarURL: p.avatarURL ?? avatar(for: p.handle),
-                                             detail: c.lastMessage?.body) {
-                                app.navigation.push(.messages(.conversation(c.id)))
+                                             detail: "In your circle") {
+                                go(.messages(.conversation(c.id)))
                             }
                             .accessibilityIdentifier("messages.new.recent.\(c.id)")
                         }
@@ -1440,7 +1525,7 @@ struct NewConversationView: View {
                             MessagePersonRow(name: person.displayName, handle: person.handle,
                                              avatarURL: person.avatarURL ?? avatar(for: person.handle),
                                              detail: person.followsViewer ? "Follows you" : nil) {
-                                app.navigation.push(.messages(.direct(person.handle)))
+                                go(.messages(.direct(person.handle)))
                             }
                             .accessibilityIdentifier("messages.new.person.\(person.handle)")
                         }
@@ -1453,8 +1538,20 @@ struct NewConversationView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .modulaSoftScrollEdge()
-        .navigationTitle("New Message")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("A little hello.")
+        .navigationBarTitleDisplayMode(presentedAsSheet ? .large : .inline)
+        .toolbar {
+            if presentedAsSheet {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").font(.subheadline.weight(.bold)).frame(width: 34, height: 34).contentShape(Circle())
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
+                    .modulaAccentCTA(in: Circle())
+                    .accessibilityLabel("Close")
+                }
+            }
+        }
         .task {
             await app.messaging.loadInboxIfNeeded()
             guard ModulaPreferences.showsSuggestedPeople else { return }
@@ -1497,9 +1594,9 @@ struct NewConversationView: View {
                                      avatarURL: person.avatarURL ?? avatar(for: person.handle),
                                      detail: person.followsViewer ? "Follows you" : nil) {
                         if let existing = app.messaging.directConversation(with: person.handle) {
-                            app.navigation.push(.messages(.conversation(existing.id)))
+                            go(.messages(.conversation(existing.id)))
                         } else {
-                            app.navigation.push(.messages(.direct(person.handle)))
+                            go(.messages(.direct(person.handle)))
                         }
                     }
                     .accessibilityIdentifier("messages.new.result.\(person.handle)")
@@ -2378,5 +2475,26 @@ struct ChatInfoSheet: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+
+/// Three overlapping faces from your circle (top right of the inbox).
+struct MessagesCircleStack: View {
+    let people: [(ConversationID, ConversationParticipant)]
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let canvas = ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas
+        HStack(spacing: -12) {
+            ForEach(Array(people.enumerated()), id: \.offset) { index, item in
+                ModulaAvatar(initials: item.1.initials, url: item.1.avatarURL, size: 30, name: item.1.displayName)
+                    .overlay(Circle().stroke(canvas, lineWidth: 2))
+                    .zIndex(Double(people.count - index))
+            }
+        }
+        .frame(height: 36)
+        .contentShape(Rectangle())
     }
 }
