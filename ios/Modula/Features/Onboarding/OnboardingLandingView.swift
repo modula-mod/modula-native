@@ -31,6 +31,8 @@ struct OnboardingLandingView: View {
     @State private var entrance = Entrance()
     @State private var drag: CGSize = .zero
     @State private var continuing = false
+    /// Under `PreShellAuthHost` the shared backdrop already draws the wave.
+    @Environment(\.authBackdropHoisted) private var backdropHoisted
 
     /// Entrance choreography: backdrop, then the +, then the stream, then the copy.
     private struct Entrance {
@@ -52,7 +54,9 @@ struct OnboardingLandingView: View {
         // __swift_closure_destructor for `dragGesture` / `continueButton`).
         ZStack {
             // Spectral Drape backdrop with a legibility scrim toward the copy.
-            SpectralDrapeView()
+            Group {
+                if backdropHoisted { Color.clear } else { SpectralDrapeView() }
+            }
                 .ignoresSafeArea()
                 .overlay {
                     LinearGradient(colors: [.clear, .clear, Color(hex: isDark ? "#0A0A0A" : "#FAFAFC").opacity(0.85)],
@@ -68,7 +72,7 @@ struct OnboardingLandingView: View {
                 copy
             }
         }
-        .background(Color(hex: isDark ? "#030608" : "#F6F8FF").ignoresSafeArea())
+        .background((backdropHoisted ? Color.clear : Color(hex: isDark ? "#030608" : "#F6F8FF")).ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding.landing")
