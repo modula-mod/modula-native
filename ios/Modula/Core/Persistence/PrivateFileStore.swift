@@ -8,6 +8,7 @@ struct PrivateFileStore: Sendable {
         case drafts = "drafts"
         case draftMedia = "draft-media"
         case collections = "collections"
+        case molibooOwnership = "moliboo/ownership"
         case share = "share"
         case spotlight = "spotlight"
         case nodusConversations = "nodus/conversations"

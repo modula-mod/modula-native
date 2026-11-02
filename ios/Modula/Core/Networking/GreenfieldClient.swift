@@ -197,6 +197,10 @@ actor GreenfieldClient {
 
     /// Non-secret origin label for diagnostics (fixture vs production host).
     var apiOriginHost: String? { baseURL?.host }
+    var apiOriginIdentifier: String? {
+        guard let baseURL, let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
+        return "\(scheme)://\(host)\(baseURL.port.map { ":\($0)" } ?? "")"
+    }
 
     init(baseURL: URL?, transport: URLSession = .shared) {
         self.keychain = KeychainStore(namespace: baseURL?.absoluteString ?? "unconfigured")
@@ -457,6 +461,41 @@ actor GreenfieldClient {
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
               data.count <= maximumBytes else { throw APIError.invalidResponse }
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard digest == expectedSha256 else { throw APIError.invalidResponse }
+        return data
+    }
+
+    /// Downloads one exact Moliboo release from the configured GreenField origin.
+    /// The manifest identity supplies the path and digest; a catalogue URL is never
+    /// allowed to redirect the client to a different host or package.
+    func downloadVerifiedMolibooPack(
+        packageID: String,
+        version: String,
+        expectedSha256: String,
+        maximumBytes: Int
+    ) async throws -> Data {
+        guard packageID.range(of: "^moliboo\\.character\\.[0-9]{1,4}$", options: .regularExpression) != nil,
+              version.range(of: "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$", options: .regularExpression) != nil,
+              InstallDescriptorVerifier.isHex64(expectedSha256),
+              let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil else {
+            throw APIError.invalidResponse
+        }
+        let path = "/v1/moliboos/packs/\(packageID)/download?version=\(version)"
+        guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host, url.port == baseURL.port else { throw APIError.invalidResponse }
+        var request = try await mediaRequest(for: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("application/vnd.modula.moliboo-asset-pack+json", forHTTPHeaderField: "Accept")
+        request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
+        let (data, response) = try await artifactTransport.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
+              http.expectedContentLength <= Int64(maximumBytes),
+              data.count <= maximumBytes,
+              http.value(forHTTPHeaderField: "X-Modula-Artifact-Sha256") == expectedSha256 else {
+            throw APIError.invalidResponse
+        }
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }
         return data

@@ -1,7 +1,7 @@
 import XCTest
 @testable import Modula
 
-/// Series 2 marketplace: local drafts only. No prices, no sales, no server catalogue.
+/// Series 2 presentation metadata remains local; signed packages and ownership are server-authoritative.
 @MainActor
 final class MOL06MarketplaceTests: XCTestCase {
     private func registry() throws -> MolibooCharacterRegistry {
@@ -15,7 +15,8 @@ final class MOL06MarketplaceTests: XCTestCase {
         XCTAssertTrue(drafts.allSatisfy { $0.availability == "draft" && !$0.purchasable })
         XCTAssertEqual(MolibooMarketplaceFacts.families(in: registry).count, 10)
         XCTAssertFalse(MolibooMarketplaceFacts.purchaseTitle.isEmpty)
-        XCTAssertTrue(MolibooMarketplaceFacts.purchaseReason.contains("nothing") || MolibooMarketplaceFacts.purchaseReason.contains("Nothing") || MolibooMarketplaceFacts.purchaseReason.lowercased().contains("no moliboo"))
+        XCTAssertTrue(MolibooMarketplaceFacts.purchaseReason.lowercased().contains("signed"))
+        XCTAssertTrue(MolibooMarketplaceFacts.purchaseReason.lowercased().contains("owned"))
         XCTAssertFalse(MolibooMarketplaceFacts.stickersReason.isEmpty)
         let tideborn = MolibooMarketplaceFacts.showing(drafts, family: "tideborn", search: "", families: registry.families)
         XCTAssertEqual(tideborn.map(\.number), Array(116...125))

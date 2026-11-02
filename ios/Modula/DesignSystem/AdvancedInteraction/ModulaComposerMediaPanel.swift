@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Telegram-style media panel shown in place of the keyboard: Emoji, Faces (kaomoji), Stickers and GIFs.
 struct ModulaComposerMediaPanel: View {
@@ -407,32 +408,148 @@ struct ModulaSticker: Identifiable, Hashable, Sendable {
     let packID: String
     let emoji: String
     let label: String
+    var asset: ModulaStickerAsset? = nil
+}
+
+struct ModulaStickerAsset: Hashable, Sendable {
+    let ref: String
+    let sha256: String
+    let bytes: Int
 }
 
 struct ModulaStickerPack: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let icon: String
+    var series: Int? = nil
     let stickers: [ModulaSticker]
 }
 
 @MainActor
 enum ModulaStickerCatalog {
-    private static var cached: [ModulaStickerPack]?
+    private struct SignedManifest: Codable {
+        struct Sticker: Codable { var id: String; var label: String; var path: String; var mediaType: String; var sha256: String; var bytes: Int }
+        var schemaVersion: String
+        var packId: String
+        var version: String
+        var stickers: [Sticker]
+    }
+
+    private static var cacheByOrigin: [String: [ModulaStickerPack]] = [:]
 
     static func packs(client: GreenfieldClient) async throws -> [ModulaStickerPack] {
-        if let cached { return cached }
-        let value = try await client.json("GET", path: "/v1/stickers/packs")
-        let packs: [ModulaStickerPack] = (value["packs"]?.array ?? []).compactMap { pack in
-            guard let id = pack["id"]?.string, let title = pack["title"]?.string else { return nil }
-            let stickers: [ModulaSticker] = (pack["stickers"]?.array ?? []).compactMap { sticker in
-                guard let sid = sticker["id"]?.string, let emoji = sticker["emoji"]?.string else { return nil }
-                return ModulaSticker(id: sid, packID: id, emoji: emoji, label: sticker["label"]?.string ?? emoji)
+        let origin = await client.apiOriginIdentifier ?? "unconfigured"
+        if let cached = cacheByOrigin[origin] { return cached }
+        var rawPacks: [JSONValue] = []
+        var cursor: String?
+        repeat {
+            var path = "/v1/stickers/packs?limit=50"
+            if let cursor { path += "&cursor=\(cursor)" }
+            let value = try await client.json("GET", path: path)
+            rawPacks += value["packs"]?.array ?? []
+            cursor = value["hasMore"]?.bool == true ? value["nextCursor"]?.string : nil
+        } while cursor != nil
+
+        var verified: [ModulaStickerPack] = []
+        for pack in rawPacks {
+            if pack["package"] != nil {
+                if let signed = try? await signedPack(pack, client: client) { verified.append(signed) }
+            } else if let legacy = legacyPack(pack) {
+                verified.append(legacy)
             }
-            return ModulaStickerPack(id: id, title: title, icon: pack["icon"]?.string ?? stickers.first?.emoji ?? "⭐️", stickers: stickers)
         }
-        cached = packs
-        return packs
+        cacheByOrigin[origin] = verified
+        return verified
+    }
+
+    private static func legacyPack(_ pack: JSONValue) -> ModulaStickerPack? {
+        guard let id = pack["id"]?.string, let title = pack["title"]?.string else { return nil }
+        let stickers: [ModulaSticker] = (pack["stickers"]?.array ?? []).compactMap { sticker in
+            guard let sid = sticker["id"]?.string, let emoji = sticker["emoji"]?.string else { return nil }
+            return ModulaSticker(id: sid, packID: id, emoji: emoji, label: sticker["label"]?.string ?? emoji)
+        }
+        guard !stickers.isEmpty else { return nil }
+        return ModulaStickerPack(id: id, title: title, icon: pack["icon"]?.string ?? stickers[0].emoji,
+                                 series: pack["series"]?.int, stickers: stickers)
+    }
+
+    private static func signedPack(_ pack: JSONValue, client: GreenfieldClient) async throws -> ModulaStickerPack {
+        guard let id = pack["id"]?.string, let title = pack["title"]?.string,
+              let version = pack["version"]?.string, let package = pack["package"],
+              package["schemaVersion"]?.string == "modula.sticker-pack.1",
+              let digest = package["sha256"]?.string, let declaredBytes = package["bytes"]?.int,
+              let ref = package["download"]?["pathOrUrl"]?.string,
+              package["signature"]?["algorithm"]?.string?.lowercased() == "ed25519",
+              let keyID = package["signature"]?["keyId"]?.string,
+              let signature = package["signature"]?["signature"]?.string,
+              declaredBytes > 0, declaredBytes <= 1_048_576 else { throw APIError.invalidResponse }
+        let bytes = try await client.downloadVerifiedArtifact(ref: ref, expectedSha256: digest, maximumBytes: 1_048_576)
+        guard bytes.count == declaredBytes,
+              let facts = ModuleSignedFacts(data: try JSONSerialization.data(withJSONObject: [
+                "algorithm": "ed25519", "signature": signature, "keyId": keyID,
+                "digest": digest, "digestAlgorithm": "sha256",
+              ])) else { throw APIError.invalidResponse }
+        do { try ModuleReleaseTrust.verify(facts: facts, packagedDigest: nil, artifact: bytes, policy: .current) }
+        catch { throw APIError.invalidResponse }
+        let manifest = try JSONDecoder().decode(SignedManifest.self, from: bytes)
+        guard manifest.schemaVersion == "modula.sticker-pack.1", manifest.packId == id, manifest.version == version,
+              !manifest.stickers.isEmpty, manifest.stickers.count <= 100 else { throw APIError.invalidResponse }
+        var manifestByID: [String: SignedManifest.Sticker] = [:]
+        for fact in manifest.stickers {
+            guard manifestByID.updateValue(fact, forKey: fact.id) == nil,
+                  fact.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil,
+                  (1...(4 * 1_024 * 1_024)).contains(fact.bytes) else { throw APIError.invalidResponse }
+        }
+        let stickers: [ModulaSticker] = try (pack["stickers"]?.array ?? []).map { sticker in
+            guard let sid = sticker["id"]?.string, let emoji = sticker["emoji"]?.string,
+                  let label = sticker["label"]?.string, let asset = sticker["asset"],
+                  let fact = manifestByID[sid], fact.label == label,
+                  fact.mediaType == "image/png",
+                  fact.path.range(of: "^stickers/[A-Za-z0-9][A-Za-z0-9_-]{1,99}\\.png$", options: .regularExpression) != nil,
+                  asset["mediaType"]?.string == "image/png", asset["sha256"]?.string == fact.sha256,
+                  asset["bytes"]?.int == fact.bytes, let assetRef = asset["url"]?.string else { throw APIError.invalidResponse }
+            return ModulaSticker(id: sid, packID: id, emoji: emoji, label: label,
+                                 asset: .init(ref: assetRef, sha256: fact.sha256, bytes: fact.bytes))
+        }
+        guard stickers.count == manifest.stickers.count else { throw APIError.invalidResponse }
+        return ModulaStickerPack(id: id, title: title, icon: pack["icon"]?.string ?? stickers[0].emoji,
+                                 series: pack["series"]?.int, stickers: stickers)
+    }
+}
+
+private actor ModulaSignedStickerCache {
+    static let shared = ModulaSignedStickerCache()
+    private var data: [String: Data] = [:]
+
+    func image(for asset: ModulaStickerAsset, client: GreenfieldClient) async throws -> Data {
+        if let cached = data[asset.sha256] { return cached }
+        guard asset.bytes > 0, asset.bytes <= 4 * 1_024 * 1_024 else { throw APIError.invalidResponse }
+        let bytes = try await client.downloadVerifiedArtifact(ref: asset.ref, expectedSha256: asset.sha256, maximumBytes: 4 * 1_024 * 1_024)
+        guard bytes.count == asset.bytes, bytes.starts(with: [137, 80, 78, 71, 13, 10, 26, 10]) else { throw APIError.invalidResponse }
+        data[asset.sha256] = bytes
+        return bytes
+    }
+}
+
+private struct ModulaDeliveredStickerView: View {
+    let sticker: ModulaSticker
+    let client: GreenfieldClient
+    var size: CGFloat = 64
+    @State private var bytes: Data?
+
+    var body: some View {
+        Group {
+            if let bytes, let image = UIImage(data: bytes) {
+                Image(uiImage: image).resizable().scaledToFit()
+            } else {
+                ModulaStickerView(emoji: sticker.emoji, size: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .task(id: sticker.asset?.sha256) {
+            guard let asset = sticker.asset else { return }
+            bytes = try? await ModulaSignedStickerCache.shared.image(for: asset, client: client)
+        }
     }
 }
 
@@ -454,7 +571,12 @@ struct ModulaStickerPicker: View {
     private var recentStickers: [ModulaSticker] {
         recentStickersRaw.split(separator: "\u{1E}").compactMap { record in
             let p = record.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-            return p.count == 4 ? ModulaSticker(id: p[0], packID: p[1], emoji: p[2], label: p[3]) : nil
+            if p.count == 4 { return ModulaSticker(id: p[0], packID: p[1], emoji: p[2], label: p[3]) }
+            if p.count == 7, let bytes = Int(p[6]) {
+                return ModulaSticker(id: p[0], packID: p[1], emoji: p[2], label: p[3],
+                                     asset: .init(ref: p[4], sha256: p[5], bytes: bytes))
+            }
+            return nil
         }
     }
 
@@ -462,7 +584,11 @@ struct ModulaStickerPicker: View {
         onPick(sticker)
         var list = recentStickers.filter { $0.id != sticker.id }
         list.insert(sticker, at: 0)
-        recentStickersRaw = list.prefix(16).map { "\($0.id)|\($0.packID)|\($0.emoji)|\($0.label)" }.joined(separator: "\u{1E}")
+        recentStickersRaw = list.prefix(16).map { sticker in
+            let base = "\(sticker.id)|\(sticker.packID)|\(sticker.emoji)|\(sticker.label)"
+            guard let asset = sticker.asset else { return base }
+            return base + "|\(asset.ref)|\(asset.sha256)|\(asset.bytes)"
+        }.joined(separator: "\u{1E}")
         HapticEngine.shared.play(.success)
     }
 
@@ -473,7 +599,7 @@ struct ModulaStickerPicker: View {
         + [Section(id: "animated", title: "Animated", icon: "sparkles", isSymbol: true),
          Section(id: "mascots", title: "Moliboos", icon: "pawprint.fill", isSymbol: true),
          Section(id: "sprout", title: "Sprout", icon: "leaf.fill", isSymbol: true)]
-        + packs.map { Section(id: $0.id, title: $0.title, icon: $0.icon, isSymbol: false) }
+        + packs.filter { $0.series == nil }.map { Section(id: $0.id, title: $0.title, icon: $0.icon, isSymbol: false) }
         + custom.packs.map { Section(id: "custom.\($0.id)", title: $0.title, icon: $0.emoji.first ?? "⭐️", isSymbol: false) }
         + [Section(id: "mine", title: "My packs", icon: "plus.square.on.square", isSymbol: true)]
     }
@@ -534,7 +660,7 @@ struct ModulaStickerPicker: View {
                         if let local = ModulaLocalSticker.from(sticker) {
                             ModulaLocalStickerView(sticker: local, size: 64)
                         } else {
-                            ModulaStickerView(emoji: sticker.emoji, size: 64)
+                            ModulaDeliveredStickerView(sticker: sticker, client: client)
                         }
                     }
                         .buttonStyle(.plain)
@@ -549,14 +675,25 @@ struct ModulaStickerPicker: View {
                 }
             }
         case "sprout":
+            let delivered = packs.filter { $0.series != nil }.flatMap(\.stickers)
             LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(SproutStickerPack.all) { item in
-                    Button { pickSticker(item.local.asSticker) } label: {
-                        SproutStickerImage(assetName: item.assetName, size: 64)
+                if delivered.isEmpty {
+                    ForEach(SproutStickerPack.all) { item in
+                        Button { pickSticker(item.local.asSticker) } label: {
+                            SproutStickerImage(assetName: item.assetName, size: 64)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(item.title) sticker")
+                        .accessibilityIdentifier("stickers.sprout.\(item.id)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(item.title) sticker")
-                    .accessibilityIdentifier("stickers.sprout.\(item.id)")
+                } else {
+                    ForEach(delivered) { sticker in
+                        Button { pickSticker(sticker) } label: {
+                            ModulaDeliveredStickerView(sticker: sticker, client: client)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(sticker.label) sticker")
+                    }
                 }
             }
         case "mascots":
@@ -622,7 +759,7 @@ struct ModulaStickerPicker: View {
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(pack.stickers) { sticker in
                         Button { pickSticker(sticker) } label: {
-                            ModulaStickerView(emoji: sticker.emoji, size: 64)
+                            ModulaDeliveredStickerView(sticker: sticker, client: client)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(sticker.label) sticker")

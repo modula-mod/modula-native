@@ -1,9 +1,8 @@
 import SwiftUI
 import UIKit
 
-// Series 2 marketplace. Local registry and installed packs only.
-// Greenfield has no Moliboo or marketplace route (HTTP atlas, 484 application routes), so nothing here
-// is loaded from the network, priced, or sold. Purchases stay disabled.
+// Series 2 marketplace. The local registry preserves identities and the painted 2D presentation;
+// GreenField supplies signed package discovery plus server-authoritative ownership/equipped state.
 
 enum MolibooMarketplaceTab: String, CaseIterable, Identifiable, Sendable {
     case discover, families, stickers, marketplace
@@ -18,12 +17,12 @@ enum MolibooMarketplaceTab: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// What the marketplace is allowed to claim. There is no server catalogue.
+/// Stable Series 2 presentation facts. Installation and ownership state comes from GreenField.
 enum MolibooMarketplaceFacts {
-    static let purchaseTitle = "Coming soon"
-    static let purchaseReason = "Nothing is for sale. Greenfield has no Moliboo marketplace yet."
-    static let stickersReason = "Stickers are drawn on device from each Moliboo's live figure. No sticker catalogue is downloaded."
-    static let extrasReason = "Limited editions and creator listings are not in this catalogue. Series 2 characters are Modula house drafts."
+    static let purchaseTitle = "Install signed pack"
+    static let purchaseReason = "Owned Moliboos install from GreenField as signed, data-only 2D content packs."
+    static let stickersReason = "Sprout and Series sticker packs are discovered through GreenField; verified local art remains available offline."
+    static let extrasReason = "Ownership is verified by GreenField. Installing a pack never grants ownership."
 
     static func drafts(in registry: MolibooCharacterRegistry) -> [MolibooRegistryCharacter] {
         registry.characters.filter { $0.availability == "draft" && !$0.purchasable }
@@ -52,7 +51,7 @@ struct MolibooMarketplaceEntry: View {
                     .frame(width: 34, height: 32)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Marketplace").font(.subheadline.weight(.semibold))
-                    Text("\(draftCount) Series 2 drafts · nothing for sale")
+                    Text("\(draftCount) Series 2 Moliboos · signed packs")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -69,6 +68,7 @@ struct MolibooMarketplaceEntry: View {
 }
 
 struct MolibooMarketplaceView: View {
+    @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tab: MolibooMarketplaceTab = .discover
@@ -119,6 +119,10 @@ struct MolibooMarketplaceView: View {
             }
         }
         .accessibilityIdentifier("moliboo.marketplace")
+        .task {
+            await MolibooPackageManager.shared.refreshCatalog()
+            if app.auth.isSignedIn { await app.molibooOwnership.refresh() }
+        }
     }
 
     private func flash(_ text: String) {
@@ -199,7 +203,7 @@ struct MolibooMarketplaceView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            sectionHeader("New arrivals", trailing: "Preview only")
+            sectionHeader("New arrivals", trailing: "Signed content")
             grid(Array(drafts.prefix(8)), families: families)
         }
     }
@@ -262,7 +266,7 @@ struct MolibooMarketplaceView: View {
             HStack {
                 Text("\(shown.count) Moliboos").font(.subheadline.weight(.semibold))
                 Spacer()
-                Label("Preview only", systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Label("Ownership verified", systemImage: "checkmark.shield").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             if shown.isEmpty {
@@ -283,7 +287,7 @@ struct MolibooMarketplaceView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(character.name), number \(character.number), draft, preview only")
+                .accessibilityLabel("\(character.name), number \(character.number), signed content pack")
                 .accessibilityIdentifier("moliboo.marketplace.\(character.key)")
             }
         }
@@ -408,6 +412,8 @@ struct MolibooHeroBanner: View {
 struct MolibooMarketCard: View {
     let character: MolibooRegistryCharacter
     let family: MolibooRegistryFamily?
+    @Environment(AppEnvironment.self) private var app
+    @State private var manager = MolibooPackageManager.shared
 
     var body: some View {
         let c = MolibooFamilyStyle.color(family)
@@ -428,11 +434,23 @@ struct MolibooMarketCard: View {
                 .padding(.top, 4)
             Text(character.name).font(.headline).lineLimit(1)
             Text(character.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Label("Draft · preview only", systemImage: "eye").font(.caption2.weight(.semibold)).foregroundStyle(c)
+            Label(stateLabel, systemImage: stateSymbol).font(.caption2.weight(.semibold)).foregroundStyle(c)
         }
         .padding(10)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
+    }
+
+    private var stateLabel: String {
+        if let update = manager.updates.first(where: { $0.packageId == character.packageId }) { return "Update \(update.version)" }
+        if manager.installedVersions[character.packageId] != nil { return "Installed" }
+        return app.molibooOwnership.owns(characterID: character.id) ? "Owned · ready to install" : "Not owned"
+    }
+
+    private var stateSymbol: String {
+        if manager.updates.contains(where: { $0.packageId == character.packageId }) { return "arrow.triangle.2.circlepath" }
+        if manager.installedVersions[character.packageId] != nil { return "checkmark.circle.fill" }
+        return app.molibooOwnership.owns(characterID: character.id) ? "arrow.down.circle" : "lock"
     }
 }
 
@@ -489,8 +507,12 @@ struct MolibooFamilyCollection: View {
 struct MolibooMarketplaceDetail: View {
     let character: MolibooRegistryCharacter
     let family: MolibooRegistryFamily?
+    @Environment(AppEnvironment.self) private var app
     @State private var mood: MolibooStickerExpression = MolibooStickerExpression.all[0]
     @State private var copied: String?
+    @State private var manager = MolibooPackageManager.shared
+    @State private var operationInFlight = false
+    @State private var operationMessage: String?
     private var installedVersion: String? {
         MolibooPackageManager.shared.runtime.store.index(character.packageId).active
     }
@@ -510,7 +532,7 @@ struct MolibooMarketplaceDetail: View {
                     } else {
                         MolibooMarketplaceArtwork(character: character, tint: c).frame(height: 240).padding(12)
                     }
-                    Text("✦ Series 2 · Draft").font(.caption.weight(.bold))
+                    Text("✦ Series 2 · Signed content").font(.caption.weight(.bold))
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(.white.opacity(0.9), in: Capsule()).foregroundStyle(c)
                         .padding(12)
@@ -595,21 +617,25 @@ struct MolibooMarketplaceDetail: View {
                     } else {
                         Text("Not installed. The figure above is a placeholder until the on-demand pack is installed.")
                     }
-                    Text(character.wearable ? "Wardrobe items fit through the shared rig anchors. Outfits save once this draft is released." : "Not wearable while this character is a draft.")
+                    Text(character.wearable ? "Wardrobe items fit through the shared rig anchors. Equipped state follows your Modula account." : "This character does not support wardrobe items.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Button(action: {}) {
-                    Text(MolibooMarketplaceFacts.purchaseTitle)
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                Button {
+                    Task { await installOrEquip() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if operationInFlight { ProgressView().controlSize(.small) }
+                        Text(actionTitle).font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
                 }
                 .buttonStyle(.plain)
-                .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
-                .disabled(true)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: app.auth.isSignedIn)
+                .disabled(operationInFlight || !app.auth.isSignedIn || isEquipped)
                 .accessibilityIdentifier("moliboo.marketplace.purchase")
-                .accessibilityHint(MolibooMarketplaceFacts.purchaseReason)
-                Text(MolibooMarketplaceFacts.purchaseReason)
+                .accessibilityHint(actionHint)
+                Text(operationMessage ?? app.molibooOwnership.error ?? actionHint)
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding(16)
@@ -617,6 +643,60 @@ struct MolibooMarketplaceDetail: View {
         .navigationTitle(character.name)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("moliboo.marketplace.detail.\(character.key)")
+        .task {
+            await manager.refreshCatalog()
+            if app.auth.isSignedIn { await app.molibooOwnership.refresh() }
+        }
+    }
+
+    private var isOwned: Bool { app.molibooOwnership.owns(characterID: character.id) }
+    private var isEquipped: Bool {
+        app.molibooOwnership.outfit.items.contains { $0.slot == "character" && $0.character?.characterId == character.id && !$0.revoked }
+    }
+    private var latest: MolibooPackageDescriptor? { manager.latestByPackage[character.packageId] }
+
+    private var actionTitle: String {
+        if !app.auth.isSignedIn { return "Sign in to install" }
+        if isEquipped { return "Equipped" }
+        if !isOwned { return "Check ownership" }
+        if let latest, installedVersion.map({ MolibooPackageValidator.compareSemVer(latest.version, $0) > 0 }) == true {
+            return "Update signed pack"
+        }
+        if installedVersion == nil { return MolibooMarketplaceFacts.purchaseTitle }
+        return "Equip \(character.name)"
+    }
+
+    private var actionHint: String {
+        if !app.auth.isSignedIn { return "Sign in with the account that owns this Moliboo." }
+        if !isOwned { return "Ownership must be confirmed by GreenField before installation or equipping." }
+        return MolibooMarketplaceFacts.purchaseReason
+    }
+
+    private func installOrEquip() async {
+        guard app.auth.isSignedIn, !operationInFlight else { return }
+        operationInFlight = true
+        defer { operationInFlight = false }
+        await app.molibooOwnership.refresh()
+        guard app.molibooOwnership.canActivate(characterID: character.id) else {
+            operationMessage = app.molibooOwnership.error ?? "This account does not own \(character.name)."
+            return
+        }
+        if latest == nil { await manager.refreshCatalog() }
+        guard let descriptor = manager.latestByPackage[character.packageId] else {
+            operationMessage = manager.lastError ?? "No approved signed pack is available."
+            return
+        }
+        if installedVersion.map({ MolibooPackageValidator.compareSemVer(descriptor.version, $0) > 0 }) ?? true {
+            guard await manager.install(descriptor) else {
+                operationMessage = manager.lastError ?? "The signed pack could not be installed."
+                return
+            }
+        }
+        if await app.molibooOwnership.equip(character: character) {
+            operationMessage = "\(character.name) is installed and equipped on your account."
+        } else {
+            operationMessage = app.molibooOwnership.error
+        }
     }
 }
 
