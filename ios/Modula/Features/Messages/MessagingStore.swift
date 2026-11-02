@@ -114,6 +114,72 @@ final class MessagingStore {
         }
     }
 
+    private(set) var olderLoadingIDs: Set<ConversationID> = []
+
+    /// Merges the newest server page with what is on screen. Older pages already loaded and local
+    /// (sending / failed) bubbles are kept, so a refresh or poll never makes messages vanish or jump.
+    /// Returns the server messages that were not on screen before.
+    @discardableResult
+    private func mergeLatest(_ page: MessagePage, into id: ConversationID) -> [Message] {
+        let existing = threads[id] ?? []
+        let fresh = MessagingOrdering.messagesChronological(page.items)
+        let serverIDs = Set(fresh.map(\.id))
+        let knownIDs = Set(existing.map(\.id))
+        let oldestFresh = fresh.first?.sentAt
+        let olderKept = existing.filter { m in
+            !m.id.hasPrefix("local-") && !serverIDs.contains(m.id) && (oldestFresh.map { m.sentAt < $0 } ?? false)
+        }
+        let locals = existing.filter { $0.id.hasPrefix("local-") }
+        threads[id] = olderKept + fresh + locals
+        if olderKept.isEmpty {
+            threadCursors[id] = page.nextCursor
+            threadHasMore[id] = page.hasMore
+        }
+        return fresh.filter { !knownIDs.contains($0.id) }
+    }
+
+    /// Older history, one server page at a time (`GET /v1/conversations/:id/messages?cursor=`).
+    func loadOlderMessages(_ id: ConversationID) async -> Bool {
+        guard threadHasMore[id] == true, let cursor = threadCursors[id] ?? nil, !olderLoadingIDs.contains(id) else { return false }
+        olderLoadingIDs.insert(id)
+        defer { olderLoadingIDs.remove(id) }
+        do {
+            let page = try await repository.conversation(id, cursor: cursor)
+            let existing = threads[id] ?? []
+            let seen = Set(existing.map(\.id))
+            threads[id] = MessagingOrdering.messagesChronological(page.items.filter { !seen.contains($0.id) }) + existing
+            threadCursors[id] = page.nextCursor
+            threadHasMore[id] = page.hasMore
+            return true
+        } catch {
+            actionError = "Couldn't load earlier messages."
+            return false
+        }
+    }
+
+    /// Quiet near-real-time refresh while a chat is open. Greenfield has no websocket/SSE route for
+    /// messages, so this re-reads the newest page. Returns how many new incoming messages arrived.
+    func pollThread(_ id: ConversationID) async -> Int {
+        guard capabilities.listMessages, threadState[id] == .loaded, !id.hasPrefix("pending-direct:"),
+              sendingIDs.isEmpty else { return 0 }
+        guard let page = try? await repository.conversation(id, cursor: nil) else { return 0 }
+        let added = mergeLatest(page, into: id).filter { !$0.isOwn }
+        if !added.isEmpty, capabilities.markRead, (try? await repository.markRead(conversation: id)) != nil {
+            clearUnreadLocally(id)
+        }
+        return added.count
+    }
+
+    /// Quiet inbox refresh for polling: never shows a spinner or an error banner.
+    func pollInbox() async {
+        guard capabilities.listConversations, conversationState == .loaded,
+              let page = try? await repository.conversations(cursor: nil) else { return }
+        let fresh = Set(page.items.map(\.id))
+        conversations = page.items + conversations.filter { !fresh.contains($0.id) }
+        await refreshUnreadSummary()
+        if capabilities.messageRequests, let items = try? await repository.messageRequests() { requests = items }
+    }
+
     func loadThreadIfNeeded(_ id: ConversationID) async {
         if threads[id] != nil { return }
         await refreshThread(id)
@@ -124,9 +190,7 @@ final class MessagingStore {
         threadState[id] = hasContent ? .refreshing : .loading
         do {
             let page = try await repository.conversation(id, cursor: nil)
-            threads[id] = MessagingOrdering.messagesChronological(page.items)
-            threadCursors[id] = page.nextCursor
-            threadHasMore[id] = page.hasMore
+            mergeLatest(page, into: id)
             threadState[id] = .loaded
             if capabilities.markRead {
                 if (try? await repository.markRead(conversation: id)) != nil { clearUnreadLocally(id) }
@@ -449,7 +513,9 @@ final class MessagingStore {
 
     private func replace(localID: MessageID, in conversation: ConversationID, with message: Message) {
         var items = threads[conversation] ?? []
-        if let index = items.firstIndex(where: { $0.id == localID }) {
+        if items.contains(where: { $0.id == message.id }) {
+            items.removeAll { $0.id == localID }
+        } else if let index = items.firstIndex(where: { $0.id == localID }) {
             items[index] = message
         } else {
             items.append(message)
