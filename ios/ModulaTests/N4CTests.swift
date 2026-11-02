@@ -1214,8 +1214,28 @@ final class MessagingCapabilityHonestyTests: XCTestCase {
         XCTAssertFalse(InMailBackendCapabilities.production.serverSearch)
         XCTAssertTrue(StoryBackendCapabilities.production.list)
         XCTAssertTrue(StoryBackendCapabilities.production.create)
+        XCTAssertTrue(StoryBackendCapabilities.production.reply)
+        XCTAssertEqual(
+            StoryBackendCapabilities.Paths.reply("story/id"),
+            "/v1/stories/story%2Fid/replies"
+        )
         XCTAssertTrue(ReelBackendCapabilities.production.seedList)
         XCTAssertFalse(ReelBackendCapabilities.production.rankedFeed)
+    }
+
+    func testStoryReplyResultUsesServerConversationAndMessageIdentity() throws {
+        let value: JSONValue = .object([
+            "conversationId": .string("conversation-server"),
+            "messageId": .string("message-server"),
+            "conversationCreated": .bool(true),
+            "created": .bool(false),
+        ])
+        let result = try XCTUnwrap(StoryPayloadDecoder.replyResult(value))
+        XCTAssertEqual(result.conversationID, "conversation-server")
+        XCTAssertEqual(result.messageID, "message-server")
+        XCTAssertTrue(result.conversationCreated)
+        XCTAssertFalse(result.created, "an idempotent replay must not be presented as a second send")
+        XCTAssertNil(StoryPayloadDecoder.replyResult(.object(["conversationId": .string("client-guessed")])))
     }
 }
 
@@ -1388,6 +1408,71 @@ final class StoryUploadBudgetTests: XCTestCase {
         let fitted = try MediaPreparation.jpegFittingSync(source, maxBytes: 1_500_000)
         XCTAssertLessThanOrEqual(fitted.data.count, 1_500_000)
         XCTAssertEqual(max(fitted.width, fitted.height), 1600, "never upscales")
+    }
+}
+
+// MARK: - Story reply client contract
+
+private final class StoryReplyContractProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var capturedMethod = ""
+    nonisolated(unsafe) static var capturedPath = ""
+    nonisolated(unsafe) static var capturedBody = Data()
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let path = request.url?.path ?? ""
+        let body: String
+        switch (request.httpMethod ?? "", path) {
+        case ("POST", "/v1/sessions"):
+            let future = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3_600))
+            body = #"{"ok":true,"data":{"accessToken":"access","refreshToken":"refresh","sessionId":"session","accessExpiresAt":"\#(future)","refreshExpiresAt":"\#(future)"}}"#
+        case ("GET", "/v1/accounts/me"):
+            body = #"{"ok":true,"data":{"accountId":"account","primaryHandle":"me","status":"active"}}"#
+        default:
+            Self.capturedMethod = request.httpMethod ?? ""
+            Self.capturedPath = path
+            Self.capturedBody = request.httpBody ?? Data()
+            body = #"{"ok":true,"data":{"conversationId":"conversation-server","messageId":"message-server","conversationCreated":true,"created":true}}"#
+        }
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+final class StoryReplyClientContractTests: XCTestCase {
+    func testPostsExactAtlasBodyAndUsesServerIdentities() async throws {
+        StoryReplyContractProtocol.capturedMethod = ""
+        StoryReplyContractProtocol.capturedPath = ""
+        StoryReplyContractProtocol.capturedBody = Data()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StoryReplyContractProtocol.self]
+        let client = GreenfieldClient(
+            baseURL: URL(string: "https://story-reply-\(UUID().uuidString.prefix(8)).modula.test")!,
+            transport: URLSession(configuration: configuration)
+        )
+        _ = try await client.signIn(email: "reply@example.com", password: "test-only")
+        let storyID = "5aa27d70-90d4-4c44-9e18-d10cf34594c7"
+        let key = "story-reply-client-contract"
+        let result = try await StoryBackendRepository(client: client).reply(
+            storyID: storyID,
+            text: "A real reply",
+            idempotencyKey: key
+        )
+        XCTAssertEqual(StoryReplyContractProtocol.capturedMethod, "POST")
+        XCTAssertEqual(StoryReplyContractProtocol.capturedPath, "/v1/stories/\(storyID)/replies")
+        XCTAssertEqual(
+            try JSONDecoder().decode(JSONValue.self, from: StoryReplyContractProtocol.capturedBody),
+            .object(["text": .string("A real reply"), "idempotencyKey": .string(key)])
+        )
+        XCTAssertEqual(result.conversationID, "conversation-server")
+        XCTAssertEqual(result.messageID, "message-server")
     }
 }
 

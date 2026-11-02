@@ -217,7 +217,7 @@ struct ShareRecipient: Identifiable, Hashable, Sendable {
     var subtitle: String {
         let who = handle.trimmingCharacters(in: .whitespacesAndNewlines)
         let label = who.isEmpty ? displayName : "@\(who)"
-        return hasDirectChat ? label : "\(label) · No chat yet"
+        return hasDirectChat ? label : "\(label) · Start a chat"
     }
 }
 

@@ -96,21 +96,41 @@ struct StoryBackendCapabilities: Sendable, Equatable {
     var privacy = false
     var video = false
 
-    static let production = StoryBackendCapabilities(list: true, create: true)
+    static let production = StoryBackendCapabilities(list: true, create: true, reply: true)
 
     enum Paths {
         static let rail = "/v1/stories/rail"
         static func group(_ id: String) -> String { "/v1/stories/\(escape(id))" }
         static let create = "/v1/stories"
         static func viewed(_ id: String) -> String { "/v1/stories/items/\(escape(id))/viewed" }
+        static func reply(_ id: String) -> String { "/v1/stories/\(escape(id))/replies" }
 
         private static func escape(_ value: String) -> String {
-            value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
+            let segment = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~:"))
+            return value.addingPercentEncoding(withAllowedCharacters: segment) ?? value
         }
     }
 }
 
+struct StoryReplyResult: Equatable, Sendable {
+    let conversationID: ConversationID
+    let messageID: MessageID
+    let conversationCreated: Bool
+    let created: Bool
+}
+
 enum StoryPayloadDecoder {
+    static func replyResult(_ value: JSONValue) -> StoryReplyResult? {
+        guard let conversationID = value["conversationId"]?.string,
+              let messageID = value["messageId"]?.string else { return nil }
+        return StoryReplyResult(
+            conversationID: conversationID,
+            messageID: messageID,
+            conversationCreated: value["conversationCreated"]?.bool ?? false,
+            created: value["created"]?.bool ?? true
+        )
+    }
+
     static func rail(from value: JSONValue) -> [StoryGroup] {
         let items = value["items"]?.array ?? value["groups"]?.array ?? []
         return items.compactMap(railEntry)
@@ -429,6 +449,22 @@ struct StoryBackendRepository: Sendable {
             body: .object([:])
         )
     }
+
+    func reply(storyID: StoryID, text: String, idempotencyKey: String) async throws -> StoryReplyResult {
+        guard capabilities.reply, GreenfieldClient.isSafeIdempotencyKey(idempotencyKey) else {
+            throw APIError.unavailable("Story replies aren’t available.")
+        }
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.reply(storyID),
+            body: .object([
+                "text": .string(text),
+                "idempotencyKey": .string(idempotencyKey),
+            ])
+        )
+        guard let result = StoryPayloadDecoder.replyResult(value) else { throw APIError.invalidResponse }
+        return result
+    }
 }
 
 @MainActor @Observable
@@ -551,6 +587,24 @@ final class StoryStore {
         applySeen(storyID: storyID)
         Task {
             try? await repository.markViewed(itemID: storyID)
+        }
+    }
+
+    func reply(storyID: StoryID, text: String, idempotencyKey: String) async -> StoryReplyResult? {
+        guard capabilities.reply else {
+            actionError = "Story replies aren’t available."
+            return nil
+        }
+        do {
+            let result = try await repository.reply(storyID: storyID, text: text, idempotencyKey: idempotencyKey)
+            actionError = nil
+            return result
+        } catch let api as APIError {
+            actionError = api.userFacingMessage
+            return nil
+        } catch {
+            actionError = "Couldn’t send your reply. Your text is still here."
+            return nil
         }
     }
 
