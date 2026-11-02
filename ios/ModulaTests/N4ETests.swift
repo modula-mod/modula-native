@@ -54,10 +54,10 @@ final class AppGateTests: XCTestCase {
 final class OnboardingTests: XCTestCase {
     func testFiveStepsAndSkipSemantics() {
         XCTAssertEqual(OnboardingStep.count, 6)
-        XCTAssertEqual(OnboardingStep.world.progressLabel, "1 / 6")
-        XCTAssertEqual(OnboardingStep.world.accessibilityProgress, "Step 1 of 6")
-        XCTAssertEqual(OnboardingStep.control.next, nil)
-        XCTAssertEqual(OnboardingStep.world.next, .profile)
+        XCTAssertEqual(OnboardingStep.intro.progressLabel, "1 / 6")
+        XCTAssertEqual(OnboardingStep.intro.accessibilityProgress, "Step 1 of 6")
+        XCTAssertEqual(OnboardingStep.finale.next, nil)
+        XCTAssertEqual(OnboardingStep.intro.next, .you)
     }
 
     func testOnboardingIsNotAuthentication() {

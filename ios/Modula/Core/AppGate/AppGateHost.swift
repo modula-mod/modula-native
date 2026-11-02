@@ -216,6 +216,10 @@ struct PreShellAuthHost: View {
 
     var body: some View {
         ZStack {
+            // One backdrop for the whole signed-out flow, created once: the wave keeps its
+            // clock running while only the foreground (landing, onboarding, auth screens)
+            // transitions above it.
+            ModulaAuthBackdrop()
             if showsLanding {
                 OnboardingLandingView {
                     withAnimation(ModulaMotion.animation(.presentation, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
@@ -229,6 +233,7 @@ struct PreShellAuthHost: View {
                     .transition(.opacity)
             }
         }
+        .environment(\.authBackdropHoisted, true)
     }
 
     private var showsLanding: Bool {
@@ -245,6 +250,7 @@ struct PreShellAuthHost: View {
                     SignInView()
                 }
             }
+            .modulaAuthBackdrop()
             .navigationDestination(for: AppRoute.self) { route in
                 if case .auth(let authRoute) = route {
                     AuthRouteView(route: authRoute)
