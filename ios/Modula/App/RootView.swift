@@ -298,6 +298,7 @@ struct RouteView: View {
         case .me(let section): ProfileView(userID: nil, section: section)
         case .productHub(.module(let id, let section)): ModuleDetailV2View(moduleID: id, section: section)
         case .productHub(.publisher(let id)): PublisherView(publisherID: id)
+        case .productHub(.gubic): GubicRouteView()
         case .productHub(let route): ProductHubView(route: route)
         case .module(let id, let localPath): ModuleHost(moduleID: id, initialLocalPath: localPath)
         case .settings(let route): SettingsDestinationHost(route: route)

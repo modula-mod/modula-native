@@ -54,6 +54,8 @@ enum ProductHubRoute: Hashable {
     case publisher(String)
     case search(String?)
     case module(String, ModuleDetailSection)
+    /// GUBIC games hub (feature-flagged).
+    case gubic
     static let featured = Self.collection(.featured)
 }
 
@@ -380,6 +382,7 @@ enum RouteParser {
         if p[1] == "category", p.count == 3, validID(p[2]) { return .productHub(.category(p[2])) }
         if p[1] == "publisher", p.count == 3, validID(p[2]) { return .productHub(.publisher(p[2])) }
         if p[1] == "search", p.count == 2 { return .productHub(.search(query["q"])) }
+        if p[1] == "gubic", p.count == 2 { return .productHub(.gubic) }
         if p[1] == "module", p.count == 3 || p.count == 4, validID(p[2]) {
             let section = p.count == 3 ? ModuleDetailSection.overview : ModuleDetailSection(rawValue: p[3])
             return section.map { .productHub(.module(p[2], $0)) }
@@ -573,6 +576,7 @@ enum RouteSerializer {
         case .publisher(let id): path("product-hub", "publisher", id)
         case .search(let q): queryPath("/product-hub/search", q)
         case .module(let id, let section): path("product-hub", "module", id, section == .overview ? nil : section.rawValue)
+        case .gubic: path("product-hub", "gubic")
         }
     }
     private static func settings(_ route: SettingsRoute) -> String {
