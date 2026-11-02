@@ -224,7 +224,7 @@ enum AppRoute: Hashable {
     case saved(SavedRoute)
     case collections(CollectionsRoute)
     case drafts(DraftsRoute)
-    /// Debug community shell. Not a sixth tab. The flag is off in Release.
+    /// Community surfaces. Kept outside the five root tabs and opened from product navigation.
     case community(CommunityRoute)
 
     var tab: AppTab? {

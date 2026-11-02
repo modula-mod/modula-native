@@ -45,8 +45,10 @@ final class N4DRouteTests: XCTestCase {
             XCTAssertFalse(tabRoots.contains(destination.route), destination.rawValue)
         }
         XCTAssertEqual(ShellSidebarDestination.saved.route, .saved(.root))
+        XCTAssertEqual(ShellSidebarDestination.community.route, .community(.hub))
         XCTAssertEqual(ShellSidebarDestination.settings.route, .settings(.root))
         XCTAssertTrue(ShellSidebarDestination.saved.requiresSignIn)
+        XCTAssertFalse(ShellSidebarDestination.community.requiresSignIn)
         XCTAssertFalse(ShellSidebarDestination.settings.requiresSignIn)
     }
 }
