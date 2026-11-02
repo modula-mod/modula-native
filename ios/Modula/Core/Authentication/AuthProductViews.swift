@@ -23,7 +23,7 @@ struct AuthChrome<Content: View>: View {
             .frame(maxWidth: .infinity)
         }
         .modulaSoftScrollEdge()
-        .modulaCanvas()
+        .background { ModulaAuthBackdrop() }
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -347,7 +347,6 @@ struct AuthPrimaryButton: View {
             ZStack {
                 if busy {
                     ProgressView()
-                        .tint(.white)
                         .transition(.opacity)
                 } else {
                     Text(title)
@@ -357,10 +356,10 @@ struct AuthPrimaryButton: View {
                         .transition(.opacity)
                 }
             }
-            .foregroundStyle(.white)
             .frame(maxWidth: contracted ? Self.height : .infinity)
             .frame(minHeight: Self.height)
-            .background(app.appearance.liveAccent.opacity(enabled || busy ? 1 : 0.4), in: Capsule())
+            // Every primary action wears the shared accent CTA (fill, rim, lift; outline when disabled).
+            .modulaAccentCTA()
             .contentShape(Capsule())
             .frame(maxWidth: .infinity)
         }

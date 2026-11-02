@@ -473,7 +473,7 @@
 		F70200000000000000000003 /* ProfileContentTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000003 /* ProfileContentTabs.swift */; };
 		D0A1000000000000000000B1 /* SpectralDrape.metal in Sources */ = {isa = PBXBuildFile; fileRef = D0A1000000000000000000F1 /* SpectralDrape.metal */; };
 		D0A2000000000000000000B1 /* SpectralDrapeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A2000000000000000000F1 /* SpectralDrapeView.swift */; };
-		D0A3000000000000000000B1 /* PerspectiveGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A3000000000000000000F1 /* PerspectiveGridView.swift */; };
+		D0A3000000000000000000B1 /* ModulaAuthBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A3000000000000000000F1 /* ModulaAuthBackdrop.swift */; };
 		F70200000000000000000002 /* ModulaEffectKit.metal in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000002 /* ModulaEffectKit.metal */; };
 		B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 041747946D183AA6E7642E17 /* MolibooShaders.metal */; };
 		F70200000000000000000001 /* ModulaEffectKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000001 /* ModulaEffectKit.swift */; };
@@ -993,7 +993,7 @@
 		F70100000000000000000003 /* ProfileContentTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContentTabs.swift; path = Features/Profile/ProfileContentTabs.swift; sourceTree = "<group>"; };
 		D0A1000000000000000000F1 /* SpectralDrape.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = SpectralDrape.metal; path = DesignSystem/Effects/SpectralDrape.metal; sourceTree = "<group>"; };
 		D0A2000000000000000000F1 /* SpectralDrapeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpectralDrapeView.swift; path = DesignSystem/Effects/SpectralDrapeView.swift; sourceTree = "<group>"; };
-		D0A3000000000000000000F1 /* PerspectiveGridView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PerspectiveGridView.swift; path = DesignSystem/Effects/PerspectiveGridView.swift; sourceTree = "<group>"; };
+		D0A3000000000000000000F1 /* ModulaAuthBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAuthBackdrop.swift; path = DesignSystem/Effects/ModulaAuthBackdrop.swift; sourceTree = "<group>"; };
 		F70100000000000000000002 /* ModulaEffectKit.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaEffectKit.metal; path = DesignSystem/Effects/ModulaEffectKit.metal; sourceTree = "<group>"; };
 		041747946D183AA6E7642E17 /* MolibooShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = MolibooShaders.metal; path = DesignSystem/Moliboo/MolibooShaders.metal; sourceTree = "<group>"; };
 		F70100000000000000000001 /* ModulaEffectKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEffectKit.swift; path = DesignSystem/Effects/ModulaEffectKit.swift; sourceTree = "<group>"; };
@@ -1333,7 +1333,7 @@
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
-				D0A3000000000000000000F1 /* PerspectiveGridView.swift */,
+				D0A3000000000000000000F1 /* ModulaAuthBackdrop.swift */,
 				D0A2000000000000000000F1 /* SpectralDrapeView.swift */,
 				D0A1000000000000000000F1 /* SpectralDrape.metal */,
 				041747946D183AA6E7642E17 /* MolibooShaders.metal */,
@@ -2085,7 +2085,7 @@
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
-				D0A3000000000000000000B1 /* PerspectiveGridView.swift in Sources */,
+				D0A3000000000000000000B1 /* ModulaAuthBackdrop.swift in Sources */,
 				D0A2000000000000000000B1 /* SpectralDrapeView.swift in Sources */,
 				D0A1000000000000000000B1 /* SpectralDrape.metal in Sources */,
 				B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */,

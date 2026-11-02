@@ -168,6 +168,8 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var mute = false
     var archive = false
     var realtime = false
+    /// Client-side quote reply: quotes the message into the text (no reply-to field on the send route).
+    var quoteReply = true
 
     /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
     static let production = MessagingBackendCapabilities(

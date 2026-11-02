@@ -267,6 +267,7 @@ struct RootView: View {
 }
 
 struct RouteView: View {
+    @Environment(AppEnvironment.self) private var app
     let route: AppRoute
     /// Card the user tapped to get here (Activity / Discover / Product Hub), captured once.
     @State private var heroID: String?
@@ -299,6 +300,7 @@ struct RouteView: View {
         case .productHub(.module(let id, let section)): ModuleDetailV2View(moduleID: id, section: section)
         case .productHub(.publisher(let id)): PublisherView(publisherID: id)
         case .productHub(.gubic): GubicRouteView()
+        case .productHub(.category("games")) where GubicFeature.enabled(): GubicHubView(client: app.client)
         case .productHub(let route): ProductHubView(route: route)
         case .module(let id, let localPath): ModuleHost(moduleID: id, initialLocalPath: localPath)
         case .settings(let route): SettingsDestinationHost(route: route)

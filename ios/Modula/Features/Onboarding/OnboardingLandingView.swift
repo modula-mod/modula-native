@@ -576,13 +576,23 @@ private struct BubbleView: View {
                 .modifier(BubbleSurface(tint: module.tint, depth: depth, style: style, blur: state?.blur ?? 0, isDark: isDark))
                 .zIndex(0.5)
             // The symbol sits on the glass (outside the effect, so it keeps full vibrancy).
+            // Premium 2D glass finish: a crisp specular highlight and a rim light that
+            // follows the bubble's squash. Skipped for solid fills (Reduce Transparency).
+            if style != .solid {
+                BubbleSheen(depth: depth, isDark: isDark)
+                    .frame(width: width, height: height)
+                    .zIndex(1.5)
+            }
             Image(systemName: module.symbol)
                 .font(.system(size: max(1, d * 0.36), weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(symbolStyle(module))
+                .shadow(color: .black.opacity(isDark ? 0.25 : 0.08), radius: max(0.5, d * 0.015), y: d * 0.01)
                 .opacity(0.8 + 0.2 * depth)
                 .scaleEffect(scale)
                 .rotationEffect(.radians(state?.tilt ?? 0))
+                // Depth of field: far bubbles soften slightly, near ones stay crisp.
+                .blur(radius: style == .solid ? 0 : max(0, (0.4 - depth) * 3.5))
                 .zIndex(2)
         }
         .frame(width: d, height: d)
@@ -622,6 +632,47 @@ private struct BubbleView: View {
             ))
             .frame(width: d * 0.86, height: d * 0.86)
             .opacity(0.55 + 0.45 * depth)
+    }
+}
+
+/// Specular highlight + rim light drawn over a bubble (one cheap shape stack, no extra
+/// glass pass): a bright crescent top-left, a faint counter-light bottom-right and an
+/// angular rim that is brightest where the light hits, reading as glossy 2D glass.
+private struct BubbleSheen: View {
+    let depth: Double
+    let isDark: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width, h = proxy.size.height
+            let strength = 0.55 + 0.45 * depth
+            ZStack {
+                Ellipse()
+                    .strokeBorder(
+                        AngularGradient(
+                            colors: [.white.opacity(0.75), .white.opacity(0.06), .white.opacity(0.28), .white.opacity(0.04), .white.opacity(0.75)],
+                            center: .center,
+                            angle: .degrees(-135)
+                        ),
+                        lineWidth: max(0.6, min(w, h) * 0.022)
+                    )
+                Ellipse()
+                    .fill(LinearGradient(colors: [.white.opacity(isDark ? 0.55 : 0.7), .white.opacity(0)], startPoint: .top, endPoint: .bottom))
+                    .frame(width: w * 0.46, height: h * 0.2)
+                    .rotationEffect(.degrees(-32))
+                    .offset(x: -w * 0.15, y: -h * 0.26)
+                Circle()
+                    .fill(.white.opacity(0.85))
+                    .frame(width: max(1, w * 0.07), height: max(1, w * 0.07))
+                    .offset(x: -w * 0.27, y: -h * 0.1)
+                Ellipse()
+                    .fill(RadialGradient(colors: [.white.opacity(0.22), .clear], center: .center, startRadius: 0, endRadius: max(1, w * 0.18)))
+                    .frame(width: w * 0.36, height: h * 0.18)
+                    .offset(x: w * 0.16, y: h * 0.3)
+            }
+            .opacity(strength)
+        }
+        .allowsHitTesting(false)
     }
 }
 
