@@ -6,7 +6,7 @@ enum MessageContextActions {
         delivery: MessageDeliveryState
     ) -> [ModulaContextAction] {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc")]
-        if capabilities.reply {
+        if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
         if capabilities.edit {
@@ -23,7 +23,7 @@ enum MessageContextActions {
 
     static func other(capabilities: MessagingBackendCapabilities) -> [ModulaContextAction] {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc")]
-        if capabilities.reply {
+        if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
         if capabilities.report {

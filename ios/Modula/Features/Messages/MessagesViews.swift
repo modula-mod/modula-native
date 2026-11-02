@@ -73,6 +73,7 @@ struct ConversationListView: View {
                     } label: {
                         Label("New message", systemImage: "square.and.pencil")
                     }
+                    .tint(app.appearance.liveAccent)
                     .accessibilityIdentifier("messages.compose")
                 }
             }
@@ -84,8 +85,23 @@ struct ConversationListView: View {
                 }
                 #endif
                 await app.messaging.loadInboxIfNeeded()
+                await app.messaging.loadRequestsIfNeeded()
             }
-            .refreshable { await app.messaging.refreshInbox() }
+            // No realtime route: a quiet 20 s poll keeps rows, unread counts and requests current.
+            .task(id: "messages.inbox.poll") {
+                #if DEBUG
+                if MessagingDebugFixture.isEnabled { return }
+                #endif
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(20))
+                    guard !Task.isCancelled else { return }
+                    await app.messaging.pollInbox()
+                }
+            }
+            .refreshable {
+                await app.messaging.refreshInbox()
+                await app.messaging.refreshRequests()
+            }
             .overlay(alignment: .bottom) { errorBanner }
             .accessibilityIdentifier("messages.inbox")
             .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
@@ -158,6 +174,9 @@ struct ConversationListView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+                if !app.messaging.requests.isEmpty, filter == .all, !searching {
+                    requestsEntry
+                }
                 ForEach(items) { conversation in
                     Button {
                         open(conversation)
@@ -249,6 +268,42 @@ struct ConversationListView: View {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
         }
+    }
+
+    /// Instagram/WhatsApp pattern: strangers wait behind one calm row instead of mixing into chats
+    /// (control + safety; the count creates a gentle open loop without shouting).
+    private var requestsEntry: some View {
+        let count = app.messaging.requests.count
+        return Button {
+            HapticEngine.shared.play(.navigation)
+            app.navigation.replaceTop(with: .messages(.requests))
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle.badge.clock")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .frame(width: 54, height: 54)
+                    .modulaGlass(in: Circle(), interactive: false)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Message requests").font(.body.weight(.semibold))
+                    Text(count == 1 ? "1 person wants to chat" : "\(count) people want to chat")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 6)
+                Text("\(count)")
+                    .font(.caption2.weight(.bold)).monospacedDigit()
+                    .padding(.horizontal, 7).frame(minWidth: 22, minHeight: 22)
+                    .modulaAccentCTA()
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityLabel("Message requests, \(count) waiting")
+        .accessibilityIdentifier("messages.requestsEntry")
     }
 
     private func togglePin(_ conversation: Conversation) {
@@ -534,6 +589,9 @@ struct ConversationView: View {
     @State private var reply: ModulaComposerReply?
     @State private var replyQuote: String?
     @State private var composerFocused = false
+    @State private var isAtBottom = true
+    @State private var unseenCount = 0
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         thread
@@ -547,7 +605,7 @@ struct ConversationView: View {
                 ToolbarItem(placement: .principal) { header }
             }
         .task { await app.messaging.loadThreadIfNeeded(conversationID) }
-        .refreshable { await app.messaging.refreshThread(conversationID) }
+        .task(id: conversationID) { await pollLoop() }
         .accessibilityIdentifier("messages.conversation.\(conversationID)")
         .accessibilityValue(RouteSerializer.serialize(.messages(.conversation(conversationID))))
     }
@@ -589,7 +647,7 @@ struct ConversationView: View {
         let items = app.messaging.messages(for: conversationID)
         switch app.messaging.threadState[conversationID] ?? .idle {
         case .loading where items.isEmpty:
-            ModulaLoadingState(title: "Loading messages")
+            MessagesThreadSkeleton()
         case .failed(let message) where items.isEmpty:
             ModulaErrorState(message: message) {
                 Task { await app.messaging.refreshThread(conversationID) }
@@ -611,6 +669,7 @@ struct ConversationView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        olderHeader(items: items, proxy: proxy)
                         let lastOwnID = items.last(where: \.isOwn)?.id
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
@@ -638,12 +697,91 @@ struct ConversationView: View {
                 .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
-                .onChange(of: items.count) { _, _ in
-                    scrollToLatest(items, proxy: proxy)
+                .onScrollGeometryChange(for: Bool.self) { geo in
+                    geo.contentOffset.y + geo.containerSize.height >= geo.contentSize.height + geo.contentInsets.bottom - 80
+                } action: { _, atBottom in
+                    guard atBottom != isAtBottom else { return }
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+                        isAtBottom = atBottom
+                        if atBottom { unseenCount = 0 }
+                    }
                 }
+                // Follow the conversation only when the reader is already at the end or just sent:
+                // never yank someone reading history (respect for the user's place = control).
                 .onChange(of: items.last?.id) { _, _ in
-                    scrollToLatest(items, proxy: proxy)
+                    guard let last = items.last else { return }
+                    if last.isOwn || isAtBottom {
+                        scrollToLatest(items, proxy: proxy)
+                    } else {
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { unseenCount += 1 }
+                    }
                 }
+                .overlay(alignment: .bottomTrailing) { jumpControl(items: items, proxy: proxy) }
+            }
+        }
+    }
+
+    /// Endless history: the top row pages in the previous server page and keeps the reader's place.
+    @ViewBuilder
+    private func olderHeader(items: [Message], proxy: ScrollViewProxy) -> some View {
+        if app.messaging.threadHasMore[conversationID] == true {
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityLabel("Loading earlier messages")
+                .onAppear {
+                    let anchor = items.first?.id
+                    Task {
+                        if await app.messaging.loadOlderMessages(conversationID), let anchor {
+                            proxy.scrollTo(anchor, anchor: .top)
+                        }
+                    }
+                }
+        }
+    }
+
+    /// Jump-to-latest button; becomes a "N new messages" pill when replies arrive off-screen.
+    @ViewBuilder
+    private func jumpControl(items: [Message], proxy: ScrollViewProxy) -> some View {
+        if !isAtBottom {
+            Button {
+                HapticEngine.shared.play(.selection)
+                unseenCount = 0
+                scrollToLatest(items, proxy: proxy)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.down")
+                    if unseenCount > 0 {
+                        Text(unseenCount == 1 ? "1 new message" : "\(unseenCount) new messages")
+                    }
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, unseenCount > 0 ? 16 : 0)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .modulaAccentCTA()
+            .padding(.trailing, ModulaLayout.contentInset)
+            .padding(.bottom, 10)
+            .transition(reduceMotion ? .opacity : .scale(scale: 0.8).combined(with: .opacity))
+            .accessibilityLabel(unseenCount > 0 ? "\(unseenCount) new messages. Jump to latest" : "Jump to latest message")
+            .accessibilityIdentifier("messages.jumpToLatest")
+        }
+    }
+
+    /// No websocket/SSE route exists for messages, so an open chat re-reads its newest page every
+    /// 4 s while the app is active. New incoming messages tap a light haptic.
+    private func pollLoop() async {
+        #if DEBUG
+        if MessagingDebugFixture.isEnabled { return }
+        #endif
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            guard scenePhase == .active else { continue }
+            if await app.messaging.pollThread(conversationID) > 0 {
+                HapticEngine.shared.play(.selection)
             }
         }
     }
@@ -788,11 +926,23 @@ struct MessageBubble: View {
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
                 let parsed = ModulaLocalSticker.extract(message.body.text)
                 if !parsed.text.isEmpty {
-                    Text(parsed.text)
+                    Text(MessageLinkText.attributed(parsed.text))
                         .font(.body)
+                        .tint(message.isOwn ? Color.white : app.appearance.liveAccent)
+                        .textSelection(.disabled)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(bubbleFill, in: bubbleShape)
+                        .background(alignment: message.isOwn ? .bottomTrailing : .bottomLeading) {
+                            if position.endsGroup {
+                                MessageBubbleTail()
+                                    .fill(bubbleFill)
+                                    .frame(width: 7, height: 13)
+                                    .scaleEffect(x: message.isOwn ? 1 : -1)
+                                    .offset(x: message.isOwn ? 7 : -7)
+                                    .accessibilityHidden(true)
+                            }
+                        }
                         .foregroundStyle(message.isOwn ? Color.white : Color.primary)
                 }
                 if !parsed.stickers.isEmpty {
@@ -808,7 +958,7 @@ struct MessageBubble: View {
                             .frame(minHeight: ModulaLayout.minimumTouch)
                             .contentShape(Rectangle())
                     } else if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts,
-                              message.isOwn, message.delivery == .read {
+                              showsStatus, message.isOwn, message.delivery == .read {
                         Text("Read")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -874,21 +1024,21 @@ struct MessageBubble: View {
 
     /// Large outer corners, tighter corners where bubbles of a run meet.
     private var bubbleShape: UnevenRoundedRectangle {
-        let large = 18.0, tight = 6.0
+        let large = 18.0, tight = 6.0, tail = 4.0
         let topJoin = !position.startsGroup
         let bottomJoin = !position.endsGroup
         if message.isOwn {
             return UnevenRoundedRectangle(
                 topLeadingRadius: large,
                 bottomLeadingRadius: large,
-                bottomTrailingRadius: bottomJoin ? tight : large,
+                bottomTrailingRadius: bottomJoin ? tight : tail,
                 topTrailingRadius: topJoin ? tight : large,
                 style: .continuous
             )
         }
         return UnevenRoundedRectangle(
             topLeadingRadius: topJoin ? tight : large,
-            bottomLeadingRadius: bottomJoin ? tight : large,
+            bottomLeadingRadius: bottomJoin ? tight : tail,
             bottomTrailingRadius: large,
             topTrailingRadius: large,
             style: .continuous
@@ -1080,7 +1230,6 @@ struct MessageRequestRow: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let accent = app.appearance.liveAccent
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 ConversationAvatar(participant: request.sender, size: 48)
@@ -1109,16 +1258,14 @@ struct MessageRequestRow: View {
                             if busy { ProgressView().controlSize(.mini).tint(.white) }
                             Text("Accept").font(.subheadline.weight(.semibold))
                         }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity).frame(height: 38)
-                        .background(Capsule().fill(accent))
-                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.4))
+                        .frame(maxWidth: .infinity).frame(height: 44)
+                        .modulaAccentCTA()
                     }
                     .accessibilityIdentifier("messages.request.accept")
                     Button(action: onDecline) {
                         Text("Decline").font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity).frame(height: 38)
+                            .frame(maxWidth: .infinity).frame(height: 44)
                             .modulaGlass(in: Capsule(), interactive: true)
                     }
                     .accessibilityIdentifier("messages.request.decline")
@@ -1139,6 +1286,9 @@ struct MessageRequestRow: View {
 struct NewConversationView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var people: [DiscoverPerson] = []
+    @State private var query = ""
+    @State private var results: [DiscoverPerson] = []
+    @State private var searchingPeople = false
 
     private var recentDirect: [Conversation] {
         Array(app.messaging.conversations.filter { $0.kind == .direct && !$0.participants.isEmpty }.prefix(5))
@@ -1157,19 +1307,8 @@ struct NewConversationView: View {
             VStack(alignment: .leading, spacing: 16) {
                 ModulaGlassGroup(spacing: 10) {
                     VStack(spacing: 10) {
-                        Button {
-                            app.navigation.push(.search(.section(.people, nil)))
-                            HapticEngine.shared.play(.navigation)
-                        } label: {
-                            Label("Search people", systemImage: "magnifyingglass")
-                                .font(.body.weight(.semibold))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 16).frame(height: 48)
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true)
-                        .accessibilityIdentifier("messages.new.search")
+                        MessagesGlassSearchField(text: $query, prompt: "Search people")
+                            .accessibilityIdentifier("messages.new.search")
                         if app.inMail.capabilities.send {
                             Button {
                                 app.navigation.push(.messages(.inMail(.compose)))
@@ -1186,6 +1325,9 @@ struct NewConversationView: View {
                         }
                     }
                 }
+                if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    searchResultsSection
+                } else {
                 if !recentDirect.isEmpty {
                     section("Recent") {
                         ForEach(recentDirect) { c in
@@ -1210,10 +1352,12 @@ struct NewConversationView: View {
                         }
                     }
                 }
+                }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 12)
         }
+        .scrollDismissesKeyboard(.interactively)
         .modulaSoftScrollEdge()
         .navigationTitle("New Message")
         .navigationBarTitleDisplayMode(.inline)
@@ -1223,7 +1367,51 @@ struct NewConversationView: View {
             people = ((try? await GreenfieldDiscoverRepository(client: app.client).people(cursor: nil).items) ?? [])
                 .filter { !ActivitySuggestedPeople.isFixture($0) }
         }
+        // Real people search (`GET /v1/search?entityType=profile`), debounced 250 ms.
+        .task(id: query) {
+            let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !q.isEmpty else { results = []; searchingPeople = false; return }
+            searchingPeople = true
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            let page = try? await GreenfieldDiscoverRepository(client: app.client).search(query: q, entityType: "profile", cursor: nil)
+            guard !Task.isCancelled else { return }
+            let own = app.profile.ownProfile?.handle.lowercased()
+            results = (page?.results.compactMap(\.person) ?? []).filter { $0.handle.lowercased() != own }
+            searchingPeople = false
+        }
         .accessibilityIdentifier("messages.new")
+    }
+
+    @ViewBuilder
+    private var searchResultsSection: some View {
+        if searchingPeople && results.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.top, 28)
+                .accessibilityLabel("Searching people")
+        } else if results.isEmpty {
+            Text("No one matches “\(query)”.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 28)
+        } else {
+            section("People") {
+                ForEach(results) { person in
+                    MessagePersonRow(name: person.displayName, handle: person.handle,
+                                     avatarURL: person.avatarURL ?? avatar(for: person.handle),
+                                     detail: person.followsViewer ? "Follows you" : nil) {
+                        if let existing = app.messaging.directConversation(with: person.handle) {
+                            app.navigation.push(.messages(.conversation(existing.id)))
+                        } else {
+                            app.navigation.push(.messages(.direct(person.handle)))
+                        }
+                    }
+                    .accessibilityIdentifier("messages.new.result.\(person.handle)")
+                }
+            }
+        }
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -1424,9 +1612,9 @@ struct MessagesFriendlyEmpty: View {
             Spacer(minLength: 24)
             Image(systemName: copy.symbol)
                 .font(.system(size: 40, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 92, height: 92)
-                .messagesGlass(Circle(), tint: Color.accentColor.opacity(0.18))
+                .messagesGlass(Circle(), tint: app.appearance.liveAccent.opacity(0.18))
                 .offset(y: float ? -4 : 4)
                 .accessibilityHidden(true)
             Text(copy.title).font(.title3.weight(.semibold))
@@ -1444,8 +1632,8 @@ struct MessagesFriendlyEmpty: View {
                         .font(.body.weight(.semibold))
                         .padding(.horizontal, 22).frame(height: 44)
                 }
-                .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), tint: Color.accentColor)
+                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                .modulaAccentCTA()
                 .padding(.top, 4)
                 .accessibilityIdentifier("messages.empty.start")
             }
@@ -1812,5 +2000,74 @@ struct DirectMessageView: View {
                 open(conversation)
             }
         }
+    }
+}
+
+
+// MARK: - Bubble details
+
+/// Detects links in message text so they are tappable (opened by the system `openURL`).
+enum MessageLinkText {
+    private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
+    static func attributed(_ text: String) -> AttributedString {
+        var result = AttributedString(text)
+        guard let detector, text.contains(".") else { return result }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        for match in detector.matches(in: text, range: range) {
+            guard let url = match.url, let r = Range(match.range, in: text),
+                  let lower = AttributedString.Index(r.lowerBound, within: result),
+                  let upper = AttributedString.Index(r.upperBound, within: result) else { continue }
+            result[lower..<upper].link = url
+            result[lower..<upper].underlineStyle = .single
+        }
+        return result
+    }
+}
+
+/// The small curved tail on the last bubble of a run (drawn for the trailing side; mirrored for incoming).
+struct MessageBubbleTail: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.maxY),
+                       control: CGPoint(x: rect.minX + rect.width * 0.15, y: rect.maxY * 0.9))
+        p.addQuadCurve(to: CGPoint(x: rect.minX - 1, y: rect.maxY - 1),
+                       control: CGPoint(x: rect.midX, y: rect.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Bubble-shaped placeholder while a chat loads (layout matches the real thread, so nothing jumps).
+struct MessagesThreadSkeleton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+    private let rows: [(own: Bool, width: CGFloat)] = [
+        (false, 190), (false, 120), (true, 220), (false, 160), (true, 96), (true, 180), (false, 210)
+    ]
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Spacer(minLength: 0)
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack {
+                    if row.own { Spacer(minLength: 48) }
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.primary.opacity(row.own ? 0.11 : 0.07))
+                        .frame(width: row.width, height: 38)
+                    if !row.own { Spacer(minLength: 48) }
+                }
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.bottom, 16)
+        .opacity(pulse ? 0.55 : 1)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading messages")
     }
 }
