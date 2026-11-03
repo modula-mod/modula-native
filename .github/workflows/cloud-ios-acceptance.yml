@@ -32,6 +32,7 @@ jobs:
       NODE_VERSION: 22.23.2
       MODULA_API_URL: http://127.0.0.1:9
       COMPILER_INDEX_STORE_ENABLE: "NO"
+      SWIFT_PACKAGE_DIR: ${{ github.workspace }}/artifacts/SourcePackages
 
     steps:
       - name: Check out the pinned native ref
@@ -44,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p artifacts/evidence artifacts/logs artifacts/attachments
+          mkdir -p artifacts/evidence artifacts/logs artifacts/attachments artifacts/screenshots
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           {
             echo "native_repository=${GITHUB_REPOSITORY}"
@@ -181,11 +182,61 @@ jobs:
           set -o pipefail
           xcodebuild -resolvePackageDependencies \
             -workspace ios/Modula.xcworkspace \
-            -scheme Modula 2>&1 | tee artifacts/logs/resolve-packages.log
+            -scheme Modula \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
+            2>&1 | tee artifacts/logs/resolve-packages.log
+
+      - name: Trust the exact audited MLX build plugin
+        id: plugin
+        if: steps.resolve.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_revision=0bb916c67f4b9e5c682cbe02a42c701c93ab5021
+          expected_plugin_sha256=a4bc7bf7c4c68125b8ac83fb8a609a628a1d23398cb627542ce193f3c012da17
+          resolved=ios/Modula.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          checkout="${SWIFT_PACKAGE_DIR}/checkouts/mlx-swift"
+          plugin="${checkout}/Plugins/CudaBuild/plugin.swift"
+
+          resolved_revision="$(jq -er '.pins[] | select(.identity == "mlx-swift") | .state.revision' "${resolved}")"
+          checkout_revision="$(git -C "${checkout}" rev-parse HEAD)"
+          plugin_sha256="$(shasum -a 256 "${plugin}" | awk '{print $1}')"
+          test "${resolved_revision}" = "${expected_revision}"
+          test "${checkout_revision}" = "${expected_revision}"
+          test "${plugin_sha256}" = "${expected_plugin_sha256}"
+
+          security_dir="${HOME}/Library/org.swift.swiftpm/security"
+          trust_file="${security_dir}/plugins.json"
+          mkdir -p "${security_dir}"
+          if [[ -f "${trust_file}" ]]; then
+            jq --arg fingerprint "${expected_revision}" \
+              'map(select(.packageIdentity != "mlx-swift" or .targetName != "CudaBuild"))
+               + [{fingerprint: $fingerprint, packageIdentity: "mlx-swift", targetName: "CudaBuild"}]' \
+              "${trust_file}" > "${trust_file}.tmp"
+          else
+            jq -n --arg fingerprint "${expected_revision}" \
+              '[{fingerprint: $fingerprint, packageIdentity: "mlx-swift", targetName: "CudaBuild"}]' \
+              > "${trust_file}.tmp"
+          fi
+          mv "${trust_file}.tmp" "${trust_file}"
+          chmod 600 "${trust_file}"
+          jq -e --arg fingerprint "${expected_revision}" \
+            'any(.[]; .fingerprint == $fingerprint and .packageIdentity == "mlx-swift" and .targetName == "CudaBuild")' \
+            "${trust_file}" >/dev/null
+
+          {
+            echo "package_identity=mlx-swift"
+            echo "package_revision=${resolved_revision}"
+            echo "plugin_target=CudaBuild"
+            echo "plugin_sha256=${plugin_sha256}"
+            echo "trust_scope=exact-package-target-revision"
+            echo "global_plugin_validation_bypass=false"
+          } | tee artifacts/evidence/mlx-plugin-trust.txt
 
       - name: Build complete XCTest products
         id: build
-        if: steps.resolve.outcome == 'success'
+        if: steps.resolve.outcome == 'success' && steps.plugin.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
@@ -195,6 +246,7 @@ jobs:
             -scheme Modula \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
             -derivedDataPath artifacts/DerivedData \
             -resultBundlePath artifacts/build.xcresult \
             CODE_SIGNING_ALLOWED=NO \
@@ -213,6 +265,7 @@ jobs:
             -scheme Modula \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
             -derivedDataPath artifacts/DerivedData \
             -resultBundlePath artifacts/unit-tests.xcresult \
             -only-testing:ModulaTests \
@@ -235,6 +288,7 @@ jobs:
             -scheme Modula \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
             -derivedDataPath artifacts/DerivedData \
             -resultBundlePath artifacts/ui-tests.xcresult \
             -only-testing:ModulaUITests \
@@ -259,6 +313,7 @@ jobs:
           df -h > artifacts/evidence/disk-usage.txt
           {
             echo "resolve=${{ steps.resolve.outcome }}"
+            echo "plugin=${{ steps.plugin.outcome }}"
             echo "build=${{ steps.build.outcome }}"
             echo "unit=${{ steps.unit.outcome }}"
             echo "ui=${{ steps.ui.outcome }}"
@@ -303,6 +358,7 @@ jobs:
           test "${{ steps.javascript.outcome }}" = "success"
           test "${{ steps.dependencies.outputs.lock_drift }}" = "false"
           test "${{ steps.resolve.outcome }}" = "success"
+          test "${{ steps.plugin.outcome }}" = "success"
           test "${{ steps.build.outcome }}" = "success"
           test "${{ steps.unit.outcome }}" = "success"
           test "${{ steps.ui.outcome }}" = "success"
