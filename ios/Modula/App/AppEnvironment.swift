@@ -11,6 +11,7 @@ final class AppEnvironment {
     let runtime = ModuleRuntimeController()
     let moduleActivation = ModuleActivationController()
     let client: GreenfieldClient
+    let premiumPurchases: PremiumStoreKitController
     let catalogue: ProductHubStore
     let auth: AuthenticationStore
     let activity: ActivityStore
@@ -76,6 +77,7 @@ final class AppEnvironment {
         #else
         client = GreenfieldClient(baseURL: url)
         #endif
+        premiumPurchases = PremiumStoreKitController(client: client)
         molibooOwnership = MolibooOwnershipStore(client: client)
         MolibooPackageManager.shared.configure(greenfieldClient: client, baseURL: url)
         MolibooPackageManager.shared.authorization = { [weak molibooOwnership] descriptor in
@@ -148,9 +150,11 @@ final class AppEnvironment {
         )
         let catalogueStore = catalogue
         let draftsStore = drafts
-        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
+        let premiumPurchaseStore = premiumPurchases
+        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore, weak premiumPurchaseStore] account in
             runtime?.setAccount(account?.accountId)
             catalogueStore?.accountID = account?.accountId
+            premiumPurchaseStore?.setAccountID(account?.accountId)
             draftsStore.setAccountID(account?.accountId)
             self?.collections.setAccountID(account?.accountId)
             self?.molibooOwnership.setAccountID(account?.accountId)

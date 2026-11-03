@@ -1,7 +1,7 @@
 import XCTest
 @testable import Modula
 
-/// Modula Premium phase 1: feature flag, local entitlement store, gating and plan content.
+/// Modula Premium: server-authoritative membership, sandbox contract parsing and UI invariants.
 @MainActor
 final class PremiumTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -21,12 +21,14 @@ final class PremiumTests: XCTestCase {
 
     // MARK: Feature flag
 
-    func testPremiumRoutesMatchTheAtlasAndDoNotInventPurchases() throws {
+    func testPremiumRoutesMatchTheAtlasAndUseOnlySignedAppleTransactions() throws {
         XCTAssertEqual(PremiumAPI.tiers, "/v1/premium/tiers")
         XCTAssertEqual(PremiumAPI.membership, "/v1/me/membership")
         XCTAssertEqual(PremiumAPI.entitlements, "/v1/me/entitlements")
         XCTAssertEqual(PremiumAPI.entitlement(capabilityId: "in-mail"), "/v1/me/entitlements/in-mail")
         XCTAssertEqual(PremiumAPI.badgeVisibility, "/v1/me/membership/badge-visibility")
+        XCTAssertEqual(PremiumAPI.applePurchaseContext, "/v1/me/membership/apple-purchase-context")
+        XCTAssertEqual(PremiumAPI.appleTransactions, "/v1/premium/apple/transactions")
         let data = try JSONEncoder().encode(PremiumBadgeVisibilityRequest(visible: false))
         XCTAssertEqual(String(decoding: data, as: UTF8.self), "{\"visible\":false}")
         let source = PremiumAPI.tiers + PremiumAPI.membership + PremiumAPI.entitlements + PremiumAPI.badgeVisibility
@@ -34,6 +36,74 @@ final class PremiumTests: XCTestCase {
         XCTAssertFalse(source.contains("/admin/"))
         XCTAssertFalse(source.contains("/commerce/"))
         XCTAssertEqual(PremiumCatalog.membershipDisclaimer, "Modula Premium is a paid membership. It does not verify identity.")
+    }
+
+    func testAppleContextRequiresServerConfirmedSandboxMappings() throws {
+        let context = try XCTUnwrap(PremiumApplePurchaseContext(json: .object([
+            "environment": .string("sandbox"),
+            "appAccountToken": .string("f13d8133-a9bd-496c-8f64-ef969d9d2f3d"),
+            "products": .array([
+                .object([
+                    "productId": .string("digital.modula.premium.horizon.monthly"),
+                    "tier": .string("horizon"), "billingPeriod": .string("monthly"),
+                    "environment": .string("sandbox"), "state": .string("active")
+                ]),
+                .object([
+                    "productId": .string("digital.modula.premium.horizon-plus.annual"),
+                    "tier": .string("horizon_plus"), "billingPeriod": .string("annual"),
+                    "environment": .string("sandbox"), "state": .string("active")
+                ])
+            ])
+        ])))
+        XCTAssertEqual(context.product(plan: .horizon, billing: .monthly)?.productID,
+                       "digital.modula.premium.horizon.monthly")
+        XCTAssertEqual(context.product(plan: .horizonPlus, billing: .annual)?.productID,
+                       "digital.modula.premium.horizon-plus.annual")
+
+        XCTAssertNil(PremiumApplePurchaseContext(json: .object([
+            "environment": .string("production"),
+            "appAccountToken": .string(UUID().uuidString),
+            "products": .array([])
+        ])))
+    }
+
+    func testServerMembershipIsAuthoritativeAndRevocationReturnsCore() throws {
+        let store = PremiumEntitlementStore(defaults: defaults, isDebugBuild: true)
+        let active = try XCTUnwrap(PremiumMembershipSnapshot(json: membership(
+            tier: "horizon", status: "active", badgeVisible: false, revision: 3
+        )))
+        store.apply(active)
+        XCTAssertEqual(store.plan, .horizon)
+        XCTAssertEqual(store.entitlement.source, .serverVerified)
+        XCTAssertFalse(store.showsOwnBadge)
+        XCTAssertEqual(store.serverStatus, .active)
+        XCTAssertEqual(store.serverRevision, 3)
+
+        let revoked = try XCTUnwrap(PremiumMembershipSnapshot(json: membership(
+            tier: "horizon", status: "revoked", badgeVisible: true, revision: 4
+        )))
+        store.apply(revoked)
+        XCTAssertEqual(store.plan, .core)
+        XCTAssertEqual(store.serverStatus, .revoked)
+        XCTAssertFalse(store.showsOwnBadge)
+    }
+
+    func testAppleTransactionResponseMustMatchSandboxContract() throws {
+        let accepted = try XCTUnwrap(PremiumAppleTransactionResult(json: .object([
+            "accepted": .bool(true), "replay": .bool(false), "environment": .string("sandbox"),
+            "transactionId": .string("1000000123456789"),
+            "originalTransactionId": .string("1000000123000000"),
+            "productId": .string("digital.modula.premium.plus.monthly"),
+            "tier": .string("plus"), "status": .string("active"),
+            "expiresAt": .string("2026-12-01T00:00:00.000Z"), "membershipRevision": .number(1)
+        ])))
+        XCTAssertEqual(accepted.plan, .plus)
+        XCTAssertEqual(accepted.status, .active)
+        XCTAssertNil(PremiumAppleTransactionResult(json: .object([
+            "accepted": .bool(true), "replay": .bool(false), "environment": .string("production"),
+            "transactionId": .string("1"), "productId": .string("product"),
+            "tier": .string("studio"), "status": .string("active")
+        ])))
     }
 
     func testProfileBadgeFollowsTierAndIsNotVerification() {
@@ -190,11 +260,9 @@ final class PremiumTests: XCTestCase {
         XCTAssertEqual(PremiumAPI.payouts, "/v1/creator/payouts")
         XCTAssertEqual(PremiumAPI.inMail, "/v1/in-mail")
         XCTAssertFalse(PremiumAPI.billingAdapters.contains("entitlements"))
-        XCTAssertEqual(PremiumStoreKitLocal.productID(plan: .horizon, billing: .monthly), "modula.premium.horizon.monthly")
-        XCTAssertEqual(PremiumStoreKitLocal.productID(plan: .studio, billing: .annual), "modula.premium.studio.annual")
-        XCTAssertNil(PremiumStoreKitLocal.productID(plan: .core, billing: .monthly))
-        XCTAssertFalse(PremiumStoreKitLocal.livePurchases)
-        XCTAssertEqual(PremiumPurchaseCopy.sandbox, "Nothing is charged. This is a local sandbox preview.")
+        XCTAssertEqual(PremiumStoreKitConfiguration.productSource, "GreenField confirmed sandbox mapping")
+        XCTAssertFalse(PremiumStoreKitConfiguration.localConfigurationIsAppleSandboxEvidence)
+        XCTAssertEqual(PremiumPurchaseCopy.sandbox, "Apple Sandbox purchases don’t charge your payment method.")
         XCTAssertEqual(PremiumPurchaseCopy.welcomeTitle, "You’re Premium!")
         XCTAssertEqual(PremiumMemberSettingsView.upsell(from: .plus), .horizon)
         XCTAssertEqual(PremiumMemberSettingsView.upsell(from: .horizon), .horizonPlus)
@@ -212,6 +280,18 @@ final class PremiumTests: XCTestCase {
         XCTAssertFalse(outcomes.isEmpty)
         XCTAssertTrue(outcomes.allSatisfy { $0.deletesData == false })
         XCTAssertTrue(outcomes.contains { $0.id == "verification" })
+    }
+
+    private func membership(tier: String, status: String, badgeVisible: Bool, revision: Int) -> JSONValue {
+        .object([
+            "schemaVersion": .number(1), "accountId": .string("account-premium-test"),
+            "tier": .string(tier), "recordedTier": .string(tier),
+            "subscriptionStatus": .string(status), "entitlementSource": .string("apple_verified"),
+            "effectiveAt": .string("2026-11-03T12:00:00.000Z"),
+            "expiresAt": .string("2026-12-03T12:00:00.000Z"),
+            "membershipSince": .string("2026-11-03T12:00:00.000Z"),
+            "badgeVisible": .bool(badgeVisible), "revision": .number(Double(revision))
+        ])
     }
 
     func testComparisonCoversEveryPlanAndCoreStaysFree() {

@@ -1,14 +1,11 @@
 import Foundation
 import Observation
 
-// MARK: - Modula Premium — phase 1 (UI only)
+// MARK: - Modula Premium
 //
-// Spec: "Modula Premium — Concept & Build Plan" page. Phase 1 is local and UI-only:
-// - no StoreKit, no payment or receipt code, no server entitlements (phase 2 / phase 4 need Andy's go-ahead);
-// - the whole surface sits behind `PremiumFeatureFlags`, which is always off in Release builds;
-// - the only way to "have" a paid plan is the Debug-only preview override, which is local to this
-//   device and is never sent to the server or written into a real account.
-// Everything free today stays free: gating only ever applies to *new* premium capabilities.
+// StoreKit sandbox transactions are verified by GreenField before server membership
+// changes. The surface stays Debug-only until real products and production billing are
+// separately approved. Everything free today stays free.
 
 // MARK: Feature flag
 
@@ -35,17 +32,19 @@ enum PremiumFeatureFlags {
     }
 }
 
-/// Authenticated premium routes from the Greenfield HTTP atlas (`premium/routes.ts`).
-/// The atlas has no purchase or checkout route, so nothing here can buy a plan.
-/// Admin QA routes and `/v1/commerce/entitlements` are a different surface and are not used here.
+/// Authenticated premium routes from the GreenField HTTP atlas (`premium/routes.ts`).
+/// StoreKit purchases are accepted only through the Apple sandbox transaction verifier.
+/// Admin QA routes and `/v1/commerce/entitlements` are different surfaces and are not used here.
 /// Verification is `GET /v1/me/verification` and is never a premium purchase.
 /// `PATCH /v1/me/membership/badge-visibility` is called with the atlas field `visible`.
-/// Membership and tier responses have no declared schema, so they are not parsed into a plan.
+/// Membership and Apple purchase responses are parsed only from their declared schema-version-1 fields.
 enum PremiumAPI {
     static let tiers = "/v1/premium/tiers"
     static let membership = "/v1/me/membership"
     static let entitlements = "/v1/me/entitlements"
     static let badgeVisibility = "/v1/me/membership/badge-visibility"
+    static let applePurchaseContext = "/v1/me/membership/apple-purchase-context"
+    static let appleTransactions = "/v1/premium/apple/transactions"
     static let verification = "/v1/me/verification"
     static let insights = "/v1/creator/insights"
     static let payouts = "/v1/creator/payouts"
@@ -59,7 +58,7 @@ enum PremiumAPI {
 }
 
 /// Authenticated calls whose paths and fields are in the HTTP atlas.
-/// Membership and tier payloads have no declared response schema, so callers must not invent fields from them.
+/// Undeclared tier, entitlement and commerce fields remain opaque to the native client.
 enum PremiumRemote {
     /// `PATCH /v1/me/membership/badge-visibility` with the atlas field `visible`.
     static func setBadgeVisible(_ visible: Bool, client: GreenfieldClient) async throws {
@@ -70,19 +69,40 @@ enum PremiumRemote {
         )
     }
 
-    /// `GET /v1/premium/tiers`. The atlas declares no response fields, so the payload is not turned into prices.
-    static func loadTiers(client: GreenfieldClient) async throws {
-        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.tiers)
+    static func loadTiers(client: GreenfieldClient) async throws -> JSONValue {
+        try await client.authenticatedJSON("GET", path: PremiumAPI.tiers)
     }
 
-    /// `GET /v1/me/membership`. No declared response fields, so the body is not read as a plan.
-    static func loadMembership(client: GreenfieldClient) async throws {
-        let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.membership)
+    static func loadMembership(client: GreenfieldClient) async throws -> PremiumMembershipSnapshot {
+        let value = try await client.authenticatedJSON("GET", path: PremiumAPI.membership)
+        guard let membership = PremiumMembershipSnapshot(json: value) else { throw APIError.invalidResponse }
+        return membership
     }
 
     /// `GET /v1/me/entitlements`. No declared response fields, so capabilities are not invented from it.
     static func loadEntitlements(client: GreenfieldClient) async throws {
         let _: JSONValue = try await client.authenticatedJSON("GET", path: PremiumAPI.entitlements)
+    }
+
+    static func applePurchaseContext(client: GreenfieldClient) async throws -> PremiumApplePurchaseContext {
+        let value = try await client.authenticatedJSON(
+            "POST", path: PremiumAPI.applePurchaseContext, body: .object([:])
+        )
+        guard let context = PremiumApplePurchaseContext(json: value) else { throw APIError.invalidResponse }
+        return context
+    }
+
+    static func submitAppleTransaction(_ signedTransaction: String, client: GreenfieldClient) async throws
+        -> PremiumAppleTransactionResult {
+        guard signedTransaction.utf8.count >= 16, signedTransaction.utf8.count <= 200_000 else {
+            throw APIError.invalidResponse
+        }
+        let value = try await client.authenticatedJSON(
+            "POST", path: PremiumAPI.appleTransactions,
+            body: .object(["signedTransaction": .string(signedTransaction)])
+        )
+        guard let result = PremiumAppleTransactionResult(json: value) else { throw APIError.invalidResponse }
+        return result
     }
 
     /// `GET /v1/commerce/billing-adapters`. No declared response fields, so no card or wallet is shown.
@@ -107,6 +127,109 @@ struct PremiumBadgeVisibilityRequest: Encodable, Equatable {
     var visible: Bool
 }
 
+struct PremiumAppleProductMapping: Equatable, Identifiable, Sendable {
+    var id: String { productID }
+    let productID: String
+    let plan: PremiumPlan
+    let billing: PremiumBilling
+
+    init?(json: JSONValue) {
+        guard let productID = json["productId"]?.string,
+              productID.range(of: "^[A-Za-z0-9][A-Za-z0-9._-]{2,159}$", options: .regularExpression) != nil,
+              let tier = json["tier"]?.string, let plan = PremiumPlan(serverID: tier), plan.isPaid,
+              let period = json["billingPeriod"]?.string.flatMap(PremiumBilling.init(rawValue:)),
+              json["environment"]?.string == "sandbox", json["state"]?.string == "active" else { return nil }
+        self.productID = productID
+        self.plan = plan
+        billing = period
+    }
+}
+
+struct PremiumApplePurchaseContext: Equatable, Sendable {
+    let appAccountToken: UUID
+    let products: [PremiumAppleProductMapping]
+
+    init?(json: JSONValue) {
+        guard json["environment"]?.string == "sandbox",
+              let rawToken = json["appAccountToken"]?.string, let token = UUID(uuidString: rawToken),
+              let rows = json["products"]?.array, !rows.isEmpty, rows.count <= 32 else { return nil }
+        let products = rows.compactMap(PremiumAppleProductMapping.init(json:))
+        guard products.count == rows.count,
+              Set(products.map(\.productID)).count == products.count,
+              Set(products.map { "\($0.plan.rawValue):\($0.billing.rawValue)" }).count == products.count else { return nil }
+        appAccountToken = token
+        self.products = products
+    }
+
+    func product(plan: PremiumPlan, billing: PremiumBilling) -> PremiumAppleProductMapping? {
+        products.first { $0.plan == plan && $0.billing == billing }
+    }
+}
+
+enum PremiumSubscriptionStatus: String, Sendable {
+    case core, active, grace, expired, revoked, downgraded
+}
+
+struct PremiumMembershipSnapshot: Equatable, Sendable {
+    let accountID: String
+    let plan: PremiumPlan
+    let status: PremiumSubscriptionStatus
+    let entitlementSource: String
+    let effectiveAt: Date?
+    let membershipSince: Date?
+    let badgeVisible: Bool
+    let revision: Int
+
+    init?(json: JSONValue) {
+        guard json["schemaVersion"]?.int == 1,
+              let accountID = json["accountId"]?.string, !accountID.isEmpty,
+              let tier = json["tier"]?.string, let plan = PremiumPlan(serverID: tier),
+              let rawStatus = json["subscriptionStatus"]?.string,
+              let status = PremiumSubscriptionStatus(rawValue: rawStatus),
+              let source = json["entitlementSource"]?.string,
+              let badgeVisible = json["badgeVisible"]?.bool,
+              let revision = json["revision"]?.int, revision >= 0 else { return nil }
+        self.accountID = accountID
+        self.plan = (status == .active || status == .grace) ? plan : .core
+        self.status = status
+        entitlementSource = source
+        effectiveAt = Self.date(json["effectiveAt"]?.string)
+        membershipSince = Self.date(json["membershipSince"]?.string)
+        self.badgeVisible = badgeVisible
+        self.revision = revision
+    }
+
+    private static func date(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
+}
+
+struct PremiumAppleTransactionResult: Equatable, Sendable {
+    let transactionID: String
+    let productID: String
+    let plan: PremiumPlan
+    let status: PremiumSubscriptionStatus
+    let replay: Bool
+
+    init?(json: JSONValue) {
+        guard json["accepted"]?.bool == true, json["environment"]?.string == "sandbox",
+              let transactionID = json["transactionId"]?.string, !transactionID.isEmpty,
+              let productID = json["productId"]?.string, !productID.isEmpty,
+              let tier = json["tier"]?.string, let plan = PremiumPlan(serverID: tier), plan.isPaid,
+              let rawStatus = json["status"]?.string,
+              let status = PremiumSubscriptionStatus(rawValue: rawStatus),
+              let replay = json["replay"]?.bool else { return nil }
+        self.transactionID = transactionID
+        self.productID = productID
+        self.plan = plan
+        self.status = status
+        self.replay = replay
+    }
+}
+
 // MARK: Plans
 
 /// The plan ladder. `ModulaPremiumTier` (identity marks) is the *visual* tier; this is the product plan
@@ -117,6 +240,17 @@ enum PremiumPlan: String, CaseIterable, Identifiable, Hashable, Codable, Sendabl
     var id: String { rawValue }
     static let recommended: PremiumPlan = .horizon
     static let paid: [PremiumPlan] = [.plus, .horizon, .horizonPlus, .studio]
+
+    init?(serverID: String) {
+        switch serverID {
+        case "core": self = .core
+        case "plus": self = .plus
+        case "horizon": self = .horizon
+        case "horizon_plus": self = .horizonPlus
+        case "studio": self = .studio
+        default: return nil
+        }
+    }
 
     /// Ladder order. Studio is a separate per-seat business plan that includes everything in Horizon Plus.
     var rank: Int {
@@ -245,7 +379,7 @@ enum PremiumBilling: String, CaseIterable, Identifiable, Hashable, Sendable {
 }
 
 enum PremiumPricing {
-    static let placeholderNote = "Placeholder prices — not final. Purchases aren’t available yet."
+    static let placeholderNote = "Placeholder catalogue examples — Apple checkout shows the confirmed price."
     static let comingSoon = "Coming soon"
 
     static func format(minor: Int, locale: Locale = Locale(identifier: "en_GB")) -> String {
@@ -361,7 +495,7 @@ enum PremiumGate {
 // MARK: Entitlement
 
 struct PremiumEntitlement: Equatable, Sendable {
-    enum Source: String, Sendable { case none, debugPreview }
+    enum Source: String, Sendable { case none, serverVerified, debugPreview }
     var plan: PremiumPlan
     var source: Source
     var since: Date?
@@ -369,9 +503,8 @@ struct PremiumEntitlement: Equatable, Sendable {
     static let core = PremiumEntitlement(plan: .core, source: .none, since: nil)
 }
 
-/// Local, phase-1 entitlement state. Defaults to Core. Phase 2 reads `serverPlan` from
-/// `GET /v1/me/membership` (see `PremiumAPI`). Until then the Debug preview is the only paid plan,
-/// and it never leaves the device.
+/// Server membership is authoritative. The Debug override remains an explicit local
+/// presentation tool and is cleared after a verified sandbox purchase or restoration.
 @MainActor
 @Observable
 final class PremiumEntitlementStore {
@@ -380,8 +513,11 @@ final class PremiumEntitlementStore {
     private let defaults: UserDefaults
     private let isDebugBuild: Bool
 
-    /// Server-verified plan (phase 2, `GET /v1/me/membership`). Always Core in phase 1.
     private(set) var serverPlan: PremiumPlan = .core
+    private(set) var serverStatus: PremiumSubscriptionStatus = .core
+    private(set) var serverSource = "platform_default"
+    private(set) var serverSince: Date?
+    private(set) var serverRevision = 0
     private(set) var debugOverride: PremiumPlan?
     private(set) var debugSince: Date?
     /// Owner's choice to show the premium mark/plate. Local preference; hiding never removes features.
@@ -415,7 +551,11 @@ final class PremiumEntitlementStore {
         if isDebugBuild, let debugOverride {
             return PremiumEntitlement(plan: debugOverride, source: .debugPreview, since: debugSince)
         }
-        return PremiumEntitlement(plan: serverPlan, source: .none, since: nil)
+        return PremiumEntitlement(
+            plan: serverPlan,
+            source: serverPlan.isPaid ? .serverVerified : .none,
+            since: serverSince
+        )
     }
 
     var plan: PremiumPlan { entitlement.plan }
@@ -448,6 +588,24 @@ final class PremiumEntitlementStore {
     func setPremiumEnabled(_ enabled: Bool) {
         guard isDebugBuild else { return }
         defaults.set(enabled, forKey: PremiumFeatureFlags.enabledKey)
+    }
+
+    func apply(_ membership: PremiumMembershipSnapshot) {
+        serverPlan = membership.plan
+        serverStatus = membership.status
+        serverSource = membership.entitlementSource
+        serverSince = membership.membershipSince ?? membership.effectiveAt
+        serverRevision = membership.revision
+        badgeVisible = membership.badgeVisible
+    }
+
+    func resetServerState() {
+        serverPlan = .core
+        serverStatus = .core
+        serverSource = "platform_default"
+        serverSince = nil
+        serverRevision = 0
+        badgeVisible = true
     }
 
     func markActivation(_ id: String, done: Bool = true) {
