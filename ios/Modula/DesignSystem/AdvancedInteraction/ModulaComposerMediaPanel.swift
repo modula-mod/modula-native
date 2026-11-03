@@ -476,7 +476,13 @@ enum ModulaStickerCatalog {
     private static func signedPack(_ pack: JSONValue, client: GreenfieldClient) async throws -> ModulaStickerPack {
         guard let id = pack["id"]?.string, let title = pack["title"]?.string,
               let version = pack["version"]?.string, let package = pack["package"],
-              package["schemaVersion"]?.string == "modula.sticker-pack.1",
+              let packageSchema = package["schemaVersion"]?.string,
+              let packageMediaType = package["mediaType"]?.string,
+              PackageMediaCompatibility.dispatch(
+                schemaVersion: packageSchema,
+                category: PackageMediaCompatibility.stickerManifest.category,
+                mediaType: packageMediaType
+              ) == .stickerManifest,
               let digest = package["sha256"]?.string, let declaredBytes = package["bytes"]?.int,
               let ref = package["download"]?["pathOrUrl"]?.string,
               package["signature"]?["algorithm"]?.string?.lowercased() == "ed25519",
@@ -487,12 +493,16 @@ enum ModulaStickerCatalog {
         guard bytes.count == declaredBytes,
               let facts = ModuleSignedFacts(data: try JSONSerialization.data(withJSONObject: [
                 "algorithm": "ed25519", "signature": signature, "keyId": keyID,
-                "digest": digest, "digestAlgorithm": "sha256",
+                "digest": digest, "digestAlgorithm": "sha256"
               ])) else { throw APIError.invalidResponse }
-        do { try ModuleReleaseTrust.verify(facts: facts, packagedDigest: nil, artifact: bytes, policy: .current) }
-        catch { throw APIError.invalidResponse }
+        do {
+            try ModuleReleaseTrust.verify(facts: facts, packagedDigest: nil, artifact: bytes, policy: .current)
+        } catch {
+            throw APIError.invalidResponse
+        }
         let manifest = try JSONDecoder().decode(SignedManifest.self, from: bytes)
-        guard manifest.schemaVersion == "modula.sticker-pack.1", manifest.packId == id, manifest.version == version,
+        guard manifest.schemaVersion == PackageMediaCompatibility.stickerSchemaVersion,
+              manifest.packId == id, manifest.version == version,
               !manifest.stickers.isEmpty, manifest.stickers.count <= 100 else { throw APIError.invalidResponse }
         var manifestByID: [String: SignedManifest.Sticker] = [:]
         for fact in manifest.stickers {
@@ -504,10 +514,19 @@ enum ModulaStickerCatalog {
             guard let sid = sticker["id"]?.string, let emoji = sticker["emoji"]?.string,
                   let label = sticker["label"]?.string, let asset = sticker["asset"],
                   let fact = manifestByID[sid], fact.label == label,
-                  fact.mediaType == "image/png",
-                  fact.path.range(of: "^stickers/[A-Za-z0-9][A-Za-z0-9_-]{1,99}\\.png$", options: .regularExpression) != nil,
-                  asset["mediaType"]?.string == "image/png", asset["sha256"]?.string == fact.sha256,
-                  asset["bytes"]?.int == fact.bytes, let assetRef = asset["url"]?.string else { throw APIError.invalidResponse }
+                  PackageMediaCompatibility.dispatch(
+                    schemaVersion: manifest.schemaVersion,
+                    category: PackageMediaCompatibility.stickerAsset.category,
+                    mediaType: fact.mediaType
+                  ) == .stickerAsset,
+                  fact.path.range(
+                    of: "^stickers/[A-Za-z0-9][A-Za-z0-9_-]{1,99}\\.png$",
+                    options: .regularExpression
+                  ) != nil,
+                  asset["mediaType"]?.string == PackageMediaCompatibility.stickerAsset.mediaType,
+                  asset["sha256"]?.string == fact.sha256,
+                  asset["bytes"]?.int == fact.bytes,
+                  let assetRef = asset["url"]?.string else { throw APIError.invalidResponse }
             return ModulaSticker(id: sid, packID: id, emoji: emoji, label: label,
                                  asset: .init(ref: assetRef, sha256: fact.sha256, bytes: fact.bytes))
         }

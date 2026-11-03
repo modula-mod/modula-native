@@ -2,6 +2,65 @@ import CryptoKit
 import Foundation
 import zlib
 
+/// One reviewed dispatch table for every signed/data-only package surface the
+/// native host understands. Category and schema are part of the dispatch key:
+/// a familiar media type in the wrong package shape remains unsupported.
+enum PackageMediaCompatibility {
+    enum PayloadKind: String, CaseIterable, Hashable, Sendable {
+        case molibooContent, stickerManifest, stickerAsset
+        case moduleContent, gubicGame, gubicRuntime
+    }
+
+    struct Rule: Equatable, Sendable {
+        let kind: PayloadKind
+        let schemaVersion: String
+        let category: String
+        let mediaType: String
+    }
+
+    static let packageSchemaVersion = "modula.package.1"
+    static let stickerSchemaVersion = "modula.sticker-pack.1"
+    static let moliboo = Rule(
+        kind: .molibooContent, schemaVersion: packageSchemaVersion, category: "asset-pack",
+        mediaType: "application/vnd.modula.moliboo-asset-pack+json"
+    )
+    static let stickerManifest = Rule(
+        kind: .stickerManifest, schemaVersion: stickerSchemaVersion, category: "sticker-manifest",
+        mediaType: "application/json"
+    )
+    static let stickerAsset = Rule(
+        kind: .stickerAsset, schemaVersion: stickerSchemaVersion, category: "sticker-asset",
+        mediaType: "image/png"
+    )
+    static let module = Rule(
+        kind: .moduleContent, schemaVersion: packageSchemaVersion, category: "module",
+        mediaType: "application/gzip"
+    )
+    static let gubicGame = Rule(
+        kind: .gubicGame, schemaVersion: packageSchemaVersion, category: "game-content",
+        mediaType: "application/vnd.modula.game-web+tgz"
+    )
+    static let gubicRuntime = Rule(
+        kind: .gubicRuntime, schemaVersion: packageSchemaVersion, category: "web-runtime",
+        mediaType: "application/vnd.modula.web-runtime+tgz"
+    )
+
+    static let rules = [moliboo, stickerManifest, stickerAsset, module, gubicGame, gubicRuntime]
+    static let legacyGubicArchiveMediaType = "application/gzip"
+    static let gubicInstalledArtifactMediaTypes = Set([legacyGubicArchiveMediaType, gubicGame.mediaType])
+    /// Migration 077 introduced these generic blob types. Native does not execute
+    /// the generic asset archive, but later migrations must preserve its storage.
+    static let preMolibooOptionalDatabaseMediaTypes = Set([
+        gubicGame.mediaType, gubicRuntime.mediaType, "application/vnd.modula.asset-pack+tgz"
+    ])
+
+    static func dispatch(schemaVersion: String, category: String, mediaType: String) -> PayloadKind? {
+        rules.first {
+            $0.schemaVersion == schemaVersion && $0.category == category && $0.mediaType == mediaType
+        }?.kind
+    }
+}
+
 enum WebGamePackageError: Error, LocalizedError {
     case invalid(String)
 
@@ -15,7 +74,7 @@ enum WebGamePackageError: Error, LocalizedError {
 /// This deliberately accepts only regular ustar files; links, PAX extensions,
 /// devices, nested archives, and native binaries are not game content.
 struct WebGamePackage {
-    static let mediaType = "application/vnd.modula.game-web+tgz"
+    static let mediaType = PackageMediaCompatibility.gubicGame.mediaType
     static let maximumCompressedBytes = 50 * 1_024 * 1_024
     static let maximumExpandedBytes = 64 * 1_024 * 1_024
     let sha256: String
@@ -225,6 +284,7 @@ struct WebGamePackage {
 /// A signed web-runtime archive has one engine module and no HTML entry point.
 /// It is parsed with the same strict ustar and native-payload checks as game content.
 struct WebRuntimePackage {
+    static let mediaType = PackageMediaCompatibility.gubicRuntime.mediaType
     let sha256: String
     let archive: Data
     let engine: Data
@@ -250,7 +310,7 @@ struct WebRuntimePackage {
 /// web game but never exposes downloaded bytes as executable code. Its Product
 /// UI document is the only entry the existing declarative ModuleHost consumes.
 struct ModuleContentPackage {
-    static let mediaType = "application/gzip"
+    static let mediaType = PackageMediaCompatibility.module.mediaType
     static let frontendPath = "frontend/frontend.manifest.json"
 
     let sha256: String

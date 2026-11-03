@@ -413,7 +413,7 @@ struct PackageInstallPlan: Sendable {
         var packages: [Package] = []
         var seen = Set<String>()
         for row in rows {
-            guard row["schemaVersion"]?.string == "modula.package.1",
+            guard row["schemaVersion"]?.string == PackageMediaCompatibility.packageSchemaVersion,
                   let id = row["packageId"]?.string, seen.insert(id).inserted,
                   let version = row["version"]?.string, let releaseID = row["releaseId"]?.string,
                   let category = row["category"]?.string,

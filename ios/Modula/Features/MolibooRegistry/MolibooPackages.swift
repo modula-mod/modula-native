@@ -77,7 +77,7 @@ struct MolibooPackageCatalog: Codable, Equatable, Sendable {
 /// The artifact: one JSON container with an explicit file inventory (no archive extraction).
 struct MolibooAssetPackContainer: Codable, Equatable, Sendable {
     static let schemaVersion = "modula.moliboo.assetpack.1"
-    static let mediaType = "application/vnd.modula.moliboo-asset-pack+json"
+    static let mediaType = PackageMediaCompatibility.moliboo.mediaType
     struct File: Codable, Equatable, Sendable { var path: String; var mediaType: String; var sha256: String; var bytes: Int; var data: String }
     var schemaVersion: String
     var packageId: String
@@ -169,8 +169,12 @@ enum MolibooPackageValidator {
     }
 
     static func validate(descriptor d: MolibooPackageDescriptor, registry: MolibooCharacterRegistry?, hostVersion: String) throws {
-        guard d.schemaVersion == "modula.package.1" else { throw MolibooPackageError.unsupportedSchema(d.schemaVersion) }
-        guard d.category == "asset-pack", d.artifact.mediaType == MolibooAssetPackContainer.mediaType else { throw MolibooPackageError.wrongCategory }
+        guard d.schemaVersion == PackageMediaCompatibility.packageSchemaVersion else {
+            throw MolibooPackageError.unsupportedSchema(d.schemaVersion)
+        }
+        guard PackageMediaCompatibility.dispatch(
+            schemaVersion: d.schemaVersion, category: d.category, mediaType: d.artifact.mediaType
+        ) == .molibooContent else { throw MolibooPackageError.wrongCategory }
         guard MolibooRegistryValidator.isSemVer(d.version) else { throw MolibooPackageError.corrupt("version") }
         guard d.artifact.sha256.count == 64, d.artifact.sha256.allSatisfy(\.isHexDigit) else { throw MolibooPackageError.corrupt("digest") }
         guard d.artifact.compressedSizeBytes > 0, d.artifact.compressedSizeBytes <= MolibooPackageLimits.maxArtifactBytes,
