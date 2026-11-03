@@ -10,6 +10,7 @@ The pinned native source, isolated GreenField composition, real PostgreSQL contr
 
 - Native baseline `main`: `e50fc3916fb4738b7c63b7bed92bef49a8076eb8`.
 - Native source under test: `8d58814cf60567a5f4622ea573c2c9724afc039e`.
+- Native reporting draft: PR #269, stacked on draft PR #268.
 - Final disposable backend composition: `654c513e749d606a914346016af4b7ba267e1681`.
 - Functional backend composition under test: `e6728cb93faa230d2ba83671d394075c32184d51`; the final child only updates generated Atlas client coverage for the already committed QA harness.
 - Backend feature composition parent: `6157acf650385a0fb94a7d4ef16aa76fded910b1`.
@@ -121,7 +122,7 @@ The mission is not QA READY because complete PackageManager XCTest/UI lifecycle 
 
 ## Changed files and rollback
 
-NATIVE-08 changes reports only:
+NATIVE-08 draft PR #269 changes reports only:
 
 - `NATIVE-REALITY-NATIVE-08.md`
 - `NATIVE-REALITY-FINAL-REPORT.md`
