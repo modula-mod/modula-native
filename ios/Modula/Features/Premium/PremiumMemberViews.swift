@@ -1,4 +1,6 @@
+import StoreKit
 import SwiftUI
+import UIKit
 
 // MARK: - Dashboard
 
@@ -21,7 +23,8 @@ struct PremiumDashboardView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(app.appearance.liveAccent)
                     Text(store.plan.title).font(.title2.weight(.bold))
-                    Text(PremiumPricing.priceLine(store.plan, billing: store.selectedBilling))
+                    Text(app.premiumPurchases.displayPrice(plan: store.plan, billing: store.selectedBilling)
+                         ?? (store.plan.isPaid ? "Managed by Apple" : "Free"))
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -89,7 +92,7 @@ struct PremiumDashboardView: View {
 
     private var statusLine: String {
         if store.isPreviewing { return "Previewing \(store.plan.title) on this device. This is not a purchase." }
-        return store.plan.isPaid ? "Paid plan on this device." : "You’re on Modula Core — free."
+        return store.plan.isPaid ? "Server-verified membership." : "You’re on Modula Core — free."
     }
 
     private func catalogueLine(_ feature: PremiumFeature) -> String {
@@ -131,11 +134,18 @@ struct PremiumDashboardView: View {
             return
         }
         var notes: [String] = []
-        do { try await PremiumRemote.loadMembership(client: app.client) }
-        catch { notes.append("Membership couldn’t be refreshed.") }
-        do { try await PremiumRemote.loadEntitlements(client: app.client) }
-        catch { notes.append("Entitlements couldn’t be refreshed.") }
-        notes.append("Membership and entitlements have no declared fields, so no server tier or usage is shown.")
+        do {
+            let membership = try await PremiumRemote.loadMembership(client: app.client)
+            store.apply(membership)
+            notes.append("Membership revision \(membership.revision) loaded from GreenField.")
+        } catch {
+            notes.append("Membership couldn’t be refreshed.")
+        }
+        do {
+            try await PremiumRemote.loadEntitlements(client: app.client)
+        } catch {
+            notes.append("Entitlements couldn’t be refreshed.")
+        }
         accountNote = notes.joined(separator: " ")
     }
 }
@@ -204,7 +214,8 @@ struct PremiumManageView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your plan").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Text(store.plan.title).font(.title3.weight(.semibold))
-                Text(PremiumPricing.priceLine(store.plan, billing: store.selectedBilling))
+                Text(app.premiumPurchases.displayPrice(plan: store.plan, billing: store.selectedBilling)
+                     ?? (store.plan.isPaid ? "Managed by Apple" : "Free"))
                     .font(.subheadline.monospacedDigit())
                 Text(store.isPreviewing ? "Preview on this device" : (store.plan.isPaid ? "On this device" : "No paid plan"))
                     .font(.caption.weight(.semibold))
@@ -229,6 +240,13 @@ struct PremiumManageView: View {
                 TelegramDivider()
                 manageRow("Badge visibility", "On your profile", "seal") {
                     app.navigation.open(.settings(.premium(.badge)))
+                }
+                TelegramDivider()
+                manageRow("Restore purchases", "Ask Apple to sync", "arrow.clockwise") {
+                    Task {
+                        _ = await app.premiumPurchases.restore()
+                        billingNote = app.premiumPurchases.message ?? "Apple purchase sync finished."
+                    }
                 }
             }
             Text(billingNote).font(.footnote).foregroundStyle(.secondary)
@@ -266,9 +284,15 @@ struct PremiumManageView: View {
                             Text(outcome.detail).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    Text("Usage isn’t available, so this doesn’t list anything over a limit. Cancelling is coming soon. No request was sent.")
+                    Text("Apple manages cancellation. GreenField keeps your data and updates access only after a verified Apple transaction or server notification.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Button("Open Apple subscriptions") {
+                        Task { await openAppleSubscriptions() }
+                    }
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .accessibilityIdentifier("premium.manage.openApple")
                 }
                 .accessibilityIdentifier("premium.manage.downgrade")
             }
@@ -305,6 +329,20 @@ struct PremiumManageView: View {
             billingNote = "Billing adapters responded. No payment method is shown — that response has no declared fields. Coming soon."
         } catch {
             billingNote = "Payment method is coming soon."
+        }
+    }
+
+    private func openAppleSubscriptions() async {
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
+            billingNote = "Apple subscription management is unavailable in this window."
+            return
+        }
+        do {
+            try await AppStore.showManageSubscriptions(in: scene)
+            billingNote = "Apple subscription management closed. GreenField will apply verified changes."
+            await app.premiumPurchases.refreshMembership()
+        } catch {
+            billingNote = "Apple subscription management couldn’t be opened."
         }
     }
 }
