@@ -8,19 +8,6 @@ on:
         required: true
         default: false
         type: boolean
-  # GitHub only dispatches a new workflow after its definition reaches the default
-  # branch. This branch-only bootstrap preserves the no-merge acceptance boundary.
-  push:
-    branches:
-      - codex/cloud-ios-acceptance-01
-    paths:
-      - .github/workflows/cloud-ios-acceptance.yml
-      - ios/**
-      - package.json
-      - package-lock.json
-      - packages/**
-      - runtime/**
-      - scripts/**
 
 concurrency:
   group: cloud-ios-acceptance-${{ github.ref }}
@@ -144,10 +131,9 @@ jobs:
           npm --version | tee artifacts/evidence/npm-version.txt
           npm ci
           gem install cocoapods -v 1.16.2 --no-document --user-install
-          export PATH="$(ruby -e 'print Gem.user_dir')/bin:${PATH}"
-          pod --version | tee artifacts/evidence/cocoapods-version.txt
-          test "$(pod --version)" = "1.16.2"
-          pod install --project-directory=ios --deployment
+          pod _1.16.2_ --version | tee artifacts/evidence/cocoapods-version.txt
+          test "$(pod _1.16.2_ --version)" = "1.16.2"
+          pod _1.16.2_ install --project-directory=ios --deployment
 
       - name: Verify source boundaries and JavaScript runtime
         id: javascript
