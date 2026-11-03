@@ -149,7 +149,7 @@ final class PremiumStoreKitController {
             guard let context else { throw PremiumStoreKitError.mappingUnavailable }
             try await AppStore.sync()
             var submitted = 0
-            for await verification in Transaction.currentEntitlements {
+            for await verification in StoreKit.Transaction.currentEntitlements {
                 guard case .verified(let transaction) = verification,
                       let mapping = context.products.first(where: { $0.productID == transaction.productID }) else { continue }
                 // A device may hold purchases for more than one Modula account.
@@ -194,8 +194,8 @@ final class PremiumStoreKitController {
     }
 
     private func acceptAndFinish(
-        _ verification: VerificationResult<Transaction>,
-        transaction: Transaction,
+        _ verification: VerificationResult<StoreKit.Transaction>,
+        transaction: StoreKit.Transaction,
         mapping: PremiumAppleProductMapping
     ) async throws -> PremiumAppleTransactionResult {
         let accepted = try await PremiumRemote.submitAppleTransaction(verification.jwsRepresentation, client: client)
@@ -209,7 +209,7 @@ final class PremiumStoreKitController {
     }
 
     private func completePurchase(
-        _ verification: VerificationResult<Transaction>,
+        _ verification: VerificationResult<StoreKit.Transaction>,
         mapping: PremiumAppleProductMapping,
         accountToken: UUID
     ) async throws -> PremiumAppleTransactionResult {
@@ -237,7 +237,7 @@ final class PremiumStoreKitController {
     }
 
     private func listenForTransactions() async {
-        for await verification in Transaction.updates {
+        for await verification in StoreKit.Transaction.updates {
             guard !Task.isCancelled else { return }
             guard case .verified(let transaction) = verification, accountID != nil else { continue }
             do {
