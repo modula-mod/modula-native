@@ -123,6 +123,7 @@ jobs:
           cache: npm
 
       - name: Install pinned JavaScript and CocoaPods dependencies
+        id: dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -133,7 +134,21 @@ jobs:
           gem install cocoapods -v 1.16.2 --no-document --user-install
           pod _1.16.2_ --version | tee artifacts/evidence/cocoapods-version.txt
           test "$(pod _1.16.2_ --version)" = "1.16.2"
-          pod _1.16.2_ install --project-directory=ios --deployment
+          cp ios/Podfile.lock artifacts/evidence/Podfile.lock.committed
+          set +e
+          pod _1.16.2_ install --project-directory=ios --deployment \
+            2>&1 | tee artifacts/logs/pod-install-deployment.log
+          deployment_status="${PIPESTATUS[0]}"
+          set -e
+          if [[ "${deployment_status}" -ne 0 ]]; then
+            echo "lock_drift=true" >> "${GITHUB_OUTPUT}"
+            pod _1.16.2_ install --project-directory=ios \
+              2>&1 | tee artifacts/logs/pod-install-regenerate.log
+            cp ios/Podfile.lock artifacts/evidence/Podfile.lock.generated
+            git diff -- ios/Podfile.lock > artifacts/logs/Podfile.lock.diff
+          else
+            echo "lock_drift=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Verify source boundaries and JavaScript runtime
         id: javascript
@@ -285,6 +300,7 @@ jobs:
         run: |
           set -euo pipefail
           test "${{ steps.javascript.outcome }}" = "success"
+          test "${{ steps.dependencies.outputs.lock_drift }}" = "false"
           test "${{ steps.resolve.outcome }}" = "success"
           test "${{ steps.build.outcome }}" = "success"
           test "${{ steps.unit.outcome }}" = "success"
