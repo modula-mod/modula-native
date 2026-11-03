@@ -183,7 +183,7 @@ The protected backend checkout is currently dirty and conflicted at `641df858815
 
 **DEVICE RESULT:** DEFERRED.
 
-**BLOCKERS:** XCTest execution and simulator GUBIC/Moliboo/Vault update rollback remain open. Backend #160 review/CI/approval is still required.
+**BLOCKERS:** XCTest execution and simulator GUBIC/Moliboo/Vault update rollback remain open. Backend #160 review and approval are still required; its current Atlas, migration, and repository checks pass.
 
 **NEXT ACTION:** Complete #160 review without broadening it, then run the package security/update/rollback XCTest matrix and smoke existing signed GUBIC packages in Simulator.
 
@@ -227,7 +227,7 @@ The protected backend checkout is currently dirty and conflicted at `641df858815
 
 - Native PRs #262–#269 remain open, draft, and unmerged.
 - Backend feature PRs #147, #148, #149, #150, #151, #157, and #158 remain open, draft, and unmerged.
-- Backend corrective PR #160 remains open, draft, and independently reviewed.
+- Backend corrective PR #160 remains open and draft with all three current checks passing; independent review and approval remain required.
 - Vault QA content was not publicly published.
 - Premium products/billing were not enabled.
 - Production release is not started and not authorized.
