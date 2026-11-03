@@ -357,6 +357,23 @@ enum InstallDescriptorVerifier {
     static func isHex64(_ value: String) -> Bool {
         value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
     }
+
+    /// GreenField serializes Ed25519 signatures with Node's unpadded `base64url`
+    /// encoding. Accept padded RFC 4648 base64 as a compatibility input, but
+    /// always require the exact 64-byte Ed25519 signature length.
+    static func isEd25519Signature(_ value: String) -> Bool {
+        guard !value.isEmpty, value.utf8.count <= 88,
+              value.utf8.allSatisfy({ byte in
+                  (48...57).contains(byte) || (65...90).contains(byte) || (97...122).contains(byte)
+                    || [43, 45, 47, 61, 95].contains(byte)
+              }) else { return false }
+        var normalized = value.replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = normalized.utf8.count % 4
+        guard remainder != 1 else { return false }
+        if remainder > 0 { normalized += String(repeating: "=", count: 4 - remainder) }
+        return Data(base64Encoded: normalized)?.count == 64
+    }
 }
 
 /// Exact GreenField closure approved for an optional install. The lock digest is
@@ -370,9 +387,13 @@ struct PackageInstallPlan: Sendable {
         let sha256: String
         let compressedBytes: Int64
         let installedBytes: Int64
+        let mediaType: String
         let downloadRef: String
         let sharing: String
+        let signatureKeyID: String
+        let statementDigest: String
         let dependencies: [String]
+        let requiredCapabilities: [String]
     }
 
     let lockSha256: String
@@ -392,7 +413,8 @@ struct PackageInstallPlan: Sendable {
         var packages: [Package] = []
         var seen = Set<String>()
         for row in rows {
-            guard let id = row["packageId"]?.string, seen.insert(id).inserted,
+            guard row["schemaVersion"]?.string == "modula.package.1",
+                  let id = row["packageId"]?.string, seen.insert(id).inserted,
                   let version = row["version"]?.string, let releaseID = row["releaseId"]?.string,
                   let category = row["category"]?.string,
                   ["module", "web-runtime", "game-content", "model-data", "asset-pack"].contains(category),
@@ -400,17 +422,33 @@ struct PackageInstallPlan: Sendable {
                   let compressed = row["artifact"]?["compressedSizeBytes"]?.number,
                   let installed = row["artifact"]?["installedSizeEstimateBytes"]?.number,
                   compressed > 0, compressed <= 1_073_741_824, installed > 0, installed <= 4_294_967_296,
+                  let mediaType = row["artifact"]?["mediaType"]?.string, !mediaType.isEmpty,
                   let ref = row["artifact"]?["download"]?["pathOrUrl"]?.string,
+                  let authorization = row["artifact"]?["download"]?["authorization"]?.string,
+                  row["artifact"]?["download"]?["range"]?.bool == true,
                   let sharing = row["sharing"]?.string,
                   ["public-immutable", "account-private"].contains(sharing),
+                  (sharing == "public-immutable" && authorization == "none") ||
+                    (sharing == "account-private" && authorization == "bearer"),
                   row["trust"]?["verified"]?.bool == true,
                   row["trust"]?["publisherVerified"]?.bool == true,
                   row["trust"]?["revoked"]?.bool == false,
                   row["signature"]?["algorithm"]?.string == "Ed25519",
-                  let deps = row["dependencies"]?.array?.compactMap({ $0["packageId"]?.string }) else { return nil }
+                  let keyID = row["signature"]?["keyId"]?.string, !keyID.isEmpty,
+                  let signature = row["signature"]?["signature"]?.string,
+                  InstallDescriptorVerifier.isEd25519Signature(signature),
+                  let statementDigest = row["signature"]?["statementDigest"]?.string,
+                  InstallDescriptorVerifier.isHex64(statementDigest),
+                  let minimumHostVersion = row["minimumHostVersion"]?.string, !minimumHostVersion.isEmpty,
+                  row["platforms"]?.array?.compactMap(\.string).contains("ios") == true,
+                  let deps = row["dependencies"]?.array?.compactMap({ $0["packageId"]?.string }),
+                  let required = row["requiredCapabilities"]?.array?.compactMap(\.string),
+                  required.count <= 256, required.allSatisfy({ !$0.isEmpty }) else { return nil }
             packages.append(Package(id: id, version: version, releaseID: releaseID, category: category,
                                     sha256: sha256, compressedBytes: Int64(compressed), installedBytes: Int64(installed),
-                                    downloadRef: ref, sharing: sharing, dependencies: deps))
+                                    mediaType: mediaType, downloadRef: ref, sharing: sharing,
+                                    signatureKeyID: keyID, statementDigest: statementDigest,
+                                    dependencies: deps, requiredCapabilities: required))
         }
         let ids = Set(packages.map(\.id))
         guard ids.contains(requested), packages.allSatisfy({ Set($0.dependencies).isSubset(of: ids) }),

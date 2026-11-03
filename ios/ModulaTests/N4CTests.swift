@@ -86,6 +86,152 @@ final class N4CRouteTests: XCTestCase {
     }
 }
 
+final class VaultModulePackageTests: XCTestCase {
+    private let moduleID = "digital.modula.vault-notes"
+    private let v1Archive = "H4sIAAAAAAAAA+1XS2/bMAzuTwl4dlzJr9jGNuy6w3bohl6KHGiJjrX6kUly2iDIfx9kuy3abuslSHfwd5FESfwoiqLpUnetpVZellPHb7BVJRnr/zRde3EKMMZYEkVDyxh72XIexQ/9Uc4jzqKLBTsJ+xvojUV9wc7C9R/iAEZU1CDk0HSyr9F/DATuM/DgYfh9WHZN2qiuhRy4z4b5ZmueCcGDre5kL+wXCTlItVEWa39SvsO+tsu2s2TAA001oaE/KO0kuc0katRo1Y7AA2qt3kMOVde4YdUZe9W3VjUE+QF2o5IrbDdu66ePg67Fh2BQefRAd71jzW8OsEVbQQ6X4MFO0d1g6KD1uB4l4zIln9huVTscB01VdKils77rrGO2+61jNCSsO4UHolK11NQOSqZZrUT1g+4teGBdk8O1c8ViPPFxfXTUArdYqFpZ5Qw9gKZfvdIkIb+BXvkPOj5zWHvQbR0d1pDfrI8eoBBkjBq2793mR+cNnnXeWhZoqFYtLe+UrZbTNS0NNdhaJdyNGKGJ2itCSRpyq3tyMqyxqGkwf5Ld0n5wwzfcqc3EMc5okr2gr92T7Hh87yCf8VeU6t72msylJpQN+fbenpzjjfzPWLB6kf95wsM5/58DEi0uu7beL6ZIGDPSe5s140zYorjFDfmlqsmcruR7hrfefxiHL99/GMbz+z8HXtd/U0Qsx4jgrgR0PVdSlP/+WYAcWLEKoyAUjPFytYoETxLkPONhiUkasVJmokhkmhHFLJMppiuByIqEcV6KAuOB7dUXCXJIY6SUxUESZkkZSZkltEqLIIgooLKIy4gKjowTEgZBGgQsioqEZUyEaRomqwzmKmTGjBkznuE3RlIt2gASAAA="
+    private let v2Archive = "H4sIAAAAAAAAA+1XTW/bMAztTwl4dlw5tuMPbMOuO2yHbuilyIGWqFirbWWSnDYI8t8H2Wm7tth6CdId/C6SKJGPoiiZlkZ3jjpxKY+dsMVOSbIu/Gl1d3EKMMbYMkmGljH2so2iJH3oj/IoiVhyMWMnYX8DvXVoLthZuP5D7MHymlqEElot+gbDx0SIQgYBPAy/D8uuyVilOyghCtkw327sMyEEsDFa9Nx9EVCCUGvlsAmPxrfYN27eaUcWAjDUEFr6U3+00GpBXpl4gwad2hIEQJ0zOyih1q0f1tq6q75zqiUo97AdjVxht/aqnz4ODs4+LAY/DwEY3XvW8mYPG3Q1lHAJAWwV3Q2ODlYPq1EyLlPiie1WdcN20NaVRiO891o7z+x2G89oiTu/iwB4rRphqBuMHGeN4vUPuncQgPNNCdc+FLNxx4fVwVNz3GClGuWUd3QPhn71ypCA8gZ6FT7Y+BzBKgC98XTYQHmzOgSAnJO1alDfeeXH4A2R9dGaV2ipUR3N75Sr58djmltqsXOK+xOx3BB1V4SCDJTO9ORl2GDV0OD+UXZLuyEM33Cr1keOccaQ6Dl91U+yw+G9k3zCXyHVvesN2UtDKFoK3b07Occb7z9ji+zF+x8to3h6/88BgQ7numt2s2MmjC/Se7s14UzYIL/FNYVSNWRPV/I9w1v3P07jl/c/jtPp/p8Dr+u/Y0bMx4yIfAnoe76kkP/+WYASeJbmy0qm2TKPFnFKMi8ozuIsJVlxlElexUVWFYsFE2xZCUpkxjHLUcZUxQWNbK++SFCCZEklKU2poFxkGRYypyipOKWsyDLBKGIiyWUWC0HIk0WEecIYLyLKuRDVAqYqZMKECROe4TfqIsuVABIAAA="
+
+    private func bytes(_ encoded: String) throws -> Data { try XCTUnwrap(Data(base64Encoded: encoded)) }
+
+    private func manifest(version: String) -> ModuleManifest {
+        ModuleManifest(
+            id: moduleID, name: "Vault Notes", version: version, runtime: "declarative",
+            entry: "product-ui", permissions: ["ui.richText@1", "backend.records.list"],
+            minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: ["item"]
+        )
+    }
+
+    @MainActor
+    func testContentOnlyModuleInstallRelaunchUpdateRollbackAndUninstall() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vault-package-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let account = "vault-package-account"
+        let firstArchive = try bytes(v1Archive)
+        let first = try ModuleContentPackage(
+            archive: firstArchive, expectedSha256: WebGamePackage.digest(firstArchive)
+        )
+        let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        try controller.stageVerified(
+            accountID: account, moduleId: moduleID, version: "1.0.0", releaseId: "vault-release-1",
+            frontend: first.frontend, frontendSha256: WebGamePackage.digest(first.frontend),
+            mediaType: ProductUIDocument.mediaType, hostManifest: manifest(version: "1.0.0"), descriptor: nil,
+            moduleArchive: firstArchive, modulePackageSha256: first.sha256
+        )
+        let active = try controller.activate(accountID: account, moduleId: moduleID)
+        XCTAssertEqual(active.modulePackageSha256, first.sha256)
+        XCTAssertEqual(try controller.store.verifiedModuleFrontend(for: active), first.frontend)
+
+        let relaunched = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        let restored = try XCTUnwrap(relaunched.active(accountID: account, moduleId: moduleID))
+        XCTAssertEqual(restored.releaseId, "vault-release-1")
+        XCTAssertEqual(try relaunched.store.frontendData(for: restored), first.frontend)
+
+        let secondArchive = try bytes(v2Archive)
+        let second = try ModuleContentPackage(
+            archive: secondArchive, expectedSha256: WebGamePackage.digest(secondArchive)
+        )
+        try relaunched.stageVerified(
+            accountID: account, moduleId: moduleID, version: "1.1.0", releaseId: "vault-release-2",
+            frontend: second.frontend, frontendSha256: WebGamePackage.digest(second.frontend),
+            mediaType: ProductUIDocument.mediaType, hostManifest: manifest(version: "1.1.0"), descriptor: nil,
+            moduleArchive: secondArchive, modulePackageSha256: second.sha256
+        )
+        relaunched.failNextActivationHealth = true
+        XCTAssertThrowsError(try relaunched.activate(accountID: account, moduleId: moduleID))
+        XCTAssertEqual(relaunched.active(accountID: account, moduleId: moduleID)?.releaseId, "vault-release-1")
+        XCTAssertEqual(try relaunched.store.frontendData(for: XCTUnwrap(relaunched.active(accountID: account, moduleId: moduleID))), first.frontend)
+
+        try relaunched.stageVerified(
+            accountID: account, moduleId: moduleID, version: "1.1.0", releaseId: "vault-release-2",
+            frontend: second.frontend, frontendSha256: WebGamePackage.digest(second.frontend),
+            mediaType: ProductUIDocument.mediaType, hostManifest: manifest(version: "1.1.0"), descriptor: nil,
+            moduleArchive: secondArchive, modulePackageSha256: second.sha256
+        )
+        let updated = try relaunched.activate(accountID: account, moduleId: moduleID)
+        XCTAssertEqual(updated.releaseId, "vault-release-2")
+        try Data("substituted".utf8).write(
+            to: updated.directory.appendingPathComponent("ModulePackage/\(second.sha256)/fixtures/readme.txt"),
+            options: .atomic
+        )
+        XCTAssertThrowsError(try relaunched.store.frontendData(for: updated))
+
+        try relaunched.store.removeModule(accountID: account, moduleId: moduleID)
+        XCTAssertNil(relaunched.active(accountID: account, moduleId: moduleID))
+    }
+
+    @MainActor
+    func testContentOnlyModuleRejectsTamperAndFrontendSubstitution() throws {
+        let archive = try bytes(v1Archive)
+        var tampered = archive
+        tampered[tampered.startIndex] ^= 0xff
+        XCTAssertThrowsError(try ModuleContentPackage(
+            archive: tampered, expectedSha256: WebGamePackage.digest(tampered)
+        ))
+        XCTAssertThrowsError(try ModuleContentPackage(
+            archive: archive, expectedSha256: String(repeating: "0", count: 64)
+        ))
+
+        let package = try ModuleContentPackage(
+            archive: archive, expectedSha256: WebGamePackage.digest(archive)
+        )
+        let otherArchive = try bytes(v2Archive)
+        let other = try ModuleContentPackage(
+            archive: otherArchive, expectedSha256: WebGamePackage.digest(otherArchive)
+        )
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vault-substitution-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
+        XCTAssertThrowsError(try controller.stageVerified(
+            accountID: "account", moduleId: moduleID, version: "1.1.0", releaseId: "substitution",
+            frontend: other.frontend, frontendSha256: WebGamePackage.digest(other.frontend),
+            mediaType: ProductUIDocument.mediaType, hostManifest: manifest(version: "1.1.0"), descriptor: nil,
+            moduleArchive: archive, modulePackageSha256: package.sha256
+        ))
+    }
+
+    func testPackagePlanRequiresSignedIOSModuleDescriptor() throws {
+        let digest = String(repeating: "a", count: 64)
+        let statement = String(repeating: "b", count: 64)
+        let signature = Data(repeating: 251, count: 64).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        func package(signature override: String? = nil) -> JSONValue {
+            .object([
+                "schemaVersion": .string("modula.package.1"),
+                "packageId": .string(moduleID), "publisherId": .string("modula"),
+                "category": .string("module"), "version": .string("1.0.0"),
+                "releaseId": .string("vault-release-1"),
+                "artifact": .object([
+                    "sha256": .string(digest), "compressedSizeBytes": .number(1024),
+                    "installedSizeEstimateBytes": .number(4096), "mediaType": .string(ModuleContentPackage.mediaType),
+                    "download": .object(["pathOrUrl": .string("/v1/registry/artifacts/\(digest)"),
+                                           "authorization": .string("bearer"), "range": .bool(true)]),
+                ]),
+                "signature": .object(["algorithm": .string("Ed25519"), "keyId": .string("qa-key"),
+                                       "signature": .string(override ?? signature), "statementDigest": .string(statement)]),
+                "trust": .object(["verified": .bool(true), "publisherVerified": .bool(true), "revoked": .bool(false)]),
+                "minimumHostVersion": .string(">=1.0.0"), "platforms": .array([.string("ios")]),
+                "dependencies": .array([]), "requiredCapabilities": .array([]),
+                "cachePolicy": .string("retain-while-owned"), "sharing": .string("account-private"),
+            ])
+        }
+        func response(_ row: JSONValue) -> JSONValue {
+            let lock: JSONValue = .object([
+                "schemaVersion": .string("modula.package-lock.1"), "requested": .array([.string(moduleID)]),
+                "packages": .array([row]), "aggregateCompressedBytes": .number(1024),
+                "aggregateInstalledEstimateBytes": .number(4096), "newDownloadBytes": .number(1024),
+                "reusedArtifactDigests": .array([]),
+            ])
+            return .object(["lock": lock, "lockSha256": .string(CanonicalJSON.sha256Hex(lock))])
+        }
+        let plan = try XCTUnwrap(PackageInstallPlan(json: response(package()), requested: moduleID))
+        XCTAssertEqual(plan.package(moduleID)?.category, "module")
+        XCTAssertEqual(plan.package(moduleID)?.mediaType, ModuleContentPackage.mediaType)
+        XCTAssertNil(PackageInstallPlan(json: response(package(signature: "fabricated")), requested: moduleID))
+    }
+}
+
 final class WebGameInstalledIsolationTests: XCTestCase {
     func testRollbackClosureRejectsRevokedGameOrRuntimeAndWrongBytes() {
         let gameID = "digital.modula.rollback-qa"
@@ -96,7 +242,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             moduleId: gameID, version: "0.1.0", releaseId: "module-release:\(gameID):0.1.0",
             accountID: "qa-account", frontendSha256: String(repeating: "c", count: 64),
             frontendMediaType: ProductUIDocument.mediaType, gameSha256: gameDigest,
-            runtimeSha256: runtimeDigest,
+            runtimeSha256: runtimeDigest, modulePackageSha256: nil,
             hostManifest: ModuleManifest(id: gameID, name: "Rollback QA", version: "0.1.0",
                                          runtime: "web-game", entry: "index.html", permissions: [],
                                          minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: []),
