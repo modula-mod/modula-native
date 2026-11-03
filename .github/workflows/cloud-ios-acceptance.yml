@@ -186,7 +186,7 @@ jobs:
             -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
             2>&1 | tee artifacts/logs/resolve-packages.log
 
-      - name: Trust the exact audited MLX build plugin
+      - name: Trust the exact audited MLX package extensions
         id: plugin
         if: steps.resolve.outcome == 'success'
         continue-on-error: true
@@ -195,9 +195,13 @@ jobs:
           set -euo pipefail
           expected_revision=0bb916c67f4b9e5c682cbe02a42c701c93ab5021
           expected_plugin_sha256=a4bc7bf7c4c68125b8ac83fb8a609a628a1d23398cb627542ce193f3c012da17
+          expected_macro_revision=1c05248bb0899e2a7a4962b84d319cf12f4e12aa
+          expected_macro_sha256=babb5b059ec3734c778a783bbb10106ded8b6c442b9059702d3cd32abcf82353
           resolved=ios/Modula.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
           checkout="${SWIFT_PACKAGE_DIR}/checkouts/mlx-swift"
           plugin="${checkout}/Plugins/CudaBuild/plugin.swift"
+          macro_checkout="${SWIFT_PACKAGE_DIR}/checkouts/mlx-swift-lm"
+          macro="${macro_checkout}/Libraries/MLXHuggingFaceMacros/HuggingFaceIntegrationMacros.swift"
 
           resolved_revision="$(jq -er '.pins[] | select(.identity == "mlx-swift") | .state.revision' "${resolved}")"
           checkout_revision="$(git -C "${checkout}" rev-parse HEAD)"
@@ -205,6 +209,13 @@ jobs:
           test "${resolved_revision}" = "${expected_revision}"
           test "${checkout_revision}" = "${expected_revision}"
           test "${plugin_sha256}" = "${expected_plugin_sha256}"
+
+          macro_resolved_revision="$(jq -er '.pins[] | select(.identity == "mlx-swift-lm") | .state.revision' "${resolved}")"
+          macro_checkout_revision="$(git -C "${macro_checkout}" rev-parse HEAD)"
+          macro_sha256="$(shasum -a 256 "${macro}" | awk '{print $1}')"
+          test "${macro_resolved_revision}" = "${expected_macro_revision}"
+          test "${macro_checkout_revision}" = "${expected_macro_revision}"
+          test "${macro_sha256}" = "${expected_macro_sha256}"
 
           security_dir="${HOME}/Library/org.swift.swiftpm/security"
           trust_file="${security_dir}/plugins.json"
@@ -225,13 +236,35 @@ jobs:
             'any(.[]; .fingerprint == $fingerprint and .packageIdentity == "mlx-swift" and .targetName == "CudaBuild")' \
             "${trust_file}" >/dev/null
 
+          macro_trust_file="${security_dir}/macros.json"
+          if [[ -f "${macro_trust_file}" ]]; then
+            jq --arg fingerprint "${expected_macro_revision}" \
+              'map(select(.packageIdentity != "mlx-swift-lm" or .targetName != "MLXHuggingFaceMacros"))
+               + [{fingerprint: $fingerprint, packageIdentity: "mlx-swift-lm", targetName: "MLXHuggingFaceMacros"}]' \
+              "${macro_trust_file}" > "${macro_trust_file}.tmp"
+          else
+            jq -n --arg fingerprint "${expected_macro_revision}" \
+              '[{fingerprint: $fingerprint, packageIdentity: "mlx-swift-lm", targetName: "MLXHuggingFaceMacros"}]' \
+              > "${macro_trust_file}.tmp"
+          fi
+          mv "${macro_trust_file}.tmp" "${macro_trust_file}"
+          chmod 600 "${macro_trust_file}"
+          jq -e --arg fingerprint "${expected_macro_revision}" \
+            'any(.[]; .fingerprint == $fingerprint and .packageIdentity == "mlx-swift-lm" and .targetName == "MLXHuggingFaceMacros")' \
+            "${macro_trust_file}" >/dev/null
+
           {
             echo "package_identity=mlx-swift"
             echo "package_revision=${resolved_revision}"
             echo "plugin_target=CudaBuild"
             echo "plugin_sha256=${plugin_sha256}"
-            echo "trust_scope=exact-package-target-revision"
+            echo "macro_package_identity=mlx-swift-lm"
+            echo "macro_package_revision=${macro_resolved_revision}"
+            echo "macro_target=MLXHuggingFaceMacros"
+            echo "macro_sha256=${macro_sha256}"
+            echo "trust_scope=exact-package-target-revision-for-plugin-and-macro"
             echo "global_plugin_validation_bypass=false"
+            echo "global_macro_validation_bypass=false"
           } | tee artifacts/evidence/mlx-plugin-trust.txt
 
       - name: Build complete XCTest products
