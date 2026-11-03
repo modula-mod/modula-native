@@ -10,17 +10,17 @@ struct CollectionsView: View {
         List {
             if let error = app.collections.error { Text(error).foregroundStyle(.red) }
             Section {
-                Text("Save posts on this iPhone. Collections aren’t synced — there isn’t a collections API.")
+                Text("Named collections sync with your Modula account. A private on-device cache keeps them responsive when you’re offline.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Section {
                 ForEach(app.collections.collections.filter(\.isDefault)) { collection in
-                    NavigationLink(value: AppRoute.collections(.collection(collection.id))) {
-                        CollectionCard(collection: collection)
+                    NavigationLink(value: AppRoute.saved(.root)) {
+                        CollectionCard(collection: collection, itemCountOverride: app.saved.posts.count)
                     }
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items")
+                    .accessibilityLabel("\(collection.name), \(app.saved.posts.count) saved items")
                 }
             }
             Section {
@@ -39,6 +39,11 @@ struct CollectionsView: View {
             }
         }
         .modulaSoftScrollEdge()
+        .refreshable { await app.collections.refresh() }
+        .task {
+            await app.collections.refresh()
+            await app.saved.load()
+        }
         .navigationTitle("Collections")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -61,9 +66,9 @@ struct CollectionsView: View {
                         .textFieldStyle(.plain)
                         .padding(14)
                         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    Label("Stored on this iPhone", systemImage: "iphone")
+                    Label("Saved locally, synced to your account", systemImage: "checkmark.icloud")
                         .font(.subheadline.weight(.semibold))
-                    Text("Collections stay on this device. There isn’t a collections API, so they aren’t synced.")
+                    Text("If you’re offline, the collection is queued and replays safely after sign-in and connectivity return.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
@@ -123,15 +128,26 @@ struct CollectionDetailView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var posts: [SocialPostID: SocialPost] = [:]
     @State private var unavailable: Set<SocialPostID> = []
+    @State private var showRename = false
+    @State private var renameName = ""
 
     var body: some View {
         Group {
             if let collection = app.collections.collections.first(where: { $0.id == collectionID }) {
                 List {
                     Section {
-                        Text(collection.storage == .local ? "Saved on this iPhone only." : "Collections stay on this iPhone. They aren’t synced.")
+                        Text(collection.isDefault ? "Your existing Saved posts remain server-backed." : syncDescription(collection.syncState))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                    if collection.syncState == .conflict {
+                        Section("Sync conflict") {
+                            Text("This collection changed on another device. The local cache has not overwritten it.")
+                                .foregroundStyle(.secondary)
+                            Button("Use Server Collection") {
+                                Task { await app.collections.resolveConflictUsingServer(id: collection.id) }
+                            }
+                        }
                     }
                     Section("Posts") {
                         if collection.itemIDs.isEmpty {
@@ -154,9 +170,28 @@ struct CollectionDetailView: View {
                 .modulaSoftScrollEdge()
                 .modulaCanvas()
                 .navigationTitle(collection.name)
+                .toolbar {
+                    if !collection.isDefault {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("Rename", systemImage: "pencil") {
+                                renameName = collection.name
+                                showRename = true
+                            }
+                        }
+                    }
+                }
+                .alert("Rename Collection", isPresented: $showRename) {
+                    TextField("Collection name", text: $renameName)
+                    Button("Cancel", role: .cancel) {}
+                    Button("Save") { app.collections.rename(id: collection.id, name: renameName) }
+                        .disabled(renameName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } message: {
+                    Text("The new name syncs to your Modula account.")
+                }
                 .task(id: collection.itemIDs) { await loadPosts(collection.itemIDs) }
                 // Enhancements-50: pull to re-fetch every saved post from Greenfield.
                 .modulaRefreshable {
+                    await app.collections.refresh()
                     await MainActor.run {
                         unavailable.removeAll()
                         posts.removeAll()
@@ -258,10 +293,21 @@ struct CollectionDetailView: View {
             }
         }
     }
+
+    private func syncDescription(_ state: CollectionSyncState) -> String {
+        switch state {
+        case .synced: "Synced with your Modula account."
+        case .pending: "Saved locally · waiting to sync."
+        case .conflict: "A newer server version needs your review."
+        case .failed: "The last sync failed. Pull to retry."
+        case .localOnly: "Stored in the private on-device cache."
+        }
+    }
 }
 
 struct CollectionCard: View {
     let collection: ModulaCollection
+    var itemCountOverride: Int? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -273,7 +319,7 @@ struct CollectionCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(collection.name)
                     .font(.body.weight(.semibold))
-                Text("\(collection.itemCount) \(collection.itemCount == 1 ? "item" : "items") · \(collection.storage == .local ? "On This Device" : "On your account")")
+                Text("\(itemCount) \(itemCount == 1 ? "item" : "items") · \(status)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(collection.isDefault ? "Smart Collection" : "My Collection")
@@ -287,7 +333,20 @@ struct CollectionCard: View {
         }
         .padding(.vertical, 6)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items, \(collection.storage == .local ? "on this device" : "on your account")")
+        .accessibilityLabel("\(collection.name), \(itemCount) saved items, \(status)")
+    }
+
+    private var itemCount: Int { itemCountOverride ?? collection.itemCount }
+
+    private var status: String {
+        if collection.isDefault { return "Saved" }
+        switch collection.syncState {
+        case .synced: "Synced"
+        case .pending: "Waiting to sync"
+        case .conflict: "Conflict"
+        case .failed: "Sync failed"
+        case .localOnly: "On this device"
+        }
     }
 }
 
@@ -328,12 +387,13 @@ struct CollectionPicker: View {
                         }
                         .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    Text("Stored on this iPhone")
+                    Text("Saved locally and synced to your account")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             .modulaSoftScrollEdge()
+            .task { await app.collections.refresh() }
             .navigationTitle("Save to Collection")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

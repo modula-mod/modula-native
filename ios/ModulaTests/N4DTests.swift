@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import Modula
 
@@ -50,6 +51,247 @@ final class N4DRouteTests: XCTestCase {
         XCTAssertTrue(ShellSidebarDestination.saved.requiresSignIn)
         XCTAssertFalse(ShellSidebarDestination.community.requiresSignIn)
         XCTAssertFalse(ShellSidebarDestination.settings.requiresSignIn)
+    }
+}
+
+private final class CollectionsDraftsContractProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var captured: [(method: String, path: String, query: String?, body: JSONValue?, authorization: String?)] = []
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let method = request.httpMethod ?? ""
+        let path = request.url?.path ?? ""
+        let query = request.url?.query
+        let body = request.httpBody.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        let authorization = request.value(forHTTPHeaderField: "Authorization")
+        let responseBody: String
+
+        switch (method, path) {
+        case ("POST", "/v1/sessions"):
+            let future = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3_600))
+            responseBody = #"{"ok":true,"data":{"accessToken":"access","refreshToken":"refresh","sessionId":"session","accessExpiresAt":"\#(future)","refreshExpiresAt":"\#(future)"}}"#
+        case ("GET", "/v1/accounts/me"):
+            responseBody = #"{"ok":true,"data":{"accountId":"account","primaryHandle":"me","status":"active"}}"#
+        case ("POST", "/v1/me/collections"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = Self.collection(name: "Research", version: 1)
+        case ("PATCH", "/v1/me/collections/11111111-1111-4111-8111-111111111111"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = Self.collection(name: "Field Notes", version: 2)
+        case ("POST", "/v1/posts/22222222-2222-4222-8222-222222222222/save"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = #"{"ok":true,"data":{"saved":true}}"#
+        case ("POST", "/v1/me/collections/11111111-1111-4111-8111-111111111111/items"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = #"{"ok":true,"data":{"item":{"id":"33333333-3333-4333-8333-333333333333","collectionId":"11111111-1111-4111-8111-111111111111","postId":"22222222-2222-4222-8222-222222222222","position":0,"available":true,"post":null,"version":1,"addedAt":"2026-11-03T10:00:00.000Z","updatedAt":"2026-11-03T10:00:00.000Z"}}}"#
+        case ("DELETE", "/v1/me/collections/11111111-1111-4111-8111-111111111111/items/33333333-3333-4333-8333-333333333333"),
+             ("DELETE", "/v1/me/collections/11111111-1111-4111-8111-111111111111"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = #"{"ok":true,"data":{"deleted":true}}"#
+        case ("POST", "/v1/me/drafts"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = Self.draft(text: "Offline words", state: "editing", version: 1, publishedPostID: nil)
+        case ("PATCH", "/v1/me/drafts/44444444-4444-4444-8444-444444444444"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = Self.draft(text: "Revised words", state: "editing", version: 2, publishedPostID: nil)
+        case ("POST", "/v1/me/drafts/44444444-4444-4444-8444-444444444444/publish"):
+            Self.capture(method, path, query, body, authorization)
+            let draft = Self.draftObject(text: "Revised words", state: "published", version: 3,
+                                         publishedPostID: "66666666-6666-4666-8666-666666666666")
+            responseBody = #"{"ok":true,"data":{"draft":\#(draft),"postId":"66666666-6666-4666-8666-666666666666","created":true}}"#
+        case ("GET", "/v1/posts/66666666-6666-4666-8666-666666666666"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = #"{"ok":true,"data":{"post":{"id":"66666666-6666-4666-8666-666666666666","createdAt":"2026-11-03T10:00:00.000Z","text":"Revised words","kind":"text","audience":"public","media":[]}}}"#
+        case ("DELETE", "/v1/me/drafts/44444444-4444-4444-8444-444444444444"):
+            Self.capture(method, path, query, body, authorization)
+            responseBody = #"{"ok":true,"data":{"deleted":true}}"#
+        default:
+            responseBody = #"{"ok":false,"error":{"code":"NOT_FOUND"}}"#
+        }
+
+        let status = responseBody.contains(#""ok":true"#) ? 200 : 404
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(responseBody.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func capture(_ method: String, _ path: String, _ query: String?, _ body: JSONValue?, _ authorization: String?) {
+        captured.append((method, path, query, body, authorization))
+    }
+
+    private static func collection(name: String, version: Int) -> String {
+        #"{"ok":true,"data":{"collection":{"id":"11111111-1111-4111-8111-111111111111","name":"\#(name)","itemCount":0,"version":\#(version),"createdAt":"2026-11-03T10:00:00.000Z","updatedAt":"2026-11-03T10:00:00.000Z"}}}"#
+    }
+
+    private static func draft(text: String, state: String, version: Int, publishedPostID: String?) -> String {
+        #"{"ok":true,"data":{"draft":\#(draftObject(text: text, state: state, version: version, publishedPostID: publishedPostID))}}"#
+    }
+
+    private static func draftObject(text: String, state: String, version: Int, publishedPostID: String?) -> String {
+        let published = publishedPostID.map { #""\#($0)""# } ?? "null"
+        return #"{"id":"44444444-4444-4444-8444-444444444444","idempotencyKey":"draft-idempotency","text":"\#(text)","feed":"following","audience":"public","replyPermission":"followers","content":[{"type":"image","attachmentId":"55555555-5555-4555-8555-555555555555","caption":"Evidence"}],"publishToAtproto":false,"state":"\#(state)","publishedPostId":\#(published),"version":\#(version),"createdAt":"2026-11-03T10:00:00.000Z","updatedAt":"2026-11-03T10:00:00.000Z"}"#
+    }
+}
+
+final class CollectionsDraftsRepositoryContractTests: XCTestCase {
+    func testCollectionsUseExactAtlasPathsBodiesVersionsAndAuthentication() async throws {
+        CollectionsDraftsContractProtocol.captured = []
+        let client = try await signedInClient()
+        let repository = GreenfieldCollectionRepository(client: client)
+        let collectionID = "11111111-1111-4111-8111-111111111111"
+        let postID = "22222222-2222-4222-8222-222222222222"
+        let itemID = "33333333-3333-4333-8333-333333333333"
+
+        let created = try await repository.create(name: "Research")
+        let renamed = try await repository.rename(id: collectionID, name: "Field Notes", expectedVersion: 1)
+        let item = try await repository.add(collectionID: collectionID, postID: postID)
+        try await repository.remove(collectionID: collectionID, itemID: itemID)
+        try await repository.delete(id: collectionID, expectedVersion: 2)
+
+        XCTAssertEqual(created.version, 1)
+        XCTAssertEqual(renamed.name, "Field Notes")
+        XCTAssertEqual(item.postID, postID)
+        let requests = CollectionsDraftsContractProtocol.captured
+        XCTAssertEqual(requests.map(\.path), [
+            "/v1/me/collections",
+            "/v1/me/collections/\(collectionID)",
+            "/v1/posts/\(postID)/save",
+            "/v1/me/collections/\(collectionID)/items",
+            "/v1/me/collections/\(collectionID)/items/\(itemID)",
+            "/v1/me/collections/\(collectionID)",
+        ])
+        XCTAssertEqual(requests[0].body, .object(["name": .string("Research")]))
+        XCTAssertEqual(requests[1].body, .object(["name": .string("Field Notes"), "expectedVersion": .number(1)]))
+        XCTAssertEqual(requests[2].body, .object([:]))
+        XCTAssertEqual(requests[3].body, .object(["postId": .string(postID)]))
+        XCTAssertNil(requests[4].body)
+        XCTAssertEqual(requests[5].query, "expectedVersion=2")
+        XCTAssertTrue(requests.allSatisfy { $0.authorization == "Bearer access" })
+    }
+
+    func testDraftsUseExactAtlasPayloadAndExactlyOncePublishContract() async throws {
+        CollectionsDraftsContractProtocol.captured = []
+        let client = try await signedInClient()
+        let repository = GreenfieldDraftRepository(client: client)
+        let draftID = "44444444-4444-4444-8444-444444444444"
+        let attachmentID = "55555555-5555-4555-8555-555555555555"
+        let media = CreationMedia(
+            id: "local-image", kind: .image, filename: "image.jpg", altText: "Evidence",
+            pixelWidth: 1200, pixelHeight: 900, byteCount: 1024, duration: nil, sensitive: false,
+            remoteAttachmentID: attachmentID, uploadState: .ready
+        )
+        let local = PostDraft(
+            id: "local-draft", accountID: "account", text: " Offline words ",
+            mediaReferences: [media.id], media: [media], audience: "public", lastEdited: Date(),
+            idempotencyKey: "draft-idempotency", feed: "following", replyPermission: "followers"
+        )
+        let created = try await repository.create(local)
+        var update = local
+        update.text = "Revised words"
+        update.serverID = draftID
+        update.serverVersion = 1
+        let revised = try await repository.update(update)
+        let outcome = try await repository.publish(id: draftID, expectedVersion: 2)
+        let post = try await repository.post(id: outcome.postID)
+        try await repository.delete(id: draftID, expectedVersion: 3)
+
+        XCTAssertEqual(created.version, 1)
+        XCTAssertEqual(revised.version, 2)
+        XCTAssertEqual(outcome.draft.state, "published")
+        XCTAssertEqual(post.id, outcome.postID)
+        let requests = CollectionsDraftsContractProtocol.captured
+        XCTAssertEqual(requests.map(\.path), [
+            "/v1/me/drafts",
+            "/v1/me/drafts/\(draftID)",
+            "/v1/me/drafts/\(draftID)/publish",
+            "/v1/posts/\(outcome.postID)",
+            "/v1/me/drafts/\(draftID)",
+        ])
+        XCTAssertEqual(requests[0].body, .object([
+            "idempotencyKey": .string("draft-idempotency"),
+            "text": .string("Offline words"),
+            "feed": .string("following"),
+            "audience": .string("public"),
+            "replyPermission": .string("followers"),
+            "content": .array([.object([
+                "type": .string("image"), "attachmentId": .string(attachmentID), "caption": .string("Evidence"),
+            ])]),
+            "publishToAtproto": .bool(false),
+        ]))
+        guard case .object(let updateBody)? = requests[1].body else { return XCTFail("Expected update object") }
+        XCTAssertEqual(updateBody["expectedVersion"], .number(1))
+        XCTAssertNil(updateBody["idempotencyKey"])
+        XCTAssertEqual(requests[2].body, .object(["expectedVersion": .number(2)]))
+        XCTAssertEqual(requests[4].query, "expectedVersion=3")
+        XCTAssertTrue(requests.allSatisfy { $0.authorization == "Bearer access" })
+    }
+
+    func testLegacyLocalRecordsDecodeWithoutServerMetadata() throws {
+        let collection = try JSONDecoder().decode(ModulaCollection.self, from: Data(#"{"id":"old","name":"Local","storage":"local","itemIDs":["post"],"createdAt":0,"updatedAt":0,"isDefault":false}"#.utf8))
+        XCTAssertEqual(collection.syncState, .localOnly)
+        XCTAssertNil(collection.version)
+
+        let draft = try JSONDecoder().decode(PostDraft.self, from: Data(#"{"id":"old","text":"Safe","mediaReferences":[],"lastEdited":0}"#.utf8))
+        XCTAssertEqual(draft.syncState, .localOnly)
+        XCTAssertNil(draft.serverID)
+        XCTAssertEqual(draft.feed, "following")
+    }
+
+    private func signedInClient() async throws -> GreenfieldClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CollectionsDraftsContractProtocol.self]
+        let client = GreenfieldClient(
+            baseURL: URL(string: "https://collections-drafts-\(UUID().uuidString.prefix(8)).modula.test")!,
+            transport: URLSession(configuration: configuration)
+        )
+        _ = try await client.signIn(email: "sync@example.com", password: "test-only")
+        return client
+    }
+}
+
+@MainActor
+final class CollectionsDraftsConflictTests: XCTestCase {
+    func testKeepBothPreservesStaleLocalEditAndServerRevision() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = PrivateFileStore(domain: .drafts, rootURL: root)
+        let media = DraftMediaStore(fileStore: PrivateFileStore(domain: .draftMedia, rootURL: root))
+        let server = GreenfieldPostDraft(
+            id: "44444444-4444-4444-8444-444444444444", idempotencyKey: "server-key",
+            text: "Edited on client B", feed: "following", audience: "public",
+            replyPermission: "everyone", content: [], publishToATProto: false,
+            state: "editing", publishedPostID: nil, version: 2,
+            createdAt: Date(timeIntervalSince1970: 1), updatedAt: Date(timeIntervalSince1970: 2)
+        )
+        let local = PostDraft(
+            id: "local-a", accountID: nil, text: "Stale edit from client A", mediaReferences: [],
+            lastEdited: Date(timeIntervalSince1970: 3), idempotencyKey: "local-key",
+            serverID: server.id, serverVersion: 1, syncState: .conflict,
+            syncConflict: DraftSyncConflict(server: server, detectedAt: Date(timeIntervalSince1970: 4))
+        )
+        let index = DraftIndex(posts: [local], inMails: [], stories: [])
+        try files.saveData(try JSONEncoder().encode(index), filename: "draft-index.json")
+        let store = DraftStore(fileStore: files, mediaStore: media)
+
+        store.resolveConflictKeepingLocal(id: local.id)
+
+        XCTAssertEqual(store.posts.count, 2)
+        let preserved = try XCTUnwrap(store.posts.first(where: { $0.id == local.id }))
+        XCTAssertEqual(preserved.text, "Stale edit from client A")
+        XCTAssertNil(preserved.serverID)
+        XCTAssertEqual(preserved.syncState, .pending)
+        let serverCopy = try XCTUnwrap(store.posts.first(where: { $0.serverID == server.id }))
+        XCTAssertEqual(serverCopy.text, "Edited on client B")
+        XCTAssertEqual(serverCopy.serverVersion, 2)
+        XCTAssertEqual(serverCopy.syncState, .synced)
     }
 }
 
@@ -494,8 +736,9 @@ final class CollectionsDraftsShareTests: XCTestCase {
     func testSavedListCapabilityOpenByDefault() {
         XCTAssertTrue(SavedBackendCapabilities.production.listSavedPosts)
         XCTAssertTrue(SavedBackendCapabilities.production.toggleSave)
-        XCTAssertEqual(SavedBackendCapabilities.Paths.savedPosts(cursor: nil), "/v1/saves")
-        XCTAssertFalse(SavedBackendCapabilities.production.pagination)
+        XCTAssertEqual(SavedBackendCapabilities.Paths.savedPosts(cursor: nil), "/v1/saves?limit=30")
+        XCTAssertTrue(SavedBackendCapabilities.Paths.savedPosts(cursor: "a|b").contains("cursor=a%7Cb"))
+        XCTAssertTrue(SavedBackendCapabilities.production.pagination)
     }
 
     func testIntelligenceChatReplyUsesRealTextOnly() {
