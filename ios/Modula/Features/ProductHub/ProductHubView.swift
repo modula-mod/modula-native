@@ -389,10 +389,16 @@ final class ProductHubStore {
             throw ModuleActivationError.incompatible
         }
         if product.productKind == "game" {
-            guard root.category == "game-content", root.mediaType == WebGamePackage.mediaType,
+            guard PackageMediaCompatibility.dispatch(
+                schemaVersion: PackageMediaCompatibility.packageSchemaVersion,
+                category: root.category, mediaType: root.mediaType
+            ) == .gubicGame,
                   plan.packages.count == 2, root.dependencies.count == 1,
-                  let runtime = plan.package(root.dependencies[0]), runtime.category == "web-runtime",
-                  runtime.mediaType == "application/vnd.modula.web-runtime+tgz",
+                  let runtime = plan.package(root.dependencies[0]),
+                  PackageMediaCompatibility.dispatch(
+                    schemaVersion: PackageMediaCompatibility.packageSchemaVersion,
+                    category: runtime.category, mediaType: runtime.mediaType
+                  ) == .gubicRuntime,
                   runtime.sharing == "public-immutable", runtime.dependencies.isEmpty,
                   root.requiredCapabilities.allSatisfy(ModuleCapabilityBroker.hostSupports),
                   runtime.requiredCapabilities.allSatisfy(ModuleCapabilityBroker.hostSupports) else {
@@ -400,8 +406,11 @@ final class ProductHubStore {
             }
             return
         }
-        guard product.productKind == "module", root.category == "module",
-              root.mediaType == ModuleContentPackage.mediaType,
+        guard product.productKind == "module",
+              PackageMediaCompatibility.dispatch(
+                schemaVersion: PackageMediaCompatibility.packageSchemaVersion,
+                category: root.category, mediaType: root.mediaType
+              ) == .moduleContent,
               plan.packages.count == 1, root.dependencies.isEmpty,
               root.requiredCapabilities.allSatisfy(ModuleCapabilityBroker.hostSupports) else {
             throw ModuleActivationError.incompatible
@@ -762,7 +771,8 @@ final class ProductHubStore {
                           $0["kind"]?.string == "asset" && $0["requiredForOfflineLaunch"]?.bool == true &&
                           $0["access"]?.string == "installation" && $0["immutable"]?.bool == true }),
                       let digest = game["digest"]?.string, InstallDescriptorVerifier.isHex64(digest),
-                      ["application/gzip", "application/vnd.modula.game-web+tgz"].contains(game["contentType"]?.string ?? "") else {
+                      PackageMediaCompatibility.gubicInstalledArtifactMediaTypes
+                        .contains(game["contentType"]?.string ?? "") else {
                     throw ModuleActivationError.untrusted
                 }
                 if let plan = packagePlans[id] {

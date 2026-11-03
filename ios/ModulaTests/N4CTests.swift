@@ -86,6 +86,70 @@ final class N4CRouteTests: XCTestCase {
     }
 }
 
+final class PackageMediaCompatibilityTests: XCTestCase {
+    func testEveryReviewedPackageShapeHasOneExactDispatch() {
+        XCTAssertEqual(
+            Set(PackageMediaCompatibility.rules.map(\.kind)),
+            Set(PackageMediaCompatibility.PayloadKind.allCases)
+        )
+        XCTAssertEqual(Set(PackageMediaCompatibility.rules.map {
+            "\($0.schemaVersion)|\($0.category)|\($0.mediaType)"
+        }).count, PackageMediaCompatibility.rules.count)
+
+        for rule in PackageMediaCompatibility.rules {
+            XCTAssertEqual(
+                PackageMediaCompatibility.dispatch(
+                    schemaVersion: rule.schemaVersion,
+                    category: rule.category,
+                    mediaType: rule.mediaType
+                ),
+                rule.kind
+            )
+        }
+
+        XCTAssertEqual(MolibooAssetPackContainer.mediaType, PackageMediaCompatibility.moliboo.mediaType)
+        XCTAssertEqual(ModuleContentPackage.mediaType, PackageMediaCompatibility.module.mediaType)
+        XCTAssertEqual(WebGamePackage.mediaType, PackageMediaCompatibility.gubicGame.mediaType)
+        XCTAssertEqual(WebRuntimePackage.mediaType, PackageMediaCompatibility.gubicRuntime.mediaType)
+    }
+
+    func testUnknownTypesVersionsAndCategorySubstitutionFailClosed() {
+        XCTAssertNil(PackageMediaCompatibility.dispatch(
+            schemaVersion: PackageMediaCompatibility.packageSchemaVersion,
+            category: "module",
+            mediaType: "application/vnd.modula.unknown+zip"
+        ))
+        XCTAssertNil(PackageMediaCompatibility.dispatch(
+            schemaVersion: "modula.package.2",
+            category: PackageMediaCompatibility.gubicGame.category,
+            mediaType: PackageMediaCompatibility.gubicGame.mediaType
+        ))
+        XCTAssertNil(PackageMediaCompatibility.dispatch(
+            schemaVersion: PackageMediaCompatibility.packageSchemaVersion,
+            category: "module",
+            mediaType: PackageMediaCompatibility.gubicGame.mediaType
+        ))
+        XCTAssertNil(PackageMediaCompatibility.dispatch(
+            schemaVersion: PackageMediaCompatibility.packageSchemaVersion,
+            category: "asset-pack",
+            mediaType: "application/vnd.modula.asset-pack+tgz"
+        ), "Generic asset archives remain database-compatible but have no native verifier")
+    }
+
+    func testGubicLegacyReadCompatibilityAndMigrationTypesRemainExplicit() {
+        XCTAssertEqual(PackageMediaCompatibility.gubicInstalledArtifactMediaTypes, Set([
+            "application/gzip", "application/vnd.modula.game-web+tgz"
+        ]))
+        XCTAssertEqual(PackageMediaCompatibility.preMolibooOptionalDatabaseMediaTypes, Set([
+            "application/vnd.modula.game-web+tgz",
+            "application/vnd.modula.web-runtime+tgz",
+            "application/vnd.modula.asset-pack+tgz"
+        ]))
+        XCTAssertEqual(PackageMediaCompatibility.stickerManifest.mediaType, "application/json")
+        XCTAssertEqual(PackageMediaCompatibility.stickerAsset.mediaType, "image/png")
+    }
+}
+
 final class VaultModulePackageTests: XCTestCase {
     private let moduleID = "digital.modula.vault-notes"
     private let v1Archive = "H4sIAAAAAAAAA+1XS2/bMAzuTwl4dlzJr9jGNuy6w3bohl6KHGiJjrX6kUly2iDIfx9kuy3abuslSHfwd5FESfwoiqLpUnetpVZellPHb7BVJRnr/zRde3EKMMZYEkVDyxh72XIexQ/9Uc4jzqKLBTsJ+xvojUV9wc7C9R/iAEZU1CDk0HSyr9F/DATuM/DgYfh9WHZN2qiuhRy4z4b5ZmueCcGDre5kL+wXCTlItVEWa39SvsO+tsu2s2TAA001oaE/KO0kuc0katRo1Y7AA2qt3kMOVde4YdUZe9W3VjUE+QF2o5IrbDdu66ePg67Fh2BQefRAd71jzW8OsEVbQQ6X4MFO0d1g6KD1uB4l4zIln9huVTscB01VdKils77rrGO2+61jNCSsO4UHolK11NQOSqZZrUT1g+4teGBdk8O1c8ViPPFxfXTUArdYqFpZ5Qw9gKZfvdIkIb+BXvkPOj5zWHvQbR0d1pDfrI8eoBBkjBq2793mR+cNnnXeWhZoqFYtLe+UrZbTNS0NNdhaJdyNGKGJ2itCSRpyq3tyMqyxqGkwf5Ld0n5wwzfcqc3EMc5okr2gr92T7Hh87yCf8VeU6t72msylJpQN+fbenpzjjfzPWLB6kf95wsM5/58DEi0uu7beL6ZIGDPSe5s140zYorjFDfmlqsmcruR7hrfefxiHL99/GMbz+z8HXtd/U0Qsx4jgrgR0PVdSlP/+WYAcWLEKoyAUjPFytYoETxLkPONhiUkasVJmokhkmhHFLJMppiuByIqEcV6KAuOB7dUXCXJIY6SUxUESZkkZSZkltEqLIIgooLKIy4gKjowTEgZBGgQsioqEZUyEaRomqwzmKmTGjBkznuE3RlIt2gASAAA="

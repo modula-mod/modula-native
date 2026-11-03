@@ -486,7 +486,7 @@ actor GreenfieldClient {
               url.host == baseURL.host, url.port == baseURL.port else { throw APIError.invalidResponse }
         var request = try await mediaRequest(for: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        request.setValue("application/vnd.modula.moliboo-asset-pack+json", forHTTPHeaderField: "Accept")
+        request.setValue(PackageMediaCompatibility.moliboo.mediaType, forHTTPHeaderField: "Accept")
         request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
         let (data, response) = try await artifactTransport.data(for: request)
         guard let http = response as? HTTPURLResponse,
