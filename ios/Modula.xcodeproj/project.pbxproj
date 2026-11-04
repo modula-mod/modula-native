@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */; };
+		C10D00000000000000000001 /* ModulaPremium.storekit in Resources */ = {isa = PBXBuildFile; fileRef = C10D00000000000000000002 /* ModulaPremium.storekit */; };
 		F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */; };
 		D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */; };
 		8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00800010D11651D7DAE87F5E /* MolibooGameModels.swift */; };
@@ -620,6 +621,7 @@
 		28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumPlanViews.swift; path = Features/Premium/PremiumPlanViews.swift; sourceTree = "<group>"; };
 		30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumMemberViews.swift; path = Features/Premium/PremiumMemberViews.swift; sourceTree = "<group>"; };
 		EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumPurchaseViews.swift; path = Features/Premium/PremiumPurchaseViews.swift; sourceTree = "<group>"; };
+		C10D00000000000000000002 /* ModulaPremium.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = ModulaPremium.storekit; path = Features/Premium/ModulaPremium.storekit; sourceTree = "<group>"; };
 		FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumModels.swift; path = Features/Premium/PremiumModels.swift; sourceTree = "<group>"; };
 		961C2CB05DCED97163C563F7 /* GubicModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicModels.swift; path = Features/GUBIC/GubicModels.swift; sourceTree = "<group>"; };
 		9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicRuntime.swift; path = Features/GUBIC/GubicRuntime.swift; sourceTree = "<group>"; };
@@ -1395,6 +1397,7 @@
 				28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */,
 				30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */,
 				EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */,
+				C10D00000000000000000002 /* ModulaPremium.storekit */,
 				FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */,
 				961C2CB05DCED97163C563F7 /* GubicModels.swift */,
 				9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */,
@@ -1775,6 +1778,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C10D00000000000000000001 /* ModulaPremium.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

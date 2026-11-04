@@ -1,0 +1,397 @@
+name: Cloud iOS Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_live_backend:
+        description: Verify access to the pinned disposable GreenField backend ref when a read-only token is configured
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: cloud-ios-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  simulator-acceptance:
+    name: Xcode 27.1 / iOS 27.0 / iPhone 18 Pro
+    runs-on: xcode-27
+    timeout-minutes: 180
+    env:
+      CI: "true"
+      BACKEND_REPOSITORY: modula-mod/modula-latest
+      BACKEND_REF: qa/cloud-ios-acceptance-01-backend
+      BACKEND_SHA: 654c513e749d606a914346016af4b7ba267e1681
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      IOS_RUNTIME_NAME: iOS 27.0
+      IOS_DEVICE_NAME: iPhone 18 Pro
+      NODE_VERSION: 22.23.2
+      MODULA_API_URL: http://127.0.0.1:9
+      COMPILER_INDEX_STORE_ENABLE: "NO"
+      SWIFT_PACKAGE_DIR: ${{ github.workspace }}/artifacts/SourcePackages
+
+    steps:
+      - name: Check out the pinned native ref
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Record source and runner identity
+        id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence artifacts/logs artifacts/attachments artifacts/screenshots
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          {
+            echo "native_repository=${GITHUB_REPOSITORY}"
+            echo "native_sha=$(git rev-parse HEAD)"
+            echo "native_ref=${GITHUB_REF}"
+            echo "backend_repository=${BACKEND_REPOSITORY}"
+            echo "backend_ref=${BACKEND_REF}"
+            echo "backend_sha=${BACKEND_SHA}"
+            echo "runner_name=${RUNNER_NAME}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            echo "image_os=${ImageOS:-unknown}"
+            echo "image_version=${ImageVersion:-unknown}"
+            sw_vers | sed 's/^/macos_/'
+            uname -a
+          } | tee artifacts/evidence/environment.txt
+
+      - name: Select the pinned Xcode and simulator runtime
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "${DEVELOPER_DIR}"
+          sudo xcode-select --switch "${DEVELOPER_DIR}"
+          xcodebuild -runFirstLaunch
+          xcodebuild -version | tee artifacts/evidence/xcode-version.txt
+          xcrun swift --version | tee artifacts/evidence/swift-version.txt
+          xcodebuild -showsdks | tee artifacts/evidence/xcode-sdks.txt
+          xcrun simctl list runtimes --json > artifacts/evidence/simulator-runtimes.json
+          xcrun simctl list devicetypes --json > artifacts/evidence/simulator-device-types.json
+
+          runtime_id="$(jq -r --arg name "${IOS_RUNTIME_NAME}" '.runtimes[] | select(.name == $name and .isAvailable == true) | .identifier' artifacts/evidence/simulator-runtimes.json | head -1)"
+          device_type_id="$(jq -r --arg name "${IOS_DEVICE_NAME}" '.devicetypes[] | select(.name == $name) | .identifier' artifacts/evidence/simulator-device-types.json | head -1)"
+          test -n "${runtime_id}"
+          test -n "${device_type_id}"
+
+          simulator_udid="$(xcrun simctl create ModulaCloudAcceptance "${device_type_id}" "${runtime_id}")"
+          echo "udid=${simulator_udid}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "runtime=${IOS_RUNTIME_NAME}"
+            echo "runtime_id=${runtime_id}"
+            echo "device=${IOS_DEVICE_NAME}"
+            echo "device_type_id=${device_type_id}"
+            echo "simulator_udid=${simulator_udid}"
+          } | tee artifacts/evidence/simulator.txt
+          xcrun simctl boot "${simulator_udid}"
+          xcrun simctl bootstatus "${simulator_udid}" -b
+
+      - name: Check disposable backend access
+        id: backend
+        shell: bash
+        env:
+          BACKEND_READ_TOKEN: ${{ secrets.MODULA_BACKEND_READ_TOKEN }}
+          REQUESTED_LIVE_BACKEND: ${{ inputs.run_live_backend || 'false' }}
+        run: |
+          set -euo pipefail
+          if [[ "${REQUESTED_LIVE_BACKEND}" != "true" ]]; then
+            echo "status=not-requested" | tee artifacts/evidence/backend-runtime.txt
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ -z "${BACKEND_READ_TOKEN}" ]]; then
+            echo "status=blocked-missing-read-only-backend-token" | tee artifacts/evidence/backend-runtime.txt
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${BACKEND_READ_TOKEN}" | base64)"
+          remote_sha="$(git -c http.extraheader="${auth_header}" ls-remote "https://github.com/${BACKEND_REPOSITORY}.git" "refs/heads/${BACKEND_REF}" | awk '{print $1}')"
+          test "${remote_sha}" = "${BACKEND_SHA}"
+          echo "status=pinned-ref-verified" | tee artifacts/evidence/backend-runtime.txt
+          echo "available=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Select pinned Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install pinned JavaScript and CocoaPods dependencies
+        id: dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version | tee artifacts/evidence/node-version.txt
+          test "$(node --version)" = "v${NODE_VERSION}"
+          npm --version | tee artifacts/evidence/npm-version.txt
+          npm ci
+          gem install cocoapods -v 1.16.2 --no-document --user-install
+          pod _1.16.2_ --version | tee artifacts/evidence/cocoapods-version.txt
+          test "$(pod _1.16.2_ --version)" = "1.16.2"
+          cp ios/Podfile.lock artifacts/evidence/Podfile.lock.committed
+          set +e
+          pod _1.16.2_ install --project-directory=ios --deployment \
+            2>&1 | tee artifacts/logs/pod-install-deployment.log
+          deployment_status="${PIPESTATUS[0]}"
+          set -e
+          if [[ "${deployment_status}" -ne 0 ]]; then
+            echo "lock_drift=true" >> "${GITHUB_OUTPUT}"
+            pod _1.16.2_ install --project-directory=ios \
+              2>&1 | tee artifacts/logs/pod-install-regenerate.log
+            cp ios/Podfile.lock artifacts/evidence/Podfile.lock.generated
+            git diff -- ios/Podfile.lock > artifacts/logs/Podfile.lock.diff
+          else
+            echo "lock_drift=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Verify source boundaries and JavaScript runtime
+        id: javascript
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run verify:boundary 2>&1 | tee artifacts/logs/verify-boundary.log
+          npm run verify:design 2>&1 | tee artifacts/logs/verify-design.log
+          npm run typecheck 2>&1 | tee artifacts/logs/typecheck.log
+          npm test 2>&1 | tee artifacts/logs/javascript-tests.log
+
+      - name: Force all app traffic away from production
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ios/Configuration/Debug.local.xcconfig <<'CONFIG'
+          MODULA_API_URL = http:/$()/127.0.0.1:9
+          CONFIG
+          ! rg -n "api\.modula\.digital" ios/Configuration/Debug.local.xcconfig
+          echo "configured_api=http://127.0.0.1:9" > artifacts/evidence/network-isolation.txt
+          echo "production_api_allowed=false" >> artifacts/evidence/network-isolation.txt
+
+      - name: Resolve Swift packages
+        id: resolve
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies \
+            -workspace ios/Modula.xcworkspace \
+            -scheme Modula \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
+            2>&1 | tee artifacts/logs/resolve-packages.log
+
+      - name: Trust the exact audited MLX package extensions
+        id: plugin
+        if: steps.resolve.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_revision=0bb916c67f4b9e5c682cbe02a42c701c93ab5021
+          expected_plugin_sha256=a4bc7bf7c4c68125b8ac83fb8a609a628a1d23398cb627542ce193f3c012da17
+          expected_macro_revision=1c05248bb0899e2a7a4962b84d319cf12f4e12aa
+          expected_macro_sha256=babb5b059ec3734c778a783bbb10106ded8b6c442b9059702d3cd32abcf82353
+          resolved=ios/Modula.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          checkout="${SWIFT_PACKAGE_DIR}/checkouts/mlx-swift"
+          plugin="${checkout}/Plugins/CudaBuild/plugin.swift"
+          macro_checkout="${SWIFT_PACKAGE_DIR}/checkouts/mlx-swift-lm"
+          macro="${macro_checkout}/Libraries/MLXHuggingFaceMacros/HuggingFaceIntegrationMacros.swift"
+
+          resolved_revision="$(jq -er '.pins[] | select(.identity == "mlx-swift") | .state.revision' "${resolved}")"
+          checkout_revision="$(git -C "${checkout}" rev-parse HEAD)"
+          plugin_sha256="$(shasum -a 256 "${plugin}" | awk '{print $1}')"
+          test "${resolved_revision}" = "${expected_revision}"
+          test "${checkout_revision}" = "${expected_revision}"
+          test "${plugin_sha256}" = "${expected_plugin_sha256}"
+
+          macro_resolved_revision="$(jq -er '.pins[] | select(.identity == "mlx-swift-lm") | .state.revision' "${resolved}")"
+          macro_checkout_revision="$(git -C "${macro_checkout}" rev-parse HEAD)"
+          macro_sha256="$(shasum -a 256 "${macro}" | awk '{print $1}')"
+          test "${macro_resolved_revision}" = "${expected_macro_revision}"
+          test "${macro_checkout_revision}" = "${expected_macro_revision}"
+          test "${macro_sha256}" = "${expected_macro_sha256}"
+
+          security_dir="${HOME}/Library/org.swift.swiftpm/security"
+          trust_file="${security_dir}/plugins.json"
+          mkdir -p "${security_dir}"
+          if [[ -f "${trust_file}" ]]; then
+            jq --arg fingerprint "${expected_revision}" \
+              'map(select(.packageIdentity != "mlx-swift" or .targetName != "CudaBuild"))
+               + [{fingerprint: $fingerprint, packageIdentity: "mlx-swift", targetName: "CudaBuild"}]' \
+              "${trust_file}" > "${trust_file}.tmp"
+          else
+            jq -n --arg fingerprint "${expected_revision}" \
+              '[{fingerprint: $fingerprint, packageIdentity: "mlx-swift", targetName: "CudaBuild"}]' \
+              > "${trust_file}.tmp"
+          fi
+          mv "${trust_file}.tmp" "${trust_file}"
+          chmod 600 "${trust_file}"
+          jq -e --arg fingerprint "${expected_revision}" \
+            'any(.[]; .fingerprint == $fingerprint and .packageIdentity == "mlx-swift" and .targetName == "CudaBuild")' \
+            "${trust_file}" >/dev/null
+
+          macro_trust_file="${security_dir}/macros.json"
+          if [[ -f "${macro_trust_file}" ]]; then
+            jq --arg fingerprint "${expected_macro_revision}" \
+              'map(select(.packageIdentity != "mlx-swift-lm" or .targetName != "MLXHuggingFaceMacros"))
+               + [{fingerprint: $fingerprint, packageIdentity: "mlx-swift-lm", targetName: "MLXHuggingFaceMacros"}]' \
+              "${macro_trust_file}" > "${macro_trust_file}.tmp"
+          else
+            jq -n --arg fingerprint "${expected_macro_revision}" \
+              '[{fingerprint: $fingerprint, packageIdentity: "mlx-swift-lm", targetName: "MLXHuggingFaceMacros"}]' \
+              > "${macro_trust_file}.tmp"
+          fi
+          mv "${macro_trust_file}.tmp" "${macro_trust_file}"
+          chmod 600 "${macro_trust_file}"
+          jq -e --arg fingerprint "${expected_macro_revision}" \
+            'any(.[]; .fingerprint == $fingerprint and .packageIdentity == "mlx-swift-lm" and .targetName == "MLXHuggingFaceMacros")' \
+            "${macro_trust_file}" >/dev/null
+
+          {
+            echo "package_identity=mlx-swift"
+            echo "package_revision=${resolved_revision}"
+            echo "plugin_target=CudaBuild"
+            echo "plugin_sha256=${plugin_sha256}"
+            echo "macro_package_identity=mlx-swift-lm"
+            echo "macro_package_revision=${macro_resolved_revision}"
+            echo "macro_target=MLXHuggingFaceMacros"
+            echo "macro_sha256=${macro_sha256}"
+            echo "trust_scope=exact-package-target-revision-for-plugin-and-macro"
+            echo "global_plugin_validation_bypass=false"
+            echo "global_macro_validation_bypass=false"
+          } | tee artifacts/evidence/mlx-plugin-trust.txt
+
+      - name: Build complete XCTest products
+        id: build
+        if: steps.resolve.outcome == 'success' && steps.plugin.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -workspace ios/Modula.xcworkspace \
+            -scheme Modula \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
+            -derivedDataPath artifacts/DerivedData \
+            -resultBundlePath artifacts/build.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee artifacts/logs/build-for-testing.log
+
+      - name: Run all native unit tests
+        id: unit
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 50
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -workspace ios/Modula.xcworkspace \
+            -scheme Modula \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
+            -derivedDataPath artifacts/DerivedData \
+            -resultBundlePath artifacts/unit-tests.xcresult \
+            -only-testing:ModulaTests \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee artifacts/logs/unit-tests.log
+
+      - name: Run all simulator UI tests
+        id: ui
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 90
+        shell: bash
+        env:
+          MOL03_SHOTS: ${{ github.workspace }}/artifacts/screenshots/moliboo
+          MOL04_SHOTS: ${{ github.workspace }}/artifacts/screenshots/cards
+        run: |
+          set -o pipefail
+          mkdir -p "${MOL03_SHOTS}" "${MOL04_SHOTS}"
+          xcodebuild test-without-building \
+            -workspace ios/Modula.xcworkspace \
+            -scheme Modula \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
+            -derivedDataPath artifacts/DerivedData \
+            -resultBundlePath artifacts/ui-tests.xcresult \
+            -only-testing:ModulaUITests \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee artifacts/logs/ui-tests.log
+
+      - name: Extract test summaries and attachments
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          for bundle in artifacts/*.xcresult; do
+            [[ -d "${bundle}" ]] || continue
+            name="$(basename "${bundle}" .xcresult)"
+            xcrun xcresulttool get test-results summary --path "${bundle}" \
+              > "artifacts/evidence/${name}-summary.json" 2> "artifacts/logs/${name}-summary.log"
+            mkdir -p "artifacts/attachments/${name}"
+            xcrun xcresulttool export attachments --path "${bundle}" \
+              --output-path "artifacts/attachments/${name}" \
+              > "artifacts/logs/${name}-attachments.log" 2>&1
+          done
+          xcrun simctl io "${{ steps.simulator.outputs.udid }}" screenshot artifacts/screenshots/final-simulator.png || true
+          df -h > artifacts/evidence/disk-usage.txt
+          {
+            echo "resolve=${{ steps.resolve.outcome }}"
+            echo "plugin=${{ steps.plugin.outcome }}"
+            echo "build=${{ steps.build.outcome }}"
+            echo "unit=${{ steps.unit.outcome }}"
+            echo "ui=${{ steps.ui.outcome }}"
+            echo "javascript=${{ steps.javascript.outcome }}"
+            echo "backend=${{ steps.backend.outputs.available }}"
+          } > artifacts/evidence/outcomes.txt
+
+      - name: Reject sensitive material before artifact upload
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg -l --hidden \
+            --glob '!DerivedData/**' \
+            --glob '!*.xcresult/**' \
+            '(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|MODULA_QA_PASSWORD=|BACKEND_READ_TOKEN=)' \
+            artifacts >/dev/null; then
+            echo "Sensitive material pattern detected; refusing artifact upload." >&2
+            exit 1
+          fi
+
+      - name: Upload restricted acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-ios-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/evidence/
+            artifacts/logs/
+            artifacts/attachments/
+            artifacts/screenshots/
+            artifacts/*.xcresult
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
+
+      - name: Enforce acceptance results
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.javascript.outcome }}" = "success"
+          test "${{ steps.dependencies.outputs.lock_drift }}" = "false"
+          test "${{ steps.resolve.outcome }}" = "success"
+          test "${{ steps.plugin.outcome }}" = "success"
+          test "${{ steps.build.outcome }}" = "success"
+          test "${{ steps.unit.outcome }}" = "success"
+          test "${{ steps.ui.outcome }}" = "success"

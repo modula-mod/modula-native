@@ -340,7 +340,7 @@ struct CollectionCard: View {
 
     private var status: String {
         if collection.isDefault { return "Saved" }
-        switch collection.syncState {
+        return switch collection.syncState {
         case .synced: "Synced"
         case .pending: "Waiting to sync"
         case .conflict: "Conflict"

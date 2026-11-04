@@ -1,3 +1,5 @@
+import StoreKit
+import StoreKitTest
 import XCTest
 @testable import Modula
 
@@ -104,6 +106,49 @@ final class PremiumTests: XCTestCase {
             "transactionId": .string("1"), "productId": .string("product"),
             "tier": .string("studio"), "status": .string("active")
         ])))
+    }
+
+    func testLocalStoreKitPurchaseRenewalAndRevocation() async throws {
+        let configurationURL = try XCTUnwrap(
+            Bundle(for: Self.self).url(
+                forResource: "ModulaPremium",
+                withExtension: "storekit"
+            )
+        )
+        let session = try SKTestSession(contentsOf: configurationURL)
+        session.disableDialogs = true
+        session.resetToDefaultState()
+        session.clearTransactions()
+        defer { session.clearTransactions() }
+
+        let productID = "modula.premium.plus.monthly"
+        let products = try await Product.products(for: [productID])
+        XCTAssertEqual(products.map(\.id), [productID])
+
+        let purchased = try await session.buyProduct(identifier: productID, options: [])
+        XCTAssertEqual(purchased.productID, productID)
+        let original = try XCTUnwrap(
+            session.allTransactions().first { $0.productIdentifier == productID }
+        )
+        XCTAssertTrue(original.autoRenewingEnabled)
+
+        try session.forceRenewalOfSubscription(productIdentifier: productID)
+        XCTAssertGreaterThanOrEqual(
+            session.allTransactions().filter { $0.productIdentifier == productID }.count,
+            2
+        )
+
+        try session.disableAutoRenewForTransaction(identifier: original.identifier)
+        let disabled = try XCTUnwrap(
+            session.allTransactions().first { $0.identifier == original.identifier }
+        )
+        XCTAssertFalse(disabled.autoRenewingEnabled)
+
+        try session.refundTransaction(identifier: original.identifier)
+        let refunded = try XCTUnwrap(
+            session.allTransactions().first { $0.identifier == original.identifier }
+        )
+        XCTAssertNotNil(refunded.cancelDate)
     }
 
     func testProfileBadgeFollowsTierAndIsNotVerification() {
