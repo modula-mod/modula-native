@@ -1795,7 +1795,16 @@ final class N3CHomeUITests: XCTestCase {
         summary.tap()
         let sheet = app.descendants(matching: .any)["modula.sheet"].firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].firstMatch.waitForExistence(timeout: 4))
+        let summaryClose = app.descendants(matching: .any)["home.summary.close"].firstMatch
+        XCTAssertTrue(
+            summaryClose.waitForExistence(timeout: 4),
+            "Summary close control home.summary.close did not appear for /home/for-you"
+        )
+        let summaryTitle = app.staticTexts.matching(NSPredicate(format: "label == %@", "For You at a glance")).firstMatch
+        XCTAssertTrue(
+            summaryTitle.waitForExistence(timeout: 4),
+            "Summary did not show For You at a glance for /home/for-you"
+        )
         dismissModulaSheet(sheet)
 
         let feeds = app.buttons["accessory.feeds"].firstMatch
