@@ -1,10 +1,13 @@
 import XCTest
 import UIKit
 
-/// The accepted Edge Picker is scrub-only. Drive the real adjustable surface
-/// instead of reviving the obsolete tappable-item contract.
+/// Following, For You, and Modules use the Feeds sheet. Other routes still scrub the Edge Picker.
 @MainActor
 private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: Bool = true) {
+    if let mode = homeFeedMode(route) {
+        selectHomeFeed(app, route: route, mode: mode)
+        return
+    }
     let picker = app.descendants(matching: .any)["shell.edge-loop"].firstMatch
     guard picker.waitForExistence(timeout: 5) else {
         XCTFail("Shell Edge Picker is missing for \(route)")
@@ -24,6 +27,75 @@ private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: 
         let identifier = String(route.dropFirst()).replacingOccurrences(of: "/", with: ".")
         XCTAssertTrue(app.descendants(matching: .any)[identifier].firstMatch.waitForExistence(timeout: 5))
     }
+}
+
+/// Polls until the Feeds sheet is gone and `native.home` shows `route`.
+private final class HomeFeedArrival: NSObject, @unchecked Sendable {
+    private let app: XCUIApplication
+    private let route: String
+
+    init(app: XCUIApplication, route: String) {
+        self.app = app
+        self.route = route
+    }
+
+    var sheetIsGone: Bool {
+        !app.descendants(matching: .any)["modula.sheet"].firstMatch.exists
+    }
+
+    var sheetDismissedOnRoute: NSPredicate {
+        NSPredicate { object, _ in
+            guard let probe = object as? HomeFeedArrival else { return false }
+            let home = probe.app.descendants(matching: .any)["native.home"].firstMatch
+            return probe.sheetIsGone && (home.value as? String) == probe.route
+        }
+    }
+}
+
+/// The three Home modes exposed by `HomeFeedsSheet` (`home.feeds.<mode>`).
+private func homeFeedMode(_ route: String) -> String? {
+    switch route {
+    case "/home/following": "following"
+    case "/home/for-you": "for-you"
+    case "/home/modules": "modules"
+    default: nil
+    }
+}
+
+@MainActor
+private func selectHomeFeed(_ app: XCUIApplication, route: String, mode: String) {
+    let feeds = app.buttons["accessory.feeds"].firstMatch
+    XCTAssertTrue(feeds.waitForExistence(timeout: 5), "Feeds control is missing for \(route)")
+    feeds.tap()
+    let feed = app.buttons["home.feeds.\(mode)"].firstMatch
+    XCTAssertTrue(feed.waitForExistence(timeout: 5), "Home feed \(mode) is missing for \(route)")
+    feed.tap()
+    let settled = HomeFeedArrival(app: app, route: route)
+    let arrival = XCTNSPredicateExpectation(predicate: settled.sheetDismissedOnRoute, object: settled)
+    let result = XCTWaiter().wait(for: [arrival], timeout: 5)
+    let home = app.descendants(matching: .any)["native.home"].firstMatch
+    XCTAssertTrue(home.waitForExistence(timeout: 5))
+    XCTAssertEqual(home.value as? String, route)
+    XCTAssertTrue(result == .completed && settled.sheetIsGone, "Feeds sheet still presented for \(route) (\(result))")
+}
+
+/// Settings root has no button whose identifier is "Appearance". Scroll to the live card or the Experience row.
+@MainActor
+private func openAppearanceFromSettings(_ app: XCUIApplication) {
+    let moreOptions = app.buttons.matching(NSPredicate(format: "label == %@", "More appearance options")).firstMatch
+    let appearanceRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Appearance")).firstMatch
+    for _ in 0..<6 {
+        if moreOptions.isHittable {
+            moreOptions.tap()
+            return
+        }
+        if appearanceRow.exists, appearanceRow.isHittable {
+            appearanceRow.tap()
+            return
+        }
+        app.swipeUp()
+    }
+    XCTFail("Appearance control not reachable after scrolling Settings")
 }
 
 @MainActor
@@ -118,7 +190,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
 
         openSettingsFromShell(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5))
-        app.buttons["Appearance"].firstMatch.tap()
+        openAppearanceFromSettings(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 5))
     }
 
@@ -1723,7 +1795,16 @@ final class N3CHomeUITests: XCTestCase {
         summary.tap()
         let sheet = app.descendants(matching: .any)["modula.sheet"].firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].firstMatch.waitForExistence(timeout: 4))
+        let summaryClose = app.descendants(matching: .any)["home.summary.close"].firstMatch
+        XCTAssertTrue(
+            summaryClose.waitForExistence(timeout: 4),
+            "Summary close control home.summary.close did not appear for /home/for-you"
+        )
+        let summaryTitle = app.staticTexts.matching(NSPredicate(format: "label == %@", "For You at a glance")).firstMatch
+        XCTAssertTrue(
+            summaryTitle.waitForExistence(timeout: 4),
+            "Summary did not show For You at a glance for /home/for-you"
+        )
         dismissModulaSheet(sheet)
 
         let feeds = app.buttons["accessory.feeds"].firstMatch

@@ -153,7 +153,7 @@ final class PackageMediaCompatibilityTests: XCTestCase {
 final class VaultModulePackageTests: XCTestCase {
     private let moduleID = "digital.modula.vault-notes"
     private let v1Archive = "H4sIAAAAAAAAA+1XS2/bMAzuTwl4dlzJr9jGNuy6w3bohl6KHGiJjrX6kUly2iDIfx9kuy3abuslSHfwd5FESfwoiqLpUnetpVZellPHb7BVJRnr/zRde3EKMMZYEkVDyxh72XIexQ/9Uc4jzqKLBTsJ+xvojUV9wc7C9R/iAEZU1CDk0HSyr9F/DATuM/DgYfh9WHZN2qiuhRy4z4b5ZmueCcGDre5kL+wXCTlItVEWa39SvsO+tsu2s2TAA001oaE/KO0kuc0katRo1Y7AA2qt3kMOVde4YdUZe9W3VjUE+QF2o5IrbDdu66ePg67Fh2BQefRAd71jzW8OsEVbQQ6X4MFO0d1g6KD1uB4l4zIln9huVTscB01VdKils77rrGO2+61jNCSsO4UHolK11NQOSqZZrUT1g+4teGBdk8O1c8ViPPFxfXTUArdYqFpZ5Qw9gKZfvdIkIb+BXvkPOj5zWHvQbR0d1pDfrI8eoBBkjBq2793mR+cNnnXeWhZoqFYtLe+UrZbTNS0NNdhaJdyNGKGJ2itCSRpyq3tyMqyxqGkwf5Ld0n5wwzfcqc3EMc5okr2gr92T7Hh87yCf8VeU6t72msylJpQN+fbenpzjjfzPWLB6kf95wsM5/58DEi0uu7beL6ZIGDPSe5s140zYorjFDfmlqsmcruR7hrfefxiHL99/GMbz+z8HXtd/U0Qsx4jgrgR0PVdSlP/+WYAcWLEKoyAUjPFytYoETxLkPONhiUkasVJmokhkmhHFLJMppiuByIqEcV6KAuOB7dUXCXJIY6SUxUESZkkZSZkltEqLIIgooLKIy4gKjowTEgZBGgQsioqEZUyEaRomqwzmKmTGjBkznuE3RlIt2gASAAA="
-    private let v2Archive = "H4sIAAAAAAAAA+1XTW/bMAztTwl4dlw5tuMPbMOuO2yHbuilyIGWqFirbWWSnDYI8t8H2Wm7tth6CdId/C6SKJGPoiiZlkZ3jjpxKY+dsMVOSbIu/Gl1d3EKMMbYMkmGljH2so2iJH3oj/IoiVhyMWMnYX8DvXVoLthZuP5D7MHymlqEElot+gbDx0SIQgYBPAy/D8uuyVilOyghCtkw327sMyEEsDFa9Nx9EVCCUGvlsAmPxrfYN27eaUcWAjDUEFr6U3+00GpBXpl4gwad2hIEQJ0zOyih1q0f1tq6q75zqiUo97AdjVxht/aqnz4ODs4+LAY/DwEY3XvW8mYPG3Q1lHAJAWwV3Q2ODlYPq1EyLlPiie1WdcN20NaVRiO891o7z+x2G89oiTu/iwB4rRphqBuMHGeN4vUPuncQgPNNCdc+FLNxx4fVwVNz3GClGuWUd3QPhn71ypCA8gZ6FT7Y+BzBKgC98XTYQHmzOgSAnJO1alDfeeXH4A2R9dGaV2ipUR3N75Sr58djmltqsXOK+xOx3BB1V4SCDJTO9ORl2GDV0OD+UXZLuyEM33Cr1keOccaQ6Dl91U+yw+G9k3zCXyHVvesN2UtDKFoK3b07Occb7z9ji+zF+x8to3h6/88BgQ7numt2s2MmjC/Se7s14UzYIL/FNYVSNWRPV/I9w1v3P07jl/c/jtPp/p8Dr+u/Y0bMx4yIfAnoe76kkP/+WYASeJbmy0qm2TKPFnFKMi8ozuIsJVlxlElexUVWFYsFE2xZCUpkxjHLUcZUxQWNbK++SFCCZEklKU2poFxkGRYypyipOKWsyDLBKGIiyWUWC0HIk0WEecIYLyLKuRDVAqYqZMKECROe4TfqIsuVABIAAA="
+    private let v2Archive = "H4sIAAAAAAAAA+1XTW/bMAztTwl4dlw5tuMPbMOuO2yHbuilyIGWqFirbWWSnDYI8t8H2Wm7tth6CdId/C6SKJGPoiiZlkZ3jjpxKY+dsMVOSbIu/Gl1d3EKMMbYMkmGljH2so2iJH3oj/IoiVhyMWMnYX8DvXVoLthZuP5D7MHymlqEElot+gbDx0SIQgYBPAy/D8uuyVilOyghCtkw327sMyEEsDFa9Nx9EVCCUGvlsAmPxrfYN27eaUcWAjDUEFr6U3+00GpBXpl4gwad2hIEQJ0zOyih1q0f1tq6q75zqiUo97AdjVxht/aqnz4ODs4+LAY/DwEY3XvW8mYPG3Q1lHAJAWwV3Q2ODlYPq1EyLlPiie1WdcN20NaVRiO891o7z+x2G89oiTu/iwB4rRphqBuMHGeN4vUPuncQgPNNCdc+FLNxx4fVwVNz3GClGuWUd3QPhn71ypCA8gZ6FT7Y+BzBKgC98XTYQHmzOgSAnJO1alDfeeXH4A2R9dGaV2ipUR3N75Sr58djmltqsXOK+xOx3BB1V4SCDJTO9ORl2GDV0OD+UXZLuyEM33Cr1keOccaQ6Dl91U+yw+G9k3zCXyHVvesN2UtDKFoK3b07Occb7z9ji+zF+x8to3h6/88BgQ7numt2s2MmjC/Se7s14UzYIL/FNYVSNWRPV/I9w1v3P07jl/c/jtPp/p8Dr+u/Y0bMx4yIfAnoe76kkP/+WYASeJbmy0qm2TKPFnFKMi8ozuIsJVlxlElexUVWFYsFE2xZCUpkxjHLUcZUxQWNbK++SFCCZEklKU2poFxkGRYypyipOKWsyDLBKGIiyWUWC0HIk0WEecIYLyLKuRDVAqYqZMKECROe4TfqIsuVABIAAA=="
 
     private func bytes(_ encoded: String) throws -> Data { try XCTUnwrap(Data(base64Encoded: encoded)) }
 
@@ -1642,7 +1642,8 @@ private final class StoryReplyContractProtocol: URLProtocol, @unchecked Sendable
         default:
             Self.capturedMethod = request.httpMethod ?? ""
             Self.capturedPath = path
-            Self.capturedBody = request.httpBody ?? Data()
+            // URLSession moves the entity onto httpBodyStream. GreenfieldClient.send still sets httpBody.
+            Self.capturedBody = Self.entityData(request)
             body = #"{"ok":true,"data":{"conversationId":"conversation-server","messageId":"message-server","conversationCreated":true,"created":true}}"#
         }
         let response = HTTPURLResponse(
@@ -1654,6 +1655,21 @@ private final class StoryReplyContractProtocol: URLProtocol, @unchecked Sendable
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+
+    private static func entityData(_ request: URLRequest) -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+        var buffer = Data()
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&chunk, maxLength: chunk.count)
+            if count <= 0 { break }
+            buffer.append(chunk, count: count)
+        }
+        return buffer
+    }
 }
 
 final class StoryReplyClientContractTests: XCTestCase {

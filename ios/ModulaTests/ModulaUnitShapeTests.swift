@@ -39,15 +39,82 @@ final class ModulaUnitShapeTests: XCTestCase {
     func testFourFoldAndMirrorSymmetry() {
         let p = path, n = 61
         var mismatches = 0, inside = 0
+        var notes: [String] = []
         for i in 0..<n { for j in 0..<n {
             let x = (CGFloat(i) + 0.5) / CGFloat(n) * 600 - 300, y = (CGFloat(j) + 0.5) / CGFloat(n) * 600 - 300
             let at: (CGFloat, CGFloat) -> Bool = { p.contains(CGPoint(x: 300 + $0, y: 300 + $1), eoFill: true) }
             let v = at(x, y)
             if v { inside += 1 }
-            for other in [at(-y, x), at(-x, -y), at(y, -x), at(-x, y), at(x, -y), at(y, x)] where other != v { mismatches += 1 }
+            for reflected in [(-y, x), (-x, -y), (y, -x), (-x, y), (x, -y), (y, x)] {
+                let other = at(reflected.0, reflected.1)
+                if other != v {
+                    mismatches += 1
+                    if notes.count < 8 {
+                        notes.append(String(
+                            format: "(%.1f,%.1f)=%d reflect(%.1f,%.1f)=%d",
+                            Double(x), Double(y), v ? 1 : 0,
+                            Double(reflected.0), Double(reflected.1), other ? 1 : 0
+                        ))
+                    }
+                }
+            }
         }}
-        XCTAssertEqual(mismatches, 0)
+        XCTAssertEqual(mismatches, 0, notes.joined(separator: " | ") + " | " + Self.pathDump(p))
         XCTAssertGreaterThan(inside, n * n / 3)
+    }
+
+    /// Every path command, then per-quadrant bounds of those points. One failure must show the left side, not only the first handles.
+    private static func pathDump(_ path: Path) -> String {
+        var commands: [String] = []
+        var index = 0
+        var minX = [CGFloat](repeating: .greatestFiniteMagnitude, count: 4)
+        var maxX = [CGFloat](repeating: -.greatestFiniteMagnitude, count: 4)
+        var minY = [CGFloat](repeating: .greatestFiniteMagnitude, count: 4)
+        var maxY = [CGFloat](repeating: -.greatestFiniteMagnitude, count: 4)
+        var counts = [Int](repeating: 0, count: 4)
+        func quadrant(_ point: CGPoint) -> Int {
+            (point.x >= 300 ? 1 : 0) + (point.y >= 300 ? 2 : 0)
+        }
+        func record(_ point: CGPoint) {
+            let q = quadrant(point)
+            counts[q] += 1
+            minX[q] = min(minX[q], point.x)
+            maxX[q] = max(maxX[q], point.x)
+            minY[q] = min(minY[q], point.y)
+            maxY[q] = max(maxY[q], point.y)
+        }
+        func text(_ point: CGPoint) -> String {
+            String(format: "%.0f,%.0f", Double(point.x), Double(point.y))
+        }
+        path.forEach { element in
+            let tag: String
+            let points: [CGPoint]
+            switch element {
+            case .move(let point):
+                tag = "M"; points = [point]
+            case .line(let point):
+                tag = "L"; points = [point]
+            case .quadCurve(let point, let control):
+                tag = "Q"; points = [control, point]
+            case .curve(let point, let c1, let c2):
+                tag = "C"; points = [c1, c2, point]
+            case .closeSubpath:
+                tag = "Z"; points = []
+            }
+            points.forEach(record)
+            commands.append("\(index)\(tag)" + points.map { " " + text($0) }.joined())
+            index += 1
+        }
+        let names = ["TL", "TR", "BL", "BR"]
+        let bounds = (0..<4).map { q -> String in
+            guard counts[q] > 0 else { return "\(names[q]) empty" }
+            return String(
+                format: "%@ n=%d x%.0f..%.0f y%.0f..%.0f",
+                names[q], counts[q],
+                Double(minX[q]), Double(maxX[q]), Double(minY[q]), Double(maxY[q])
+            )
+        }.joined(separator: " ")
+        return bounds + " || " + commands.joined(separator: " ")
     }
 
     func testConstructionPoints() {

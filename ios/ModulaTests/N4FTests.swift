@@ -123,6 +123,48 @@ final class CreationDraftTests: XCTestCase {
         drafts.discardPost(id: "fail-draft")
     }
 
+    @MainActor
+    func testGenericServerPublishFailureUsesDraftSafeCopy() async {
+        let result = await publishFailure(status: 500, code: "SERVER_ERROR", draftID: "fail-500")
+        XCTAssertNil(result.published)
+        XCTAssertEqual(result.message, "Couldn't publish your post. Your draft is safe.")
+        XCTAssertEqual(result.keptText, "Keep me")
+    }
+
+    @MainActor
+    func testValidationPublishFailureKeepsSpecificMessage() async {
+        let result = await publishFailure(status: 500, code: "VALIDATION_FAILED", draftID: "fail-validation")
+        XCTAssertNil(result.published)
+        XCTAssertEqual(result.message, "Check the details you entered and try again.")
+        XCTAssertEqual(result.keptText, "Keep me")
+    }
+
+    @MainActor
+    private func publishFailure(status: Int, code: String, draftID: String) async -> (published: SocialPost?, message: String?, keptText: String?) {
+        let accountID = "acct-\(draftID)"
+        let drafts = DraftStore(autosaveMilliseconds: 1)
+        drafts.setAccountID(accountID)
+        var draft = CreationDraft.fresh(kind: .post, accountID: accountID, audience: .everyone)
+        draft.id = draftID
+        draft.text = "Keep me"
+        drafts.upsertCreation(draft, debounce: false)
+        let store = CreationStudioStore(
+            kind: .post,
+            accountID: accountID,
+            originPath: "/home/following",
+            drafts: drafts,
+            mediaStore: DraftMediaStore(),
+            publisher: MockPublishingRepository(behavior: .rejected(status, code)),
+            uploader: DisabledMediaUploader(),
+            capabilities: .production
+        )
+        store.draft = draft
+        let published = await store.publish()
+        let keptText = drafts.creationDraft(id: draftID)?.text
+        drafts.discardPost(id: draftID)
+        return (published, store.publishError, keptText)
+    }
+
     func testShareExtensionFactory() {
         let draft = CreationDraft.fromShare(
             text: "Hello",
