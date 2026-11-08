@@ -1642,7 +1642,8 @@ private final class StoryReplyContractProtocol: URLProtocol, @unchecked Sendable
         default:
             Self.capturedMethod = request.httpMethod ?? ""
             Self.capturedPath = path
-            Self.capturedBody = request.httpBody ?? Data()
+            // URLSession moves the entity onto httpBodyStream. GreenfieldClient.send still sets httpBody.
+            Self.capturedBody = Self.entityData(request)
             body = #"{"ok":true,"data":{"conversationId":"conversation-server","messageId":"message-server","conversationCreated":true,"created":true}}"#
         }
         let response = HTTPURLResponse(
@@ -1654,6 +1655,21 @@ private final class StoryReplyContractProtocol: URLProtocol, @unchecked Sendable
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+
+    private static func entityData(_ request: URLRequest) -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+        var buffer = Data()
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&chunk, maxLength: chunk.count)
+            if count <= 0 { break }
+            buffer.append(chunk, count: count)
+        }
+        return buffer
+    }
 }
 
 final class StoryReplyClientContractTests: XCTestCase {
