@@ -282,7 +282,9 @@ jobs:
             -clonedSourcePackagesDirPath "${SWIFT_PACKAGE_DIR}" \
             -derivedDataPath artifacts/DerivedData \
             -resultBundlePath artifacts/build.xcresult \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY=- \
             COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee artifacts/logs/build-for-testing.log
 
       - name: Run all native unit tests
@@ -302,7 +304,10 @@ jobs:
             -derivedDataPath artifacts/DerivedData \
             -resultBundlePath artifacts/unit-tests.xcresult \
             -only-testing:ModulaTests \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee artifacts/logs/unit-tests.log
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY=- \
+            2>&1 | tee artifacts/logs/unit-tests.log
 
       - name: Run all simulator UI tests
         id: ui
@@ -325,7 +330,10 @@ jobs:
             -derivedDataPath artifacts/DerivedData \
             -resultBundlePath artifacts/ui-tests.xcresult \
             -only-testing:ModulaUITests \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee artifacts/logs/ui-tests.log
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_IDENTITY=- \
+            2>&1 | tee artifacts/logs/ui-tests.log
 
       - name: Extract test summaries and attachments
         if: always()
