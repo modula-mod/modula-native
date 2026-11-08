@@ -27,9 +27,6 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
-      <StoreKitConfigurationFileReference
-         identifier = "Modula/Features/Premium/ModulaPremium.storekit">
-      </StoreKitConfigurationFileReference>
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
@@ -82,9 +79,6 @@
             ReferencedContainer = "container:Modula.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference
-         identifier = "Modula/Features/Premium/ModulaPremium.storekit">
-      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
