@@ -161,18 +161,21 @@ final class PremiumTests: XCTestCase {
 
         let beforeDisable = Self.renewalSnapshot(session.allTransactions(), originalID: original.identifier)
         try session.disableAutoRenewForTransaction(identifier: original.identifier)
-        // StoreKitTest documents this call as synchronous and does not expose a completion event.
-        // The read at return still had auto-renew on, so wait only until that same id flips or 2s elapses.
+        // One condition wait past the 5.3s daemon task-end mark. The final read is after this returns.
+        let autoRenewTimeout: TimeInterval = 10
         let probe = RenewalAutoRenewProbe(session: session, identifier: original.identifier)
         let expectation = XCTNSPredicateExpectation(predicate: probe.autoRenewDisabled, object: probe)
-        let waitResult = await XCTWaiter().fulfillment(of: [expectation], timeout: 2)
-        let afterDisableTransactions = session.allTransactions()
+        let started = Date()
+        let waitResult = await XCTWaiter().fulfillment(of: [expectation], timeout: autoRenewTimeout)
+        let elapsed = Date().timeIntervalSince(started)
+        let finalTransactions = session.allTransactions()
+        let finalSnapshot = Self.renewalSnapshot(finalTransactions, originalID: original.identifier)
         let disabled = try XCTUnwrap(
-            afterDisableTransactions.first { $0.identifier == original.identifier }
+            finalTransactions.first { $0.identifier == original.identifier }
         )
         XCTAssertFalse(
             disabled.autoRenewingEnabled,
-            "wait=\(Self.waitLabel(waitResult)) before \(beforeDisable) after \(Self.renewalSnapshot(afterDisableTransactions, originalID: original.identifier))"
+            "wait=\(Self.waitLabel(waitResult)) elapsed=\(String(format: "%.3f", elapsed))s timeout=\(Int(autoRenewTimeout))s before \(beforeDisable) final \(finalSnapshot)"
         )
 
         try session.refundTransaction(identifier: original.identifier)
