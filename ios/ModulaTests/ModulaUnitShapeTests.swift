@@ -59,8 +59,26 @@ final class ModulaUnitShapeTests: XCTestCase {
                 }
             }
         }}
-        XCTAssertEqual(mismatches, 0, notes.joined(separator: " | "))
+        XCTAssertEqual(mismatches, 0, notes.joined(separator: " | ") + " | " + Self.marginControls(p))
         XCTAssertGreaterThan(inside, n * n / 3)
+    }
+
+    /// Control points in the outer 40pt of the 600 box. An outer bulge and a fill miss do not put handles in the same place.
+    private static func marginControls(_ path: Path) -> String {
+        var parts: [String] = []
+        path.forEach { element in
+            let points: [CGPoint]
+            switch element {
+            case .curve(_, let c1, let c2): points = [c1, c2]
+            case .quadCurve(_, let control): points = [control]
+            default: return
+            }
+            for point in points where point.x < 40 || point.x > 560 || point.y < 40 || point.y > 560 {
+                guard parts.count < 8 else { return }
+                parts.append(String(format: "(%.0f,%.0f)", Double(point.x), Double(point.y)))
+            }
+        }
+        return "margin=" + (parts.isEmpty ? "none" : parts.joined(separator: ","))
     }
 
     func testConstructionPoints() {
