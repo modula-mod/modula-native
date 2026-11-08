@@ -53,11 +53,13 @@ struct ModulaUnitShape: Shape {
                         startAngle: .degrees(rot - 180 + a), endAngle: .degrees(rot + 90 - a), clockwise: false)
         }
         path.closeSubpath()
-        // Hole, visually counter-clockwise (two half arcs keep the direction explicit).
+        // Hole, visually counter-clockwise. End at 180 then 360, not −180:
+        // −180 is the same ray as 180, so the second semicircle retraces the first
+        // and `contains` leaves the centre filled under both fill rules.
         let centre = p(0.5, 0.5)
         path.move(to: CGPoint(x: centre.x + h * s, y: centre.y))
-        path.addArc(center: centre, radius: h * s, startAngle: .degrees(0), endAngle: .degrees(-180), clockwise: true)
-        path.addArc(center: centre, radius: h * s, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
+        path.addArc(center: centre, radius: h * s, startAngle: .degrees(0), endAngle: .degrees(180), clockwise: true)
+        path.addArc(center: centre, radius: h * s, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: true)
         path.closeSubpath()
         return path
     }
