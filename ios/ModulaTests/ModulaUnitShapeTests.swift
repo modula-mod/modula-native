@@ -59,26 +59,62 @@ final class ModulaUnitShapeTests: XCTestCase {
                 }
             }
         }}
-        XCTAssertEqual(mismatches, 0, notes.joined(separator: " | ") + " | " + Self.marginControls(p))
+        XCTAssertEqual(mismatches, 0, notes.joined(separator: " | ") + " | " + Self.pathDump(p))
         XCTAssertGreaterThan(inside, n * n / 3)
     }
 
-    /// Control points in the outer 40pt of the 600 box. An outer bulge and a fill miss do not put handles in the same place.
-    private static func marginControls(_ path: Path) -> String {
-        var parts: [String] = []
+    /// Every path command, then per-quadrant bounds of those points. One failure must show the left side, not only the first handles.
+    private static func pathDump(_ path: Path) -> String {
+        var commands: [String] = []
+        var index = 0
+        var minX = [CGFloat](repeating: .greatestFiniteMagnitude, count: 4)
+        var maxX = [CGFloat](repeating: -.greatestFiniteMagnitude, count: 4)
+        var minY = [CGFloat](repeating: .greatestFiniteMagnitude, count: 4)
+        var maxY = [CGFloat](repeating: -.greatestFiniteMagnitude, count: 4)
+        var counts = [Int](repeating: 0, count: 4)
+        func quadrant(_ point: CGPoint) -> Int {
+            (point.x >= 300 ? 1 : 0) + (point.y >= 300 ? 2 : 0)
+        }
+        func record(_ point: CGPoint) {
+            let q = quadrant(point)
+            counts[q] += 1
+            minX[q] = min(minX[q], point.x)
+            maxX[q] = max(maxX[q], point.x)
+            minY[q] = min(minY[q], point.y)
+            maxY[q] = max(maxY[q], point.y)
+        }
+        func text(_ point: CGPoint) -> String {
+            String(format: "%.0f,%.0f", Double(point.x), Double(point.y))
+        }
         path.forEach { element in
+            let tag: String
             let points: [CGPoint]
             switch element {
-            case .curve(_, let c1, let c2): points = [c1, c2]
-            case .quadCurve(_, let control): points = [control]
-            default: return
+            case .move(let point):
+                tag = "M"; points = [point]
+            case .line(let point):
+                tag = "L"; points = [point]
+            case .quadCurve(let point, let control):
+                tag = "Q"; points = [control, point]
+            case .curve(let point, let c1, let c2):
+                tag = "C"; points = [c1, c2, point]
+            case .closeSubpath:
+                tag = "Z"; points = []
             }
-            for point in points where point.x < 40 || point.x > 560 || point.y < 40 || point.y > 560 {
-                guard parts.count < 8 else { return }
-                parts.append(String(format: "(%.0f,%.0f)", Double(point.x), Double(point.y)))
-            }
+            points.forEach(record)
+            commands.append("\(index)\(tag)" + points.map { " " + text($0) }.joined())
+            index += 1
         }
-        return "margin=" + (parts.isEmpty ? "none" : parts.joined(separator: ","))
+        let names = ["TL", "TR", "BL", "BR"]
+        let bounds = (0..<4).map { q -> String in
+            guard counts[q] > 0 else { return "\(names[q]) empty" }
+            return String(
+                format: "%@ n=%d x%.0f..%.0f y%.0f..%.0f",
+                names[q], counts[q],
+                Double(minX[q]), Double(maxX[q]), Double(minY[q]), Double(maxY[q])
+            )
+        }.joined(separator: " ")
+        return bounds + " || " + commands.joined(separator: " ")
     }
 
     func testConstructionPoints() {
