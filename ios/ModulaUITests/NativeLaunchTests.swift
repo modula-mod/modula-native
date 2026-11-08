@@ -1,10 +1,13 @@
 import XCTest
 import UIKit
 
-/// The accepted Edge Picker is scrub-only. Drive the real adjustable surface
-/// instead of reviving the obsolete tappable-item contract.
+/// Following, For You, and Modules use the Feeds sheet. Other routes still scrub the Edge Picker.
 @MainActor
 private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: Bool = true) {
+    if let mode = homeFeedMode(route) {
+        selectHomeFeed(app, route: route, mode: mode)
+        return
+    }
     let picker = app.descendants(matching: .any)["shell.edge-loop"].firstMatch
     guard picker.waitForExistence(timeout: 5) else {
         XCTFail("Shell Edge Picker is missing for \(route)")
@@ -24,6 +27,29 @@ private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: 
         let identifier = String(route.dropFirst()).replacingOccurrences(of: "/", with: ".")
         XCTAssertTrue(app.descendants(matching: .any)[identifier].firstMatch.waitForExistence(timeout: 5))
     }
+}
+
+/// The three Home modes exposed by `HomeFeedsSheet` (`home.feeds.<mode>`).
+private func homeFeedMode(_ route: String) -> String? {
+    switch route {
+    case "/home/following": "following"
+    case "/home/for-you": "for-you"
+    case "/home/modules": "modules"
+    default: nil
+    }
+}
+
+@MainActor
+private func selectHomeFeed(_ app: XCUIApplication, route: String, mode: String) {
+    let feeds = app.buttons["accessory.feeds"].firstMatch
+    XCTAssertTrue(feeds.waitForExistence(timeout: 5), "Feeds control is missing for \(route)")
+    feeds.tap()
+    let feed = app.buttons["home.feeds.\(mode)"].firstMatch
+    XCTAssertTrue(feed.waitForExistence(timeout: 5), "Home feed \(mode) is missing for \(route)")
+    feed.tap()
+    let home = app.descendants(matching: .any)["native.home"].firstMatch
+    XCTAssertTrue(home.waitForExistence(timeout: 5))
+    XCTAssertEqual(home.value as? String, route)
 }
 
 @MainActor
