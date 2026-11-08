@@ -39,14 +39,27 @@ final class ModulaUnitShapeTests: XCTestCase {
     func testFourFoldAndMirrorSymmetry() {
         let p = path, n = 61
         var mismatches = 0, inside = 0
+        var notes: [String] = []
         for i in 0..<n { for j in 0..<n {
             let x = (CGFloat(i) + 0.5) / CGFloat(n) * 600 - 300, y = (CGFloat(j) + 0.5) / CGFloat(n) * 600 - 300
             let at: (CGFloat, CGFloat) -> Bool = { p.contains(CGPoint(x: 300 + $0, y: 300 + $1), eoFill: true) }
             let v = at(x, y)
             if v { inside += 1 }
-            for other in [at(-y, x), at(-x, -y), at(y, -x), at(-x, y), at(x, -y), at(y, x)] where other != v { mismatches += 1 }
+            for reflected in [(-y, x), (-x, -y), (y, -x), (-x, y), (x, -y), (y, x)] {
+                let other = at(reflected.0, reflected.1)
+                if other != v {
+                    mismatches += 1
+                    if notes.count < 8 {
+                        notes.append(String(
+                            format: "(%.1f,%.1f)=%d reflect(%.1f,%.1f)=%d",
+                            Double(x), Double(y), v ? 1 : 0,
+                            Double(reflected.0), Double(reflected.1), other ? 1 : 0
+                        ))
+                    }
+                }
+            }
         }}
-        XCTAssertEqual(mismatches, 0)
+        XCTAssertEqual(mismatches, 0, notes.joined(separator: " | "))
         XCTAssertGreaterThan(inside, n * n / 3)
     }
 
