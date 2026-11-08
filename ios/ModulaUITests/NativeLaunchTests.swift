@@ -29,6 +29,29 @@ private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: 
     }
 }
 
+/// Polls until the Feeds sheet is gone and `native.home` shows `route`.
+private final class HomeFeedArrival: NSObject, @unchecked Sendable {
+    private let app: XCUIApplication
+    private let route: String
+
+    init(app: XCUIApplication, route: String) {
+        self.app = app
+        self.route = route
+    }
+
+    var sheetIsGone: Bool {
+        !app.descendants(matching: .any)["modula.sheet"].firstMatch.exists
+    }
+
+    var sheetDismissedOnRoute: NSPredicate {
+        NSPredicate { object, _ in
+            guard let probe = object as? HomeFeedArrival else { return false }
+            let home = probe.app.descendants(matching: .any)["native.home"].firstMatch
+            return probe.sheetIsGone && (home.value as? String) == probe.route
+        }
+    }
+}
+
 /// The three Home modes exposed by `HomeFeedsSheet` (`home.feeds.<mode>`).
 private func homeFeedMode(_ route: String) -> String? {
     switch route {
@@ -47,9 +70,32 @@ private func selectHomeFeed(_ app: XCUIApplication, route: String, mode: String)
     let feed = app.buttons["home.feeds.\(mode)"].firstMatch
     XCTAssertTrue(feed.waitForExistence(timeout: 5), "Home feed \(mode) is missing for \(route)")
     feed.tap()
+    let settled = HomeFeedArrival(app: app, route: route)
+    let arrival = XCTNSPredicateExpectation(predicate: settled.sheetDismissedOnRoute, object: settled)
+    let result = XCTWaiter().wait(for: [arrival], timeout: 5)
     let home = app.descendants(matching: .any)["native.home"].firstMatch
     XCTAssertTrue(home.waitForExistence(timeout: 5))
     XCTAssertEqual(home.value as? String, route)
+    XCTAssertTrue(result == .completed && settled.sheetIsGone, "Feeds sheet still presented for \(route) (\(result))")
+}
+
+/// Settings root has no button whose identifier is "Appearance". Scroll to the live card or the Experience row.
+@MainActor
+private func openAppearanceFromSettings(_ app: XCUIApplication) {
+    let moreOptions = app.buttons.matching(NSPredicate(format: "label == %@", "More appearance options")).firstMatch
+    let appearanceRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Appearance")).firstMatch
+    for _ in 0..<6 {
+        if moreOptions.isHittable {
+            moreOptions.tap()
+            return
+        }
+        if appearanceRow.exists, appearanceRow.isHittable {
+            appearanceRow.tap()
+            return
+        }
+        app.swipeUp()
+    }
+    XCTFail("Appearance control not reachable after scrolling Settings")
 }
 
 @MainActor
@@ -144,7 +190,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
 
         openSettingsFromShell(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5))
-        app.buttons["Appearance"].firstMatch.tap()
+        openAppearanceFromSettings(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 5))
     }
 
