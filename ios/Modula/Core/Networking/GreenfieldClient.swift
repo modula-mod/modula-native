@@ -38,6 +38,28 @@ enum APIError: Error, LocalizedError, Equatable {
         }
     }
 
+    /// Same priority as `userFacingMessage`: specific codes win, then `SERVER_UNAVAILABLE`, then status >= 500.
+    var isGenericServerFailure: Bool {
+        switch self {
+        case .rejected(_, "INVALID_CREDENTIALS"),
+             .rejected(_, "UNAUTHENTICATED"),
+             .rejected(_, "ACCOUNT_INACTIVE"), .rejected(_, "ACCOUNT_DISABLED"),
+             .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"),
+             .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"),
+             .rejected(_, "VALIDATION_FAILED"),
+             .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"),
+             .rejected(_, "REVISION_CONFLICT"), .rejected(_, "NOTE_REVISION_CONFLICT"),
+             .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
+            false
+        case .rejected(_, "SERVER_UNAVAILABLE"):
+            true
+        case .rejected(let status, _) where status >= 500:
+            true
+        default:
+            false
+        }
+    }
+
     var diagnosticDescription: String {
         switch self {
         case .rejected(let status, let code): "Greenfield request failed (\(status), \(code))."

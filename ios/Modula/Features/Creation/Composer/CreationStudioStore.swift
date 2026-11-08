@@ -700,18 +700,26 @@ final class CreationStudioStore {
             resetActiveUploads(to: .failed, message: "Sync required")
             draft.state = .failed
             persist(debounce: false)
-            publishError = api.userFacingMessage
+            publishError = Self.publishFailureMessage(api)
             HapticEngine.shared.play(.failure)
             return nil
         } catch {
             resetActiveUploads(to: .failed, message: "Upload failed")
             draft.state = .failed
             persist(debounce: false)
-            publishError = "Couldn't publish your post. Your draft is safe."
+            publishError = Self.publishKeptDraftMessage
             ModulaLog.app.error("create.publish.failed diagnostic=\(String(describing: error), privacy: .private)")
             HapticEngine.shared.play(.failure)
             return nil
         }
+    }
+
+    /// Creation-studio failure copy. The draft stays on disk either way.
+    private nonisolated static let publishKeptDraftMessage = "Couldn't publish your post. Your draft is safe."
+
+    /// Generic server failures use the studio sentence. Specific safe API copy stays specific.
+    private nonisolated static func publishFailureMessage(_ error: APIError) -> String {
+        error.isGenericServerFailure ? publishKeptDraftMessage : error.userFacingMessage
     }
 
     /// Preserve the server IDs for reconciliation on Retry. The uploader reuses a failed
