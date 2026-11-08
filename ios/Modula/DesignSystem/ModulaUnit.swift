@@ -53,13 +53,18 @@ struct ModulaUnitShape: Shape {
                         startAngle: .degrees(rot - 180 + a), endAngle: .degrees(rot + 90 - a), clockwise: false)
         }
         path.closeSubpath()
-        // Hole, visually counter-clockwise. End at 180 then 360, not −180:
-        // −180 is the same ray as 180, so the second semicircle retraces the first
-        // and `contains` leaves the centre filled under both fill rules.
+        // Same circle, seam on the diagonal. East/west vertices lie on y = centre, and the
+        // even-odd ray used by `contains` runs along that line, so those vertices flip the
+        // left mid-edge. 45° keeps the radius and both 180° sweeps off that ray.
         let centre = p(0.5, 0.5)
-        path.move(to: CGPoint(x: centre.x + h * s, y: centre.y))
-        path.addArc(center: centre, radius: h * s, startAngle: .degrees(0), endAngle: .degrees(180), clockwise: true)
-        path.addArc(center: centre, radius: h * s, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: true)
+        let seam: CGFloat = 45
+        let seamRadians = seam * .pi / 180
+        path.move(to: CGPoint(
+            x: centre.x + h * s * cos(seamRadians),
+            y: centre.y - h * s * sin(seamRadians)
+        ))
+        path.addArc(center: centre, radius: h * s, startAngle: .degrees(seam), endAngle: .degrees(seam + 180), clockwise: true)
+        path.addArc(center: centre, radius: h * s, startAngle: .degrees(seam + 180), endAngle: .degrees(seam + 360), clockwise: true)
         path.closeSubpath()
         return path
     }
