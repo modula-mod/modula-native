@@ -45,12 +45,14 @@ struct ModulaUnitShape: Shape {
             let rot = CGFloat(i) * 90
             // Concave side i: (180 − a) → a, visually counter-clockwise (119.45°).
             let c = connections[i]
-            path.addArc(center: p(c.0, c.1), radius: r * s,
-                        startAngle: .degrees(rot + 180 - a), endAngle: .degrees(rot + a), clockwise: true)
+            // The left connection is the only one whose start is past 360° (≈ 419.7°).
+            // Shift both ends by the same whole turn so the signed sweep stays −119.45°.
+            addArc(&path, center: p(c.0, c.1), radius: r * s,
+                   start: rot + 180 - a, end: rot + a, clockwise: true)
             // Following lobe (TR, BR, BL, TL): (a − 180) → (90 − a), visually clockwise (209.45°).
             let l = lobes[(i + 1) % 4]
-            path.addArc(center: p(l.0, l.1), radius: R * s,
-                        startAngle: .degrees(rot - 180 + a), endAngle: .degrees(rot + 90 - a), clockwise: false)
+            addArc(&path, center: p(l.0, l.1), radius: R * s,
+                   start: rot - 180 + a, end: rot + 90 - a, clockwise: false)
         }
         path.closeSubpath()
         // Hole, visually counter-clockwise. End at 180 then 360, not −180:
@@ -62,6 +64,19 @@ struct ModulaUnitShape: Shape {
         path.addArc(center: centre, radius: h * s, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: true)
         path.closeSubpath()
         return path
+    }
+
+    /// Keeps a start angle that is a whole turn past 360° from being the only arc in that range.
+    /// Both ends move by the same multiple of 360, so the rays and the signed sweep do not change.
+    private func addArc(_ path: inout Path, center: CGPoint, radius: CGFloat, start: CGFloat, end: CGFloat, clockwise: Bool) {
+        var start = start
+        var end = end
+        if start >= 360 {
+            let turns = (start / 360).rounded(.down)
+            start -= turns * 360
+            end -= turns * 360
+        }
+        path.addArc(center: center, radius: radius, startAngle: .degrees(start), endAngle: .degrees(end), clockwise: clockwise)
     }
 }
 
