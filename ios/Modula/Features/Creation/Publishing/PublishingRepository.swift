@@ -35,6 +35,7 @@ struct MockPublishingRepository: PublishingRepository {
     enum Behavior: Sendable {
         case success(SocialPost)
         case failure
+        case rejected(Int, String)
     }
 
     var behavior: Behavior
@@ -46,6 +47,8 @@ struct MockPublishingRepository: PublishingRepository {
             return post
         case .failure:
             throw APIError.rejected(500, "PUBLISH_FAILED")
+        case .rejected(let status, let code):
+            throw APIError.rejected(status, code)
         }
     }
 }
