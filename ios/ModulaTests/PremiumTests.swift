@@ -3,6 +3,27 @@ import StoreKitTest
 import XCTest
 @testable import Modula
 
+/// Reads `allTransactions()` until the original purchase id has auto-renew off.
+/// `SKTestSession` is not `Sendable`; the waiter evaluates this only for that one condition.
+private final class RenewalAutoRenewProbe: NSObject, @unchecked Sendable {
+    private let session: SKTestSession
+    private let identifier: UInt
+
+    init(session: SKTestSession, identifier: UInt) {
+        self.session = session
+        self.identifier = identifier
+    }
+
+    var autoRenewDisabled: NSPredicate {
+        NSPredicate { evaluatedObject, _ in
+            guard let probe = evaluatedObject as? RenewalAutoRenewProbe else { return false }
+            return probe.session.allTransactions().contains { transaction in
+                transaction.identifier == probe.identifier && transaction.autoRenewingEnabled == false
+            }
+        }
+    }
+}
+
 /// Modula Premium: server-authoritative membership, sandbox contract parsing and UI invariants.
 @MainActor
 final class PremiumTests: XCTestCase {
@@ -140,13 +161,18 @@ final class PremiumTests: XCTestCase {
 
         let beforeDisable = Self.renewalSnapshot(session.allTransactions(), originalID: original.identifier)
         try session.disableAutoRenewForTransaction(identifier: original.identifier)
+        // StoreKitTest documents this call as synchronous and does not expose a completion event.
+        // The read at return still had auto-renew on, so wait only until that same id flips or 2s elapses.
+        let probe = RenewalAutoRenewProbe(session: session, identifier: original.identifier)
+        let expectation = XCTNSPredicateExpectation(predicate: probe.autoRenewDisabled, object: probe)
+        let waitResult = await XCTWaiter().fulfillment(of: [expectation], timeout: 2)
         let afterDisableTransactions = session.allTransactions()
         let disabled = try XCTUnwrap(
             afterDisableTransactions.first { $0.identifier == original.identifier }
         )
         XCTAssertFalse(
             disabled.autoRenewingEnabled,
-            "before \(beforeDisable) after \(Self.renewalSnapshot(afterDisableTransactions, originalID: original.identifier))"
+            "wait=\(Self.waitLabel(waitResult)) before \(beforeDisable) after \(Self.renewalSnapshot(afterDisableTransactions, originalID: original.identifier))"
         )
 
         try session.refundTransaction(identifier: original.identifier)
@@ -162,6 +188,17 @@ final class PremiumTests: XCTestCase {
             "id=\(transaction.identifier) product=\(transaction.productIdentifier) autoRenew=\(transaction.autoRenewingEnabled ? 1 : 0)"
         }
         return "orig=\(originalID) [\(rows.joined(separator: "; "))]"
+    }
+
+    private static func waitLabel(_ result: XCTWaiter.Result) -> String {
+        switch result {
+        case .completed: return "completed"
+        case .timedOut: return "timedOut"
+        case .incorrectOrder: return "incorrectOrder"
+        case .invertedFulfillment: return "invertedFulfillment"
+        case .interrupted: return "interrupted"
+        @unknown default: return "unknown"
+        }
     }
 
     func testProfileBadgeFollowsTierAndIsNotVerification() {
