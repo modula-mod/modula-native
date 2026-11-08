@@ -176,7 +176,7 @@ private final class CommunityContractProtocol: URLProtocol, @unchecked Sendable 
     override func startLoading() {
         let method = request.httpMethod ?? ""
         let path = request.url?.path ?? ""
-        let body = request.httpBody.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        let body = urlProtocolJSONBody(request)
         let responseBody: String
         switch (method, path) {
         case ("POST", "/v1/sessions"):

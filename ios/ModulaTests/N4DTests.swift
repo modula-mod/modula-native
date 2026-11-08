@@ -2,6 +2,25 @@ import Foundation
 import XCTest
 @testable import Modula
 
+/// URLSession hands a URLProtocol the entity on `httpBodyStream` and clears `httpBody`.
+/// `GreenfieldClient.send` still assigns `httpBody`. Empty streams stay nil so body-less deletes do too.
+func urlProtocolJSONBody(_ request: URLRequest) -> JSONValue? {
+    var data = request.httpBody
+    if data == nil, let stream = request.httpBodyStream {
+        stream.open()
+        defer { stream.close() }
+        var buffer = Data()
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&chunk, maxLength: chunk.count)
+            if count <= 0 { break }
+            buffer.append(chunk, count: count)
+        }
+        if !buffer.isEmpty { data = buffer }
+    }
+    return data.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+}
+
 final class N4DRouteTests: XCTestCase {
     func testCommandSavedCollectionsDraftsRoutes() throws {
         let paths = [
@@ -64,7 +83,7 @@ private final class CollectionsDraftsContractProtocol: URLProtocol, @unchecked S
         let method = request.httpMethod ?? ""
         let path = request.url?.path ?? ""
         let query = request.url?.query
-        let body = request.httpBody.flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        let body = urlProtocolJSONBody(request)
         let authorization = request.value(forHTTPHeaderField: "Authorization")
         let responseBody: String
 
