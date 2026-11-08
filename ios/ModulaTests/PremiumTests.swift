@@ -138,17 +138,30 @@ final class PremiumTests: XCTestCase {
             2
         )
 
+        let beforeDisable = Self.renewalSnapshot(session.allTransactions(), originalID: original.identifier)
         try session.disableAutoRenewForTransaction(identifier: original.identifier)
+        let afterDisableTransactions = session.allTransactions()
         let disabled = try XCTUnwrap(
-            session.allTransactions().first { $0.identifier == original.identifier }
+            afterDisableTransactions.first { $0.identifier == original.identifier }
         )
-        XCTAssertFalse(disabled.autoRenewingEnabled)
+        XCTAssertFalse(
+            disabled.autoRenewingEnabled,
+            "before \(beforeDisable) after \(Self.renewalSnapshot(afterDisableTransactions, originalID: original.identifier))"
+        )
 
         try session.refundTransaction(identifier: original.identifier)
         let refunded = try XCTUnwrap(
             session.allTransactions().first { $0.identifier == original.identifier }
         )
         XCTAssertNotNil(refunded.cancelDate)
+    }
+
+    /// Identifier, product id, and auto-renew flag for every local transaction. No dates or account data.
+    private static func renewalSnapshot(_ transactions: [SKTestTransaction], originalID: UInt) -> String {
+        let rows = transactions.map { transaction in
+            "id=\(transaction.identifier) product=\(transaction.productIdentifier) autoRenew=\(transaction.autoRenewingEnabled ? 1 : 0)"
+        }
+        return "orig=\(originalID) [\(rows.joined(separator: "; "))]"
     }
 
     func testProfileBadgeFollowsTierAndIsNotVerification() {
