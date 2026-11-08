@@ -38,7 +38,7 @@ struct CreationCapabilities: Sendable, Equatable {
         value.mediaUpload = true
         value.maxMediaCount = 10
         value.serverDrafts = true
-        value.characterLimit = 5_000
+        // Character limit stays nil: creation-backend.md marks it MISSING (hide the counter; do not invent one).
         // Same Greenfield search / suggest paths comments already use.
         value.mentionsLookup = true
         value.topicsLookup = true
