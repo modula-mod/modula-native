@@ -56,12 +56,14 @@ struct ModulaUnitShape: Shape {
         // Same circle, seam on the diagonal. East/west vertices lie on y = centre, and the
         // even-odd ray used by `contains` runs along that line, so those vertices flip the
         // left mid-edge. 45° keeps the radius and both 180° sweeps off that ray.
+        // The arc's angle θ starts at centre + (r cos θ, r sin θ), the same convention as
+        // the old 0° point (centre.x + r, centre.y).
         let centre = p(0.5, 0.5)
         let seam: CGFloat = 45
         let seamRadians = seam * .pi / 180
         path.move(to: CGPoint(
             x: centre.x + h * s * cos(seamRadians),
-            y: centre.y - h * s * sin(seamRadians)
+            y: centre.y + h * s * sin(seamRadians)
         ))
         path.addArc(center: centre, radius: h * s, startAngle: .degrees(seam), endAngle: .degrees(seam + 180), clockwise: true)
         path.addArc(center: centre, radius: h * s, startAngle: .degrees(seam + 180), endAngle: .degrees(seam + 360), clockwise: true)
