@@ -71,6 +71,7 @@ final class MessagingStore {
         guard !query.isEmpty else { return ordered }
         return ordered.filter {
             $0.title.lowercased().contains(query)
+            || ((nicknames[$0.id] ?? "").lowercased().contains(query))
             || ($0.handleLabel?.lowercased().contains(query) ?? false)
             || ($0.lastMessage?.body.lowercased().contains(query) ?? false)
         }
