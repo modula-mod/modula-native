@@ -40,6 +40,7 @@
 		84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */; };
 		62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */; };
 		BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099370 /* MOL04CardsTests.swift */; };
+		5B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift */; };
 		5E6466E493B8532D03400C80 /* MOL03MotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBED1C35A92953E2AFA3812B /* MOL03MotionTests.swift */; };
 		F44147291E18C838D19DFD7B /* MOL03PerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FEF3567EEDB4B9164D61D4A /* MOL03PerformanceTests.swift */; };
 		8CFBDEFE0DD9FAE0DB0B6905 /* MOL03PackageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A824726B67D9158F1B8E6BB /* MOL03PackageTests.swift */; };
@@ -71,6 +72,9 @@
 		5BB6F34B08412046241B4B64 /* MolibooEmptyArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */; };
 		36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */; };
 		16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6B6F8530D8427FA49C358F /* MolibooCards.swift */; };
+		C1D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift */; };
+		C1E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift */; };
+		C1F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift */; };
 		02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */; };
 		665A72EAB1D0B7C25F2A312C /* MolibooWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */; };
 		D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */; };
@@ -559,6 +563,7 @@
 		545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03AmbienceTests.swift; sourceTree = "<group>"; };
 		3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WorldTests.swift; sourceTree = "<group>"; };
 		3C87EC46345945E89B099370 /* MOL04CardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL04CardsTests.swift; sourceTree = "<group>"; };
+		6B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooCardGalleryTests.swift; sourceTree = "<group>"; };
 		BBED1C35A92953E2AFA3812B /* MOL03MotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03MotionTests.swift; sourceTree = "<group>"; };
 		9FEF3567EEDB4B9164D61D4A /* MOL03PerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03PerformanceTests.swift; sourceTree = "<group>"; };
 		0A824726B67D9158F1B8E6BB /* MOL03PackageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03PackageTests.swift; sourceTree = "<group>"; };
@@ -590,6 +595,9 @@
 		5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooEmptyArt.swift; path = DesignSystem/Moliboo/MolibooEmptyArt.swift; sourceTree = "<group>"; };
 		6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsHub.swift; path = Features/Moliboo3D/MolibooSettingsHub.swift; sourceTree = "<group>"; };
 		9D6B6F8530D8427FA49C358F /* MolibooCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCards.swift; path = Features/Moliboo3D/MolibooCards.swift; sourceTree = "<group>"; };
+		C0D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCardGallery.swift; path = Features/Moliboo3D/MolibooCardGallery.swift; sourceTree = "<group>"; };
+		C0E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooTradingCardV2.swift; path = Features/Moliboo3D/MolibooTradingCardV2.swift; sourceTree = "<group>"; };
+		C0F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCardCollectionView.swift; path = Features/Moliboo3D/MolibooCardCollectionView.swift; sourceTree = "<group>"; };
 		699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldParts.swift; path = Features/MolibooWorld/MolibooWorldParts.swift; sourceTree = "<group>"; };
 		014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldView.swift; path = Features/MolibooWorld/MolibooWorldView.swift; sourceTree = "<group>"; };
 		C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldModel.swift; path = Features/MolibooWorld/MolibooWorldModel.swift; sourceTree = "<group>"; };
@@ -1097,6 +1105,7 @@
 				545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */,
 				3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */,
 				3C87EC46345945E89B099370 /* MOL04CardsTests.swift */,
+				6B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift */,
 				BBED1C35A92953E2AFA3812B /* MOL03MotionTests.swift */,
 				9FEF3567EEDB4B9164D61D4A /* MOL03PerformanceTests.swift */,
 				0A824726B67D9158F1B8E6BB /* MOL03PackageTests.swift */,
@@ -1363,6 +1372,9 @@
 				5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */,
 				6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */,
 				9D6B6F8530D8427FA49C358F /* MolibooCards.swift */,
+				C0D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift */,
+				C0E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift */,
+				C0F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift */,
 				699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */,
 				014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */,
 				C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */,
@@ -1940,6 +1952,7 @@
 				84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */,
 				62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */,
 				BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */,
+				5B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift in Sources */,
 				5E6466E493B8532D03400C80 /* MOL03MotionTests.swift in Sources */,
 				F44147291E18C838D19DFD7B /* MOL03PerformanceTests.swift in Sources */,
 				8CFBDEFE0DD9FAE0DB0B6905 /* MOL03PackageTests.swift in Sources */,
@@ -2118,6 +2131,9 @@
 				5BB6F34B08412046241B4B64 /* MolibooEmptyArt.swift in Sources */,
 				36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */,
 				16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */,
+				C1D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift in Sources */,
+				C1E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift in Sources */,
+				C1F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift in Sources */,
 				02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */,
 				665A72EAB1D0B7C25F2A312C /* MolibooWorldView.swift in Sources */,
 				D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */,
