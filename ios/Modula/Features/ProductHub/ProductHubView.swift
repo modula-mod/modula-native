@@ -1551,6 +1551,8 @@ struct ProductHubView: View {
             // Clear the floating Modules accessory and the tab bar.
             .padding(.bottom, 140)
             .modulaPullContentEffects()
+            // Roadmap #16: re-tapping the Modules tab scrolls back to the top, like the other tabs.
+            .modulaScrollsToTopOnReselect(.modules)
         }
         .modulaSoftScrollEdge()
         .modulaShellPullActions { await app.catalogue.load() }
