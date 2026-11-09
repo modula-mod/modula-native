@@ -132,7 +132,7 @@ struct MolibooWardrobeSheet: View {
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("wardrobe.count")
             }
-            TextField("Search hats, tops, colours…", text: $query.text)
+            TextField("Search hats, costumes, colours…", text: $query.text)
                 .textFieldStyle(.plain).padding(.horizontal, 12).frame(minHeight: 38)
                 .modulaGlass(in: Capsule(), interactive: false)
                 .autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search)
@@ -144,6 +144,12 @@ struct MolibooWardrobeSheet: View {
                     }
                 }
             filters
+            if session.preview.hasCostume {
+                Text("Wearing a costume — hats and clothes are saved and come back when you take it off.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("wardrobe.costume.parked")
+            }
             actionBar
             if !session.store.presets.isEmpty { presetsRow }
             ScrollView {
@@ -257,6 +263,9 @@ struct MolibooWardrobeSheet: View {
                             // Live vector preview: this item alone on the selected mascot. Shipped PNG, then slot glyph, as fallbacks.
                             if let img = MolibooWardrobeThumbs.image(item.id) {
                                 Image(uiImage: img).resizable().interpolation(.medium).scaledToFit().padding(8)
+                            } else if item.slot == .costume, let kind = ModulaMascotKind(rawValue: kindRaw) {
+                                ModulaMascotFigure(kind: kind, pose: .still(.happy), size: 28, outfit: .solo(item))
+                                    .allowsHitTesting(false)
                             } else {
                                 Image(systemName: item.slot.symbol).font(.title3).foregroundStyle(item.tint)
                             }
@@ -271,6 +280,7 @@ struct MolibooWardrobeSheet: View {
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(on ? Color(red: 0.21, green: 0.61, blue: 0.67) : .clear, lineWidth: 2))
                 Text(item.name).font(.caption2.weight(.semibold)).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.85)
                     .frame(minHeight: 26, alignment: .top)
+                MolibooWardrobePriceLabel(item: item)
             }
         }
         .buttonStyle(.plain)
@@ -369,7 +379,7 @@ struct MolibooWardrobeSheet2D: View {
 
     private var wardrobeBody: some View {
         VStack(alignment: .leading, spacing: 16) {
-            TextField("Search hats, tops…", text: $query.text)
+            TextField("Search hats, costumes…", text: $query.text)
                 .textFieldStyle(.plain).padding(.horizontal, 14).frame(minHeight: 44)
                 .modulaGlass(in: Capsule(), interactive: false)
                 .autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search)
@@ -402,11 +412,15 @@ struct MolibooWardrobeSheet2D: View {
                                         .frame(height: 88)
                                     if let img = MolibooWardrobeThumbs.image(item.id) {
                                         Image(uiImage: img).resizable().scaledToFit().padding(10)
+                                    } else if item.slot == .costume, let kind = ModulaMascotKind(rawValue: kindRaw) {
+                                        ModulaMascotFigure(kind: kind, pose: .still(.happy), size: 32, outfit: .solo(item))
+                                            .allowsHitTesting(false)
                                     } else {
-                                        Image(systemName: "tshirt").font(.title2).foregroundStyle(.secondary)
+                                        Image(systemName: item.slot.symbol).font(.title2).foregroundStyle(.secondary)
                                     }
                                 }
                                 Text(item.name).font(.caption.weight(.semibold)).lineLimit(1)
+                                MolibooWardrobePriceLabel(item: item)
                             }
                             .overlay(alignment: .topTrailing) {
                                 if on { Image(systemName: "checkmark.circle.fill").foregroundStyle(.white, Color.accentColor).padding(6) }

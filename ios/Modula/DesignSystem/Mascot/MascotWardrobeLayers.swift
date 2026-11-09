@@ -36,7 +36,7 @@ struct MascotWardrobeOverlay: View {
 
 /// Resolved, drawable outfit: one entry per role, with seasonal items taking over the role they need.
 struct MascotWearList: Sendable {
-    enum Role: Sendable { case hat, hair, face, top, outer, bottom, shoes, neck, held, back, aura, pet }
+    enum Role: Sendable { case hat, hair, face, top, outer, bottom, shoes, neck, held, back, aura, pet, costume }
     struct Entry: Sendable {
         let item: MascotWardrobeItem
         let color: Color
@@ -62,6 +62,7 @@ struct MascotWearList: Sendable {
             case .back: role = .back
             case .aura: role = .aura
             case .pet: role = .pet
+            case .costume: role = .costume
             case .background: continue
             case .seasonal:
                 switch w.item.need {
@@ -498,20 +499,30 @@ struct MascotWearPainter {
         switch layer {
         case .back:
             if let e = wear[.aura] { auraBack(e) }
-            if let e = wear[.back] { back(e) }
-            if let e = wear[.hair] { hairBack(e) }
-            if let e = wear[.top], e.item.style == "hoodie", wear[.hat] == nil { hood(e) }
+            if let e = wear[.costume] { costumeBack(e) }
+            else {
+                if let e = wear[.back] { back(e) }
+                if let e = wear[.hair] { hairBack(e) }
+                if let e = wear[.top], e.item.style == "hoodie", wear[.hat] == nil { hood(e) }
+            }
         case .body:
-            if let e = wear[.bottom], !(wear[.top]?.item.style == "overalls") { bottom(e) }
-            if let e = wear[.top] { top(e) }
-            if let e = wear[.outer] { outer(e) }
-            if let e = wear[.back] { backStraps(e) }
-            if let e = wear[.neck] { neck(e) }
-            if let e = wear[.shoes] { shoes(e) }
+            if let e = wear[.costume] {
+                costumeBody(e)
+            } else {
+                if let e = wear[.bottom], !(wear[.top]?.item.style == "overalls") { bottom(e) }
+                if let e = wear[.top] { top(e) }
+                if let e = wear[.outer] { outer(e) }
+                if let e = wear[.back] { backStraps(e) }
+                if let e = wear[.neck] { neck(e) }
+                if let e = wear[.shoes] { shoes(e) }
+            }
         case .front:
-            if let e = wear[.hair] { hairFront(e) }
-            if let e = wear[.face] { face(e) }
-            if let e = wear[.hat] { hat(e, hasHair: wear[.hair] != nil) }
+            if let e = wear[.costume] { costumeFront(e) }
+            else {
+                if let e = wear[.hair] { hairFront(e) }
+                if let e = wear[.face] { face(e) }
+                if let e = wear[.hat] { hat(e, hasHair: wear[.hair] != nil) }
+            }
             if let e = wear[.held] { held(e) }
             if let e = wear[.pet] { pet(e) }
             if let e = wear[.aura] { auraFront(e) }
