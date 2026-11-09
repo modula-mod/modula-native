@@ -2960,66 +2960,6 @@ struct ChatInfoSheet: View {
     private var messages: [Message] { app.messaging.messages(for: conversationID) }
     private var starred: [Message] { messages.filter { app.messaging.isStarred($0.id) }.reversed() }
 
-    /// Personal, device-only touches: a nickname, a wallpaper and your starred messages.
-    private var personalSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Nickname").font(.headline).accessibilityAddTraits(.isHeader)
-                TextField(conversation?.title ?? "Nickname", text: $nickname)
-                    .padding(.horizontal, 14)
-                    .frame(height: 44)
-                    .modulaGlass(in: Capsule(), interactive: true)
-                    .submitLabel(.done)
-                    .onSubmit { app.messaging.setNickname(nickname, for: conversationID) }
-                Text("Only you see this name.").font(.caption).foregroundStyle(.secondary)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Wallpaper").font(.headline).accessibilityAddTraits(.isHeader)
-                HStack(spacing: 10) {
-                    ForEach(MessagesWallpaperTheme.allCases) { theme in
-                        let on = app.messaging.wallpaper(for: conversationID) == theme
-                        Button {
-                            app.messaging.setWallpaper(theme, for: conversationID)
-                            HapticEngine.shared.play(.selection)
-                        } label: {
-                            Circle()
-                                .fill(theme.swatch(accent: app.appearance.liveAccent))
-                                .frame(width: 40, height: 40)
-                                .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
-                                .padding(2)
-                                .contentShape(Circle())
-                        }
-                        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
-                        .accessibilityLabel(theme.title)
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                    }
-                }
-            }
-            if !starred.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Starred").font(.headline).padding(.bottom, 6).accessibilityAddTraits(.isHeader)
-                    ForEach(starred.prefix(20)) { message in
-                        Button {
-                            dismiss()
-                            onJump(message.id)
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "star.fill").foregroundStyle(app.appearance.liveAccent)
-                                Text(MessagePreviewText.plain(message.body.text)).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, 8)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear { nickname = app.messaging.nicknames[conversationID] ?? "" }
-        .onDisappear { app.messaging.setNickname(nickname, for: conversationID) }
-    }
     private var matches: [Message] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return [] }
@@ -3030,75 +2970,136 @@ struct ChatInfoSheet: View {
         return messages.reversed().compactMap { MessageInlineContent.firstURL(in: $0.body.text) }.filter { seen.insert($0).inserted }
     }
 
+    @FocusState private var searchFocused: Bool
+    @State private var showsSearch = false
+
+    private var imageURLs: [URL] {
+        var seen = Set<URL>()
+        return messages.reversed().compactMap { message -> URL? in
+            guard let url = MessageInlineContent.firstURL(in: message.body.text),
+                  case .image(let image) = MessageInlineContent.classify(url) else { return nil }
+            return image
+        }.filter { seen.insert($0).inserted }
+    }
+
+    /// Settings-style Chat info: header, quick actions, then grouped glass sections. Every row
+    /// is wired to something the app really does; unsupported ideas are left out, not faked.
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
-                    ConversationAvatar(participants: conversation?.participants ?? [], size: 84)
-                        .padding(.top, 8)
-                    VStack(spacing: 2) {
-                        Text(conversation?.title ?? "Chat").font(.title3.weight(.bold))
-                        if let handle = conversation?.handleLabel {
-                            Text(handle).font(.subheadline).foregroundStyle(.secondary)
+                VStack(spacing: 22) {
+                    header
+                    quickActions
+                    if showsSearch || !query.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            MessagesGlassSearchField(text: $query, prompt: "Search this chat")
+                                .focused($searchFocused)
+                            if !query.isEmpty { searchResults }
+                            Text("Search covers the messages loaded on this device.")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    HStack(spacing: 10) {
-                        if let person = conversation?.participants.first {
-                            actionTile("Profile", symbol: "person.crop.circle") {
-                                dismiss()
-                                app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
-                            }
-                        }
-                        actionTile(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
-                                   symbol: app.messaging.isPinned(conversationID) ? "pin.slash" : "pin") {
-                            app.messaging.togglePin(conversationID)
-                            HapticEngine.shared.play(.selection)
-                        }
-                        if app.messaging.capabilities.mute {
-                            actionTile(conversation?.isMuted == true ? "Unmute" : "Mute",
-                                       symbol: conversation?.isMuted == true ? "bell" : "bell.slash") {
-                                Task { await app.messaging.toggleMute(conversationID) }
-                            }
-                        }
-                        actionTile("Nudge", symbol: "hand.wave") {
-                            HapticEngine.shared.play(.confirmation)
-                            Task { _ = await app.messaging.sendPrepared(text: "👋", conversation: conversationID) }
-                        }
-                    }
-                    personalSection
-                    MessagesGlassSearchField(text: $query, prompt: "Search this chat")
-                    if !query.isEmpty {
-                        searchResults
-                    } else if !links.isEmpty {
-                        linksSection
-                    }
-                    Text("Search covers the messages loaded on this device.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let person = conversation?.participants.first, app.messaging.capabilities.block {
-                        Button(role: .destructive) {
-                            confirmBlock = true
+                    infoGroup("Chat info") {
+                        NavigationLink {
+                            ChatSharedContentView(images: imageURLs, links: links)
                         } label: {
-                            Text(blocked ? "Blocked" : "Block \(person.displayName)")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.red)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .contentShape(Capsule())
+                            infoRow("Media, links and files", symbol: "photo.on.rectangle",
+                                    value: imageURLs.isEmpty && links.isEmpty ? "None yet" : "\(imageURLs.count + links.count)")
                         }
                         .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true)
-                        .disabled(blocked)
-                        .confirmationDialog("Block \(person.displayName)?", isPresented: $confirmBlock, titleVisibility: .visible) {
-                            Button("Block", role: .destructive) {
-                                Task { blocked = await app.messaging.block(person) }
+                        infoDivider
+                        NavigationLink {
+                            ChatStarredView(messages: starred) { id in
+                                dismiss()
+                                onJump(id)
                             }
-                        } message: {
-                            Text("They won't be able to message you. You can unblock them from their profile.")
+                        } label: {
+                            infoRow("Starred messages", symbol: "star", value: starred.isEmpty ? "None" : "\(starred.count)")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    infoGroup("Customise", footer: "Only you see your nickname and wallpaper.") {
+                        HStack(spacing: 12) {
+                            rowIcon("character.cursor.ibeam")
+                            TextField(conversation?.title ?? "Nickname", text: $nickname)
+                                .submitLabel(.done)
+                                .onSubmit { app.messaging.setNickname(nickname, for: conversationID) }
+                                .accessibilityLabel("Nickname")
+                        }
+                        .frame(minHeight: 50)
+                        infoDivider
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                rowIcon("paintpalette")
+                                Text("Wallpaper").font(.body)
+                            }
+                            wallpaperPicker
+                        }
+                        .padding(.vertical, 10)
+                    }
+                    infoGroup("Actions") {
+                        Button {
+                            showsSearch = true
+                            searchFocused = true
+                        } label: {
+                            infoRow("Search in conversation", symbol: "magnifyingglass", chevron: false)
+                        }
+                        .buttonStyle(.plain)
+                        if app.messaging.capabilities.mute {
+                            infoDivider
+                            Button {
+                                Task { await app.messaging.toggleMute(conversationID) }
+                                HapticEngine.shared.play(.selection)
+                            } label: {
+                                infoRow(conversation?.isMuted == true ? "Unmute notifications" : "Mute notifications",
+                                        symbol: conversation?.isMuted == true ? "bell" : "bell.slash", chevron: false)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        infoDivider
+                        Button {
+                            dismiss()
+                            app.navigation.push(.settings(.chats(.root)))
+                        } label: {
+                            infoRow("Chat settings", symbol: "gearshape", value: "All chats")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    infoGroup("Privacy & support", footer: "Read receipts and previews are app-wide settings in Chats.") {
+                        Button {
+                            dismiss()
+                            app.navigation.push(.settings(.chats(.privacy)))
+                        } label: {
+                            infoRow("Read receipts & privacy", symbol: "eye", value: "All chats")
+                        }
+                        .buttonStyle(.plain)
+                        if let person = conversation?.participants.first, app.messaging.capabilities.block {
+                            infoDivider
+                            Button(role: .destructive) {
+                                confirmBlock = true
+                            } label: {
+                                HStack(spacing: 12) {
+                                    rowIcon("hand.raised", tint: .red)
+                                    Text(blocked ? "Blocked" : "Block \(person.displayName)").foregroundStyle(.red)
+                                    Spacer(minLength: 0)
+                                }
+                                .frame(minHeight: 50)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(blocked)
+                            .confirmationDialog("Block \(person.displayName)?", isPresented: $confirmBlock, titleVisibility: .visible) {
+                                Button("Block", role: .destructive) {
+                                    Task { blocked = await app.messaging.block(person) }
+                                }
+                            } message: {
+                                Text("They won't be able to message you. You can unblock them from their profile.")
+                            }
                         }
                     }
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
-                .padding(.bottom, 24)
+                .padding(.bottom, 28)
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Chat info")
@@ -3110,22 +3111,135 @@ struct ChatInfoSheet: View {
             }
         }
         .presentationDetents([.large])
+        .onAppear { nickname = app.messaging.nicknames[conversationID] ?? "" }
+        .onDisappear { app.messaging.setNickname(nickname, for: conversationID) }
         .accessibilityIdentifier("messages.info")
     }
 
-    private func actionTile(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            // Light glass tiles (accent icon, primary label) like iOS contact actions, not solid blocks.
-            VStack(spacing: 4) {
-                Image(systemName: symbol).font(.title3.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
-                Text(title).font(.caption.weight(.medium)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.8)
+    private var header: some View {
+        VStack(spacing: 8) {
+            ConversationAvatar(participants: conversation?.participants ?? [], size: 96)
+                .padding(.top, 8)
+            Text(conversation?.title ?? "Chat").font(.title2.weight(.bold)).multilineTextAlignment(.center)
+            if let handle = conversation?.handleLabel {
+                Text(handle).font(.subheadline).foregroundStyle(.secondary)
             }
-            .frame(width: 76, height: 64)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .lightImpact))
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
+
+    private var quickActions: some View {
+        HStack(alignment: .top, spacing: 18) {
+            if let person = conversation?.participants.first {
+                circleAction("Profile", symbol: "person.fill") {
+                    dismiss()
+                    app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
+                }
+            }
+            if app.messaging.capabilities.mute {
+                circleAction(conversation?.isMuted == true ? "Unmute" : "Mute",
+                             symbol: conversation?.isMuted == true ? "bell.fill" : "bell.slash.fill") {
+                    Task { await app.messaging.toggleMute(conversationID) }
+                }
+            }
+            circleAction(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
+                         symbol: app.messaging.isPinned(conversationID) ? "pin.slash.fill" : "pin.fill") {
+                app.messaging.togglePin(conversationID)
+            }
+            circleAction("Search", symbol: "magnifyingglass") {
+                showsSearch = true
+                searchFocused = true
+            }
+            circleAction("Nudge", symbol: "hand.wave.fill") {
+                HapticEngine.shared.play(.confirmation)
+                Task { _ = await app.messaging.sendPrepared(text: "👋", conversation: conversationID) }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var wallpaperPicker: some View {
+        HStack(spacing: 10) {
+            ForEach(MessagesWallpaperTheme.allCases) { theme in
+                let on = app.messaging.wallpaper(for: conversationID) == theme
+                Button {
+                    app.messaging.setWallpaper(theme, for: conversationID)
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Circle()
+                        .fill(theme.swatch(accent: app.appearance.liveAccent))
+                        .frame(width: 36, height: 36)
+                        .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
+                        .padding(2)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                .accessibilityLabel(theme.title)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(.leading, 44)
+    }
+
+    private func circleAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 50, height: 50)
+                    .modulaGlass(in: Circle(), interactive: true)
+                Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .frame(width: 58)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
+        .accessibilityLabel(title)
+    }
+
+    private func infoGroup<Content: View>(_ title: String, footer: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 6)
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 0) { content() }
+                .padding(.horizontal, 14)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+            if let footer {
+                Text(footer).font(.caption).foregroundStyle(.secondary).padding(.leading, 6)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func infoRow(_ title: String, symbol: String, value: String? = nil, chevron: Bool = true) -> some View {
+        HStack(spacing: 12) {
+            rowIcon(symbol)
+            Text(title).font(.body).foregroundStyle(.primary)
+            Spacer(minLength: 8)
+            if let value { Text(value).font(.subheadline).foregroundStyle(.secondary).lineLimit(1) }
+            if chevron {
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+        }
+        .frame(minHeight: 50)
+        .contentShape(Rectangle())
+    }
+
+    private func rowIcon(_ symbol: String, tint: Color? = nil) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(tint ?? app.appearance.liveAccent)
+            .frame(width: 32, height: 32)
+            .background(Circle().fill((tint ?? app.appearance.liveAccent).opacity(0.14)))
+            .accessibilityHidden(true)
+    }
+
+    private var infoDivider: some View { Divider().padding(.leading, 44) }
 
     @ViewBuilder
     private var searchResults: some View {
@@ -3171,6 +3285,136 @@ struct ChatInfoSheet: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+
+/// Chat info → Media, links and files, built only from messages loaded on this device.
+struct ChatSharedContentView: View {
+    let images: [URL]
+    let links: [URL]
+    enum Tab: String, CaseIterable, Identifiable { case media = "Media", links = "Links", files = "Files"; var id: String { rawValue } }
+    @State private var tab: Tab = .media
+    @State private var viewing: ChatViewerItem?
+    @Environment(AppEnvironment.self) private var app
+
+    struct ChatViewerItem: Identifiable { let id = UUID(); let url: URL; let image: UIImage }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Picker("Show", selection: $tab) {
+                ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, ModulaLayout.contentInset)
+            ScrollView {
+                switch tab {
+                case .media: mediaGrid
+                case .links: linkList
+                case .files:
+                    empty("No files", "Files can't be sent in chats yet.", symbol: "doc")
+                }
+            }
+        }
+        .padding(.top, 8)
+        .navigationTitle("Media, links and files")
+        .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $viewing) { item in MessageImageViewer(url: item.url, preview: item.image) }
+    }
+
+    @ViewBuilder private var mediaGrid: some View {
+        if images.isEmpty {
+            empty("No photos yet", "Image links shared in this chat appear here.", symbol: "photo")
+        } else {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
+                ForEach(images, id: \.self) { url in
+                    ModulaRemoteImage(url: url, cacheKey: "message-inline:\(url.absoluteString)", maximumPixelSize: 600) { phase in
+                        switch phase {
+                        case .success(let image):
+                            Button { viewing = ChatViewerItem(url: url, image: image) } label: {
+                                Color.clear
+                                    .aspectRatio(1, contentMode: .fit)
+                                    .overlay { Image(uiImage: image).resizable().scaledToFill() }
+                                    .clipped()
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Photo from \(url.host() ?? "link")")
+                        default:
+                            Color.primary.opacity(0.06).aspectRatio(1, contentMode: .fit)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
+    @ViewBuilder private var linkList: some View {
+        if links.isEmpty {
+            empty("No links yet", "Links shared in this chat appear here.", symbol: "link")
+        } else {
+            LazyVStack(spacing: 8) {
+                ForEach(links, id: \.self) { url in
+                    Link(destination: url) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "link").foregroundStyle(app.appearance.liveAccent).frame(width: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(MessagePreviewText.displayHost(url)).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                                Text(MessagePreviewText.displayLink(url)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 56)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+                    }
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .messageLinkInspector()
+        }
+    }
+
+    private func empty(_ title: String, _ detail: String, symbol: String) -> some View {
+        ContentUnavailableView(title, systemImage: symbol, description: Text(detail)).padding(.top, 40)
+    }
+}
+
+/// Chat info → Starred messages (device-only stars), rendered without raw tokens.
+struct ChatStarredView: View {
+    let messages: [Message]
+    var onJump: (MessageID) -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ScrollView {
+            if messages.isEmpty {
+                ContentUnavailableView("No starred messages", systemImage: "star",
+                                       description: Text("Touch and hold a message, then choose Star.")).padding(.top, 40)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(messages) { message in
+                        Button { onJump(message.id) } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "star.fill").foregroundStyle(app.appearance.liveAccent).padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(message.isOwn ? "You" : message.sender.displayName) · \(MessageTimeline.label(for: message.sentAt))")
+                                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                    Text(MessagePreviewText.plain(message.body.text)).font(.subheadline).foregroundStyle(.primary).lineLimit(3)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(14)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+            }
+        }
+        .navigationTitle("Starred messages")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
