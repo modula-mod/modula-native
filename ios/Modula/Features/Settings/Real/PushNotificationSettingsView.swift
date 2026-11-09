@@ -64,6 +64,7 @@ struct PushNotificationSettingsView: View {
                 symbol: "bell.badge"
             )
             permissionCard
+            readinessGroup
             if app.push.flagEnabled {
                 if let prefs = model.preferences {
                     deliveryGroup(prefs)
@@ -140,6 +141,41 @@ struct PushNotificationSettingsView: View {
                 }
             }
             .padding(.vertical, ModulaSpacing.sm)
+        }
+    }
+
+    // MARK: Readiness (#38) — only what this iPhone can know
+
+    private var readinessGroup: some View {
+        let readiness = PushReadiness(
+            authorizationTitle: statusTitle,
+            flagEnabled: app.push.flagEnabled,
+            signing: PushReadiness.signingFromEmbeddedProfile(),
+            registration: app.push.registration
+        )
+        return SettingsGroup(
+            title: "Push readiness",
+            subtitle: "What this iPhone can check. It can't confirm that a notification will arrive."
+        ) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(readiness.rows, id: \.label) { row in
+                    HStack(alignment: .firstTextBaseline, spacing: ModulaSpacing.sm) {
+                        Image(systemName: row.ok ? "checkmark.circle.fill" : "circle.dashed")
+                            .foregroundStyle(row.ok ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                            .accessibilityHidden(true)
+                        Text(row.label).font(.subheadline)
+                        Spacer(minLength: 12)
+                        Text(row.value).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+                    }
+                    .frame(minHeight: 44)
+                    .accessibilityElement(children: .combine)
+                }
+                Text("Delivery isn't checked here. Only Modula's servers know whether a notification was sent.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, ModulaSpacing.xs)
+            }
+            .accessibilityIdentifier("settings.push.readiness")
         }
     }
 
@@ -351,5 +387,58 @@ struct PushPrePromptSheet: View {
             withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.7)) { appeared = true }
         }
         .accessibilityIdentifier("push.prePrompt")
+    }
+}
+
+
+/// Push readiness facts the phone itself can observe. Pure, so it is unit-testable.
+struct PushReadiness: Equatable {
+    enum Signing: Equatable { case allowsPush, noPush, unknown }
+
+    struct Row: Equatable {
+        let label: String
+        let value: String
+        let ok: Bool
+    }
+
+    var authorizationTitle: String
+    var flagEnabled: Bool
+    var signing: Signing
+    var registration: PushNotificationController.RegistrationState
+
+    var rows: [Row] {
+        [
+            Row(label: "iOS permission", value: authorizationTitle,
+                ok: authorizationTitle == "Allowed" || authorizationTitle == "Delivered quietly" || authorizationTitle == "Allowed for this session"),
+            Row(label: "Push in this build", value: flagEnabled ? "On" : "Off", ok: flagEnabled),
+            Row(label: "Signing profile allows push", value: {
+                switch signing {
+                case .allowsPush: "Yes"
+                case .noPush: "No"
+                case .unknown: "Can't tell"
+                }
+            }(), ok: signing == .allowsPush),
+            Row(label: "Registered with Modula", value: {
+                switch registration {
+                case .registered: "Yes"
+                case .registering: "In progress"
+                case .failed: "Failed"
+                case .unavailable: "Not available"
+                case .idle: "Not yet"
+                }
+            }(), ok: registration == .registered),
+        ]
+    }
+
+    /// Reads the installed provisioning profile (present in development builds only). It
+    /// says whether push is permitted for this install; it never reads tokens or secrets.
+    static func signingFromEmbeddedProfile(bundle: Bundle = .main) -> Signing {
+        guard let url = bundle.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url) else { return .unknown }
+        return signing(fromProfileData: data)
+    }
+
+    static func signing(fromProfileData data: Data) -> Signing {
+        data.range(of: Data("<key>aps-environment</key>".utf8)) != nil ? .allowsPush : .noPush
     }
 }

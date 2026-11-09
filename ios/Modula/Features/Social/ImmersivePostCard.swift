@@ -133,6 +133,7 @@ struct ImmersivePostCard: View {
     private var isDetail: Bool { style == .detail }
 
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var postTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
@@ -198,7 +199,9 @@ struct ImmersivePostCard: View {
         .accessibilityAction(named: "Save", onSave)
         .accessibilityAction(named: "Share") { share() }
         .accessibilityAction(named: "Open Author", onOpenAuthor)
-        .accessibilityAction(named: "More actions") { }
+        .accessibilityAction(named: "Copy Link") {
+            PostMenuExecutor.run("copy-link", request: menuRequest(anchor: .zero), app: app)
+        }
         .accessibilityAction(named: "Who reacted") { openReactors() }
         .sheet(isPresented: $showsReactionGrid) {
             ReactionGridSheet { emoji in
@@ -475,10 +478,15 @@ struct ImmersivePostCard: View {
     }
 
     private func authorNameRow(onMedia: Bool) -> some View {
-        HStack(spacing: 4) {
+        // Accessibility text sizes: stack name and time so neither truncates to "…".
+        let large = postTypeSize.isAccessibilitySize
+        let layout = large
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(spacing: 4))
+        return layout {
             Text(post.author?.displayName ?? "Modula")
                 .font(.system(.subheadline, design: font, weight: .semibold))
-                .lineLimit(1)
+                .lineLimit(large ? 3 : 1)
             if post.author?.isVerified == true {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 13, weight: .semibold))
