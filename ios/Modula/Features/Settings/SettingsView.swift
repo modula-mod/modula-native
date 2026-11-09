@@ -145,6 +145,7 @@ struct SettingsView: View {
     @AppStorage("settings.focus.hideBadges") private var hideBadges = false
     @AppStorage("settings.focus.allowMentions") private var allowMentions = true
     @AppStorage("settings.feed.defaultMode") private var feedMode = "following"
+    @AppStorage(ModulaMascotSettings.kindKey) private var molibooKindRaw = ModulaMascotKind.pip.rawValue
 
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -152,19 +153,28 @@ struct SettingsView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 if isSearching {
-                    SettingsGroup(title: "Results") {
-                        ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
-                            SettingsTileRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
-                                app.navigation.settingsFocusAnchor = item.anchor
-                                app.navigation.open(.settings(item.route))
-                            }
-                            if index < filteredSearchItems.count - 1 { SettingsDivider() }
-                        }
-                        if filteredSearchItems.isEmpty {
+                    // Atlas v5 09.002: grouped matches, each with its breadcrumb; unavailable
+                    // destinations say so instead of looking like working settings.
+                    if filteredSearchItems.isEmpty {
+                        SettingsGroup(title: "Results") {
                             ModulaEmptyState(title: "No settings for “\(query)”", message: "Try a broader word, like privacy or theme.", symbol: "magnifyingglass")
                                 .frame(minHeight: 220)
                         }
+                    } else {
+                        ForEach(groupedSearchItems, id: \.category) { group in
+                            SettingsGroup(title: group.category) {
+                                ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
+                                    SettingsTileRow(title: item.title, subtitle: searchSubtitle(item, category: group.category), symbol: item.symbol) {
+                                        app.navigation.settingsFocusAnchor = item.anchor
+                                        app.navigation.open(.settings(item.route))
+                                    }
+                                    if index < group.items.count - 1 { SettingsDivider() }
+                                }
+                            }
+                        }
                     }
+                } else if searchPresented {
+                    suggestedSearches
                 } else {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Settings")
@@ -186,7 +196,13 @@ struct SettingsView: View {
                         }
                     }
 
-                    settingsSection("Account") {
+                    // Atlas v5 08.01 / 09.001: one pinned 2D Moliboo feature card, launch shortcuts,
+                    // then the numbered categories, each destination listed once.
+                    molibooHero
+
+                    quickActions
+
+                    settingsSection("Account & Membership") {
                         TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Your Stats", symbol: "chart.line.uptrend.xyaxis", tint: .green) {
@@ -201,36 +217,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    settingsSection("Content & Activity") {
-                        TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
-                        TelegramDivider()
-                        TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
-                        TelegramDivider()
-                        TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Feed", symbol: "rectangle.stack.fill", tint: .pink, value: feedValue) { app.navigation.open(.settings(.feed(.root))) }
-                    }
-
-                    settingsSection("Devices & Data") {
-                        TelegramRow(title: "Devices", symbol: "laptopcomputer", tint: .orange) { app.navigation.open(.settings(.account(.sessions))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .yellow) { app.navigation.open(.settings(.dataStorage(.packages))) }
-                        TelegramDivider()
-                        // Atlas v5.0 M-01: after Devices/Storage, before Help & About.
-                        TelegramRow(title: "Migration", symbol: "arrow.triangle.swap", tint: .teal, value: "Not yet available") { app.navigation.open(.settings(.migration(.root))) }
-                            .accessibilityHint("Move your account to another GreenField node. Explanation only for now.")
-                            .accessibilityIdentifier("settings.migration")
-                    }
-
-                    settingsSection("Look & Feel") {
-                        SettingsLiveAppearanceCard { app.navigation.open(.settings(.appearance(.root))) }
-                    }
-
-                    settingsSection("Experience") {
-                        TelegramRow(title: "Notifications and Sounds", symbol: "bell.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
-                        TelegramDivider()
+                    settingsSection("Privacy & Security") {
                         TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Security Center", symbol: "lock.shield.fill", tint: .indigo) { app.navigation.open(.settings(.privacy(.security))) }
@@ -238,31 +225,64 @@ struct SettingsView: View {
                         TelegramDivider()
                         TelegramRow(title: "Privacy Dashboard", symbol: "checkmark.shield.fill", tint: .indigo) { showsPrivacyDashboard = true }
                             .accessibilityIdentifier("settings.privacy-dashboard.open")
-                        TelegramDivider()
-                        TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .green, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Language", symbol: "globe", tint: .blue) { app.navigation.open(.settings(.language(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Moliboo", symbol: "pawprint.fill", tint: .orange) { app.navigation.open(.settings(.moliboo)) }
                     }
 
-                    settingsSection("More") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionHeader("Appearance & Accessibility")
+                        TelegramSettingsCard {
+                            SettingsLiveAppearanceCard { app.navigation.open(.settings(.appearance(.root))) }
+                        }
+                        TelegramSettingsCard {
+                            TelegramRow(title: "Personalisation", symbol: "slider.horizontal.3", tint: .indigo) { app.navigation.open(.settings(.personalisation(.root))) }
+                            TelegramDivider()
+                            TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
+                            TelegramDivider()
+                            TelegramRow(title: "Language", symbol: "globe", tint: .blue) { app.navigation.open(.settings(.language(.root))) }
+                        }
+                    }
+
+                    settingsSection("Notifications & Communication") {
+                        TelegramRow(title: "Notifications and Sounds", symbol: "bell.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
+                        TelegramDivider()
                         TelegramRow(title: "Chats", symbol: "bubble.left.and.bubble.right.fill", tint: .green) { app.navigation.open(.settings(.chats(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Audio and Haptics", symbol: "speaker.wave.2.fill", tint: .pink) { app.navigation.open(.settings(.audio(.root))) }
+                    }
+
+                    settingsSection("Content, Social & Activity") {
+                        TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Feed", symbol: "rectangle.stack.fill", tint: .pink, value: feedValue) { app.navigation.open(.settings(.feed(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Media and Camera", symbol: "photo.on.rectangle.angled", tint: .pink) { app.navigation.open(.settings(.media(.root))) }
                         TelegramDivider()
-                        TelegramRow(title: "Audio and Haptics", symbol: "speaker.wave.2.fill", tint: .pink) { app.navigation.open(.settings(.audio(.root))) }
-                        TelegramDivider()
                         TelegramRow(title: "Gestures, Typing and Sharing", symbol: "hand.draw.fill", tint: .teal) { app.navigation.open(.settings(.gestures(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Personalisation", symbol: "slider.horizontal.3", tint: .indigo) { app.navigation.open(.settings(.personalisation(.root))) }
-                        TelegramDivider()
-                        TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
+                    }
+
+                    settingsSection("Modules & Intelligence") {
+                        TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Intelligence", symbol: "brain", tint: .purple, value: intelligenceStatus) { app.navigation.open(.settings(.intelligence(.root))) }
+                    }
+
+                    settingsSection("Devices, Storage & Sync") {
+                        TelegramRow(title: "Devices", symbol: "laptopcomputer", tint: .orange) { app.navigation.open(.settings(.account(.sessions))) }
                         TelegramDivider()
+                        TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .yellow) { app.navigation.open(.settings(.dataStorage(.packages))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .green, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
+                        TelegramDivider()
+                        // Atlas v5.0 M-01: after Devices/Storage, before Help & About.
+                        TelegramRow(title: "Migration", symbol: "arrow.triangle.swap", tint: .teal, value: "Not yet available") { app.navigation.open(.settings(.migration(.root))) }
+                            .accessibilityHint("Move your account to another GreenField node. Explanation only for now.")
+                            .accessibilityIdentifier("settings.migration")
+                    }
+
+                    settingsSection("Help, Legal & About") {
                         TelegramRow(title: "Help and Status", symbol: "questionmark.bubble.fill", tint: .orange) { app.navigation.open(.settings(.help(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "What’s New", symbol: "sparkles", tint: .blue) { app.navigation.open(.settings(.whatsNew(.root))) }
@@ -292,6 +312,13 @@ struct SettingsView: View {
                         tinted("Widgets & Location (preview)", "location.square.fill", .purple, .widgets(.root))
                     }
                     #endif
+
+                    Text(versionSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
+                        .accessibilityIdentifier("settings.footer.version")
                 }
             }
             .padding(.horizontal, 16)
@@ -333,9 +360,6 @@ struct SettingsView: View {
                         .transition(.opacity)
                         .accessibilityLabel("Search Settings")
                 }
-                Button("Edit") { openProfileEdit() }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("settings.edit")
             }
         }
         .animation(.easeOut(duration: 0.18), value: collapse > 0.85 || scrollY < -40)
@@ -546,7 +570,7 @@ struct SettingsView: View {
     private var versionSummary: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return "Version \(version) (\(build)) · native SwiftUI shell"
+        return "Modula \(version) (\(build))"
     }
 
     private var searchItems: [SettingsSearchItem] {
@@ -563,7 +587,7 @@ struct SettingsView: View {
             return !SettingsAudit.previewOnly(entry.route)
             #endif
         }.map {
-            SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route, $0.anchor)
+            SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route, $0.anchor, unavailable: $0.availability == .capabilityUnavailable)
         }
     }
 
@@ -604,6 +628,127 @@ struct SettingsView: View {
 
     private func category(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute) -> some View {
         SettingsNavigationRow(title: title, subtitle: subtitle, symbol: symbol) { app.navigation.open(.settings(route)) }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 4)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Pinned first-party 2D companion card (Atlas v5 S5-03). Opens the existing Moliboo settings directly.
+    private var molibooHero: some View {
+        let kind = ModulaMascotKind(rawValue: molibooKindRaw) ?? .pip
+        return Button {
+            HapticEngine.shared.play(.selection)
+            app.navigation.open(.settings(.moliboo))
+        } label: {
+            HStack(spacing: 14) {
+                MolibooEmptyArt(mood: .happy, size: 58, animated: !reduceMotion)
+                    .frame(width: 72, height: 72)
+                    .background(app.appearance.liveAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("MOLIBOO · YOUR COMPANION")
+                        .font(.caption2.weight(.bold))
+                        .tracking(0.6)
+                        .foregroundStyle(app.appearance.liveAccent)
+                    Text(kind.name)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.primary)
+                    Text("Studio, wardrobe, where it appears and sounds")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Moliboo, your companion: \(kind.name)")
+        .accessibilityHint("Opens Moliboo settings")
+        .accessibilityIdentifier("settings.moliboo.hero")
+    }
+
+    /// Launch shortcuts (Atlas v5 09.001). Each opens an existing, working destination.
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            quickAction("Privacy", "checkmark.shield.fill", .indigo, id: "privacy") { showsPrivacyDashboard = true }
+            quickAction("Account", "person.crop.circle.fill", .blue, id: "account") { openAccountOrLogin() }
+            quickAction("Appearance", "paintbrush.fill", .cyan, id: "appearance") { app.navigation.open(.settings(.appearance(.root))) }
+            quickAction("Modules", "shippingbox.fill", .green, id: "modules") { app.navigation.open(.settings(.modules(.root))) }
+        }
+        .accessibilityIdentifier("settings.quick-actions")
+    }
+
+    private func quickAction(_ title: String, _ symbol: String, _ tint: Color, id: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity, minHeight: 76)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityIdentifier("settings.quick.\(id)")
+    }
+
+    /// Shown while the search field is focused and empty (Atlas v5 09.002 "suggested searches").
+    private var suggestedSearches: some View {
+        SettingsGroup(title: "Suggested") {
+            ForEach(Array(Self.suggestions.enumerated()), id: \.offset) { index, suggestion in
+                SettingsTileRow(title: suggestion.0, symbol: suggestion.1) { query = suggestion.0 }
+                if index < Self.suggestions.count - 1 { SettingsDivider() }
+            }
+        }
+        .accessibilityIdentifier("settings.search.suggested")
+    }
+
+    private static let suggestions: [(String, String)] = [
+        ("Privacy", "lock.fill"), ("Notifications", "bell.fill"), ("Appearance", "paintbrush.fill"),
+        ("Moliboo", "pawprint.fill"), ("Storage", "internaldrive.fill"), ("Accessibility", "accessibility")
+    ]
+
+    private var groupedSearchItems: [(category: String, items: [SettingsSearchItem])] {
+        var order: [String] = []
+        var buckets: [String: [SettingsSearchItem]] = [:]
+        for item in filteredSearchItems {
+            let category = SettingsV5Category.title(for: item.route)
+            if buckets[category] == nil { order.append(category) }
+            buckets[category, default: []].append(item)
+        }
+        return order.sorted { SettingsV5Category.rank($0) < SettingsV5Category.rank($1) }
+            .map { ($0, buckets[$0] ?? []) }
+    }
+
+    private func searchSubtitle(_ item: SettingsSearchItem, category: String) -> String {
+        let crumb = "Settings › \(category)"
+        if item.unavailable { return "\(crumb) · Not available yet" }
+        return item.subtitle.isEmpty ? crumb : "\(crumb) · \(item.subtitle)"
     }
 
     private func openAccountOrLogin() {
@@ -751,8 +896,10 @@ private struct SettingsSearchItem: Identifiable {
     let symbol: String
     let route: SettingsRoute
     let anchor: String?
+    var unavailable = false
 
-    init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute, _ anchor: String?) {
+    init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute, _ anchor: String?, unavailable: Bool = false) {
+        self.unavailable = unavailable
         id = RouteSerializer.serialize(.settings(route)) + (anchor ?? "")
         self.title = title
         self.subtitle = subtitle
@@ -1907,6 +2054,36 @@ private struct SettingsGlassSearchBar: View {
         }
         .onChange(of: focused) { _, isFocused in
             if isFocused != presented { presented = isFocused }
+        }
+    }
+}
+
+/// Atlas v5 category names used as search breadcrumbs. Presentation only: routes are unchanged.
+enum SettingsV5Category {
+    static let order = [
+        "Moliboo", "Account & Membership", "Privacy & Security", "Appearance & Accessibility",
+        "Notifications & Communication", "Content, Social & Activity", "Modules & Marketplace",
+        "Intelligence & Agents", "Connections & Automations", "Devices, Storage & Sync",
+        "Help, Legal & About", "Developer & Labs"
+    ]
+
+    static func rank(_ title: String) -> Int { order.firstIndex(of: title) ?? order.count }
+
+    static func title(for route: SettingsRoute) -> String {
+        switch route {
+        case .moliboo: "Moliboo"
+        case .account, .premium, .creator, .passkeys, .qrCode, .family, .monetisation: "Account & Membership"
+        case .privacy, .safety: "Privacy & Security"
+        case .appearance, .personalisation, .accessibility, .language, .translate, .keyboard, .timeUnits: "Appearance & Accessibility"
+        case .notifications, .chats, .audio, .digests, .focus: "Notifications & Communication"
+        case .feed, .media, .camera, .photos, .gestures, .sharing, .finder: "Content, Social & Activity"
+        case .modules, .features, .updates: "Modules & Marketplace"
+        case .intelligence: "Intelligence & Agents"
+        case .connectors, .integrations, .widgets, .location: "Connections & Automations"
+        case .dataStorage, .battery, .network, .migration: "Devices, Storage & Sync"
+        case .help, .whatsNew, .about: "Help, Legal & About"
+        case .developer, .labs: "Developer & Labs"
+        default: "Settings"
         }
     }
 }
