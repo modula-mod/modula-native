@@ -217,6 +217,11 @@ struct SettingsView: View {
                         TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
                         TelegramDivider()
                         TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .yellow) { app.navigation.open(.settings(.dataStorage(.packages))) }
+                        TelegramDivider()
+                        // Atlas v5.0 M-01: after Devices/Storage, before Help & About.
+                        TelegramRow(title: "Migration", symbol: "arrow.triangle.swap", tint: .teal, value: "Not yet available") { app.navigation.open(.settings(.migration(.root))) }
+                            .accessibilityHint("Move your account to another GreenField node. Explanation only for now.")
+                            .accessibilityIdentifier("settings.migration")
                     }
 
                     settingsSection("Look & Feel") {

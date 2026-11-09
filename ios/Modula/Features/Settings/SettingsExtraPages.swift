@@ -384,3 +384,356 @@ struct KeyboardSettingsHost: View {
         }
     }
 }
+
+// MARK: - Migration (Settings Atlas v5.0 extension M-01, stage MX-00 "Explain")
+
+/// Host-owned Settings destination. Explanation only: no discovery, transfer, import, export or
+/// recovery actions exist yet, and nothing here shows node names, counts or readiness that
+/// weren't genuinely verified. Copy follows MIGRATION-DESIGN-HANDOFF.md (MX-00).
+struct MigrationSettingsHost: View {
+    let route: MigrationSettingsRoute
+
+    var body: some View {
+        switch route {
+        case .root: MigrationOverviewPage()
+        case .node: MigrationNodePage()
+        case .data: MigrationDataPage()
+        case .identity: MigrationIdentityPage()
+        case .help: MigrationHelpPage()
+        }
+    }
+}
+
+private struct MigrationOverviewPage: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var showsWhat = false
+    @State private var showsWhyNot = false
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "Migration Overview", subtitle: "Your account, with a choice of home.", symbol: "arrow.triangle.swap")
+            SettingsGroup(title: "Status") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Not yet available", systemImage: "clock.badge.questionmark")
+                        .font(.headline)
+                        .foregroundStyle(app.appearance.liveAccent)
+                    Text("This section explains how migration is intended to work. You can’t start a move here.")
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Migration is designed to let you move your account to another GreenField node — the service operated to host your account. You would review the destination, supported data and any limits before deciding.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        app.navigation.open(.settings(.migration(.help)))
+                    } label: {
+                        Text("Learn about migration").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
+                    .modulaAccentCTA()
+                    .padding(.top, 4)
+                    .accessibilityIdentifier("settings.migration.learn")
+                }
+                .padding(.vertical, 8)
+                .accessibilityElement(children: .contain)
+            }
+            SettingsGroup(title: "About migration") {
+                VStack(spacing: 0) {
+                    SettingsNavigationRow(title: "What is Migration?", subtitle: "Changing your account’s home node", symbol: "info.circle") { showsWhat = true }
+                    SettingsNavigationRow(title: "Why isn’t migration available?", subtitle: "Stage MX-00 — Explain", symbol: "questionmark.circle") { showsWhyNot = true }
+                    SettingsNavigationRow(title: "My GreenField Node", subtitle: "What this app connects to", symbol: "server.rack") {
+                        app.navigation.open(.settings(.migration(.node)))
+                    }
+                    SettingsNavigationRow(title: "Data Portability", subtitle: "What a transfer would and wouldn’t include", symbol: "tray.and.arrow.up") {
+                        app.navigation.open(.settings(.migration(.data)))
+                    }
+                    SettingsNavigationRow(title: "Identity & Recovery", subtitle: "Portable identity explained", symbol: "person.badge.shield.checkmark") {
+                        app.navigation.open(.settings(.migration(.identity)))
+                    }
+                    SettingsNavigationRow(title: "Migration Help", subtitle: "Nodes, federation and moving", symbol: "book") {
+                        app.navigation.open(.settings(.migration(.help)))
+                    }
+                }
+            }
+            SettingsGroup(title: "Learn more") {
+                VStack(alignment: .leading, spacing: 0) {
+                    MigrationDisclosure(title: "What could move?", text: "Your plan would list supported identity and profile data, eligible social records and module data individually. Private messages and notes are excluded by default. Wallet keys and seed phrases are never included. Connected services would need to be authorised again.")
+                    Divider()
+                    MigrationDisclosure(title: "What stays the same?", text: "A portable identity is intended to remain stable where the protocol guarantees it. Your local account ID may change, and your handle may need a new name or node qualification. Your iPhone is not your home node.")
+                }
+            }
+            SettingsGroup(title: "Move My Account") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {} label: {
+                        Label("Move My Account", systemImage: "arrow.right.circle")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(true)
+                    .accessibilityLabel("Move My Account, unavailable")
+                    .accessibilityHint("Not available yet. It needs portable identity and a secure node handoff.")
+                    .accessibilityIdentifier("settings.migration.move")
+                    Text("Not available yet: needs portable identity and secure node handoff.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 8)
+            }
+            SettingsAPIFootnote(text: "Guidance only. Nothing on these screens contacts another node or changes your account.")
+        }
+        .navigationTitle("Migration")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showsWhat) {
+            MigrationInfoSheet(
+                title: "What is Migration?",
+                paragraphs: ["Migration would change your account’s authoritative home node: the operator responsible for its account records. Only supported records included in your plan would move. Moving your account is different from setting up a new phone, importing a file or transferring a wallet."]
+            ) { app.navigation.open(.settings(.migration(.help))) }
+        }
+        .sheet(isPresented: $showsWhyNot) {
+            MigrationInfoSheet(
+                title: "Migration isn’t available yet",
+                paragraphs: [
+                    "Stage: MX-00 — Explain.",
+                    "Account moves require verified portable identity, signed node discovery, destination acceptance and a secure handoff with recovery. These requirements must be confirmed for your account and destination before a transfer can be offered.",
+                    "If capability checks are unavailable, that is not evidence that your account is ready to move."
+                ]
+            ) { app.navigation.open(.settings(.migration(.help))) }
+        }
+    }
+}
+
+private struct MigrationNodePage: View {
+    private var configuredHost: String? {
+        (Bundle.main.object(forInfoDictionaryKey: "ModulaAPIURL") as? String)
+            .flatMap(URL.init(string:))?
+            .host()
+    }
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "My GreenField Node", subtitle: "The node responsible for your account’s home-node records.", symbol: "server.rack")
+            SettingsGroup(title: "This app connects to", subtitle: "Set in this build of the app. It is the server address in use, not a signed node identity.") {
+                MigrationFactRow(label: "Server", value: configuredHost ?? "Not available")
+            }
+            SettingsGroup(title: "Signed node information", subtitle: "Shown only once signed node discovery exists. Nothing here is guessed.") {
+                VStack(spacing: 0) {
+                    MigrationFactRow(label: "Node identity", value: "Not available yet")
+                    MigrationFactRow(label: "Operator", value: "Not available yet")
+                    MigrationFactRow(label: "Signing key fingerprint", value: "Not available yet")
+                    MigrationFactRow(label: "Protocol & federation", value: "Not available yet")
+                    MigrationFactRow(label: "Jurisdiction & policies", value: "Not available yet")
+                }
+            }
+            SettingsAPIFootnote(text: "Signature verified would confirm who signed node information. It does not rate the operator or guarantee service quality.")
+        }
+        .navigationTitle("My GreenField Node")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MigrationDataPage: View {
+    private let rows: [(String, String)] = [
+        ("Home-node authority", "Moves only inside a supported, approved migration."),
+        ("Public profile & media", "Supported profile details, listed field by field."),
+        ("Public posts & replies", "Optional, when supported. Public copies elsewhere can persist."),
+        ("Follows & social graph", "Optional, when supported; some connections may not map."),
+        ("Blocks, mutes, drafts & preferences", "Reviewed per item before consent."),
+        ("Private messages", "Not included. Needs separate secure support."),
+        ("Private notes & Vault Notes", "Not included unless the module supports encrypted portability and you choose it."),
+        ("Moliboo identity & wardrobe", "Only module-supported items; keeps its native 2D look."),
+        ("Installed modules", "Reinstalled from verified releases, with a fresh permission review."),
+        ("Agent memories & automations", "Not included by default; agents stay paused."),
+        ("Connected services & sessions", "Never copied. You reconnect after a move."),
+        ("Wallet keys & seed phrases", "Never part of account migration."),
+        ("Device-only settings", "Stay on this device."),
+    ]
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "Data Portability", subtitle: "Exporting records does not change your account’s home node.", symbol: "tray.and.arrow.up")
+            SettingsGroup(title: "Export isn’t migration") {
+                Text("A migration plan must separately verify identity, destination acceptance and supported data. Portability support hasn’t been verified for your account’s data.")
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 8)
+            }
+            SettingsGroup(title: "How each kind of data would be handled", subtitle: "Intended handling, not a check of your account.") {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows, id: \.0) { row in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.0).font(.subheadline.weight(.semibold))
+                            Text(row.1).font(.footnote).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .combine)
+                        Divider()
+                    }
+                }
+            }
+            SettingsAPIFootnote(text: "Consent would be per item and never pre-ticked.")
+        }
+        .navigationTitle("Data Portability")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MigrationIdentityPage: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "Identity & Recovery", subtitle: "Your portable principal identifies you across supported nodes.", symbol: "person.badge.shield.checkmark")
+            SettingsGroup(title: "How identity would work") {
+                Text("A node’s local account ID can differ from your portable principal. Your handle may need to change. Private signing keys are never stored in profile data or shown here.")
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 8)
+            }
+            SettingsGroup(title: "Your account") {
+                VStack(spacing: 0) {
+                    MigrationFactRow(label: "Portable identity", value: "Not available yet")
+                    MigrationFactRow(label: "Recovery readiness", value: "Hasn’t been verified")
+                }
+            }
+            SettingsGroup(title: "Security") {
+                SettingsNavigationRow(title: "Open Security Center", subtitle: "Passkeys, sessions and sign-in protection", symbol: "lock.shield") {
+                    app.navigation.open(.settings(.privacy(.security)))
+                }
+            }
+        }
+        .navigationTitle("Identity & Recovery")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MigrationHelpPage: View {
+    private let faqs: [(String, String)] = [
+        ("What is a GreenField node?", "A GreenField node is a service instance run by an operator with its own controlled data store. Under supported federation rules, nodes can discover peers, verify identities and signed events, and exchange authorised records. Your home node is the node responsible for your account’s authoritative records. It is not your iPhone."),
+        ("Is federation the same as full decentralisation?", "No. Independent operators can connect under shared rules without every part of the system being fully decentralised. Each operator can have different policies, capabilities and responsibilities. A verified signature identifies the signer of node information; it is not a recommendation or a guarantee of service quality."),
+        ("What would change when I move?", "Your account’s home-node operator would change. The move would include only the supported records shown in your reviewed plan. Your portable identity is intended to stay stable where the protocol guarantees it, but your local account ID can change. Your handle, modules, licences and social connections may have limits that must be reviewed first."),
+        ("Would my private messages and notes move?", "Private messages and private notes are excluded by default. They need their own independently supported secure portability design. Module data, including Vault Notes, can move only under that module’s supported encrypted contract and your explicit choice. Your plan must show exclusions before you approve."),
+        ("What happens to connected services and agents?", "Connected-service tokens and sessions are not copied to a new operator. Supported services need to be authorised again. Agents and automations must stay paused until you review and authorise their permissions for the destination."),
+        ("Does a move erase old public content?", "Not necessarily. Your former operator may retain records under its policy, and other operators may already hold permitted public copies. A migration receipt records transfer operations; it does not prove that every peer erased historical content. Review each operator’s retention and deletion policy."),
+        ("Is this for a new phone or a wallet?", "No. Setting up another phone belongs in Devices, Storage & Sync. Running your own node is a separate operator workflow. DIMON settlement and financial recovery are separate from account migration. Ordinary settings, chats and notes do not depend on settlement finality. Wallet keys and seed phrases are never included in this migration."),
+        ("Why can’t I start a move here?", "In MX-00 — Explain, this section is guidance only. Account moves require verified identity portability, signed node discovery, destination acceptance and a secure handoff with recovery. A move must not be offered until the requirements are confirmed for your account and destination."),
+        ("What if a future transfer is interrupted?", "Review the last verified job status before trying again. Before the authority handoff, cancellation may be available if the service confirms that it is reversible. After the handoff is committed, use recovery or a separately approved reverse migration. Leaving the screen is not the same as cancelling the transfer."),
+    ]
+    private let glossary: [(String, String)] = [
+        ("Operator", "The organisation or person running a node and setting its policies."),
+        ("Home node", "The one authoritative node for your account at a given handoff checkpoint."),
+        ("Portable principal ID", "The identity intended to remain stable across supported node moves."),
+        ("Local account ID", "A node-specific identifier that can differ at the destination."),
+        ("Signed discovery", "Node information whose signature and validity are checked under the protocol."),
+        ("Cutover / authority handoff", "The committed change of the account’s authoritative home node."),
+        ("Receipt", "Tamper-evident evidence of recorded migration operations, not a universal deletion certificate."),
+        ("Recovery", "A verified action to resume or repair from a durable checkpoint, not an automatic undo."),
+    ]
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "Migration Help", subtitle: "Nodes, federation and what moving would mean.", symbol: "book")
+            SettingsGroup(title: "Questions") {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(faqs, id: \.0) { faq in
+                        MigrationDisclosure(title: faq.0, text: faq.1)
+                        Divider()
+                    }
+                }
+            }
+            SettingsGroup(title: "Glossary") {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(glossary, id: \.0) { term in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(term.0).font(.subheadline.weight(.semibold))
+                            Text(term.1).font(.footnote).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Migration Help")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MigrationDisclosure: View {
+    let title: String
+    let text: String
+    @State private var expanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        DisclosureGroup(isExpanded: Binding(
+            get: { expanded },
+            set: { value in withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { expanded = value } }
+        )) {
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 8)
+        } label: {
+            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                .frame(minHeight: 44, alignment: .leading)
+        }
+    }
+}
+
+private struct MigrationFactRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).font(.subheadline)
+            Spacer(minLength: 12)
+            Text(value).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+        }
+        .frame(minHeight: 44)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct MigrationInfoSheet: View {
+    let title: String
+    let paragraphs: [String]
+    var onReadHelp: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(paragraphs, id: \.self) { paragraph in
+                        Text(paragraph).font(.body).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Button {
+                        dismiss()
+                        onReadHelp()
+                    } label: {
+                        Text("Read migration help").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
+                    .modulaAccentCTA()
+                    .padding(.top, 6)
+                }
+                .padding(20)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
