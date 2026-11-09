@@ -195,6 +195,8 @@ struct ModulaComposer: View {
     var collapsesWhenUnfocused = false
     /// Chats: the perched mascot steps away while you type, so it never sits over the field or the thread.
     var hidesMascotWhileComposing = false
+    /// Tells the host when the "+" tray opens or closes (e.g. to expand a sheet).
+    var onTrayChange: ((Bool) -> Void)? = nil
     var onSend: () -> Void
 
     @FocusState private var plainFocused: Bool
@@ -322,13 +324,16 @@ struct ModulaComposer: View {
         // Mascot perches on the composer's top edge (topmost bar), clear of the mic/send button.
         .modulaMascotPerch()
         .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62,
-                              hidden: hidesMascotWhileComposing && (focused || !text.isEmpty || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
+                              hidden: hidesMascotWhileComposing && (focused || !text.isEmpty || attachMenuOpen || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
+        .onChange(of: attachMenuOpen) { _, open in onTrayChange?(open) }
     }
 
     private var dockedComposer: some View {
         VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                 if !mentionSuggestions.isEmpty { mentionList }
                 if !hashtagSuggestions.isEmpty { hashtagList }
+                // Formatting bar and reply chip sit directly on the field as one stack, not
+                // floating over the content behind the composer.
                 if showsFormatting && focused && !recorder.isRecording {
                     ModulaRichFormattingBar(
                         controller: rich,
@@ -337,11 +342,10 @@ struct ModulaComposer: View {
                         onTranslate: state.trimmed.isEmpty ? nil : { showTranslate = true }
                     )
                     .modulaGlassID("composer.formatting", in: glass)
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .transition(.opacity)
                 }
                 if let reply { replyPreview(reply) }
                 if !attachments.isEmpty { attachmentStrip }
-                if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu }
                 if let status = dictation.status {
                     Text(status).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 8)
                 }
@@ -365,6 +369,8 @@ struct ModulaComposer: View {
                     }
                     trailingButton
                 }
+                // The "+" tray opens under the field, in the keyboard's place (iMessage app drawer).
+                if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu }
         }
         .task(id: holdExpanded) {
             guard collapsesWhenUnfocused, holdExpanded, !focused else { return }
@@ -664,6 +670,9 @@ struct ModulaComposer: View {
                             }
                         }
                         .padding(.horizontal, 14)
+                        // Room above the first row so icons (and their shadow) are never clipped.
+                        .padding(.top, 12)
+                        .padding(.bottom, 6)
                         .frame(maxHeight: .infinity, alignment: .top)
                         .containerRelativeFrame(.horizontal)
                         .id(pageIndex)
@@ -673,7 +682,7 @@ struct ModulaComposer: View {
             }
             .scrollTargetBehavior(.paging)
             .scrollPosition(id: $attachPage)
-            .frame(height: attachPages.count > 1 || attachmentOptions.count > 4 ? 172 : 84)
+            .frame(height: attachPages.count > 1 || attachmentOptions.count > 4 ? 196 : 104)
             if attachPages.count > 1 {
                 HStack(spacing: 6) {
                     ForEach(0..<attachPages.count, id: \.self) { index in
@@ -686,10 +695,13 @@ struct ModulaComposer: View {
                 .accessibilityHidden(true)
             }
         }
-        .padding(.vertical, 14)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 28, style: .continuous), interactive: false, specular: true)
+        .padding(.vertical, 8)
+        // Solid enough that the list behind never shows through the tray.
+        .background(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.regularMaterial),
+                    in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false, specular: true)
         .modulaGlassID("composer.attach", in: glass)
-        .transition(reduceMotion ? .opacity : .scale(scale: 0.3, anchor: .bottomLeading).combined(with: .opacity))
+        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         .onAppear {
             attachPage = 0
             attachAppeared = false
@@ -721,19 +733,28 @@ struct ModulaComposer: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(ModulaPressScaleStyle())
-        .scaleEffect(attachAppeared || reduceMotion ? 1 : 0.4)
+        // Crisp, short stagger (no bouncy overshoot that pushed the top row out of the tray).
+        .scaleEffect(attachAppeared || reduceMotion ? 1 : 0.85)
         .opacity(attachAppeared || reduceMotion ? 1 : 0)
-        .offset(y: attachAppeared || reduceMotion ? 0 : 18)
-        .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.68).delay(Double(order % 8) * 0.028), value: attachAppeared)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18).delay(Double(order % 8) * 0.018), value: attachAppeared)
         .accessibilityIdentifier("composer.attach.\(option.id)")
     }
 
     private func replyPreview(_ reply: ModulaComposerReply) -> some View {
         HStack(spacing: 8) {
-            Text(reply.title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+            Capsule().fill(app.appearance.liveAccent).frame(width: 3, height: 22).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(reply.title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .lineLimit(1)
+                if !reply.excerpt.isEmpty {
+                    Text(reply.excerpt)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
             Spacer(minLength: 0)
             if let onCancelReply {
                 Button(action: onCancelReply) {
@@ -746,10 +767,11 @@ struct ModulaComposer: View {
                 .accessibilityLabel("Cancel reply")
             }
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 6)
-        .frame(minHeight: 36)
-        .modulaGlass(in: Capsule(), interactive: false, tint: app.appearance.liveAccent.opacity(0.2))
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
+        .padding(.vertical, 4)
+        .frame(minHeight: 40)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: false)
         .modulaGlassID("composer.reply", in: glass)
         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         .accessibilityElement(children: .combine)

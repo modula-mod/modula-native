@@ -406,6 +406,7 @@ struct PostCommentsView: View {
     @State private var store: PostCommentsStore?
     @FocusState private var composerFocused: Bool
     @State private var mediaPanelActive = false
+    @State private var attachTrayOpen = false
     @State private var mediaPanelTab: ModulaComposerMediaPanel.Tab = .emoji
     @State private var showsPhotoPicker = false
     @State private var showsCamera = false
@@ -539,6 +540,8 @@ struct PostCommentsView: View {
             Task { await store?.addFile(url) }
         }
         .onChange(of: mediaPanelActive) { _, open in if open { onExpand?() } }
+        // Writing a comment gets the full sheet, so the feed never shows behind the composer.
+        .onChange(of: composerFocused) { _, focused in if focused { onExpand?() } }
         .onChange(of: mediaStage) { _, stage in if stage.isExpanded { onExpand?() } }
         .fullScreenCover(isPresented: $showsCamera) {
             CommentCameraPicker { image in Task { await store?.addCameraImage(image) } }
@@ -1360,12 +1363,15 @@ struct PostCommentsView: View {
                     ),
                     hashtagSuggestions: store?.hashtagSuggestions ?? [],
                     onHashtagQuery: { store?.updateHashtagQuery($0) },
-                    // Comments are plain text: no B/I/U/S toolbar stacked over the thread.
-                    showsFormatting: false,
+                    showsFormatting: true,
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
                     collapsesWhenUnfocused: true,
                     hidesMascotWhileComposing: true,
+                    onTrayChange: { open in
+                        attachTrayOpen = open
+                        if open { onExpand?() }
+                    },
                     onSend: {
                         // The send starts immediately; the island effect is decorative.
                         // Failures still surface through the composer error / island toast.
@@ -1378,7 +1384,7 @@ struct PostCommentsView: View {
             }
             // Reserve headroom for Moliboo, who perches on top of the bar, so he sits on the
             // composer's own background instead of over the last comments.
-            .padding(.top, commentsMascotShown && !composerFocused && (store?.draft ?? "").isEmpty ? 40 : 6)
+            .padding(.top, commentsMascotShown && !composerFocused && !attachTrayOpen && (store?.draft ?? "").isEmpty ? 40 : 6)
             .padding(.bottom, mediaPanelActive ? 10 : 8)
             .frame(maxWidth: .infinity)
             // Floating glass bar over a soft progressive fade: comments stay visible as they
@@ -1387,7 +1393,7 @@ struct PostCommentsView: View {
             .background {
                 if mediaPanelActive {
                     canvas
-                } else if composerFocused || mediaStage.isExpanded || store?.isSending == true {
+                } else if composerFocused || attachTrayOpen || mediaStage.isExpanded || store?.isSending == true {
                     // Docked to the keyboard. The idle state is the floating pill, with no full-bleed bar behind it.
                     ZStack {
                         if reduceTransparency {
@@ -1397,9 +1403,11 @@ struct PostCommentsView: View {
                             canvas.opacity(0.35)
                         }
                     }
+                    // Short fade only: the formatting bar and reply chip sit on a solid backing,
+                    // not over half-visible comments.
                     .mask(LinearGradient(stops: [
                         .init(color: .clear, location: 0),
-                        .init(color: .black.opacity(0.7), location: 0.45),
+                        .init(color: .black, location: 0.12),
                         .init(color: .black, location: 1)
                     ], startPoint: .top, endPoint: .bottom))
                     .ignoresSafeArea(edges: .bottom)

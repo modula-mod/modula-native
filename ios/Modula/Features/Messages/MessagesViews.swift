@@ -1318,6 +1318,7 @@ struct ConversationView: View {
         reply = nil
         replyQuote = nil
         replyTarget = nil
+        HapticEngine.shared.play(.lightImpact)
         launchFlyIn(text)
         IslandSendEffect.shared.fire("Message sent", accent: app.appearance.liveAccent)
         Task { await app.messaging.send(conversation: conversationID, viewer: viewer, replyTo: target) }
@@ -1429,6 +1430,7 @@ struct ConversationView: View {
         case "report":
             Task { _ = await app.messaging.report(message: message) }
         case let id where id.hasPrefix("react:"):
+            HapticEngine.shared.play(.confirmation)
             Task { await app.messaging.toggleReaction(String(id.dropFirst(6)), on: message) }
         case let id where id.hasPrefix("jumpReply:"):
             jumpToOriginal(MessageID(id.dropFirst(10)), deleted: message.replyTo?.deleted == true)
