@@ -12,6 +12,8 @@ struct SignInView: View {
     @State private var attemptedSubmit = false
     @State private var appeared = false
     @State private var shake = 0
+    /// Tallest height seen: the layout keeps its rhythm when the keyboard shrinks the view.
+    @State private var stableHeight: CGFloat = 0
     @FocusState private var focused: Field?
     #if DEBUG
     @State private var fixtureUnavailable = false
@@ -26,14 +28,15 @@ struct SignInView: View {
     var body: some View {
         GeometryReader { proxy in
             // Compact heights (iPhone SE, keyboard up, large text) tighten the rhythm.
-            let compact = proxy.size.height < 700 || dynamicTypeSize.isAccessibilitySize
+            let height = max(proxy.size.height, stableHeight)
+            let compact = height < 700 || dynamicTypeSize.isAccessibilitySize
             ScrollViewReader { reader in
                 ScrollView {
                     VStack(spacing: 0) {
                         brand(compact: compact)
-                            .padding(.top, compact ? ModulaSpacing.sm : ModulaSpacing.xl)
-                        Spacer(minLength: compact ? ModulaSpacing.lg : ModulaSpacing.xl)
+                            .padding(.top, ModulaSpacing.sm)
                         form
+                            .padding(.top, compact ? ModulaSpacing.lg : ModulaSpacing.xl)
                         Spacer(minLength: compact ? ModulaSpacing.lg : ModulaSpacing.xl)
                         footer
                     }
@@ -41,12 +44,14 @@ struct SignInView: View {
                     .padding(.bottom, ModulaSpacing.md)
                     .frame(maxWidth: 460)
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: proxy.size.height)
+                    .frame(minHeight: height)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared || reduceMotion ? 0 : 12)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .scrollBounceBehavior(.basedOnSize)
+                .onAppear { stableHeight = max(stableHeight, proxy.size.height) }
+                .onChange(of: proxy.size.width) { _, _ in stableHeight = proxy.size.height }
                 .onChange(of: focused) { _, field in
                     guard let field else { return }
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
@@ -78,30 +83,14 @@ struct SignInView: View {
     // MARK: Brand
 
     private func brand(compact: Bool) -> some View {
-        VStack(spacing: compact ? ModulaSpacing.sm : ModulaSpacing.md) {
-            SignInBrandMark(compact: compact)
-            VStack(spacing: ModulaSpacing.xs) {
-                ModulaWordmark(height: 20)
-                    .accessibilityHidden(true)
-                Text("Welcome back")
-                    .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.bold))
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Sign in to your digital world, your way.")
-                    .font(.body)
+        AuthBrandHeader(title: "Welcome back", subtitle: "Sign in to your digital world, your way.", compact: compact) {
+            if app.gate.pendingDestination != nil {
+                Label("After you sign in, Modula opens the link you followed.", systemImage: "link")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                if app.gate.pendingDestination != nil {
-                    Label("After you sign in, Modula opens the link you followed.", systemImage: "link")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("auth.pendingLink")
-                }
+                    .accessibilityIdentifier("auth.pendingLink")
             }
-            .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 
@@ -188,18 +177,7 @@ struct SignInView: View {
     }
 
     private func errorBanner(_ error: String) -> some View {
-        VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
-            HStack(alignment: .firstTextBaseline, spacing: ModulaSpacing.xs) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .accessibilityHidden(true)
-                Text(error)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(error)
-                    .accessibilityIdentifier("auth.error")
-            }
+        AuthNoticeBanner(message: error) {
             #if DEBUG
             if let diagnostic = app.auth.lastDiagnostic, diagnostic != error {
                 Text(diagnostic)
@@ -209,10 +187,8 @@ struct SignInView: View {
             }
             #endif
         }
-        .padding(ModulaSpacing.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.red.opacity(scheme == .dark ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: app.appearance.interfaceShape.radius(for: .control), style: .continuous))
-        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+        .accessibilityLabel(error)
+        .accessibilityIdentifier("auth.error")
     }
 
     // MARK: Footer
@@ -355,12 +331,14 @@ struct SignInView: View {
 /// App icon as the brand moment: a soft accent halo behind the real icon.
 struct SignInBrandMark: View {
     var compact = false
+    /// Fixed side length (e.g. the compact header lockup); nil scales with Dynamic Type.
+    var side: CGFloat? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ScaledMetric(relativeTo: .largeTitle) private var size = 76.0
 
     var body: some View {
-        let side = min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
+        let side = self.side ?? min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
         ModulaUnitTile(variant: .teal)
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
@@ -391,7 +369,7 @@ struct RegisterPlaceholderView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background { ModulaAuthBackdrop() }
+        .background { ModulaAuthBackdrop(calm: true) }
         .modulaSoftScrollEdge()
         .navigationTitle("Create Account")
         .accessibilityIdentifier("auth.register")
