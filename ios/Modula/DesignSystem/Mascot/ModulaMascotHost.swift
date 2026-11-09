@@ -397,8 +397,8 @@ extension View {
 
     /// Draws the mascot (if enabled for `placement`) above everything in this composer, perched on the
     /// `modulaMascotPerch()` bar (or this view's own bounds), `trailingInset` in from its right edge.
-    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26, slotted: Bool = false) -> some View {
-        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset, slotted: slotted))
+    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26, slotted: Bool = false, hidden: Bool = false) -> some View {
+        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset, slotted: slotted, hidden: hidden))
     }
 }
 
@@ -411,13 +411,16 @@ struct ModulaComposerMascotModifier: ViewModifier {
     /// When true the mascot sits *inside* the `modulaMascotPerch()` slot (centred, scaled to fit)
     /// instead of standing on top of the bar, so it can never cover neighbouring controls.
     var slotted: Bool = false
+    /// Fades the mascot out (keeping view identity, so the composer never loses focus).
+    var hidden: Bool = false
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @AppStorage private var shown: Bool
     @State private var touch: CGPoint?
     private let size: CGFloat = 48
 
-    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat, slotted: Bool = false) {
+    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat, slotted: Bool = false, hidden: Bool = false) {
         self.slotted = slotted
+        self.hidden = hidden
         self.placement = placement
         self.busy = busy
         self.text = text
@@ -454,6 +457,10 @@ struct ModulaComposerMascotModifier: ViewModifier {
                         let y = slotted ? bar.maxY - 2 - kind.footFraction * s : bar.minY + 6 - kind.footFraction * size
                         ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: s, custom: custom) { kindRaw = $0.rawValue }
                             .position(x: x, y: y)
+                            .opacity(hidden ? 0 : 1)
+                            .allowsHitTesting(!hidden)
+                            .accessibilityHidden(hidden)
+                            .animation(.easeOut(duration: 0.18), value: hidden)
                     }
                 }
                 .zIndex(50)

@@ -193,6 +193,8 @@ struct ModulaComposer: View {
     var mascot: ModulaMascotPlacement = .other
     /// Keyboard down: the field, attach control and send button collapse into one floating glass pill.
     var collapsesWhenUnfocused = false
+    /// Chats: the perched mascot steps away while you type, so it never sits over the field or the thread.
+    var hidesMascotWhileComposing = false
     var onSend: () -> Void
 
     @FocusState private var plainFocused: Bool
@@ -319,7 +321,8 @@ struct ModulaComposer: View {
         .accessibilityIdentifier("modula.composer")
         // Mascot perches on the composer's top edge (topmost bar), clear of the mic/send button.
         .modulaMascotPerch()
-        .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62)
+        .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62,
+                              hidden: hidesMascotWhileComposing && (focused || !text.isEmpty || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
     }
 
     private var dockedComposer: some View {

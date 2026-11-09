@@ -1360,10 +1360,12 @@ struct PostCommentsView: View {
                     ),
                     hashtagSuggestions: store?.hashtagSuggestions ?? [],
                     onHashtagQuery: { store?.updateHashtagQuery($0) },
-                    showsFormatting: true,
+                    // Comments are plain text: no B/I/U/S toolbar stacked over the thread.
+                    showsFormatting: false,
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
                     collapsesWhenUnfocused: true,
+                    hidesMascotWhileComposing: true,
                     onSend: {
                         // The send starts immediately; the island effect is decorative.
                         // Failures still surface through the composer error / island toast.
@@ -1376,7 +1378,7 @@ struct PostCommentsView: View {
             }
             // Reserve headroom for Moliboo, who perches on top of the bar, so he sits on the
             // composer's own background instead of over the last comments.
-            .padding(.top, commentsMascotShown ? 40 : 6)
+            .padding(.top, commentsMascotShown && !composerFocused && (store?.draft ?? "").isEmpty ? 40 : 6)
             .padding(.bottom, mediaPanelActive ? 10 : 8)
             .frame(maxWidth: .infinity)
             // Floating glass bar over a soft progressive fade: comments stay visible as they

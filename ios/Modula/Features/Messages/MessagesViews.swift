@@ -36,7 +36,8 @@ struct ConversationListView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var filter: InboxFilter = .all
-    @State private var circleOpen = false
+    /// Remembered, so "Your circle" doesn't pop in and out each time you come back to the inbox.
+    @AppStorage("messages.circle.open") private var circleOpen = false
     @State private var showCompose = false
 
     /// "Your circle": the people from your most recent 1:1 chats (real data, no guessing).
@@ -152,9 +153,9 @@ struct ConversationListView: View {
     /// collapses normally instead of starting half-faded under a tall pinned bar.
     private func header(matches: Int) -> some View {
         VStack(spacing: 8) {
-            if circleOpen && !circle.isEmpty {
+            if circleOpen && !circle.isEmpty && app.messaging.conversationQuery.isEmpty {
                 circleRow
-                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                    .transition(.opacity)
             }
             MessagesScopePicker(selection: .inbox)
             MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Find a conversation")
@@ -290,6 +291,8 @@ struct ConversationListView: View {
                         ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId,
                                         pinned: app.messaging.isPinned(conversation.id),
                                         draft: app.messaging.draftPreview(for: conversation.id))
+                            // Long-press lifts exactly this row (not a detached slab below it).
+                            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
@@ -598,6 +601,7 @@ struct ConversationRow: View {
         HStack(alignment: .center, spacing: 12) {
             ConversationAvatar(participants: conversation.participants, unread: unread, size: dynamicTypeSize.isAccessibilitySize ? 40 : 54)
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
+                .fixedSize()
             VStack(alignment: .leading, spacing: 3) {
                 // Roadmap #18: at accessibility sizes the time moves under the name instead of
                 // squeezing it.
@@ -608,6 +612,8 @@ struct ConversationRow: View {
                     Text(MessageSearchHighlight.attributed(app.messaging.title(for: conversation), query: app.messaging.conversationQuery, accent: accent))
                         .font(.body.weight(unread ? .semibold : .medium))
                         .lineLimit(1)
+                        // The name keeps its room while a swipe narrows the row; the time gives way first.
+                        .layoutPriority(1)
                     if isGroup {
                         Image(systemName: "person.2.fill").font(.caption2).foregroundStyle(.tertiary)
                             .accessibilityHidden(true)
@@ -625,6 +631,7 @@ struct ConversationRow: View {
                         .font(.caption.weight(unread ? .semibold : .regular))
                         .foregroundStyle(unread ? accent : Color.secondary)
                         .monospacedDigit()
+                        .lineLimit(1)
                 }
                 HStack(alignment: .center, spacing: 8) {
                     previewText
@@ -653,7 +660,7 @@ struct ConversationRow: View {
         if let draft {
             return Text("Draft: ").fontWeight(.semibold).foregroundStyle(app.appearance.liveAccent) + Text(draft)
         }
-        let raw = conversation.lastMessage?.body ?? ""
+        let raw = MessagePreviewText.plain(conversation.lastMessage?.body ?? "")
         if raw.isEmpty { return Text("No messages yet").italic() }
         // Roadmap #07: matched words are highlighted while searching.
         let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: app.appearance.liveAccent))
@@ -671,7 +678,10 @@ struct ConversationRow: View {
         if pinned { parts.append("Pinned") }
         if conversation.isMuted { parts.append("Muted") }
         if let draft { parts.append("Draft: \(draft)") }
-        if let preview = conversation.lastMessage?.body { parts.append(lastIsOwn ? "You: \(preview)" : preview) }
+        if let body = conversation.lastMessage?.body {
+            let preview = MessagePreviewText.plain(body)
+            parts.append(lastIsOwn ? "You: \(preview)" : preview)
+        }
         parts.append(Self.relative(conversation.updatedAt))
         if conversation.isUnread {
             parts.append(String(localized: "\(conversation.unreadCount) unread"))
@@ -774,6 +784,8 @@ struct ConversationView: View {
     @State private var firstUnreadID: MessageID?
     @State private var resolvedUnread = false
     @State private var highlightedID: MessageID?
+    @State private var focusRequest: MessageFocusRequest?
+    @State private var reactionGridFor: Message?
     @AppStorage("messages.gestureTip.dismissed") private var gestureTipDismissed = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -808,6 +820,32 @@ struct ConversationView: View {
             }
             .sheet(item: $forwarding) { message in
                 ForwardMessageSheet(message: message, excluding: conversationID)
+            }
+            // Hold to react: full-screen, transparent, presented without the slide-up animation so
+            // the bubble appears to lift in place over a blurred thread.
+            .fullScreenCover(item: $focusRequest) { request in
+                MessageFocusOverlay(
+                    request: request,
+                    currentReaction: request.message.reactions.first(where: \.mine)?.emoji,
+                    onSelect: { action in handle(action, message: request.message) },
+                    onMoreReactions: {
+                        let message = request.message
+                        dismissFocus()
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(250))
+                            reactionGridFor = message
+                        }
+                    },
+                    onDismiss: { dismissFocus() }
+                )
+                .presentationBackground(.clear)
+            }
+            .sheet(item: $reactionGridFor) { message in
+                ReactionGridSheet { emoji in
+                    reactionGridFor = nil
+                    handle(.init(id: "react:\(emoji)", title: emoji), message: message)
+                }
+                .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showInfo) {
                 ChatInfoSheet(conversationID: conversationID) { id in jumpTarget = id }
@@ -919,9 +957,13 @@ struct ConversationView: View {
                                     .padding(.top, 14)
                                     .padding(.bottom, 6)
                             }
-                            MessageBubble(message: message, position: position, showsStatus: message.id == lastOwnID) { action in
+                            MessageBubble(message: message, position: position, showsStatus: message.id == lastOwnID, onFocus: { request in
+                                presentFocus(request)
+                            }) { action in
                                 handle(action, message: message)
                             }
+                            // The held bubble is lifted into the overlay; leave its slot empty meanwhile.
+                            .opacity(focusRequest?.id == message.id ? 0 : 1)
                             // Roadmap #09: the original of a tapped reply quote glows briefly.
                             .background {
                                 if highlightedID == message.id {
@@ -951,6 +993,8 @@ struct ConversationView: View {
                 }
                 // Chats open on the newest message and stay pinned there.
                 .defaultScrollAnchor(.bottom)
+                // Room under the newest bubble so the perched mascot and the jump button never cover it.
+                .contentMargins(.bottom, 40, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
                 .onScrollGeometryChange(for: Bool.self) { geo in
@@ -991,6 +1035,11 @@ struct ConversationView: View {
                     } else {
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { unseenCount += 1 }
                     }
+                }
+                // The typing dots join the end of the thread; follow them only if the reader is there.
+                .onChange(of: app.messaging.typingPeople[conversationID]?.isEmpty == false) { _, typing in
+                    guard typing, isAtBottom else { return }
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { proxy.scrollTo("messages.typing", anchor: .bottom) }
                 }
                 .onChange(of: jumpTarget) { _, target in
                     guard let target else { return }
@@ -1143,9 +1192,17 @@ struct ConversationView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-            .modulaAccentCTA()
+            .foregroundStyle(unseenCount > 0 ? Color.white : Color.primary)
+            .background {
+                if unseenCount > 0 {
+                    Capsule().fill(app.appearance.liveAccent)
+                } else {
+                    Circle().fill(.clear).modulaGlass(in: Circle(), interactive: true)
+                }
+            }
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
             .padding(.trailing, ModulaLayout.contentInset)
-            .padding(.bottom, 10)
+            .padding(.bottom, 6)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.8).combined(with: .opacity))
             .accessibilityLabel(unseenCount > 0 ? "\(unseenCount) new messages. Jump to latest" : "Jump to latest message")
             .accessibilityIdentifier("messages.jumpToLatest")
@@ -1205,6 +1262,19 @@ struct ConversationView: View {
         AccessibilityNotification.Announcement(announcement).post()
     }
 
+    private func presentFocus(_ request: MessageFocusRequest) {
+        composerFocused = false
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { focusRequest = request }
+    }
+
+    private func dismissFocus() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { focusRequest = nil }
+    }
+
     private func scrollToLatest(_ items: [Message], proxy: ScrollViewProxy) {
         guard let last = items.last?.id else { return }
         withAnimation(ModulaMotion.animation(.contentTransition, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
@@ -1242,6 +1312,9 @@ struct ConversationView: View {
             return
         }
         let target = replyTarget
+        if let quote = replyQuote, target == nil {
+            app.messaging.drafts[conversationID] = quote + "\n" + text
+        }
         reply = nil
         replyQuote = nil
         replyTarget = nil
@@ -1340,7 +1413,7 @@ struct ConversationView: View {
             replyTarget = message
             replyQuote = nil
             let who = message.isOwn ? "yourself" : message.sender.displayName
-            reply = ModulaComposerReply(title: "Replying to \(who)", excerpt: message.body.text)
+            reply = ModulaComposerReply(title: "Replying to \(who)", excerpt: MessagePreviewText.plain(message.body.text))
             composerFocused = true
             HapticEngine.shared.play(.selection)
         case "edit":
@@ -1368,10 +1441,9 @@ struct ConversationView: View {
                 .map { "> " + $0 }
                 .joined(separator: "\n")
             let who = message.sender.handle.isEmpty ? message.sender.displayName : "@\(message.sender.handle)"
-            reply = ModulaComposerReply(title: "Replying to \(who)", excerpt: message.body.text)
+            reply = ModulaComposerReply(title: "Replying to \(who)", excerpt: MessagePreviewText.plain(message.body.text))
+            // The quote is added when sending, so the field only holds what you type.
             replyQuote = quoted
-            let existing = app.messaging.drafts[conversationID] ?? ""
-            app.messaging.drafts[conversationID] = quoted + "\n" + existing
             composerFocused = true
             HapticEngine.shared.play(.selection)
         default:
@@ -1412,9 +1484,15 @@ struct MessageBubble: View {
     var position: MessageGroupPosition = .single
     /// Sending / Sent / Delivered under the newest own message only.
     var showsStatus = false
+    /// Rendered inside the hold-to-react overlay: no gestures, no menu.
+    var isPreview = false
+    /// Hold to react: when set, a long press lifts this bubble into `MessageFocusOverlay`
+    /// (reaction bar above, menu below) instead of the system context menu.
+    var onFocus: ((MessageFocusRequest) -> Void)? = nil
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    @State private var rowFrame: CGRect = .zero
     /// Roadmap #18: at accessibility text sizes bubbles use nearly the full width (smaller side
     /// gutter, no avatar column) so large text wraps less and stays readable.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -1461,7 +1539,13 @@ struct MessageBubble: View {
                         .padding(.vertical, 9)
                         .overlay(bubbleShape.strokeBorder(Color.secondary.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                 }
-                let parsed = ModulaLocalSticker.extract(message.isDeleted ? "" : message.body.text)
+                let split = MessageQuoteText.split(message.isDeleted ? "" : message.body.text)
+                if message.replyTo == nil, let quote = split.quote {
+                    // Quote sent as "> " lines (servers without a reply field): a real quote block.
+                    MessageReplyQuote(preview: MessageReplyPreview(id: "", senderName: "Reply", body: quote.isEmpty ? "Earlier message" : quote, deleted: false))
+                        .accessibilityLabel("Quoting: \(MessagePreviewText.plain(quote))")
+                }
+                let parsed = ModulaLocalSticker.extract(split.body)
                 if !parsed.text.isEmpty {
                     Text(MessageLinkText.attributed(parsed.text))
                         .font(.body)
@@ -1525,13 +1609,19 @@ struct MessageBubble: View {
                     .accessibilityHidden(true)
             }
         }
-        // Double-tap to love a message (only when reactions are live).
-        .onTapGesture(count: 2) {
-            guard app.messaging.capabilities.reactions, !message.isDeleted, !message.id.hasPrefix("local-") else { return }
-            onAction(.init(id: "react:❤️", title: "❤️"))
-        }
-        .simultaneousGesture(swipeToReply)
-        .modulaContextMenu(actions: actions, onSelect: onAction)
+        .modifier(MessageBubbleInteractions(
+            enabled: !isPreview,
+            focusable: onFocus != nil,
+            actions: actions,
+            onDoubleTap: {
+                guard app.messaging.capabilities.reactions, !message.isDeleted, !message.id.hasPrefix("local-") else { return }
+                onAction(.init(id: "react:❤️", title: "❤️"))
+            },
+            onLongPress: { requestFocus() },
+            swipe: swipeToReply,
+            onAction: onAction
+        ))
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rowFrame = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(message.delivery == .failed ? "Not sent. Swipe up or down for Retry." : "")
@@ -1549,6 +1639,19 @@ struct MessageBubble: View {
     @State private var replyOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private static let replyThreshold: CGFloat = 64
+
+    private func requestFocus() {
+        guard let onFocus, !message.isDeleted, rowFrame != .zero else { return }
+        let caps = app.messaging.capabilities
+        let canReact = caps.reactions && !message.id.hasPrefix("local-")
+        onFocus(MessageFocusRequest(
+            message: message,
+            position: position,
+            frame: rowFrame,
+            actions: actions.filter { $0.children.isEmpty },
+            canReact: canReact
+        ))
+    }
 
     /// Settings → Gestures → "Swipe to reply in chats". Horizontal drags only, so the
     /// thread still scrolls vertically; under Reduce Motion the bubble doesn't follow
@@ -1667,8 +1770,10 @@ struct MessageBubble: View {
     private var accessibilityLabel: String {
         let who = message.isOwn ? "You" : message.sender.displayName
         let time = ConversationRow.relative(message.sentAt)
-        let parsed = ModulaLocalSticker.extract(message.body.text)
+        let split = MessageQuoteText.split(message.body.text)
+        let parsed = ModulaLocalSticker.extract(split.body)
         var parts = [who, time]
+        if message.replyTo == nil, let quote = split.quote, !quote.isEmpty { parts.append("Quoting: \(MessagePreviewText.plain(quote))") }
         if !parsed.text.isEmpty { parts.append(parsed.text) }
         if !parsed.stickers.isEmpty { parts.append(parsed.stickers.map(\.label).joined(separator: ", ")) }
         if message.isDeleted { parts.append("Unsent") }
@@ -1682,6 +1787,34 @@ struct MessageBubble: View {
         if message.delivery == .sending { parts.append("Sending") }
         if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts, message.delivery == .read { parts.append("Read") }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// Gestures on a chat bubble. Long press lifts the bubble into the focus overlay when the
+/// thread supports it, otherwise falls back to the system context menu.
+private struct MessageBubbleInteractions<Swipe: Gesture>: ViewModifier {
+    var enabled: Bool
+    var focusable: Bool
+    var actions: [ModulaContextAction]
+    var onDoubleTap: () -> Void
+    var onLongPress: () -> Void
+    var swipe: Swipe
+    var onAction: (ModulaContextAction) -> Void
+
+    func body(content: Content) -> some View {
+        if !enabled {
+            content
+        } else if focusable {
+            content
+                .onTapGesture(count: 2, perform: onDoubleTap)
+                .onLongPressGesture(minimumDuration: 0.35, perform: onLongPress)
+                .simultaneousGesture(swipe)
+        } else {
+            content
+                .onTapGesture(count: 2, perform: onDoubleTap)
+                .simultaneousGesture(swipe)
+                .modulaContextMenu(actions: actions, onSelect: onAction)
+        }
     }
 }
 
@@ -1700,45 +1833,34 @@ struct MessageComposer: View {
     @State private var showStickers = false
 
     var body: some View {
-        let typing = showStickers || focus?.wrappedValue == true
+        // One stable bar, iMessage/WhatsApp style: [+] [field that grows · stickers] [mic ⇄ send].
+        // It no longer collapses into a different-shaped pill when the keyboard goes down, and
+        // no extra button appears beside it when you start typing.
         VStack(spacing: 0) {
+            ModulaComposer(
+                text: $text,
+                prompt: "Message",
+                enabled: canSend,
+                showsAttachmentButton: showsAttachments,
+                externalFocus: focus,
+                returnSends: enterToSend,
+                spellCheck: spellCheck,
+                reply: reply,
+                onCancelReply: onCancelReply,
+                mediaPanelActive: $showStickers,
+                collapsesWhenUnfocused: false,
+                hidesMascotWhileComposing: true,
+                onSend: onSend
+            )
             if showStickers {
                 ModulaStickerPicker(client: app.client, initialSection: "sprout") { sticker in
                     insert(sticker)
                     showStickers = false
                 }
                 .frame(height: 300)
+                .padding(.top, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .accessibilityIdentifier("messages.stickers")
-            }
-            HStack(alignment: .bottom, spacing: 0) {
-                // The seal sits with the docked composer. While the keyboard is down it folds into the pill.
-                if typing {
-                    Button {
-                        showStickers.toggle()
-                        if showStickers { focus?.wrappedValue = false }
-                    } label: {
-                        Image(systemName: showStickers ? "keyboard" : "seal.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(showStickers ? "Hide stickers" : "Stickers")
-                    .accessibilityIdentifier("messages.stickers.button")
-                }
-                ModulaComposer(
-                    text: $text,
-                    prompt: "Say something good…",
-                    enabled: canSend,
-                    showsAttachmentButton: showsAttachments,
-                    externalFocus: focus,
-                    returnSends: enterToSend,
-                    spellCheck: spellCheck,
-                    reply: reply,
-                    onCancelReply: onCancelReply,
-                    collapsesWhenUnfocused: !showStickers,
-                    onSend: onSend
-                )
-                .background(alignment: .trailing) { MessagesComposerWave(idle: text.isEmpty && !typing) }
             }
         }
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -2668,17 +2790,24 @@ struct DirectMessageView: View {
 enum MessageLinkText {
     private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
+    /// Links show as a short, domain-first label ("kl-cc.co.uk/menu") that still opens the
+    /// full address (through the link inspector), instead of a long URL truncated mid-host.
     static func attributed(_ text: String) -> AttributedString {
-        var result = AttributedString(text)
-        guard let detector, text.contains(".") else { return result }
+        guard let detector, text.contains(".") else { return AttributedString(text) }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        var result = AttributedString()
+        var cursor = text.startIndex
         for match in detector.matches(in: text, range: range) {
-            guard let url = match.url, let r = Range(match.range, in: text),
-                  let lower = AttributedString.Index(r.lowerBound, within: result),
-                  let upper = AttributedString.Index(r.upperBound, within: result) else { continue }
-            result[lower..<upper].link = url
-            result[lower..<upper].underlineStyle = .single
+            guard let url = match.url, let r = Range(match.range, in: text), r.lowerBound >= cursor else { continue }
+            result += AttributedString(String(text[cursor..<r.lowerBound]))
+            let web = url.scheme == "http" || url.scheme == "https"
+            var link = AttributedString(web ? MessagePreviewText.displayLink(url) : String(text[r]))
+            link.link = url
+            link.underlineStyle = .single
+            result += link
+            cursor = r.upperBound
         }
+        result += AttributedString(String(text[cursor...]))
         return result
     }
 }
@@ -2874,7 +3003,7 @@ struct ChatInfoSheet: View {
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: "star.fill").foregroundStyle(app.appearance.liveAccent)
-                                Text(message.body.text).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
+                                Text(MessagePreviewText.plain(message.body.text)).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
                                 Spacer(minLength: 0)
                             }
                             .padding(.vertical, 8)
@@ -2984,15 +3113,16 @@ struct ChatInfoSheet: View {
 
     private func actionTile(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
+            // Light glass tiles (accent icon, primary label) like iOS contact actions, not solid blocks.
             VStack(spacing: 4) {
-                Image(systemName: symbol).font(.title3.weight(.semibold))
-                Text(title).font(.caption.weight(.semibold))
+                Image(systemName: symbol).font(.title3.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                Text(title).font(.caption.weight(.medium)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.8)
             }
             .frame(width: 76, height: 64)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .lightImpact))
-        .modulaAccentCTA(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     @ViewBuilder
@@ -3009,7 +3139,7 @@ struct ChatInfoSheet: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("\(message.isOwn ? "You" : message.sender.displayName) · \(MessageTimeline.label(for: message.sentAt))")
                                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                            Text(message.body.text).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
+                            Text(MessagePreviewText.plain(message.body.text)).font(.subheadline).foregroundStyle(.primary).lineLimit(2)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 10)
@@ -3075,7 +3205,7 @@ struct MessageReplyQuote: View {
             Capsule().fill(app.appearance.liveAccent).frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
                 Text(preview.senderName).font(.caption.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
-                Text(preview.deleted ? "Unsent message" : preview.body)
+                Text(preview.deleted ? "Unsent message" : MessagePreviewText.plain(preview.body))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
         }
