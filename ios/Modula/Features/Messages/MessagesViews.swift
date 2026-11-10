@@ -75,6 +75,7 @@ struct ConversationListView: View {
     @State private var muteSheetIDs: [ConversationID]?
     @State private var inboxDestination: InboxDestination?
     @State private var hideNotice: String?
+    @State private var showNewGroup = false
 
     private enum InboxDestination: Hashable, Identifiable {
         case archived, hidden, folder(String)
@@ -229,6 +230,12 @@ struct ConversationListView: View {
                 await app.messaging.probeCapabilities()
                 await app.messaging.expireTimedMutesIfNeeded()
             }
+            .task(id: app.messaging.conversationQuery) {
+                guard app.messaging.capabilities.historySearch else { return }
+                try? await Task.sleep(for: .milliseconds(280))
+                guard !Task.isCancelled else { return }
+                await app.messaging.searchHistory(app.messaging.conversationQuery)
+            }
             // No realtime route: a quiet 20 s poll keeps rows, unread counts and requests current.
             .task(id: "messages.inbox.poll") {
                 #if DEBUG
@@ -246,6 +253,11 @@ struct ConversationListView: View {
             }
             .sheet(isPresented: $showCompose) {
                 NavigationStack { NewConversationView(presentedAsSheet: true) }
+                    .presentationDetents([.large])
+                    .presentationCornerRadius(32)
+            }
+            .sheet(isPresented: $showNewGroup) {
+                NavigationStack { NewGroupView(presentedAsSheet: true) }
                     .presentationDetents([.large])
                     .presentationCornerRadius(32)
             }
@@ -358,7 +370,9 @@ struct ConversationListView: View {
             let found = matches == 1 ? "1 match" : "\(matches) matches"
             let scope = loaded == 1 ? "1 loaded conversation" : "\(loaded) loaded conversations"
             Label {
-                Text("\(found) · searched \(scope) on this device: names, nicknames, handles and latest messages")
+                Text(app.messaging.capabilities.historySearch
+                    ? "\(found) locally · also searching your full history"
+                    : "\(found) · searched \(scope) on this device: names, nicknames, handles and latest messages")
             } icon: {
                 Image(systemName: "iphone")
             }
@@ -453,7 +467,12 @@ struct ConversationListView: View {
             && (searchKind == .all || searchKind.matches(conversation, query: app.messaging.conversationQuery, starredIDs: app.messaging.starredIDs, messages: app.messaging.messages(for: conversation.id)))
         }
         let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
-        if items.isEmpty {
+        let showHistoryBlock = searching && app.messaging.capabilities.historySearch
+            && (app.messaging.historyState == .loading || !app.messaging.historyHits.isEmpty || {
+                if case .failed = app.messaging.historyState { return true }
+                return false
+            }())
+        if items.isEmpty && !showHistoryBlock {
             VStack(spacing: 0) {
                 header(matches: items.count)
                 emptyState(searching: searching)
@@ -466,6 +485,9 @@ struct ConversationListView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+                if showHistoryBlock {
+                    historyHitsSection
+                }
                 if !app.messaging.requests.isEmpty, filter == .all, !searching {
                     requestsEntry
                 }
@@ -551,6 +573,45 @@ struct ConversationListView: View {
     }
 
     @ViewBuilder
+    private var historyHitsSection: some View {
+        Section {
+            if app.messaging.historyState == .loading && app.messaging.historyHits.isEmpty {
+                ProgressView("Searching your history")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowBackground(Color.clear)
+            }
+            ForEach(app.messaging.historyHits) { hit in
+                Button {
+                    app.navigation.push(.messages(.conversation(hit.conversationID)))
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(hit.title).font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text(MessageTimeline.label(for: hit.sentAt)).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Text(hit.kind == .voice && hit.snippet.isEmpty ? "Voice note" : hit.snippet)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .onAppear {
+                    if hit.id == app.messaging.historyHits.last?.id {
+                        Task { await app.messaging.loadMoreHistory() }
+                    }
+                }
+            }
+        } header: {
+            Text("From your history")
+        }
+        .accessibilityIdentifier("messages.inbox.history")
+    }
+
+    @ViewBuilder
     private func emptyState(searching: Bool) -> some View {
         switch app.messaging.conversationState {
         case .loading:
@@ -564,12 +625,33 @@ struct ConversationListView: View {
                 title: searching ? "No matching chats"
                     : filter == .unread ? "You're all caught up"
                     : filter == .needsReply ? "Nobody's waiting on you"
-                    : filter == .favourites ? "Pin a chat to make it a favourite" : "Group chats are coming soon",
-                message: searching ? "Search looks through the chats loaded on this device." : "Nothing here right now.",
+                    : filter == .favourites ? "Pin a chat to make it a favourite"
+                    : (filter == .groups && app.messaging.capabilities.groups) ? "No groups yet"
+                    : "Group chats are coming soon",
+                message: searching ? (app.messaging.capabilities.historySearch
+                    ? "Looking through chats on this device, and your full history when the server has it."
+                    : "Search looks through the chats loaded on this device.")
+                    : (filter == .groups && app.messaging.capabilities.groups)
+                    ? "Start a group with people you already chat with."
+                    : "Nothing here right now.",
                 symbol: searching ? "magnifyingglass" : (filter == .groups ? "person.3" : "sparkles")
             )
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.top, 40)
+            if !searching, filter == .groups, app.messaging.capabilities.groups {
+                Button {
+                    showNewGroup = true
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Label("New group", systemImage: "person.3")
+                        .font(.body.weight(.semibold))
+                        .padding(.horizontal, 22).frame(height: 44)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                .modulaAccentCTA()
+                .padding(.top, 8)
+                .accessibilityIdentifier("messages.empty.newGroup")
+            }
         default:
             MessagesFriendlyEmpty(scope: .inbox)
         }
@@ -966,6 +1048,12 @@ struct ConversationRow: View {
         if let draft {
             return Text("Draft: ").fontWeight(.semibold).foregroundStyle(app.appearance.liveAccent) + Text(draft)
         }
+        if conversation.lastMessage?.kind == .voice {
+            let raw = "Voice note"
+            let body = Text(raw)
+            if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
+            return body
+        }
         let raw = MessagePreviewText.plain(conversation.lastMessage?.body ?? "")
         if raw.isEmpty { return Text("No messages yet").italic() }
         // Roadmap #07: matched words are highlighted while searching.
@@ -1092,6 +1180,8 @@ struct ConversationView: View {
     @State private var highlightedID: MessageID?
     @State private var focusRequest: MessageFocusRequest?
     @State private var reactionGridFor: Message?
+    @State private var reactorsFor: Message?
+    @State private var receiptsFor: Message?
     @AppStorage("messages.gestureTip.dismissed") private var gestureTipDismissed = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var searching = false
@@ -1196,6 +1286,14 @@ struct ConversationView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            .sheet(item: $reactorsFor) { message in
+                MessageReactorsSheet(message: message) { emoji in
+                    handle(.init(id: "react:\(emoji)", title: emoji), message: message)
+                }
+            }
+            .sheet(item: $receiptsFor) { message in
+                MessageReceiptsSheet(message: message)
+            }
             .sheet(isPresented: $showInfo) {
                 ChatInfoSheet(conversationID: conversationID) { id in jumpTarget = id }
                     .messageLinkInspector()
@@ -1252,6 +1350,12 @@ struct ConversationView: View {
         .task {
             await app.messaging.loadThreadIfNeeded(conversationID)
             await app.messaging.probeCapabilities()
+            if app.messaging.capabilities.groups, conversation?.kind == .group {
+                await app.messaging.loadGroup(conversationID)
+            }
+            if app.messaging.capabilities.presence, let actor = conversation?.participants.first?.id {
+                await app.messaging.refreshPresence(for: [actor])
+            }
         }
         .task(id: conversationID) { await pollLoop() }
         .onChange(of: searchQuery) { _, _ in
@@ -1282,7 +1386,12 @@ struct ConversationView: View {
                     Text(conversation.map { app.messaging.title(for: $0) } ?? "Conversation")
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
-                    if let handle = conversation?.handleLabel {
+                    if conversation?.kind == .direct, app.messaging.capabilities.presence {
+                        MessagePresenceLabel(
+                            item: conversation?.participants.first.flatMap { app.messaging.presence(for: $0.id) },
+                            hiddenByPrivacy: app.messaging.capabilities.privacyControls && app.messaging.privacy.presenceVisibility == .nobody
+                        )
+                    } else if let handle = conversation?.handleLabel {
                         Text(handle)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -1779,6 +1888,10 @@ struct ConversationView: View {
             Task { await app.messaging.retry(message: message, viewer: viewer) }
         case "forward":
             forwarding = message
+        case "reactors":
+            reactorsFor = message
+        case "receipts":
+            receiptsFor = message
         case "speak":
             MessageSpeech.speak(message.body.text)
         case "reply" where app.messaging.capabilities.reply:
@@ -1993,6 +2106,7 @@ struct ConversationComposerDock: View {
     @State private var showGif = false
     @State private var recent = MessageRecentTokenStore.load()
     @State private var saveTask: Task<Void, Never>?
+    @State private var mentionQuery: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -2010,6 +2124,11 @@ struct ConversationComposerDock: View {
                 onCancelReply: onCancelReply,
                 focus: focus,
                 onGif: { showGif = true },
+                mentionSuggestions: app.messaging.mentionCandidates(in: conversationID, query: mentionQuery),
+                onMentionQuery: app.messaging.capabilities.mentions ? { mentionQuery = $0 } : nil,
+                onVoiceNote: app.messaging.capabilities.voiceNotes ? { note in
+                    Task { await app.messaging.sendVoice(note, conversation: conversationID, viewer: dockViewer) }
+                } : nil,
                 onSend: flushAndSend
             )
         }
@@ -2101,6 +2220,15 @@ struct ConversationComposerDock: View {
         flushDraft()
         onSend()
     }
+
+    private var dockViewer: ConversationParticipant {
+        ConversationParticipant(
+            id: app.auth.account?.accountId ?? "me",
+            handle: app.auth.account?.primaryHandle ?? "",
+            displayName: app.auth.account?.displayName ?? "You",
+            avatarURL: nil
+        )
+    }
 }
 
 
@@ -2176,8 +2304,13 @@ struct MessageBubble: View {
                     MessageReplyQuote(preview: MessageReplyPreview(id: "", senderName: "Reply", body: quote.isEmpty ? "Earlier message" : quote, deleted: false))
                         .accessibilityLabel("Quoting: \(MessagePreviewText.plain(quote))")
                 }
+                if !message.isDeleted, message.kind == .voice, let attachment = message.voiceAttachment {
+                    MessageVoicePlayer(attachment: attachment, accent: message.isOwn ? Color.white : app.appearance.liveAccent)
+                        .padding(6)
+                        .background { bubbleBackground }
+                }
                 let parsed = ModulaLocalSticker.extract(split.body)
-                if !parsed.text.isEmpty {
+                if !parsed.text.isEmpty && message.kind != .voice {
                     Text(MessageLinkText.attributed(parsed.text))
                         .font(.body)
                         .tint(message.isOwn ? Color.white : app.appearance.liveAccent)
@@ -2194,8 +2327,13 @@ struct MessageBubble: View {
                     MessageInlineContentView(content: attachment)
                 }
                 if !message.reactions.isEmpty {
-                    MessageReactionsRow(reactions: message.reactions) { emoji in
+                    MessageReactionsRow(
+                        reactions: message.reactions,
+                        inspectsOnTap: app.messaging.capabilities.reactionDetails && !message.id.hasPrefix("local-")
+                    ) { emoji in
                         onAction(.init(id: "react:\(emoji)", title: emoji))
+                    } onInspect: {
+                        onAction(.init(id: "reactors", title: "Who reacted"))
                     }
                     .transition(reduceMotion ? .opacity : .opacity)
                 }
@@ -2232,6 +2370,13 @@ struct MessageBubble: View {
                             showRead: app.messaging.capabilities.readReceipts && ModulaPreferences.chatShowReadReceipts,
                             accent: app.appearance.liveAccent
                         )
+                        .onTapGesture {
+                            if app.messaging.capabilities.groupReadReceipts, message.isOwn, !message.id.hasPrefix("local-") {
+                                onAction(.init(id: "receipts", title: "Seen by"))
+                            }
+                        }
+                        .accessibilityAddTraits(app.messaging.capabilities.groupReadReceipts && message.isOwn ? .isButton : [])
+                        .accessibilityHint(app.messaging.capabilities.groupReadReceipts && message.isOwn ? "Shows who has read this" : "")
                     }
                 }
             }
@@ -2478,6 +2623,9 @@ struct MessageComposer: View {
     var onCancelReply: (() -> Void)? = nil
     var focus: Binding<Bool>? = nil
     var onGif: (() -> Void)? = nil
+    var mentionSuggestions: [ModulaComposerMention] = []
+    var onMentionQuery: ((String?) -> Void)? = nil
+    var onVoiceNote: ((ModulaVoiceNote) -> Void)? = nil
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
@@ -2514,8 +2662,11 @@ struct MessageComposer: View {
                 spellCheck: spellCheck,
                 reply: reply,
                 onCancelReply: onCancelReply,
+                mentionSuggestions: mentionSuggestions,
+                onMentionQuery: onMentionQuery,
                 mediaPanelActive: $showStickers,
                 showsFormatting: showsFormatting,
+                onVoiceNote: onVoiceNote,
                 collapsesWhenUnfocused: false,
                 hidesMascotWhileComposing: true,
                 onSend: onSend
@@ -2643,10 +2794,10 @@ struct MessageRequestRow: View {
             HStack(alignment: .top, spacing: 12) {
                 ConversationAvatar(participant: request.sender, size: 48)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(request.sender.displayName)
+                    Text(request.kind == .group ? (request.group?.title ?? "Group invite") : request.sender.displayName)
                         .font(.body.weight(.semibold))
                         .lineLimit(1)
-                    Text("@\(request.sender.handle)")
+                    Text(request.kind == .group ? "Invited by @\(request.sender.handle)" : "@\(request.sender.handle)")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     if !request.preview.isEmpty {
                         Text(request.preview)
@@ -2746,6 +2897,20 @@ struct NewConversationView: View {
                             }
                             .buttonStyle(.plain)
                             .modulaGlass(in: Capsule(), interactive: true)
+                        }
+                        if app.messaging.capabilities.groups {
+                            NavigationLink {
+                                NewGroupView()
+                            } label: {
+                                Label("New group", systemImage: "person.3")
+                                    .font(.body.weight(.semibold))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16).frame(height: 48)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .accessibilityIdentifier("messages.new.group")
                         }
                     }
                 }
@@ -3685,6 +3850,16 @@ struct ChatInfoSheet: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    if conversation?.kind == .group, app.messaging.capabilities.groups {
+                        infoGroup("Group") {
+                            NavigationLink {
+                                GroupInfoView(conversationID: conversationID)
+                            } label: {
+                                infoRow("Group info", symbol: "person.3", value: conversation?.group.map { "\($0.memberCount) people" } ?? "Members")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                     infoGroup("Customise", footer: "Only you see your nickname and wallpaper.") {
                         HStack(spacing: 12) {
                             rowIcon("character.cursor.ibeam")
@@ -4142,14 +4317,16 @@ struct MessageReplyQuote: View {
 
 struct MessageReactionsRow: View {
     let reactions: [MessageReaction]
+    var inspectsOnTap = false
     var onTap: (String) -> Void
+    var onInspect: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(reactions, id: \.emoji) { reaction in
                 Button {
-                    onTap(reaction.emoji)
+                    if inspectsOnTap, let onInspect { onInspect() } else { onTap(reaction.emoji) }
                 } label: {
                     HStack(spacing: 3) {
                         Text(reaction.emoji).font(.footnote)
