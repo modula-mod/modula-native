@@ -827,7 +827,7 @@ struct MolibooWorldView: View {
         case .studio(let id): MolibooLivingStudioView(characterID: id).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .photo(let id): MolibooLivingStudioView(characterID: id, startInPhoto: true).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .collection: MolibooCollectionView()
-        case .cards: MolibooCardBinderView()
+        case .cards: MolibooCardsHomeView()
         case .settings: MolibooSettingsView()
         case .classicStudio(let tab): MascotStudioView(initialTab: tab)
         }
