@@ -1398,21 +1398,13 @@ struct PostCommentsView: View {
                     canvas
                 } else if composerFocused || attachTrayOpen || mediaStage.isExpanded || store?.isSending == true {
                     // Docked to the keyboard. The idle state is the floating pill, with no full-bleed bar behind it.
-                    ZStack {
-                        if reduceTransparency {
-                            canvas
-                        } else {
-                            Rectangle().fill(.ultraThinMaterial)
-                            canvas.opacity(0.35)
-                        }
-                    }
-                    // Short fade only: the formatting bar and reply chip sit on a solid backing,
-                    // not over half-visible comments.
-                    .mask(LinearGradient(stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.12),
-                        .init(color: .black, location: 1)
-                    ], startPoint: .top, endPoint: .bottom))
+                    // Solid canvas with a short top fade: no live blur or mask pass while the
+                    // keyboard animates and the list scrolls behind.
+                    LinearGradient(stops: [
+                        .init(color: canvas.opacity(0), location: 0),
+                        .init(color: canvas.opacity(reduceTransparency ? 1 : 0.96), location: 0.12),
+                        .init(color: canvas.opacity(reduceTransparency ? 1 : 0.96), location: 1)
+                    ], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea(edges: .bottom)
                 }
             }

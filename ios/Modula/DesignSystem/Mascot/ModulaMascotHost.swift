@@ -448,7 +448,11 @@ struct ModulaComposerMascotModifier: ViewModifier {
             content
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                        .onChanged { touch = $0.location }
+                        // Coarse updates only: a re-render per pixel of finger travel was wasted work.
+                        .onChanged { value in
+                            if let t = touch, abs(t.x - value.location.x) + abs(t.y - value.location.y) < 12 { return }
+                            touch = value.location
+                        }
                         .onEnded { _ in touch = nil }
                 )
                 .overlayPreferenceValue(MascotPerchKey.self) { anchor in

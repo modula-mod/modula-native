@@ -219,6 +219,8 @@ struct ModulaComposer: View {
     /// Debounced formatting-bar visibility: a tool tap that briefly drops focus no longer
     /// collapses the card and snaps it back.
     @State private var formatBarShown = false
+    /// Formatting tools are opt-in: the "Aa" button in the field toggles them.
+    @State private var formatBarRequested = false
     @State private var formatBarHide: Task<Void, Never>?
     @State private var attachAppeared = false
     @State private var attachPage: Int? = 0
@@ -246,14 +248,14 @@ struct ModulaComposer: View {
 
     /// The formatting bar is for text editing only: hidden while the tray, media panel or a recording owns the dock.
     private var wantsFormatBar: Bool {
-        showsFormatting && focused && !recorder.isRecording && !attachMenuOpen && mediaPanelActive?.wrappedValue != true
+        showsFormatting && formatBarRequested && focused && !recorder.isRecording && !attachMenuOpen && mediaPanelActive?.wrappedValue != true
     }
 
     private func syncFormatBar(_ wants: Bool) {
         formatBarHide?.cancel()
         if wants {
             if !formatBarShown { withAnimation(barMotion) { formatBarShown = true } }
-        } else if attachMenuOpen || recorder.isRecording || mediaPanelActive?.wrappedValue == true {
+        } else if !formatBarRequested || attachMenuOpen || recorder.isRecording || mediaPanelActive?.wrappedValue == true {
             if formatBarShown { withAnimation(barMotion) { formatBarShown = false } }
         } else {
             // Focus loss only: wait a beat so a tool tap that refocuses keeps the bar steady.
@@ -354,7 +356,7 @@ struct ModulaComposer: View {
         .modulaMascotPerch()
         .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62,
                               // Stand fully above the card (clear of the formatting tools) while the bar shows.
-                              lift: formatBarShown ? 10 : 0,
+                              lift: formatBarShown ? 10 : 4,
                               hidden: hidesMascotWhileComposing && (focused || !text.isEmpty || attachMenuOpen || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
         .onChange(of: attachMenuOpen) { _, open in onTrayChange?(open) }
     }
@@ -485,15 +487,24 @@ struct ModulaComposer: View {
                     embedded: true,
                     onToolUsed: { if !focused { focused = true } }
                 )
-                .padding(.top, 2)
+                .padding(.top, 4)
                 .transition(.opacity)
             }
             fieldRow
         }
         // Ideal height only: bar then field, no stretched blank strip between them.
         .fixedSize(horizontal: false, vertical: true)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
-        .modulaGlassID("composer.field", in: glass)
+        // A plain shape background sized to the content (not a morphing glass effect), so the
+        // formatting row is always inside the card. Also cheaper than live glass over the keyboard.
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                .allowsHitTesting(false)
+        }
         .accessibilityIdentifier("composer.field")
     }
 
@@ -531,6 +542,23 @@ struct ModulaComposer: View {
                 ModulaCharacterLimitRing(count: text.count, limit: characterLimit)
                     .padding(.bottom, 11)
                     .transition(.opacity)
+            }
+            if showsFormatting && !recorder.isRecording {
+                Button {
+                    formatBarRequested.toggle()
+                    if !focused { focused = true }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: "textformat")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(formatBarRequested ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                        .frame(width: 32, height: ModulaLayout.minimumTouch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(formatBarRequested ? "Hide formatting" : "Show formatting")
+                .accessibilityAddTraits(formatBarRequested ? .isSelected : [])
+                .accessibilityIdentifier("composer.format.toggle")
             }
             if let mediaPanelActive {
                 ModulaComposerAccessoryButton(

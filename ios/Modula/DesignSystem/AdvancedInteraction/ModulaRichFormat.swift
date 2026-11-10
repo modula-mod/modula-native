@@ -653,7 +653,7 @@ struct ModulaRichFormattingBar: View {
 
     var body: some View {
         if embedded {
-            bar.frame(height: 40)
+            bar.frame(height: 32)
         } else {
             bar
                 .frame(height: 42)
@@ -701,7 +701,7 @@ struct ModulaRichFormattingBar: View {
         let label = Image(systemName: tool.systemImage)
             .font(.system(size: 15, weight: on ? .bold : .semibold))
             .foregroundStyle(on ? Color.accentColor : Color.primary)
-            .frame(width: 36, height: 32)
+            .frame(width: embedded ? 32 : 36, height: embedded ? 28 : 32)
             .background { if on { Capsule().fill(Color.accentColor.opacity(0.16)) } }
             .contentShape(Capsule())
         Group {
