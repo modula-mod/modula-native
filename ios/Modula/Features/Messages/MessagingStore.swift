@@ -27,10 +27,21 @@ final class MessagingStore {
     /// Unsent text per chat. Persisted on this device so a half-written reply survives leaving the chat or
     /// relaunching (loss aversion: losing typed words feels worse than the effort of writing them).
     var drafts: [ConversationID: String] = MessagingDraftStore.load() {
-        didSet { MessagingDraftStore.save(drafts) }
+        didSet { MessagingDraftStore.scheduleSave(drafts) }
     }
     /// Chats pinned to the top of the inbox. Device-only: Greenfield has no conversation pin route.
     private(set) var pinnedIDs: [ConversationID] = MessagingPinStore.load()
+    /// Device-only archive list. The mute/archive route already exists; the client previously dropped
+    /// archived chats from memory, so they could not be opened again. IDs and a light snapshot stay local.
+    private var archivedIDs: Set<ConversationID> = MessagingIDSetStore.load("messages.archived.v1")
+    private var archivedSnapshots: [ConversationID: MessagingArchivedSnapshot] = MessagingArchiveSnapshotStore.load()
+    /// Device-only hidden chats, revealed after Face ID / device passcode in the current session.
+    private var hiddenIDs: Set<ConversationID> = MessagingIDSetStore.load("messages.hidden.v1")
+    private(set) var hiddenUnlockedThisSession = false
+    /// Device-only folder name per conversation (never synced).
+    private var folderAssignments: [ConversationID: String] = MessagingLocalStore.dictionary("messages.folders.v1")
+    /// Local unmute deadlines for timed mute. The server mute flag is still boolean.
+    private var muteUntil: [ConversationID: Date] = MessagingDateStore.load("messages.muteUntil.v1")
     private(set) var sendingIDs: Set<MessageID> = []
 
     private(set) var requests: [MessageRequest] = []
@@ -63,18 +74,28 @@ final class MessagingStore {
     }
 
     var visibleConversations: [Conversation] {
-        let newest = MessagingOrdering.conversationsNewestFirst(conversations)
-        // Pinned chats first in pin order, then everything else newest first.
+        inboxConversations(includeArchived: false, includeHidden: false)
+    }
+
+    /// Open inbox rows, with pinned chats first. Archived and hidden chats are listed in their own folders.
+    func inboxConversations(includeArchived: Bool, includeHidden: Bool) -> [Conversation] {
+        let pool = conversations.filter { conversation in
+            (includeArchived || !isArchived(conversation.id))
+            && (includeHidden || !isHidden(conversation.id))
+        }
+        let newest = MessagingOrdering.conversationsNewestFirst(pool)
         let pinned = pinnedIDs.compactMap { id in newest.first { $0.id == id } }
         let ordered = pinned + newest.filter { !pinnedIDs.contains($0.id) }
         let query = conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !query.isEmpty else { return ordered }
-        return ordered.filter {
-            $0.title.lowercased().contains(query)
-            || ((nicknames[$0.id] ?? "").lowercased().contains(query))
-            || ($0.handleLabel?.lowercased().contains(query) ?? false)
-            || ($0.lastMessage?.body.lowercased().contains(query) ?? false)
-        }
+        return ordered.filter { matchesInboxQuery($0, query: query) }
+    }
+
+    func matchesInboxQuery(_ conversation: Conversation, query: String) -> Bool {
+        conversation.title.lowercased().contains(query)
+            || ((nicknames[conversation.id] ?? "").lowercased().contains(query))
+            || (conversation.handleLabel?.lowercased().contains(query) ?? false)
+            || (conversation.lastMessage?.body.lowercased().contains(query) ?? false)
     }
 
     var searchIsLocalOnly: Bool { true }
@@ -92,7 +113,7 @@ final class MessagingStore {
         actionError = nil
         do {
             let page = try await repository.conversations(cursor: nil)
-            conversations = page.items
+            adoptInbox(page.items, replacing: true)
             conversationCursor = page.nextCursor
             conversationHasMore = page.hasMore
             conversationState = .loaded
@@ -191,7 +212,7 @@ final class MessagingStore {
         guard capabilities.listConversations, conversationState == .loaded,
               let page = try? await repository.conversations(cursor: nil) else { return }
         let fresh = Set(page.items.map(\.id))
-        conversations = page.items + conversations.filter { !fresh.contains($0.id) }
+        adoptInbox(page.items + conversations.filter { !fresh.contains($0.id) }, replacing: true)
         await refreshUnreadSummary()
         if capabilities.messageRequests, let items = try? await repository.messageRequests() { requests = items }
     }
@@ -291,23 +312,34 @@ final class MessagingStore {
     }
 
     func toggleMute(_ id: ConversationID) async {
-        guard capabilities.mute, let index = conversations.firstIndex(where: { $0.id == id }) else { return }
-        let muted = !conversations[index].isMuted
-        conversations[index].isMuted = muted
-        HapticEngine.shared.play(.selection)
-        do { try await repository.setMuted(conversation: id, muted: muted) } catch {
-            if let i = conversations.firstIndex(where: { $0.id == id }) { conversations[i].isMuted = !muted }
-            actionError = "Couldn't update mute."
+        guard capabilities.mute, let current = conversation(id: id) else { return }
+        if current.isMuted {
+            await unmuteNow(id)
+        } else {
+            await mute(id: id, for: .forever)
         }
     }
 
     func archive(_ id: ConversationID) async {
-        guard capabilities.archive, let removed = conversation(id: id) else { return }
-        conversations.removeAll { $0.id == id }
+        guard capabilities.archive, let current = conversation(id: id) else { return }
+        rememberArchived(current)
         HapticEngine.shared.play(.confirmation)
         do { try await repository.setArchived(conversation: id, archived: true) } catch {
-            conversations.append(removed)
+            forgetArchived(id)
             actionError = "Couldn't archive this chat."
+        }
+    }
+
+    func unarchive(_ id: ConversationID) async {
+        guard capabilities.archive else { return }
+        let wasArchived = isArchived(id)
+        forgetArchived(id)
+        HapticEngine.shared.play(.selection)
+        do { try await repository.setArchived(conversation: id, archived: false) } catch {
+            if wasArchived, let snapshot = archivedSnapshots[id] {
+                rememberArchived(snapshot.conversation)
+            }
+            actionError = "Couldn't unarchive this chat."
         }
     }
 
@@ -455,12 +487,13 @@ final class MessagingStore {
         }
     }
 
-    func send(conversation id: ConversationID, viewer: ConversationParticipant, replyTo: Message? = nil) async {
+    @discardableResult
+    func send(conversation id: ConversationID, viewer: ConversationParticipant, replyTo: Message? = nil) async -> Message? {
         let text = (drafts[id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else { return nil }
         guard capabilities.send else {
             actionError = "Couldn't send message."
-            return
+            return nil
         }
         HapticEngine.shared.play(.lightImpact)
         let localID = "local-\(UUID().uuidString)"
@@ -498,12 +531,14 @@ final class MessagingStore {
             ))
             sendingIDs.remove(localID)
             HapticEngine.shared.play(.success)
+            return threads[id]?.first(where: { $0.id == confirmed.id })
         } catch {
             markFailed(localID: localID, in: id)
             sendingIDs.remove(localID)
             drafts[id] = text
             actionError = "Couldn't send message."
             HapticEngine.shared.play(.failure)
+            return nil
         }
     }
 
@@ -755,10 +790,179 @@ final class MessagingStore {
         default: fallback
         }
     }
+
+    // MARK: - Device-only inbox organisation (archive, hide, folders, timed mute)
+
+    func isArchived(_ id: ConversationID) -> Bool { archivedIDs.contains(id) }
+    func isHidden(_ id: ConversationID) -> Bool { hiddenIDs.contains(id) }
+
+    var archivedConversations: [Conversation] {
+        let live = conversations.filter { isArchived($0.id) }
+        let missing = archivedIDs.subtracting(live.map(\.id)).compactMap { archivedSnapshots[$0]?.conversation }
+        return MessagingOrdering.conversationsNewestFirst(live + missing)
+    }
+
+    var hiddenConversations: [Conversation] {
+        MessagingOrdering.conversationsNewestFirst(conversations.filter { isHidden($0.id) })
+    }
+
+    var folderNames: [String] {
+        Array(Set(folderAssignments.values.filter { !$0.isEmpty })).sorted()
+    }
+
+    func folder(for id: ConversationID) -> String? {
+        folderAssignments[id].flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    func conversations(inFolder name: String) -> [Conversation] {
+        inboxConversations(includeArchived: false, includeHidden: false).filter { folder(for: $0.id) == name }
+    }
+
+    func setFolder(_ name: String?, for id: ConversationID) {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmed.isEmpty { folderAssignments[id] = nil } else { folderAssignments[id] = trimmed }
+        MessagingLocalStore.save(folderAssignments, "messages.folders.v1")
+    }
+
+    func hide(_ id: ConversationID) {
+        hiddenIDs.insert(id)
+        MessagingIDSetStore.save(hiddenIDs, "messages.hidden.v1")
+        HapticEngine.shared.play(.confirmation)
+    }
+
+    func unhide(_ id: ConversationID) {
+        hiddenIDs.remove(id)
+        MessagingIDSetStore.save(hiddenIDs, "messages.hidden.v1")
+        HapticEngine.shared.play(.selection)
+    }
+
+    func unlockHiddenFolder() { hiddenUnlockedThisSession = true }
+
+    func lockHiddenFolder() { hiddenUnlockedThisSession = false }
+
+    func muteUntilDate(for id: ConversationID) -> Date? { muteUntil[id] }
+
+    func mute(id: ConversationID, for duration: MessageMuteDuration) async {
+        guard capabilities.mute else { return }
+        await applyMute(id, muted: true)
+        if duration == .forever {
+            muteUntil[id] = nil
+        } else {
+            muteUntil[id] = Date().addingTimeInterval(duration.seconds)
+        }
+        MessagingDateStore.save(muteUntil, "messages.muteUntil.v1")
+    }
+
+    func unmuteNow(_ id: ConversationID) async {
+        muteUntil[id] = nil
+        MessagingDateStore.save(muteUntil, "messages.muteUntil.v1")
+        await applyMute(id, muted: false)
+    }
+
+    /// Applies expired timed mutes. Safe to call when the inbox or a chat appears.
+    func expireTimedMutesIfNeeded() async {
+        let now = Date()
+        let expired = muteUntil.filter { $0.value <= now }.map(\.key)
+        guard !expired.isEmpty else { return }
+        for id in expired {
+            muteUntil[id] = nil
+            await applyMute(id, muted: false)
+        }
+        MessagingDateStore.save(muteUntil, "messages.muteUntil.v1")
+    }
+
+    private func applyMute(_ id: ConversationID, muted: Bool) async {
+        guard capabilities.mute else { return }
+        if let index = conversations.firstIndex(where: { $0.id == id }) {
+            conversations[index].isMuted = muted
+        }
+        do { try await repository.setMuted(conversation: id, muted: muted) } catch {
+            if let i = conversations.firstIndex(where: { $0.id == id }) { conversations[i].isMuted = !muted }
+            actionError = "Couldn't update mute."
+        }
+    }
+
+    func markAllVisibleRead() async {
+        let unread = visibleConversations.filter(\.isUnread)
+        for conversation in unread {
+            await markConversationRead(conversation.id)
+        }
+    }
+
+    #if DEBUG
+    func resetInboxOrganisationForTesting() {
+        archivedIDs = []
+        archivedSnapshots = [:]
+        hiddenIDs = []
+        hiddenUnlockedThisSession = false
+        folderAssignments = [:]
+        muteUntil = [:]
+        MessagingIDSetStore.save([], "messages.archived.v1")
+        MessagingArchiveSnapshotStore.save([:])
+        MessagingIDSetStore.save([], "messages.hidden.v1")
+        MessagingLocalStore.save([:], "messages.folders.v1")
+        MessagingDateStore.save([:], "messages.muteUntil.v1")
+    }
+
+    func archiveLocallyForTesting(_ id: ConversationID) {
+        if let current = conversation(id: id) { rememberArchived(current) }
+    }
+
+    func setMuteUntilForTesting(_ id: ConversationID, date: Date?) {
+        muteUntil[id] = date
+        MessagingDateStore.save(muteUntil, "messages.muteUntil.v1")
+    }
+
+    func installDebugThread(_ items: [Message], conversationID: ConversationID) {
+        threads[conversationID] = items
+    }
+    #endif
+
+    private func rememberArchived(_ conversation: Conversation) {
+        var stored = conversation
+        stored.isArchived = true
+        if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
+            conversations[index].isArchived = true
+        } else {
+            conversations.append(stored)
+        }
+        archivedIDs.insert(conversation.id)
+        archivedSnapshots[conversation.id] = MessagingArchivedSnapshot(conversation: stored)
+        MessagingIDSetStore.save(archivedIDs, "messages.archived.v1")
+        MessagingArchiveSnapshotStore.save(archivedSnapshots)
+    }
+
+    private func forgetArchived(_ id: ConversationID) {
+        archivedIDs.remove(id)
+        archivedSnapshots[id] = nil
+        if let index = conversations.firstIndex(where: { $0.id == id }) {
+            conversations[index].isArchived = false
+        }
+        MessagingIDSetStore.save(archivedIDs, "messages.archived.v1")
+        MessagingArchiveSnapshotStore.save(archivedSnapshots)
+    }
+
+    /// Reconciles a server inbox page with local archive/hide flags without inventing chats the API never returned,
+    /// while keeping archived snapshots so the Archived folder still has something to show.
+    private func adoptInbox(_ items: [Conversation], replacing: Bool) {
+        var incoming = items
+        for index in incoming.indices {
+            if archivedIDs.contains(incoming[index].id) {
+                incoming[index].isArchived = true
+                archivedSnapshots[incoming[index].id] = MessagingArchivedSnapshot(conversation: incoming[index])
+            }
+        }
+        if replacing {
+            let incomingIDs = Set(incoming.map(\.id))
+            let retained = conversations.filter { !incomingIDs.contains($0.id) && isArchived($0.id) }
+            conversations = incoming + retained
+            MessagingArchiveSnapshotStore.save(archivedSnapshots)
+        } else {
+            conversations = incoming
+        }
+    }
 }
 
-
-/// Device-local persistence for composer drafts. Bounded (50 chats, 4,000 characters each), never synced.
 enum MessagingDraftStore {
     static let key = "messages.drafts.v1"
     static let maxChats = 50
@@ -766,6 +970,18 @@ enum MessagingDraftStore {
 
     static func load(_ defaults: UserDefaults = .standard) -> [ConversationID: String] {
         (defaults.dictionary(forKey: key) as? [String: String]) ?? [:]
+    }
+
+    private static var pending: Task<Void, Never>?
+
+    static func scheduleSave(_ drafts: [ConversationID: String], _ defaults: UserDefaults = .standard) {
+        pending?.cancel()
+        let snapshot = drafts
+        pending = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            save(snapshot, defaults)
+        }
     }
 
     static func save(_ drafts: [ConversationID: String], _ defaults: UserDefaults = .standard) {
@@ -796,5 +1012,182 @@ enum MessagingLocalStore {
     }
     static func save(_ value: [String: String], _ key: String) {
         if value.isEmpty { UserDefaults.standard.removeObject(forKey: key) } else { UserDefaults.standard.set(value, forKey: key) }
+    }
+}
+
+
+enum MessageMuteDuration: String, CaseIterable, Identifiable, Sendable {
+    case hour, eightHours, week, forever
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .hour: "1 hour"
+        case .eightHours: "8 hours"
+        case .week: "1 week"
+        case .forever: "Until I unmute"
+        }
+    }
+    var seconds: TimeInterval {
+        switch self {
+        case .hour: 60 * 60
+        case .eightHours: 8 * 60 * 60
+        case .week: 7 * 24 * 60 * 60
+        case .forever: 0
+        }
+    }
+}
+
+struct MessagingArchivedSnapshot: Hashable, Sendable {
+    var conversation: Conversation
+}
+
+enum MessagingIDSetStore {
+    static func load(_ key: String, _ defaults: UserDefaults = .standard) -> Set<String> {
+        Set(defaults.stringArray(forKey: key) ?? [])
+    }
+    static func save(_ ids: Set<String>, _ key: String, _ defaults: UserDefaults = .standard) {
+        if ids.isEmpty { defaults.removeObject(forKey: key) } else { defaults.set(Array(ids), forKey: key) }
+    }
+}
+
+enum MessagingDateStore {
+    static func load(_ key: String, _ defaults: UserDefaults = .standard) -> [String: Date] {
+        let raw = defaults.dictionary(forKey: key) as? [String: Double] ?? [:]
+        return raw.mapValues { Date(timeIntervalSince1970: $0) }
+    }
+    static func save(_ value: [String: Date], _ key: String, _ defaults: UserDefaults = .standard) {
+        if value.isEmpty {
+            defaults.removeObject(forKey: key)
+        } else {
+            defaults.set(value.mapValues(\.timeIntervalSince1970), forKey: key)
+        }
+    }
+}
+
+enum MessagingArchiveSnapshotStore {
+    private static let key = "messages.archivedSnapshots.v1"
+
+    static func load(_ defaults: UserDefaults = .standard) -> [ConversationID: MessagingArchivedSnapshot] {
+        guard let data = defaults.data(forKey: key),
+              let raw = try? JSONDecoder().decode([String: SnapshotDTO].self, from: data) else { return [:] }
+        return raw.mapValues { MessagingArchivedSnapshot(conversation: $0.conversation) }
+    }
+
+    static func save(_ value: [ConversationID: MessagingArchivedSnapshot], _ defaults: UserDefaults = .standard) {
+        if value.isEmpty {
+            defaults.removeObject(forKey: key)
+            return
+        }
+        let raw = Dictionary(uniqueKeysWithValues: value.map { ($0.key, SnapshotDTO($0.value.conversation)) })
+        defaults.set(try? JSONEncoder().encode(raw), forKey: key)
+    }
+
+    private struct SnapshotDTO: Codable {
+        var id: String
+        var kind: String
+        var title: String
+        var handle: String?
+        var updatedAt: Date
+        var unreadCount: Int
+        var preview: String
+        var participantNames: [String]
+        var participantIDs: [String]
+        var participantHandles: [String]
+
+        init(_ conversation: Conversation) {
+            id = conversation.id
+            kind = conversation.kind.rawValue
+            title = conversation.title
+            handle = conversation.handleLabel
+            updatedAt = conversation.updatedAt
+            unreadCount = conversation.unreadCount
+            preview = conversation.lastMessage?.body ?? ""
+            participantNames = conversation.participants.map(\.displayName)
+            participantIDs = conversation.participants.map(\.id)
+            participantHandles = conversation.participants.map(\.handle)
+        }
+
+        var conversation: Conversation {
+            let people: [ConversationParticipant] = zip(participantIDs, zip(participantHandles, participantNames)).map { id, pair in
+                ConversationParticipant(id: id, handle: pair.0, displayName: pair.1, avatarURL: nil)
+            }
+            let previewMessage: MessagePreview? = preview.isEmpty ? nil : MessagePreview(id: "archived-\(id)", body: preview, sentAt: updatedAt, senderID: people.first?.id)
+            var conversation = Conversation(
+                id: id,
+                kind: ConversationKind(parsing: kind),
+                participants: people,
+                lastMessage: previewMessage,
+                unreadCount: unreadCount,
+                updatedAt: updatedAt,
+                titleOverride: title
+            )
+            conversation.isArchived = true
+            return conversation
+        }
+    }
+}
+
+enum MessageThreadSearchScope: String, CaseIterable, Identifiable, Sendable {
+    case all, from, links, images, starred
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .all: "All"
+        case .from: "From"
+        case .links: "Links"
+        case .images: "Images"
+        case .starred: "Starred"
+        }
+    }
+
+    func matches(_ message: Message, query: String, starredIDs: Set<MessageID>, senderNeedle: String?) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let text = message.body.text.lowercased()
+        let hasText = q.isEmpty || text.contains(q) || message.sender.displayName.lowercased().contains(q) || message.sender.handle.lowercased().contains(q)
+        let url = MessageInlineContent.firstURL(in: message.body.text)
+        switch self {
+        case .all: return hasText
+        case .from:
+            let needle = (senderNeedle ?? query).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !needle.isEmpty else { return false }
+            return message.sender.displayName.lowercased().contains(needle) || message.sender.handle.lowercased().contains(needle)
+        case .links:
+            return url != nil && (q.isEmpty || text.contains(q) || (url?.absoluteString.lowercased().contains(q) ?? false))
+        case .images:
+            guard let url, case .image = MessageInlineContent.classify(url) else { return false }
+            return q.isEmpty || text.contains(q)
+        case .starred:
+            return starredIDs.contains(message.id) && (q.isEmpty || hasText)
+        }
+    }
+}
+
+enum MessageRecentTokenStore {
+    static let key = "messages.recentTokens.v1"
+    static let limit = 12
+
+    static func load(_ defaults: UserDefaults = .standard) -> [String] {
+        Array((defaults.stringArray(forKey: key) ?? []).prefix(limit))
+    }
+
+    static let reactionKey = "messages.lastReaction.v1"
+
+    static func remember(_ token: String, _ defaults: UserDefaults = .standard) {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var items = load(defaults).filter { $0 != trimmed }
+        items.insert(trimmed, at: 0)
+        defaults.set(Array(items.prefix(limit)), forKey: key)
+    }
+
+    static func lastReaction(_ defaults: UserDefaults = .standard) -> String? {
+        defaults.string(forKey: reactionKey)
+    }
+
+    static func rememberReaction(_ emoji: String, _ defaults: UserDefaults = .standard) {
+        let trimmed = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        defaults.set(trimmed, forKey: reactionKey)
+        remember(trimmed, defaults)
     }
 }
