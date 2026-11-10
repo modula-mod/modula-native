@@ -7,28 +7,56 @@ struct MessagesRootView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.routeTransitionNamespace) private var routeTransitions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         Group {
-            switch route {
-            case .inbox:
-                ConversationListView()
-            case .requests:
-                MessageRequestsView()
-            case .inMail(let mail):
-                InMailRouteView(route: mail)
-            case .new:
-                NewConversationView()
-            case .direct(let person):
-                DirectMessageView(person: person)
-            case .conversation(let id):
-                ConversationView(conversationID: id)
-                    .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
+            if sizeClass == .regular, usesSplit {
+                NavigationSplitView {
+                    ConversationListView()
+                } detail: {
+                    switch route {
+                    case .conversation(let id):
+                        ConversationView(conversationID: id)
+                            .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
+                    default:
+                        ContentUnavailableView(
+                            "Select a chat",
+                            systemImage: "bubble.left.and.bubble.right",
+                            description: Text("Choose a conversation from the list.")
+                        )
+                    }
+                }
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+            } else {
+                switch route {
+                case .inbox:
+                    ConversationListView()
+                case .requests:
+                    MessageRequestsView()
+                case .inMail(let mail):
+                    InMailRouteView(route: mail)
+                case .new:
+                    NewConversationView()
+                case .direct(let person):
+                    DirectMessageView(person: person)
+                case .conversation(let id):
+                    ConversationView(conversationID: id)
+                        .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
+                }
             }
         }
         .modulaCanvas()
         .navigationBarBackButtonHidden(false)
         .toolbar(.hidden, for: .tabBar)
+    }
+
+    /// Inbox and an open thread share a sidebar on iPad; requests, In-Mail and new-chat stay full screen.
+    private var usesSplit: Bool {
+        switch route {
+        case .inbox, .conversation: true
+        default: false
+        }
     }
 }
 
@@ -39,6 +67,26 @@ struct ConversationListView: View {
     /// Remembered, so "Your circle" doesn't pop in and out each time you come back to the inbox.
     @AppStorage("messages.circle.open") private var circleOpen = false
     @State private var showCompose = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var selecting = false
+    @State private var selectedIDs: Set<ConversationID> = []
+    @State private var searchKind: InboxSearchKind = .all
+    @State private var folderSheetIDs: [ConversationID]?
+    @State private var muteSheetIDs: [ConversationID]?
+    @State private var inboxDestination: InboxDestination?
+    @State private var hideNotice: String?
+
+    private enum InboxDestination: Hashable, Identifiable {
+        case archived, hidden, folder(String)
+        var id: String {
+            switch self {
+            case .archived: "archived"
+            case .hidden: "hidden"
+            case .folder(let name): "folder:\(name)"
+            }
+        }
+    }
+
 
     /// "Your circle": the people from your most recent 1:1 chats (real data, no guessing).
     private var circle: [(ConversationID, ConversationParticipant)] {
@@ -82,6 +130,16 @@ struct ConversationListView: View {
             .navigationTitle("Messages")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if selecting {
+                        Button("Done") {
+                            selecting = false
+                            selectedIDs = []
+                        }
+                    } else {
+                        Button("Select") { selecting = true }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 10) {
                         if !circle.isEmpty {
@@ -110,6 +168,47 @@ struct ConversationListView: View {
                         .modulaAccentCTA(in: Circle())
                         .accessibilityLabel("New message")
                         .accessibilityIdentifier("messages.compose")
+                        .opacity(selecting ? 0 : 1)
+                        .disabled(selecting)
+                        if selecting {
+                            Menu {
+                                Button("Mark as read", systemImage: "checkmark.message") {
+                                    Task { await markSelectedRead() }
+                                }
+                                if app.messaging.capabilities.mute {
+                                    Button("Mute…", systemImage: "bell.slash") { muteSheetIDs = Array(selectedIDs) }
+                                }
+                                if app.messaging.capabilities.archive {
+                                    Button("Archive", systemImage: "archivebox") {
+                                        Task { await archiveSelected() }
+                                    }
+                                }
+                                Button("Move to folder…", systemImage: "folder") { folderSheetIDs = Array(selectedIDs) }
+                                Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .font(.body.weight(.bold))
+                                    .frame(width: 36, height: 36)
+                            }
+                            .disabled(selectedIDs.isEmpty)
+                            .accessibilityLabel("Actions for selected chats")
+                        } else {
+                            Menu {
+                                if app.messaging.capabilities.markRead {
+                                    Button("Mark all as read", systemImage: "checkmark.message") {
+                                        Task { await app.messaging.markAllVisibleRead() }
+                                    }
+                                }
+                                Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
+                                Button("Hidden", systemImage: "eye.slash") { Task { await openHidden() } }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 36, height: 36)
+                            }
+                            .accessibilityLabel("Inbox options")
+                            .accessibilityIdentifier("messages.inbox.menu")
+                        }
                     }
                 }
             }
@@ -123,6 +222,7 @@ struct ConversationListView: View {
                 await app.messaging.loadInboxIfNeeded()
                 await app.messaging.loadRequestsIfNeeded()
                 await app.messaging.probeCapabilities()
+                await app.messaging.expireTimedMutesIfNeeded()
             }
             // No realtime route: a quiet 20 s poll keeps rows, unread counts and requests current.
             .task(id: "messages.inbox.poll") {
@@ -144,6 +244,33 @@ struct ConversationListView: View {
                     .presentationDetents([.large])
                     .presentationCornerRadius(32)
             }
+            .sheet(item: Binding(
+                get: { folderSheetIDs.map { IdentifiedIDList(ids: $0) } },
+                set: { folderSheetIDs = $0?.ids }
+            )) { wrapper in
+                MoveToFolderSheet(ids: wrapper.ids)
+            }
+            .sheet(item: Binding(
+                get: { muteSheetIDs.map { IdentifiedIDList(ids: $0) } },
+                set: { muteSheetIDs = $0?.ids }
+            )) { wrapper in
+                TimedMuteSheet(ids: wrapper.ids)
+            }
+            .navigationDestination(item: $inboxDestination) { destination in
+                switch destination {
+                case .archived:
+                    ArchivedChatsView(onOpen: open)
+                case .hidden:
+                    HiddenChatsView(onOpen: open)
+                case .folder(let name):
+                    FolderChatsView(name: name, onOpen: open)
+                }
+            }
+            .alert("Can't hide chats", isPresented: Binding(get: { hideNotice != nil }, set: { if !$0 { hideNotice = nil } })) {
+                Button("OK", role: .cancel) { hideNotice = nil }
+            } message: {
+                Text(hideNotice ?? "")
+            }
             .overlay(alignment: .bottom) { errorBanner }
             .accessibilityIdentifier("messages.inbox")
             .accessibilityValue(RouteSerializer.serialize(.messages(.inbox)))
@@ -162,8 +289,58 @@ struct ConversationListView: View {
                 .padding(.horizontal, ModulaLayout.contentInset)
             searchScopeCaption(matches: matches)
             filterRow
+            if !app.messaging.conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                searchKindRow
+            }
+            if !app.messaging.folderNames.isEmpty {
+                folderRow
+            }
         }
         .padding(.bottom, 6)
+    }
+
+    private var searchKindRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(InboxSearchKind.allCases) { kind in
+                    let on = kind == searchKind
+                    Button {
+                        searchKind = kind
+                    } label: {
+                        Text(kind.title)
+                            .font(.caption.weight(on ? .semibold : .regular))
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 30)
+                            .background(on ? app.appearance.liveAccent.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+        }
+        .accessibilityIdentifier("messages.inbox.searchKind")
+    }
+
+    private var folderRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(app.messaging.folderNames, id: \.self) { name in
+                    Button {
+                        inboxDestination = .folder(name)
+                    } label: {
+                        Label(name, systemImage: "folder")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+        }
+        .accessibilityIdentifier("messages.inbox.folders")
     }
 
     /// Roadmap #07: say exactly what a search covered, so a partial local search is never
@@ -266,7 +443,10 @@ struct ConversationListView: View {
     private var content: some View {
         let viewerID = app.auth.account?.accountId
         let pinned = Set(app.messaging.pinnedIDs)
-        let items = app.messaging.visibleConversations.filter { filter.matches($0, viewerID: viewerID, pinned: pinned) }
+        let items = app.messaging.visibleConversations.filter { conversation in
+            filter.matches(conversation, viewerID: viewerID, pinned: pinned)
+            && (searchKind == .all || searchKind.matches(conversation, query: app.messaging.conversationQuery, starredIDs: app.messaging.starredIDs, messages: app.messaging.messages(for: conversation.id)))
+        }
         let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
         if items.isEmpty {
             VStack(spacing: 0) {
@@ -286,16 +466,29 @@ struct ConversationListView: View {
                 }
                 ForEach(items) { conversation in
                     Button {
-                        open(conversation)
+                        if selecting {
+                            if selectedIDs.contains(conversation.id) { selectedIDs.remove(conversation.id) }
+                            else { selectedIDs.insert(conversation.id) }
+                        } else {
+                            open(conversation)
+                        }
                     } label: {
-                        ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId,
-                                        pinned: app.messaging.isPinned(conversation.id),
-                                        draft: app.messaging.draftPreview(for: conversation.id))
-                            // Long-press lifts exactly this row (not a detached slab below it).
-                            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        HStack(spacing: 10) {
+                            if selecting {
+                                Image(systemName: selectedIDs.contains(conversation.id) ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(selectedIDs.contains(conversation.id) ? app.appearance.liveAccent : Color.secondary)
+                                    .accessibilityHidden(true)
+                            }
+                            ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId,
+                                            pinned: app.messaging.isPinned(conversation.id),
+                                            draft: app.messaging.draftPreview(for: conversation.id))
+                                // Long-press lifts exactly this row (not a detached slab below it).
+                                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
                     }
                     .buttonStyle(.plain)
-                    .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
+                    .listRowInsets(EdgeInsets(top: 4, leading: ModulaLayout.contentInset, bottom: 4, trailing: ModulaLayout.contentInset))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -340,6 +533,9 @@ struct ConversationListView: View {
                             Task { await app.messaging.loadMoreConversations() }
                         }
                     }
+                }
+                if filter == .all, !searching, !selecting {
+                    inboxLibraryRows
                 }
             }
             .listStyle(.plain)
@@ -391,6 +587,28 @@ struct ConversationListView: View {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
         }
+        if app.messaging.capabilities.mute {
+            Button(conversation.isMuted ? "Unmute" : "Mute…", systemImage: conversation.isMuted ? "bell" : "bell.slash") {
+                if conversation.isMuted {
+                    Task { await app.messaging.unmuteNow(conversation.id) }
+                } else {
+                    muteSheetIDs = [conversation.id]
+                }
+            }
+        }
+        if app.messaging.capabilities.archive, !app.messaging.isArchived(conversation.id) {
+            Button("Archive", systemImage: "archivebox") {
+                Task { await app.messaging.archive(conversation.id) }
+            }
+        }
+        Button("Move to folder…", systemImage: "folder") { folderSheetIDs = [conversation.id] }
+        Button(app.messaging.isHidden(conversation.id) ? "Unhide" : "Hide", systemImage: app.messaging.isHidden(conversation.id) ? "eye" : "eye.slash") {
+            if app.messaging.isHidden(conversation.id) {
+                app.messaging.unhide(conversation.id)
+            } else {
+                Task { await hideSelected(ids: [conversation.id]) }
+            }
+        }
     }
 
     /// Instagram/WhatsApp pattern: strangers wait behind one calm row instead of mixing into chats
@@ -437,8 +655,89 @@ struct ConversationListView: View {
     }
 
     private func open(_ conversation: Conversation) {
-        app.navigation.push(.messages(.conversation(conversation.id)))
+        let route = AppRoute.messages(.conversation(conversation.id))
+        if sizeClass == .regular, case .messages(.conversation) = app.navigation.currentRoute {
+            app.navigation.replaceTop(with: route)
+        } else {
+            app.navigation.push(route)
+        }
         HapticEngine.shared.play(.navigation)
+    }
+
+    @ViewBuilder
+    private var inboxLibraryRows: some View {
+        if !app.messaging.archivedConversations.isEmpty {
+            Button { inboxDestination = .archived } label: {
+                libraryRow(title: "Archived", symbol: "archivebox", count: app.messaging.archivedConversations.count)
+            }
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 4, leading: ModulaLayout.contentInset, bottom: 4, trailing: ModulaLayout.contentInset))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .accessibilityIdentifier("messages.inbox.archived")
+        }
+        if !app.messaging.hiddenConversations.isEmpty {
+            Button { Task { await openHidden() } } label: {
+                libraryRow(title: "Hidden", symbol: "eye.slash", count: app.messaging.hiddenConversations.count)
+            }
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 4, leading: ModulaLayout.contentInset, bottom: 4, trailing: ModulaLayout.contentInset))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .accessibilityIdentifier("messages.inbox.hidden")
+        }
+    }
+
+    private func libraryRow(title: String, symbol: String, count: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(width: 36, height: 36)
+                .modulaGlass(in: Circle(), interactive: false)
+            Text(title).font(.body.weight(.medium))
+            Spacer()
+            Text("\(count)").font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+        .accessibilityLabel("\(title), \(count)")
+    }
+
+    private func markSelectedRead() async {
+        for id in selectedIDs { await app.messaging.markConversationRead(id) }
+        selectedIDs = []
+        selecting = false
+    }
+
+    private func archiveSelected() async {
+        for id in selectedIDs { await app.messaging.archive(id) }
+        selectedIDs = []
+        selecting = false
+    }
+
+    private func hideSelected(ids: [ConversationID]? = nil) async {
+        let targets = ids ?? Array(selectedIDs)
+        guard MessagePrivacyAuth.isAvailable else {
+            hideNotice = "Turn on a device passcode or Face ID in iOS Settings first. Hidden chats are locked with that, not a new Modula password."
+            return
+        }
+        let ok = await MessagePrivacyAuth.confirm(reason: "Hide these chats")
+        guard ok else { return }
+        for id in targets { app.messaging.hide(id) }
+        selectedIDs = []
+        selecting = false
+    }
+
+    private func openHidden() async {
+        guard MessagePrivacyAuth.isAvailable else {
+            hideNotice = "Turn on a device passcode or Face ID in iOS Settings to open hidden chats."
+            return
+        }
+        if app.messaging.hiddenUnlockedThisSession || await MessagePrivacyAuth.confirm(reason: "Open hidden chats") {
+            app.messaging.unlockHiddenFolder()
+            inboxDestination = .hidden
+        }
     }
 
     @ViewBuilder
@@ -599,7 +898,7 @@ struct ConversationRow: View {
         let unread = conversation.isUnread
         let accent = app.appearance.liveAccent
         HStack(alignment: .center, spacing: 12) {
-            ConversationAvatar(participants: conversation.participants, unread: unread, size: dynamicTypeSize.isAccessibilitySize ? 40 : 54)
+            ConversationAvatar(participants: conversation.participants, unread: unread, size: dynamicTypeSize.isAccessibilitySize ? 40 : 50)
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
                 .fixedSize()
             VStack(alignment: .leading, spacing: 3) {
@@ -648,7 +947,7 @@ struct ConversationRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
@@ -788,6 +1087,14 @@ struct ConversationView: View {
     @State private var reactionGridFor: Message?
     @AppStorage("messages.gestureTip.dismissed") private var gestureTipDismissed = false
     @Environment(\.scenePhase) private var scenePhase
+    @State private var searching = false
+    @State private var searchQuery = ""
+    @State private var searchScope: MessageThreadSearchScope = .all
+    @State private var searchIndex = 0
+    @State private var selectingMessages = false
+    @State private var selectedMessageIDs: Set<MessageID> = []
+    @State private var prefetchingOlder = false
+    @State private var replyStackFor: MessageID?
 
     var body: some View {
         thread
@@ -795,9 +1102,6 @@ struct ConversationView: View {
             .background { MessagesWallpaper(theme: app.messaging.wallpaper(for: conversationID)) }
             .overlay(alignment: .bottomTrailing) { flyOverlay }
             .background { keyboardShortcuts }
-            .onChange(of: app.messaging.drafts[conversationID] ?? "") { _, new in
-                if !new.isEmpty, editing == nil { app.messaging.noteTyping(conversationID) }
-            }
             .confirmationDialog(
                 "Unsend this message?",
                 isPresented: Binding(get: { unsending != nil }, set: { if !$0 { unsending = nil } }),
@@ -811,11 +1115,48 @@ struct ConversationView: View {
                 Text("It disappears for everyone in this chat.")
             }
             // Composer floats over the thread so messages scroll under its glass.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if searching {
+                    ConversationSearchBar(
+                        query: $searchQuery,
+                        scope: $searchScope,
+                        fromCount: searchMatches.count,
+                        total: searchMatches.count,
+                        index: searchIndex,
+                        onPrevious: { stepSearch(-1) },
+                        onNext: { stepSearch(1) },
+                        onClose: {
+                            searching = false
+                            searchQuery = ""
+                            searchScope = .all
+                        }
+                    )
+                    .padding(.bottom, 6)
+                    .transition(.opacity)
+                }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    gestureTip
-                    smartReplies
-                    composer
+                    if selectingMessages {
+                        MessageSelectionBar(
+                            count: selectedMessageIDs.count,
+                            onCopy: copySelectedMessages,
+                            onForward: forwardSelectedMessages,
+                            onCancel: {
+                                selectingMessages = false
+                                selectedMessageIDs = []
+                            }
+                        )
+                    } else {
+                        gestureTip
+                        ConversationComposerDock(
+                            conversationID: conversationID,
+                            reply: reply,
+                            onCancelReply: cancelReply,
+                            focus: $composerFocused,
+                            onSend: sendNow
+                        )
+                    }
                 }
             }
             .sheet(item: $forwarding) { message in
@@ -841,8 +1182,9 @@ struct ConversationView: View {
                 .presentationBackground(.clear)
             }
             .sheet(item: $reactionGridFor) { message in
-                ReactionGridSheet { emoji in
+                MessageReactionPickerSheet { emoji in
                     reactionGridFor = nil
+                    MessageRecentTokenStore.rememberReaction(emoji)
                     handle(.init(id: "react:\(emoji)", title: emoji), message: message)
                 }
                 .presentationDetents([.medium, .large])
@@ -860,19 +1202,44 @@ struct ConversationView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) { header }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        HapticEngine.shared.play(.navigation)
-                        showInfo = true
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.body.weight(.bold))
-                            .frame(width: 36, height: 36)
-                            .contentShape(Circle())
+                    HStack(spacing: 8) {
+                        Button {
+                            searching.toggle()
+                            if !searching { searchQuery = ""; searchScope = .all }
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .font(.body.weight(.semibold))
+                                .frame(width: 36, height: 36)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Search this chat")
+                        .accessibilityIdentifier("messages.conversation.search")
+                        Button {
+                            selectingMessages.toggle()
+                            if !selectingMessages { selectedMessageIDs = [] }
+                        } label: {
+                            Image(systemName: selectingMessages ? "checkmark.circle.fill" : "checkmark.circle")
+                                .font(.body.weight(.semibold))
+                                .frame(width: 36, height: 36)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(selectingMessages ? "Done selecting" : "Select messages")
+                        Button {
+                            HapticEngine.shared.play(.navigation)
+                            showInfo = true
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.body.weight(.bold))
+                                .frame(width: 36, height: 36)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                        .modulaAccentCTA(in: Circle())
+                        .accessibilityLabel("Chat info")
+                        .accessibilityIdentifier("messages.conversation.info")
                     }
-                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                    .modulaAccentCTA(in: Circle())
-                    .accessibilityLabel("Chat info")
-                    .accessibilityIdentifier("messages.conversation.info")
                 }
             }
         .task {
@@ -880,6 +1247,14 @@ struct ConversationView: View {
             await app.messaging.probeCapabilities()
         }
         .task(id: conversationID) { await pollLoop() }
+        .onChange(of: searchQuery) { _, _ in
+            searchIndex = 0
+            if let id = currentSearchID { jumpTarget = id }
+        }
+        .onChange(of: searchScope) { _, _ in
+            searchIndex = 0
+            if let id = currentSearchID { jumpTarget = id }
+        }
         .accessibilityIdentifier("messages.conversation.\(conversationID)")
         .accessibilityValue(RouteSerializer.serialize(.messages(.conversation(conversationID))))
     }
@@ -944,6 +1319,7 @@ struct ConversationView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         olderHeader(items: items, proxy: proxy)
+                        let replyCounts = MessageReplyGrouping.counts(in: items)
                         let lastOwnID = items.last(where: \.isOwn)?.id
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
@@ -957,13 +1333,35 @@ struct ConversationView: View {
                                     .padding(.top, 14)
                                     .padding(.bottom, 6)
                             }
-                            MessageBubble(message: message, position: position, showsStatus: message.id == lastOwnID, onFocus: { request in
-                                presentFocus(request)
-                            }) { action in
+                            let replyCount = replyCounts[message.id] ?? 0
+                            MessageBubble(
+                                message: message,
+                                position: position,
+                                showsStatus: message.id == lastOwnID,
+                                selecting: selectingMessages,
+                                isSelected: selectedMessageIDs.contains(message.id),
+                                onToggleSelect: {
+                                    if selectedMessageIDs.contains(message.id) { selectedMessageIDs.remove(message.id) }
+                                    else { selectedMessageIDs.insert(message.id) }
+                                },
+                                replyCount: replyCount,
+                                onOpenReplies: { replyStackFor = message.id },
+                                onFocus: { request in
+                                    presentFocus(request)
+                                }
+                            ) { action in
                                 handle(action, message: message)
                             }
                             // The held bubble is lifted into the overlay; leave its slot empty meanwhile.
                             .opacity(focusRequest?.id == message.id ? 0 : 1)
+                            .overlay {
+                                if searching, searchMatches.contains(where: { $0.id == message.id }) {
+                                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                        .stroke(app.appearance.liveAccent.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
+                                        .padding(-3)
+                                        .allowsHitTesting(false)
+                                }
+                            }
                             // Roadmap #09: the original of a tapped reply quote glows briefly.
                             .background {
                                 if highlightedID == message.id {
@@ -991,8 +1389,9 @@ struct ConversationView: View {
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.vertical, 12)
                 }
-                // Chats open on the newest message and stay pinned there.
-                .defaultScrollAnchor(.bottom)
+                // Only pin to the newest message while the reader is already there.
+                // Leaving this on while scrolling history yanks the thread when content size changes.
+                .modifier(BottomAnchorIfNeeded(pinned: isAtBottom))
                 // Room under the newest bubble so the perched mascot and the jump button never cover it.
                 .contentMargins(.bottom, 40, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
@@ -1006,6 +1405,11 @@ struct ConversationView: View {
                         if atBottom { unseenCount = 0 }
                     }
                     if atBottom, let last = items.last?.id { app.messaging.markReadLocally(last, in: conversationID) }
+                }
+                .onScrollGeometryChange(for: CGFloat.self) { geo in
+                    geo.contentOffset.y
+                } action: { _, y in
+                    prefetchOlderIfNeeded(y: y, items: items, proxy: proxy)
                 }
                 // Roadmap #03: open at the first message that arrived since this device last
                 // reached the end of the chat, marked "New messages". Otherwise the newest.
@@ -1069,7 +1473,14 @@ struct ConversationView: View {
                         }
                     }
                 }
+                .overlay(alignment: .bottomLeading) { unreadJump(proxy: proxy) }
                 .overlay(alignment: .bottomTrailing) { jumpControl(items: items, proxy: proxy) }
+                .sheet(item: Binding(
+                    get: { replyStackFor.map { IdentifiedMessageID(id: $0) } },
+                    set: { replyStackFor = $0?.id }
+                )) { wrapper in
+                    replyStackSheet(id: wrapper.id, items: items)
+                }
             }
         }
     }
@@ -1110,45 +1521,6 @@ struct ConversationView: View {
             .transition(.opacity)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("messages.gestureTip")
-        }
-    }
-
-    /// On-device reply suggestions for the latest incoming message. Tapping only fills the composer
-    /// (the user stays in control; nothing is sent for them and nothing leaves the device).
-    @ViewBuilder
-    private var smartReplies: some View {
-        let items = app.messaging.messages(for: conversationID)
-        let draftEmpty = (app.messaging.drafts[conversationID] ?? "").isEmpty
-        if draftEmpty, let last = items.last, !last.isOwn {
-            let options = MessageSmartReplies.suggestions(for: last.body.text)
-            if !options.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    ModulaGlassGroup(spacing: 8) {
-                        HStack(spacing: 8) {
-                            ForEach(options, id: \.self) { option in
-                                Button {
-                                    app.messaging.drafts[conversationID] = option
-                                    composerFocused = true
-                                    HapticEngine.shared.play(.selection)
-                                } label: {
-                                    Text(option)
-                                        .font(.subheadline.weight(.medium))
-                                        .padding(.horizontal, 14)
-                                        .frame(minHeight: 36)
-                                        .contentShape(Capsule())
-                                }
-                                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
-                                .modulaGlass(in: Capsule(), interactive: true)
-                                .accessibilityHint("Puts this reply in the message box")
-                            }
-                        }
-                        .padding(.horizontal, ModulaLayout.contentInset)
-                    }
-                }
-                .scrollClipDisabled()
-                .padding(.top, 6)
-                .accessibilityIdentifier("messages.smartReplies")
-            }
         }
     }
 
@@ -1282,23 +1654,6 @@ struct ConversationView: View {
         }
     }
 
-    private var composer: some View {
-        MessageComposer(
-            text: Binding(
-                get: { app.messaging.drafts[conversationID] ?? "" },
-                set: { app.messaging.drafts[conversationID] = $0 }
-            ),
-            canSend: app.messaging.capabilities.send,
-            showsAttachments: app.messaging.capabilities.attachments,
-            largeText: dynamicTypeSize.isAccessibilitySize,
-            reply: reply,
-            onCancelReply: cancelReply,
-            focus: $composerFocused
-        ) {
-            sendNow()
-        }
-    }
-
     private func sendNow() {
         let text = (app.messaging.drafts[conversationID] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -1321,7 +1676,16 @@ struct ConversationView: View {
         HapticEngine.shared.play(.lightImpact)
         launchFlyIn(text)
         IslandSendEffect.shared.fire("Message sent", accent: app.appearance.liveAccent)
-        Task { await app.messaging.send(conversation: conversationID, viewer: viewer, replyTo: target) }
+        if text.count <= 8 { MessageRecentTokenStore.remember(text) }
+        Task {
+            if let sent = await app.messaging.send(conversation: conversationID, viewer: viewer, replyTo: target),
+               app.messaging.capabilities.deleteOwn,
+               !sent.id.hasPrefix("local-") {
+                app.navigation.flash("Message sent", symbol: "arrow.uturn.backward", actionTitle: "Undo") {
+                    Task { await app.messaging.unsend(sent) }
+                }
+            }
+        }
     }
 
     /// The words lift off the composer and settle into the thread (peak-end: sending feels good).
@@ -1332,8 +1696,8 @@ struct ConversationView: View {
         flyText = text
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(16))
-            withAnimation(reduceMotion ? .easeOut(duration: 0.4) : .spring(response: 0.42, dampingFraction: 0.8)) { flyUp = true }
-            try? await Task.sleep(for: .milliseconds(reduceMotion ? 420 : 460))
+            withAnimation(reduceMotion ? .easeOut(duration: 0.28) : .easeOut(duration: 0.32)) { flyUp = true }
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 340))
             flyText = nil
             flyUp = false
         }
@@ -1430,8 +1794,10 @@ struct ConversationView: View {
         case "report":
             Task { _ = await app.messaging.report(message: message) }
         case let id where id.hasPrefix("react:"):
+            let emoji = String(id.dropFirst(6))
+            MessageRecentTokenStore.rememberReaction(emoji)
             HapticEngine.shared.play(.confirmation)
-            Task { await app.messaging.toggleReaction(String(id.dropFirst(6)), on: message) }
+            Task { await app.messaging.toggleReaction(emoji, on: message) }
         case let id where id.hasPrefix("jumpReply:"):
             jumpToOriginal(MessageID(id.dropFirst(10)), deleted: message.replyTo?.deleted == true)
         case "reply":
@@ -1451,6 +1817,116 @@ struct ConversationView: View {
         default:
             break
         }
+    }
+
+    private var searchMatches: [Message] {
+        let items = app.messaging.messages(for: conversationID)
+        let query = searchQuery
+        let scope = searchScope
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, scope == .all { return [] }
+        return items.filter { scope.matches($0, query: query, starredIDs: app.messaging.starredIDs, senderNeedle: nil) }
+    }
+
+    private var currentSearchID: MessageID? {
+        let items = searchMatches
+        guard !items.isEmpty else { return nil }
+        let i = ((searchIndex % items.count) + items.count) % items.count
+        return items[i].id
+    }
+
+    private func stepSearch(_ step: Int) {
+        let items = searchMatches
+        guard !items.isEmpty else { return }
+        searchIndex = ((searchIndex + step) % items.count + items.count) % items.count
+        jumpTarget = items[searchIndex].id
+    }
+
+    private func prefetchOlderIfNeeded(y: CGFloat, items: [Message], proxy: ScrollViewProxy) {
+        guard y < 280, app.messaging.threadHasMore[conversationID] == true, !prefetchingOlder else { return }
+        prefetchingOlder = true
+        let anchor = items.first?.id
+        Task {
+            if await app.messaging.loadOlderMessages(conversationID), let anchor {
+                proxy.scrollTo(anchor, anchor: .top)
+            }
+            prefetchingOlder = false
+        }
+    }
+
+    @ViewBuilder
+    private func unreadJump(proxy: ScrollViewProxy) -> some View {
+        if let target = firstUnreadID, !isAtBottom {
+            Button {
+                HapticEngine.shared.play(.selection)
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) {
+                    proxy.scrollTo(target, anchor: .top)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.up")
+                    Text("First unread")
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .modulaGlass(in: Capsule(), interactive: true)
+            .padding(.leading, ModulaLayout.contentInset)
+            .padding(.bottom, 6)
+            .accessibilityLabel("Jump to first unread message")
+            .accessibilityIdentifier("messages.jumpToFirstUnread")
+        }
+    }
+
+    private func copySelectedMessages() {
+        let items = app.messaging.messages(for: conversationID).filter { selectedMessageIDs.contains($0.id) }
+        let text = items.map { message in
+            "\(message.isOwn ? "You" : message.sender.displayName): \(MessagePreviewText.plain(message.body.text))"
+        }.joined(separator: "\n")
+        guard !text.isEmpty else { return }
+        UIPasteboard.general.string = text
+        HapticEngine.shared.play(.confirmation)
+        app.navigation.flash("Copied \(items.count == 1 ? "message" : "\(items.count) messages")", symbol: "doc.on.doc")
+    }
+
+    private func forwardSelectedMessages() {
+        let items = app.messaging.messages(for: conversationID).filter { selectedMessageIDs.contains($0.id) }
+        guard let first = items.first else { return }
+        if items.count == 1 {
+            forwarding = first
+        } else {
+            copySelectedMessages()
+            app.navigation.flash("Copied \(items.count) messages. Forward them one at a time.", symbol: "arrowshape.turn.up.right")
+        }
+    }
+
+    @ViewBuilder
+    private func replyStackSheet(id: MessageID, items: [Message]) -> some View {
+        let replies = MessageReplyGrouping.replies(to: id, in: items)
+        NavigationStack {
+            List(replies) { message in
+                Button {
+                    replyStackFor = nil
+                    jumpToOriginal(message.id, deleted: message.isDeleted)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(message.isOwn ? "You" : message.sender.displayName)
+                            .font(.subheadline.weight(.semibold))
+                        Text(MessagePreviewText.plain(message.body.text))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .navigationTitle(replies.count == 1 ? "1 reply" : "\(replies.count) replies")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { replyStackFor = nil } } }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -1481,6 +1957,146 @@ enum MessageGroupPosition: Sendable {
     }
 }
 
+
+struct IdentifiedMessageID: Identifiable {
+    let id: MessageID
+}
+
+struct BottomAnchorIfNeeded: ViewModifier {
+    var pinned: Bool
+    func body(content: Content) -> some View {
+        if pinned {
+            content.defaultScrollAnchor(.bottom)
+        } else {
+            content
+        }
+    }
+}
+
+/// Leaf composer so typing does not redraw the thread. Drafts are flushed on send and when the dock disappears.
+struct ConversationComposerDock: View {
+    let conversationID: ConversationID
+    var reply: ModulaComposerReply?
+    var onCancelReply: () -> Void
+    var focus: Binding<Bool>
+    var onSend: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var text = ""
+    @State private var showGif = false
+    @State private var recent = MessageRecentTokenStore.load()
+    @State private var saveTask: Task<Void, Never>?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            smartReplies
+            MessageRecentTokensRow(tokens: recent) { token in
+                insert(token)
+            }
+            MessageComposer(
+                text: $text,
+                canSend: app.messaging.capabilities.send,
+                showsAttachments: false,
+                showsFormatting: true,
+                largeText: dynamicTypeSize.isAccessibilitySize,
+                reply: reply,
+                onCancelReply: onCancelReply,
+                focus: focus,
+                onGif: { showGif = true },
+                onSend: flushAndSend
+            )
+        }
+        .onAppear { text = app.messaging.drafts[conversationID] ?? "" }
+        .onChange(of: conversationID) { _, _ in
+            flushDraft()
+            text = app.messaging.drafts[conversationID] ?? ""
+        }
+        .onChange(of: text) { _, new in
+            scheduleDraft(new)
+            if !new.isEmpty { app.messaging.noteTyping(conversationID) }
+        }
+        .onChange(of: app.messaging.drafts[conversationID] ?? "") { _, stored in
+            if stored != text { text = stored }
+        }
+        .onDisappear { flushDraft() }
+        .sheet(isPresented: $showGif) {
+            MessageGifPickerSheet { gif in
+                insert(gif.url.absoluteString)
+                MessageRecentTokenStore.remember(gif.url.absoluteString)
+                recent = MessageRecentTokenStore.load()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var smartReplies: some View {
+        let items = app.messaging.messages(for: conversationID)
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let last = items.last, !last.isOwn {
+            let options = MessageSmartReplies.suggestions(for: last.body.text)
+            if !options.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ModulaGlassGroup(spacing: 8) {
+                        HStack(spacing: 8) {
+                            ForEach(options, id: \.self) { option in
+                                Button {
+                                    text = option
+                                    focus.wrappedValue = true
+                                    HapticEngine.shared.play(.selection)
+                                } label: {
+                                    Text(option)
+                                        .font(.subheadline.weight(.medium))
+                                        .padding(.horizontal, 14)
+                                        .frame(minHeight: 36)
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                                .modulaGlass(in: Capsule(), interactive: true)
+                                .accessibilityHint("Puts this reply in the message box")
+                            }
+                        }
+                        .padding(.horizontal, ModulaLayout.contentInset)
+                    }
+                }
+                .scrollClipDisabled()
+                .padding(.top, 6)
+                .accessibilityIdentifier("messages.smartReplies")
+            }
+        }
+    }
+
+    private func insert(_ piece: String) {
+        if text.isEmpty {
+            text = piece
+        } else {
+            text += (text.hasSuffix(" ") ? "" : " ") + piece
+        }
+    }
+
+    private func scheduleDraft(_ value: String) {
+        saveTask?.cancel()
+        saveTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(280))
+            guard !Task.isCancelled else { return }
+            if app.messaging.drafts[conversationID] ?? "" != value {
+                app.messaging.drafts[conversationID] = value
+            }
+        }
+    }
+
+    private func flushDraft() {
+        saveTask?.cancel()
+        if app.messaging.drafts[conversationID] ?? "" != text {
+            app.messaging.drafts[conversationID] = text
+        }
+    }
+
+    private func flushAndSend() {
+        flushDraft()
+        onSend()
+    }
+}
+
+
 struct MessageBubble: View {
     let message: Message
     var position: MessageGroupPosition = .single
@@ -1490,8 +2106,14 @@ struct MessageBubble: View {
     var isPreview = false
     /// Hold to react: when set, a long press lifts this bubble into `MessageFocusOverlay`
     /// (reaction bar above, menu below) instead of the system context menu.
+    var selecting = false
+    var isSelected = false
+    var onToggleSelect: (() -> Void)? = nil
+    var replyCount = 0
+    var onOpenReplies: (() -> Void)? = nil
     var onFocus: ((MessageFocusRequest) -> Void)? = nil
     var onAction: (ModulaContextAction) -> Void
+    @State private var showsTime = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @State private var rowFrame: CGRect = .zero
@@ -1568,10 +2190,17 @@ struct MessageBubble: View {
                     MessageReactionsRow(reactions: message.reactions) { emoji in
                         onAction(.init(id: "react:\(emoji)", title: emoji))
                     }
-                    // The heart drops in with a little bounce.
-                    .transition(reduceMotion ? .opacity : .scale(scale: 0.3, anchor: message.isOwn ? .topTrailing : .topLeading).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .opacity)
+                }
+                if replyCount > 0, let onOpenReplies {
+                    MessageReplyStack(count: replyCount, onOpen: onOpenReplies)
                 }
                 HStack(spacing: 8) {
+                    if selecting {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(isSelected ? app.appearance.liveAccent : Color.secondary)
+                    }
                     if app.messaging.isStarred(message.id) {
                         Image(systemName: "star.fill").font(.caption2).foregroundStyle(app.appearance.liveAccent)
                             .accessibilityHidden(true)
@@ -1579,28 +2208,29 @@ struct MessageBubble: View {
                     if message.editedAt != nil && !message.isDeleted {
                         Text("Edited").font(.caption2).foregroundStyle(.secondary)
                     }
+                    if showsTime {
+                        Text(MessageTimeline.label(for: message.sentAt))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("messages.bubble.time")
+                    }
                     if message.delivery == .failed {
                         Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
                             .font(.caption.weight(.semibold))
                             .frame(minHeight: ModulaLayout.minimumTouch)
                             .contentShape(Rectangle())
-                    } else if app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts,
-                              showsStatus, message.isOwn, message.delivery == .read {
-                        Text("Read")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    } else if showsStatus, message.isOwn, let status = MessageTimeline.status(for: message.delivery) {
-                        Text(status)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .contentTransition(.opacity)
-                            .accessibilityIdentifier("messages.bubble.status")
+                    } else if (showsStatus || showsTime), message.isOwn, message.delivery != .unknown {
+                        MessageDeliveryTicks.view(
+                            for: message.delivery,
+                            showRead: app.messaging.capabilities.readReceipts && ModulaPreferences.chatShowReadReceipts,
+                            accent: app.appearance.liveAccent
+                        )
                     }
                 }
             }
             if !message.isOwn { Spacer(minLength: sideGutter) }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.55), value: message.reactions)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: message.reactions)
         .offset(x: replyOffset)
         .background(alignment: .leading) {
             if replyOffset > 8 {
@@ -1617,7 +2247,15 @@ struct MessageBubble: View {
             actions: actions,
             onDoubleTap: {
                 guard app.messaging.capabilities.reactions, !message.isDeleted, !message.id.hasPrefix("local-") else { return }
-                onAction(.init(id: "react:❤️", title: "❤️"))
+                let emoji = MessageRecentTokenStore.lastReaction() ?? "❤️"
+                onAction(.init(id: "react:\(emoji)", title: emoji))
+            },
+            onTap: {
+                if selecting {
+                    onToggleSelect?()
+                } else {
+                    showsTime.toggle()
+                }
             },
             onLongPress: { requestFocus() },
             swipe: swipeToReply,
@@ -1670,7 +2308,7 @@ struct MessageBubble: View {
                 let triggered = ModulaPreferences.swipeToReply
                     && value.translation.width >= Self.replyThreshold
                     && abs(value.translation.width) > abs(value.translation.height) * 1.6
-                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) { replyOffset = 0 }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { replyOffset = 0 }
                 if triggered { onAction(.init(id: "reply", title: "Reply")) }
             }
     }
@@ -1799,6 +2437,7 @@ private struct MessageBubbleInteractions<Swipe: Gesture>: ViewModifier {
     var focusable: Bool
     var actions: [ModulaContextAction]
     var onDoubleTap: () -> Void
+    var onTap: () -> Void = {}
     var onLongPress: () -> Void
     var swipe: Swipe
     var onAction: (ModulaContextAction) -> Void
@@ -1809,11 +2448,13 @@ private struct MessageBubbleInteractions<Swipe: Gesture>: ViewModifier {
         } else if focusable {
             content
                 .onTapGesture(count: 2, perform: onDoubleTap)
+                .onTapGesture(count: 1, perform: onTap)
                 .onLongPressGesture(minimumDuration: 0.35, perform: onLongPress)
                 .simultaneousGesture(swipe)
         } else {
             content
                 .onTapGesture(count: 2, perform: onDoubleTap)
+                .onTapGesture(count: 1, perform: onTap)
                 .simultaneousGesture(swipe)
                 .modulaContextMenu(actions: actions, onSelect: onAction)
         }
@@ -1824,10 +2465,12 @@ struct MessageComposer: View {
     @Binding var text: String
     var canSend: Bool
     var showsAttachments: Bool
+    var showsFormatting = false
     var largeText: Bool
     var reply: ModulaComposerReply? = nil
     var onCancelReply: (() -> Void)? = nil
     var focus: Binding<Bool>? = nil
+    var onGif: (() -> Void)? = nil
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
@@ -1839,6 +2482,21 @@ struct MessageComposer: View {
         // It no longer collapses into a different-shaped pill when the keyboard goes down, and
         // no extra button appears beside it when you start typing.
         VStack(spacing: 0) {
+            if let onGif {
+                HStack {
+                    Button(action: onGif) {
+                        Label("GIF", systemImage: "play.square.stack.fill")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 32)
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityIdentifier("messages.composer.gif")
+                    Spacer(minLength: 0)
+                }
+                .padding(.bottom, 6)
+            }
             ModulaComposer(
                 text: $text,
                 prompt: "Message",
@@ -1852,6 +2510,7 @@ struct MessageComposer: View {
                 mediaPanelActive: $showStickers,
                 collapsesWhenUnfocused: false,
                 hidesMascotWhileComposing: true,
+                showsFormatting: showsFormatting,
                 onSend: onSend
             )
             if showStickers {
@@ -2688,6 +3347,7 @@ struct DirectMessageView: View {
             ),
             canSend: app.messaging.capabilities.startConversation,
             showsAttachments: false,
+            showsFormatting: true,
             largeText: dynamicTypeSize.isAccessibilitySize,
             focus: $composerFocused
         ) {
@@ -3303,7 +3963,9 @@ struct ChatSharedContentView: View {
     var body: some View {
         VStack(spacing: 12) {
             Picker("Show", selection: $tab) {
-                ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(Tab.allCases) { item in
+                    Text(tabTitle(item)).tag(item)
+                }
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, ModulaLayout.contentInset)
@@ -3372,6 +4034,14 @@ struct ChatSharedContentView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .messageLinkInspector()
+        }
+    }
+
+    private func tabTitle(_ tab: Tab) -> String {
+        switch tab {
+        case .media: return images.isEmpty ? "Media" : "Media (\(images.count))"
+        case .links: return links.isEmpty ? "Links" : "Links (\(links.count))"
+        case .files: return "Files"
         }
     }
 
