@@ -175,6 +175,11 @@ struct ConversationListView: View {
                                 Button("Mark as read", systemImage: "checkmark.message") {
                                     Task { await markSelectedRead() }
                                 }
+                                Button("Pin or unpin", systemImage: "pin") {
+                                    for id in selectedIDs { app.messaging.togglePin(id) }
+                                    selectedIDs = []
+                                    selecting = false
+                                }
                                 if app.messaging.capabilities.mute {
                                     Button("Mute…", systemImage: "bell.slash") { muteSheetIDs = Array(selectedIDs) }
                                 }
