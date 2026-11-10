@@ -326,42 +326,79 @@ struct ShellSidebarItem: Identifiable {
     let route: AppRoute
     let requiresSignIn: Bool
     var badge: Int = 0
+    /// Extra words matched by the inline search (never shown).
+    var keywords: String = ""
 }
 
-/// Calm sidebar. Top to bottom: compact identity row, search, two groups of
-/// destinations (Go to · Library), then quiet Settings and the accent New-post button.
+/// ChatGPT-density sidebar inside the floating glass card. Top to bottom: bold title + round search
+/// (filters destinations inline), tight primary rows, Library, Pinned and Recents chats from data the
+/// messaging store already holds (hidden when empty, never invented), a collapsed Developer group in
+/// debug builds, then a compact footer: profile chip, settings gear and a small floating New post pill.
+/// Plain fills only (no nested blur), so drag-to-open stays at display rate.
 struct ShellSidebarView: View {
     var width: CGFloat = 320
     var onSelect: (AppRoute, Bool) -> Void
     var onClose: () -> Void = {}
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(ModulaMascotSettings.kindKey) private var mascotRaw = ModulaMascotKind.pip.rawValue
+    @AppStorage("shell.sidebar.developerExpanded") private var developerExpanded = false
+    @State private var query = ""
+    @State private var searching = false
+    @FocusState private var searchFocused: Bool
+    /// Scales with Dynamic Type; 40pt at the default size (tighter than the old 46pt rows).
+    @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 40
 
     private let rowInset = ModulaSpacing.sm
+    private static let recentLimit = 6
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.horizontal, ModulaSpacing.md)
-                .padding(.top, ModulaSpacing.sm)
+                .padding(.top, ModulaSpacing.xs)
+            if searching {
+                searchField
+                    .padding(.horizontal, ModulaSpacing.sm)
+                    .padding(.top, ModulaSpacing.xs)
+                    .transition(.opacity)
+            }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: ModulaSpacing.lg) {
-                    group("Go to", items: primaryItems)
-                    group("Library", items: libraryItems)
+                VStack(alignment: .leading, spacing: ModulaSpacing.md) {
+                    if isFiltering {
+                        searchResults
+                    } else {
+                        section(nil) { ForEach(primaryItems) { row($0) } }
+                        section("Library") { ForEach(libraryItems) { row($0) } }
+                        if !pinnedChats.isEmpty {
+                            section("Pinned") { ForEach(pinnedChats) { chatRow($0) } }
+                        }
+                        if !recentChats.isEmpty {
+                            section("Recents") { ForEach(recentChats) { chatRow($0) } }
+                        }
+                        developerGroup
+                    }
                 }
                 .padding(.horizontal, ModulaSpacing.xs)
-                .padding(.top, ModulaSpacing.md)
+                .padding(.top, ModulaSpacing.sm)
                 .padding(.bottom, ModulaSpacing.lg)
             }
             .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.immediately)
             .modulaSoftScrollEdge()
 
             footer
-                .padding(.horizontal, ModulaSpacing.xs)
+                .padding(.horizontal, ModulaSpacing.sm)
                 .padding(.bottom, ModulaSpacing.xs)
+                .padding(.top, ModulaSpacing.xxs)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: searching)
+        .onChange(of: app.navigation.sidebarPresented) { _, presented in
+            if !presented { endSearch() }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("shell.sidebar")
         .accessibilityLabel("Sidebar")
@@ -382,75 +419,74 @@ struct ShellSidebarView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
-            HStack(spacing: ModulaSpacing.xs) {
-                identity
-                Button {
-                    onClose()
-                    CommandPaletteCenter.shared.present()
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Search")
-                .accessibilityHint("Opens search and commands")
-                .accessibilityIdentifier("shell.sidebar.search")
-            }
-            if let mascot, app.auth.isSignedIn {
-                Text("\(greeting) from \(mascot.name)")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
+        HStack(alignment: .center, spacing: ModulaSpacing.xs) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Modula")
+                    .font(.system(.title, design: .rounded).weight(.bold))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                    .accessibilityIdentifier("shell.sidebar.moliboo")
+                    .minimumScaleFactor(0.8)
+                    .accessibilityAddTraits(.isHeader)
+                if let mascot, app.auth.isSignedIn {
+                    Text("\(greeting) from \(mascot.name)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("shell.sidebar.moliboo")
+                }
             }
+            Spacer(minLength: 0)
+            Button {
+                if searching { endSearch() } else { searching = true; searchFocused = true }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                Image(systemName: searching ? "xmark" : "magnifyingglass")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 40, height: 40)
+                    .background(Color.primary.opacity(0.07), in: Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(searching ? "Close search" : "Search sidebar")
+            .accessibilityIdentifier("shell.sidebar.search")
         }
     }
 
-    @ViewBuilder
-    private var identity: some View {
-        if let profile = app.profile.ownProfile, app.auth.isSignedIn {
-            Button { onSelect(.me(.overview), true) } label: {
-                HStack(spacing: ModulaSpacing.sm) {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 32, name: profile.displayName)
-                    (Text(profile.displayName).font(.headline).foregroundStyle(.primary)
-                     + Text("  @\(profile.handle)").font(.subheadline).foregroundStyle(.secondary))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer(minLength: 0)
+    private var searchField: some View {
+        HStack(spacing: ModulaSpacing.xs) {
+            Image(systemName: "magnifyingglass")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            TextField("Search destinations", text: $query)
+                .font(.body)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .focused($searchFocused)
+                .onSubmit { if let first = filteredItems.first { onSelect(first.route, first.requiresSignIn) } }
+                .accessibilityIdentifier("shell.sidebar.search.field")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                        .frame(width: 28, height: 28).contentShape(Rectangle())
                 }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(profile.displayName), @\(profile.handle)")
-            .accessibilityHint("Opens your profile")
-            .accessibilityIdentifier("shell.sidebar.profile")
-        } else if app.auth.isSignedIn {
-            Text("Loading profile…").font(.headline).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        } else {
-            Button { onSelect(.auth(.login), false) } label: {
-                HStack(spacing: ModulaSpacing.sm) {
-                    Image(systemName: "person.crop.circle")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
-                    Text("Sign in").font(.headline).foregroundStyle(.primary)
-                    Spacer(minLength: 0)
-                }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Sign in to sync your library")
-            .accessibilityIdentifier("shell.sidebar.sign-in")
         }
+        .padding(.horizontal, ModulaSpacing.sm)
+        .frame(minHeight: 40)
+        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
+    }
+
+    private func endSearch() {
+        query = ""
+        searchFocused = false
+        searching = false
     }
 
     // MARK: Destinations
@@ -458,16 +494,18 @@ struct ShellSidebarView: View {
     private var primaryItems: [ShellSidebarItem] {
         var items: [ShellSidebarItem] = [
             .init(id: "messages", title: "Messages", symbol: "bubble.left.and.bubble.right",
-                  route: .messages(.inbox), requiresSignIn: true, badge: app.messaging.accountUnreadCount ?? 0),
+                  route: .messages(.inbox), requiresSignIn: true, badge: app.messaging.accountUnreadCount ?? 0,
+                  keywords: "chat dm inbox"),
             .init(id: "notifications", title: "Alerts", symbol: "bell",
-                  route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0),
+                  route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0,
+                  keywords: "notifications activity"),
             .init(id: "vault", title: "Vault", symbol: "lock.doc",
-                  route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true),
+                  route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "notes"),
         ]
         if GubicFeature.enabled() {
-            items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false))
+            items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
         }
-        items.append(.init(id: "moliboos", title: "Moliboos", symbol: "sparkles", route: .settings(.moliboo), requiresSignIn: false))
+        items.append(.init(id: "moliboos", title: "Moliboos", symbol: "sparkles", route: .settings(.moliboo), requiresSignIn: false, keywords: "mascot pet"))
         // Premium is gated: the upsell row only appears for free accounts.
         if !PremiumEntitlementStore.shared.plan.isPaid {
             items.append(.init(id: "premium", title: "Premium", symbol: "sun.horizon", route: .settings(.premium(.root)), requiresSignIn: false))
@@ -478,107 +516,326 @@ struct ShellSidebarView: View {
     private var libraryItems: [ShellSidebarItem] {
         var items = ShellSidebarDestination.allCases
             .filter { $0.section == .library }
-            .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route, requiresSignIn: $0.requiresSignIn) }
+            .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
+                                    requiresSignIn: $0.requiresSignIn, keywords: $0.subtitle ?? "") }
         #if DEBUG
         items.append(.init(id: "developer", title: "Module Studio", symbol: "wrench.and.screwdriver", route: .developer(.studio), requiresSignIn: false))
-        items.append(.init(id: "components", title: "Component Catalog", symbol: "square.grid.3x3", route: .developer(.components), requiresSignIn: false))
-        items.append(.init(id: "diagnostics", title: "Diagnostics & Labs", symbol: "stethoscope", route: .settings(.developer(.root)), requiresSignIn: false))
         #endif
         return items
     }
 
-    private func group(_ title: String, items: [ShellSidebarItem]) -> some View {
-        VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
-            Text(title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, rowInset)
-                .padding(.bottom, ModulaSpacing.xxs)
-                .accessibilityAddTraits(.isHeader)
-            ForEach(items) { item in row(item) }
+    /// Debug-build tools, collapsed by default.
+    private var developerItems: [ShellSidebarItem] {
+        #if DEBUG
+        [
+            .init(id: "components", title: "Component Catalog", symbol: "square.grid.3x3", route: .developer(.components), requiresSignIn: false),
+            .init(id: "diagnostics", title: "Diagnostics & Labs", symbol: "stethoscope", route: .settings(.developer(.root)), requiresSignIn: false),
+        ]
+        #else
+        []
+        #endif
+    }
+
+    /// Reachable from the footer gear and the profile chip menu; listed here so search finds them.
+    private var manageItems: [ShellSidebarItem] {
+        ShellSidebarDestination.allCases
+            .filter { $0.section == .manage }
+            .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
+                                    requiresSignIn: $0.requiresSignIn, keywords: $0.subtitle ?? "") }
+    }
+
+    // MARK: Chats (real, already-loaded data only)
+
+    private var liveChats: [Conversation] {
+        guard app.auth.isSignedIn else { return [] }
+        return MessagingOrdering.conversationsNewestFirst(app.messaging.conversations).filter { !$0.isArchived }
+    }
+
+    private var pinnedChats: [Conversation] {
+        let chats = liveChats
+        return app.messaging.pinnedIDs.compactMap { id in chats.first { $0.id == id } }
+    }
+
+    private var recentChats: [Conversation] {
+        let pinned = Set(app.messaging.pinnedIDs)
+        return Array(liveChats.filter { !pinned.contains($0.id) }.prefix(Self.recentLimit))
+    }
+
+    private func chatTitle(_ chat: Conversation) -> String {
+        let nick = app.messaging.nicknames[chat.id] ?? ""
+        return nick.isEmpty ? chat.title : nick
+    }
+
+    // MARK: Search
+
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isFiltering: Bool { searching && !trimmedQuery.isEmpty }
+
+    private var filteredItems: [ShellSidebarItem] {
+        let q = trimmedQuery
+        guard !q.isEmpty else { return [] }
+        return (primaryItems + libraryItems + manageItems + developerItems).filter {
+            $0.title.localizedCaseInsensitiveContains(q) || $0.keywords.localizedCaseInsensitiveContains(q)
         }
+    }
+
+    private var filteredChats: [Conversation] {
+        let q = trimmedQuery
+        guard !q.isEmpty else { return [] }
+        let shown = pinnedChats + recentChats
+        return shown.filter { chatTitle($0).localizedCaseInsensitiveContains(q) || ($0.handleLabel?.localizedCaseInsensitiveContains(q) ?? false) }
+    }
+
+    @ViewBuilder
+    private var searchResults: some View {
+        let items = filteredItems
+        let chats = filteredChats
+        if !items.isEmpty {
+            section("Destinations") { ForEach(items) { row($0) } }
+        }
+        if !chats.isEmpty {
+            section("Chats") { ForEach(chats) { chatRow($0) } }
+        }
+        section(items.isEmpty && chats.isEmpty ? "No matches" : nil) {
+            Button {
+                onClose()
+                CommandPaletteCenter.shared.present()
+                HapticEngine.shared.play(.selection)
+            } label: {
+                rowLabel(symbol: "magnifyingglass", title: "Search all of Modula")
+            }
+            .buttonStyle(ShellSidebarRowStyle())
+            .accessibilityHint("Opens search and commands")
+            .accessibilityIdentifier("shell.sidebar.search.all")
+        }
+    }
+
+    // MARK: Building blocks
+
+    private func section<Rows: View>(_ title: String?, @ViewBuilder rows: () -> Rows) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let title {
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, rowInset)
+                    .padding(.bottom, ModulaSpacing.xxs)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            rows()
+        }
+    }
+
+    private func rowLabel(symbol: String, title: String, badge: Int = 0) -> some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            Image(systemName: symbol)
+                .font(.body.weight(.regular))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.primary.opacity(0.78))
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            if badge > 0 {
+                Text(badge > 99 ? "99+" : "\(badge)")
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .background(app.appearance.liveAccent, in: Capsule())
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.horizontal, rowInset)
+        .frame(minHeight: rowHeight)
+        .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
     }
 
     private func row(_ item: ShellSidebarItem) -> some View {
         Button { onSelect(item.route, item.requiresSignIn) } label: {
-            HStack(spacing: ModulaSpacing.sm) {
-                Image(systemName: item.symbol)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 26)
-                    .accessibilityHidden(true)
-                Text(item.title)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                if item.badge > 0 {
-                    Text(item.badge > 99 ? "99+" : "\(item.badge)")
-                        .font(.caption.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, ModulaSpacing.xs)
-                        .frame(minHeight: 22)
-                        .background(Color.primary.opacity(0.08), in: Capsule())
-                        .accessibilityHidden(true)
-                }
-            }
-            .padding(.horizontal, rowInset)
-            .frame(minHeight: 46)
-            .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
+            rowLabel(symbol: item.symbol, title: item.title, badge: item.badge)
         }
         .buttonStyle(ShellSidebarRowStyle())
         .accessibilityLabel(item.badge > 0 ? "\(item.title), \(item.badge) unread" : item.title)
         .accessibilityIdentifier("shell.sidebar.\(item.id)")
     }
 
+    /// Plain text row, like a chat-history list: title, then a small unread dot.
+    private func chatRow(_ chat: Conversation) -> some View {
+        let title = chatTitle(chat)
+        return Button { onSelect(.messages(.conversation(chat.id)), true) } label: {
+            HStack(spacing: ModulaSpacing.xs) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(chat.isMuted ? .secondary : .primary)
+                    .fontWeight(chat.isUnread ? .semibold : .regular)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+                if chat.isUnread {
+                    Circle().fill(app.appearance.liveAccent).frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, rowInset)
+            .frame(minHeight: rowHeight)
+            .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
+        }
+        .buttonStyle(ShellSidebarRowStyle())
+        .accessibilityLabel(chat.isUnread ? "\(title), unread" : title)
+        .accessibilityHint("Opens the chat")
+        .accessibilityIdentifier("shell.sidebar.chat.\(chat.id)")
+    }
+
+    @ViewBuilder
+    private var developerGroup: some View {
+        let items = developerItems
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { developerExpanded.toggle() }
+                } label: {
+                    HStack(spacing: ModulaSpacing.xxs) {
+                        Text("Developer")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(developerExpanded ? 90 : 0))
+                            .accessibilityHidden(true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, rowInset)
+                    .frame(minHeight: 32)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Developer tools")
+                .accessibilityValue(developerExpanded ? "Expanded" : "Collapsed")
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("shell.sidebar.developer.toggle")
+                if developerExpanded {
+                    ForEach(items) { row($0) }
+                        .transition(.opacity)
+                }
+            }
+        }
+    }
+
     // MARK: Footer
 
     private var footer: some View {
-        VStack(spacing: ModulaSpacing.xs) {
-            Divider().padding(.horizontal, rowInset).opacity(0.6)
-            HStack(spacing: 0) {
-                row(.init(id: "settings", title: "Settings", symbol: "gearshape", route: .settings(.root), requiresSignIn: false))
-                Button { onSelect(.settings(.appearance(.root)), false) } label: {
-                    Image(systemName: "circle.lefthalf.filled")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 46, height: 46)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(ShellSidebarRowStyle())
-                .accessibilityLabel("Appearance")
-                .accessibilityIdentifier("shell.sidebar.appearance")
+        let stacked = typeSize.isAccessibilitySize
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: ModulaSpacing.xs))
+                             : AnyLayout(HStackLayout(spacing: ModulaSpacing.xs))
+        return layout {
+            profileChip
+            if !stacked { Spacer(minLength: 0) }
+            HStack(spacing: ModulaSpacing.xs) {
+                settingsButton
+                newPostPill
             }
-            Button {
-                onClose()
-                if app.auth.isSignedIn {
-                    app.navigation.presented = .composer(.post)
-                } else {
-                    app.navigation.requestAuthentication(returningTo: .compose(.post))
+        }
+    }
+
+    @ViewBuilder
+    private var profileChip: some View {
+        if app.auth.isSignedIn {
+            let profile = app.profile.ownProfile
+            Button { onSelect(.me(.overview), true) } label: {
+                HStack(spacing: ModulaSpacing.xs) {
+                    ModulaAvatar(initials: profile?.initials ?? "", url: profile?.avatarURL, size: 30, name: profile?.displayName)
+                    Text(profile?.displayName ?? "Profile")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                HapticEngine.shared.play(.contextOpen)
-            } label: {
-                Label("New post", systemImage: "square.and.pencil")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
+                .padding(.leading, 4).padding(.trailing, ModulaSpacing.sm)
+                .frame(minHeight: 40)
+                .background(Color.primary.opacity(0.06), in: Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button("Profile", systemImage: "person.crop.circle") { onSelect(.me(.overview), true) }
+                Button("Settings", systemImage: "gearshape") { onSelect(.settings(.root), false) }
+                Button("Appearance", systemImage: "circle.lefthalf.filled") { onSelect(.settings(.appearance(.root)), false) }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(profile.map { "\($0.displayName), @\($0.handle)" } ?? "Profile")
+            .accessibilityHint("Opens your profile. Touch and hold for settings.")
+            .accessibilityIdentifier("shell.sidebar.profile")
+        } else {
+            Button { onSelect(.auth(.login), false) } label: {
+                Label("Sign in", systemImage: "person.crop.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, ModulaSpacing.sm)
+                    .frame(minHeight: 40)
+                    .background(Color.primary.opacity(0.06), in: Capsule())
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .modulaAccentCTA()
-            .padding(.horizontal, ModulaSpacing.xxs)
-            .accessibilityIdentifier("shell.sidebar.create")
+            .accessibilityHint("Sign in to sync your library")
+            .accessibilityIdentifier("shell.sidebar.sign-in")
         }
+    }
+
+    private var settingsButton: some View {
+        Button { onSelect(.settings(.root), false) } label: {
+            Image(systemName: "gearshape")
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary.opacity(0.8))
+                .frame(width: 40, height: 40)
+                .background(Color.primary.opacity(0.06), in: Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Appearance", systemImage: "circle.lefthalf.filled") { onSelect(.settings(.appearance(.root)), false) }
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier("shell.sidebar.settings")
+    }
+
+    private var newPostPill: some View {
+        Button {
+            onClose()
+            if app.auth.isSignedIn {
+                app.navigation.presented = .composer(.post)
+            } else {
+                app.navigation.requestAuthentication(returningTo: .compose(.post))
+            }
+            HapticEngine.shared.play(.contextOpen)
+        } label: {
+            Label("New post", systemImage: "square.and.pencil")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, ModulaSpacing.md)
+                .frame(height: 40)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .modulaAccentCTA()
+        .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
+        .accessibilityIdentifier("shell.sidebar.create")
     }
 }
 
 private struct ShellSidebarRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .background(Color.primary.opacity(configuration.isPressed ? 0.07 : 0),
+            .background(Color.primary.opacity(configuration.isPressed ? 0.09 : 0),
                         in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
