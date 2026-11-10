@@ -1314,7 +1314,9 @@ struct PostCommentsView: View {
                         store?.draft = emoji
                         HapticEngine.shared.play(.selection)
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.leading, 12)
+                    // Leave the trailing corner for Moliboo, who perches on the composer just below.
+                    .padding(.trailing, commentsMascotShown ? 70 : 12)
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
                 // Composer + perched mascot always sit fully above the emoji/GIF panel
@@ -1367,7 +1369,8 @@ struct PostCommentsView: View {
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
                     collapsesWhenUnfocused: true,
-                    hidesMascotWhileComposing: true,
+                    // Moliboo stays with you while typing; the headroom below keeps it off the comments.
+                    hidesMascotWhileComposing: false,
                     onTrayChange: { open in
                         attachTrayOpen = open
                         if open { onExpand?() }
@@ -1384,7 +1387,7 @@ struct PostCommentsView: View {
             }
             // Reserve headroom for Moliboo, who perches on top of the bar, so he sits on the
             // composer's own background instead of over the last comments.
-            .padding(.top, commentsMascotShown && !composerFocused && !attachTrayOpen && (store?.draft ?? "").isEmpty ? 40 : 6)
+            .padding(.top, commentsMascotShown ? 40 : 6)
             .padding(.bottom, mediaPanelActive ? 10 : 8)
             .frame(maxWidth: .infinity)
             // Floating glass bar over a soft progressive fade: comments stay visible as they
@@ -1560,7 +1563,9 @@ struct PostCommentsSheet: View {
     }
 
     var body: some View {
-        ModulaSheet(detents: detents, selectedDetent: $selectedDetent) {
+        // Content scrolls instead of resizing the sheet: dragging the list no longer snaps
+        // the sheet between detents mid-scroll (the handle/header still resize it).
+        ModulaSheet(detents: detents, selectedDetent: $selectedDetent, contentScrolls: true) {
             PostCommentsView(
                 postID: postID,
                 isSheet: true,

@@ -140,7 +140,8 @@ struct MolibooWorldView: View {
                     if shows("activities") { careSections }
                     if shows("collection") { collection.padding(.top, 12).padding(.horizontal, -24) }
                 }
-                .padding(.horizontal, 24).padding(.bottom, 48)
+                // Extra bottom room so the last cards settle fully above the floating chat field.
+                .padding(.horizontal, 24).padding(.bottom, 72)
             }
             .scrollIndicators(.hidden)
             .scrollPosition($scrollPosition)
@@ -153,9 +154,9 @@ struct MolibooWorldView: View {
             // progressive bottom blur; the inset also pads the scroll content so nothing hides beneath it.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if shows("composer") {
+                    // Floating field and buttons only: no bar or blur strip behind them.
                     composer
                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 8)
-                        .background(alignment: .bottom) { MolibooProgressiveHeaderBlur(edge: .bottom) }
                 }
             }
             // Header (back · moliboos title · sparkle · more) is pinned below the safe area (never under
@@ -297,6 +298,8 @@ struct MolibooWorldView: View {
     private var stageArea: some View {
         // Large unclipped pet + soft contact shadow. No platform glow, arches, or clip masks.
         Color.clear.frame(maxWidth: .infinity).frame(height: 292)
+            // Soft tinted stage in the character's own colour fills what was an empty white area.
+            .background { stageBackdrop }
             .overlay {
                 ZStack {
                     Ellipse()
@@ -342,6 +345,25 @@ struct MolibooWorldView: View {
                 }
             }
             .padding(.vertical, 16)
+    }
+
+    private var stageAccent: Color { kind?.palette.accent ?? teal }
+
+    /// Static gradient stage (no blur, no animation): cheap to draw and calm behind the 2D rig.
+    private var stageBackdrop: some View {
+        let shape = RoundedRectangle(cornerRadius: 36, style: .continuous)
+        return shape
+            .fill(LinearGradient(colors: [stageAccent.opacity(0.24), stageAccent.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+            .overlay {
+                RadialGradient(colors: [Color.white.opacity(0.42), .clear], center: UnitPoint(x: 0.5, y: 0.42), startRadius: 8, endRadius: 170)
+                    .clipShape(shape)
+                    .blendMode(.plusLighter)
+                    .opacity(0.6)
+            }
+            .overlay { shape.strokeBorder(stageAccent.opacity(0.18), lineWidth: 0.75) }
+            .padding(.horizontal, -8)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     /// Home · Studio · Stickers — Wardrobe is inside Studio; Care is Activities on Home.
@@ -425,27 +447,37 @@ struct MolibooWorldView: View {
             if shows("identity") {
                 VStack(alignment: .center, spacing: 10) {
                     Text(canonNum.map { String(format: "#%03d  ·  %@", $0, familyName) } ?? familyName)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.tertiary)
+                        .font(.caption2.weight(.bold))
+                        .tracking(0.8)
+                        .foregroundStyle(stageAccent)
                         .textCase(.uppercase)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(stageAccent.opacity(0.14), in: Capsule())
                         .accessibilityIdentifier("world.identity.caption")
                     Text(displayName)
-                        .font(.largeTitle.weight(.bold))
+                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
                         .accessibilityIdentifier("world.identity.name")
                     Text(kind?.personality ?? "A brand new Moliboo friend.")
-                        .font(.body)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 12)
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
                         ForEach(traits, id: \.1) { t in
-                            Text(t.1)
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background(Color.primary.opacity(0.05), in: Capsule())
+                            HStack(spacing: 5) {
+                                Image(systemName: t.0)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(t.2)
+                                Text(t.1)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 11).padding(.vertical, 7)
+                            .background(t.2.opacity(0.13), in: Capsule())
+                            .overlay(Capsule().strokeBorder(t.2.opacity(0.22), lineWidth: 0.6))
                         }
                     }
                     .padding(.top, 4)
@@ -499,6 +531,7 @@ struct MolibooWorldView: View {
                                 Circle().fill(LinearGradient(colors: [teal, teal.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing))
                             )
                             .modulaGlass(in: Circle(), interactive: false, tint: teal.opacity(0.35), specular: true)
+                        HStack(spacing: 6) {
                         TextField("", text: Binding(get: { chat.draft }, set: { chat.draft = $0; if chat.phase != .composing && !$0.isEmpty { chat.reset() } }))
                             .font(.body)
                             // Higher-contrast placeholder than the system default over the scene.
@@ -518,10 +551,14 @@ struct MolibooWorldView: View {
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 34, height: 34)
-                                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                                .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("world.composer.attach").accessibilityLabel("Add \(displayName)'s mood emoji")
+                        }
+                        .padding(.leading, 16).padding(.trailing, 6)
+                        .frame(minHeight: 46)
+                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
                         ModulaGlassSendButton(
                             ready: chat.canSend,
                             busy: chat.phase == .submitting || chat.phase == .awaiting,
@@ -530,9 +567,7 @@ struct MolibooWorldView: View {
                         ) { send() }
                         .accessibilityIdentifier("world.composer.send")
                     }
-                    .padding(8)
                     .foregroundStyle(.primary)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: false)
                 }
             }
         }
