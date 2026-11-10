@@ -349,6 +349,8 @@ struct ShellSidebarView: View {
     @FocusState private var searchFocused: Bool
     /// Scales with Dynamic Type; 40pt at the default size (tighter than the old 46pt rows).
     @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 40
+    @ScaledMetric(relativeTo: .title) private var wordmarkScaled: CGFloat = 26
+    private var wordmarkHeight: CGFloat { min(wordmarkScaled, 34) }
 
     private let rowInset = ModulaSpacing.sm
     private static let recentLimit = 6
@@ -365,18 +367,19 @@ struct ShellSidebarView: View {
                     .transition(.opacity)
             }
 
+            let chats = chatLists
             ScrollView {
                 VStack(alignment: .leading, spacing: ModulaSpacing.md) {
                     if isFiltering {
-                        searchResults
+                        searchResults(chats: chats)
                     } else {
                         section(nil) { ForEach(primaryItems) { row($0) } }
                         section("Library") { ForEach(libraryItems) { row($0) } }
-                        if !pinnedChats.isEmpty {
-                            section("Pinned") { ForEach(pinnedChats) { chatRow($0) } }
+                        if !chats.pinned.isEmpty {
+                            section("Pinned") { ForEach(chats.pinned) { chatRow($0) } }
                         }
-                        if !recentChats.isEmpty {
-                            section("Recents") { ForEach(recentChats) { chatRow($0) } }
+                        if !chats.recent.isEmpty {
+                            section("Recents") { ForEach(chats.recent) { chatRow($0) } }
                         }
                         developerGroup
                     }
@@ -421,12 +424,16 @@ struct ShellSidebarView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: ModulaSpacing.xs) {
             VStack(alignment: .leading, spacing: 1) {
-                Text("Modula")
-                    .font(.system(.title, design: .rounded).weight(.bold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .accessibilityAddTraits(.isHeader)
+                // Same brand wordmark asset as the Home top bar (follows the wordmark setting).
+                Group {
+                    switch app.appearance.brandWordmark {
+                    case .modula: ModulaWordmark(height: wordmarkHeight)
+                    case .moliboos: MoliboosWordmark(height: wordmarkHeight)
+                    }
+                }
+                .frame(maxWidth: width - 120, alignment: .leading)
+                .padding(.vertical, 4)
+                .accessibilityAddTraits(.isHeader)
                 if let mascot, app.auth.isSignedIn {
                     Text("\(greeting) from \(mascot.name)")
                         .font(.footnote)
@@ -546,19 +553,17 @@ struct ShellSidebarView: View {
 
     // MARK: Chats (real, already-loaded data only)
 
-    private var liveChats: [Conversation] {
-        guard app.auth.isSignedIn else { return [] }
-        return MessagingOrdering.conversationsNewestFirst(app.messaging.conversations).filter { !$0.isArchived }
-    }
-
-    private var pinnedChats: [Conversation] {
-        let chats = liveChats
-        return app.messaging.pinnedIDs.compactMap { id in chats.first { $0.id == id } }
-    }
-
-    private var recentChats: [Conversation] {
-        let pinned = Set(app.messaging.pinnedIDs)
-        return Array(liveChats.filter { !pinned.contains($0.id) }.prefix(Self.recentLimit))
+    /// One pass over the loaded conversations per render (only while the sidebar is on screen).
+    private var chatLists: (pinned: [Conversation], recent: [Conversation]) {
+        guard app.auth.isSignedIn else { return ([], []) }
+        let live = app.messaging.conversations.filter { !$0.isArchived }
+        guard !live.isEmpty else { return ([], []) }
+        let pinnedIDs = app.messaging.pinnedIDs
+        let byID = Dictionary(live.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let pinned = pinnedIDs.compactMap { byID[$0] }
+        let pinnedSet = Set(pinnedIDs)
+        let recent = MessagingOrdering.conversationsNewestFirst(live.filter { !pinnedSet.contains($0.id) })
+        return (pinned, Array(recent.prefix(Self.recentLimit)))
     }
 
     private func chatTitle(_ chat: Conversation) -> String {
@@ -579,17 +584,17 @@ struct ShellSidebarView: View {
         }
     }
 
-    private var filteredChats: [Conversation] {
+    private func filteredChats(_ chats: (pinned: [Conversation], recent: [Conversation])) -> [Conversation] {
         let q = trimmedQuery
         guard !q.isEmpty else { return [] }
-        let shown = pinnedChats + recentChats
+        let shown = chats.pinned + chats.recent
         return shown.filter { chatTitle($0).localizedCaseInsensitiveContains(q) || ($0.handleLabel?.localizedCaseInsensitiveContains(q) ?? false) }
     }
 
     @ViewBuilder
-    private var searchResults: some View {
+    private func searchResults(chats lists: (pinned: [Conversation], recent: [Conversation])) -> some View {
         let items = filteredItems
-        let chats = filteredChats
+        let chats = filteredChats(lists)
         if !items.isEmpty {
             section("Destinations") { ForEach(items) { row($0) } }
         }

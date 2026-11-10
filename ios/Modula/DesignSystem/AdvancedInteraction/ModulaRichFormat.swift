@@ -648,6 +648,8 @@ struct ModulaRichFormattingBar: View {
     var onTranslate: (() -> Void)?
     /// Drawn inside another glass surface (the composer card): no own capsule, edge fades on overflow.
     var embedded = false
+    /// Called after a tool is used, so the host can keep the editor focused.
+    var onToolUsed: (() -> Void)? = nil
 
     var body: some View {
         if embedded {
@@ -676,13 +678,8 @@ struct ModulaRichFormattingBar: View {
                 .padding(.horizontal, embedded ? 10 : 6)
             }
             .scrollClipDisabled(false)
-            // Soft edge fades so overflowing tools read as scrollable instead of cut off.
-            .mask {
-                LinearGradient(stops: [
-                    .init(color: .clear, location: 0), .init(color: .black, location: 0.04),
-                    .init(color: .black, location: 0.94), .init(color: .clear, location: 1)
-                ], startPoint: .leading, endPoint: .trailing)
-            }
+            // System soft edges (no per-frame gradient mask / offscreen pass while scrolling).
+            .modulaSoftHorizontalScrollEdge()
             if let onTranslate {
                 Button(action: onTranslate) {
                     Image(systemName: "translate").font(.subheadline.weight(.semibold)).frame(width: 36, height: 34)
@@ -711,7 +708,7 @@ struct ModulaRichFormattingBar: View {
             if tool == .color {
                 Menu {
                     ForEach(["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink", "gray"], id: \.self) { name in
-                        Button { controller.apply(.color, value: name) } label: {
+                        Button { controller.apply(.color, value: name); onToolUsed?() } label: {
                             Label(name.capitalized, systemImage: "circle.fill")
                         }
                         .tint(ModulaMarkup.colors[name])
@@ -724,6 +721,7 @@ struct ModulaRichFormattingBar: View {
                     case .abbr: onAbbr()
                     default: controller.apply(tool)
                     }
+                    onToolUsed?()
                 } label: { label }
             }
         }
@@ -732,6 +730,17 @@ struct ModulaRichFormattingBar: View {
         .accessibilityLabel(tool.title)
         .accessibilityAddTraits(on ? .isSelected : [])
         .accessibilityIdentifier("composer.format.\(tool.rawValue)")
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func modulaSoftHorizontalScrollEdge() -> some View {
+        if #available(iOS 26.0, *) {
+            self.scrollEdgeEffectStyle(.soft, for: [.leading, .trailing])
+        } else {
+            self
+        }
     }
 }
 

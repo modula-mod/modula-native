@@ -357,8 +357,7 @@ struct MolibooWorldView: View {
             .overlay {
                 RadialGradient(colors: [Color.white.opacity(0.42), .clear], center: UnitPoint(x: 0.5, y: 0.42), startRadius: 8, endRadius: 170)
                     .clipShape(shape)
-                    .blendMode(.plusLighter)
-                    .opacity(0.6)
+                    .opacity(0.35)
             }
             .overlay { shape.strokeBorder(stageAccent.opacity(0.18), lineWidth: 0.75) }
             .padding(.horizontal, -8)

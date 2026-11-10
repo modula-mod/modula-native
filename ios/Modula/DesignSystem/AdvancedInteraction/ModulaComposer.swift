@@ -216,6 +216,10 @@ struct ModulaComposer: View {
     @State private var cancelDrag: CGFloat = 0
     @State private var showTranslate = false
     @State private var handsFreeRecording = false
+    /// Debounced formatting-bar visibility: a tool tap that briefly drops focus no longer
+    /// collapses the card and snaps it back.
+    @State private var formatBarShown = false
+    @State private var formatBarHide: Task<Void, Never>?
     @State private var attachAppeared = false
     @State private var attachPage: Int? = 0
     /// Keeps the docked composer open for the moment between a pill tap and the keyboard appearing.
@@ -234,7 +238,31 @@ struct ModulaComposer: View {
     }
 
     private var motion: Animation {
-        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.8)
+        reduceMotion ? .easeOut(duration: 0.12) : .spring(duration: 0.28, bounce: 0)
+    }
+
+    /// Quick ease, no bounce, for the card growing/shrinking around the formatting bar.
+    private var barMotion: Animation { .easeOut(duration: reduceMotion ? 0.12 : 0.2) }
+
+    /// The formatting bar is for text editing only: hidden while the tray, media panel or a recording owns the dock.
+    private var wantsFormatBar: Bool {
+        showsFormatting && focused && !recorder.isRecording && !attachMenuOpen && mediaPanelActive?.wrappedValue != true
+    }
+
+    private func syncFormatBar(_ wants: Bool) {
+        formatBarHide?.cancel()
+        if wants {
+            if !formatBarShown { withAnimation(barMotion) { formatBarShown = true } }
+        } else if attachMenuOpen || recorder.isRecording || mediaPanelActive?.wrappedValue == true {
+            if formatBarShown { withAnimation(barMotion) { formatBarShown = false } }
+        } else {
+            // Focus loss only: wait a beat so a tool tap that refocuses keeps the bar steady.
+            formatBarHide = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(280))
+                guard !Task.isCancelled, !wantsFormatBar else { return }
+                withAnimation(barMotion) { formatBarShown = false }
+            }
+        }
     }
 
     /// Bouncier than the in-bar tweaks. Reduce Motion crossfades instead.
@@ -273,6 +301,7 @@ struct ModulaComposer: View {
         .animation(motion, value: mentionSuggestions)
         .animation(motion, value: hashtagSuggestions)
         .animation(motion, value: recorder.isRecording)
+        .onChange(of: wantsFormatBar, initial: true) { _, wants in syncFormatBar(wants) }
         .animation(motion, value: focused)
         .translationPresentation(isPresented: $showTranslate, text: text) { translated in
             text = translated
@@ -324,6 +353,8 @@ struct ModulaComposer: View {
         // Mascot perches on the composer's top edge (topmost bar), clear of the mic/send button.
         .modulaMascotPerch()
         .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62,
+                              // Stand fully above the card (clear of the formatting tools) while the bar shows.
+                              lift: formatBarShown ? 10 : 0,
                               hidden: hidesMascotWhileComposing && (focused || !text.isEmpty || attachMenuOpen || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
         .onChange(of: attachMenuOpen) { _, open in onTrayChange?(open) }
     }
@@ -360,7 +391,7 @@ struct ModulaComposer: View {
                     trailingButton
                 }
                 // The "+" tray opens under the field, in the keyboard's place (iMessage app drawer).
-                if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu }
+                if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu.padding(.top, -4) }
         }
         .task(id: holdExpanded) {
             guard collapsesWhenUnfocused, holdExpanded, !focused else { return }
@@ -445,20 +476,22 @@ struct ModulaComposer: View {
 
     private var fieldPill: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if showsFormatting && focused && !recorder.isRecording {
+            if formatBarShown && !recorder.isRecording {
                 ModulaRichFormattingBar(
                     controller: rich,
                     onLink: { linkSheet = .link },
                     onAbbr: { linkSheet = .abbr },
                     onTranslate: state.trimmed.isEmpty ? nil : { showTranslate = true },
-                    embedded: true
+                    embedded: true,
+                    onToolUsed: { if !focused { focused = true } }
                 )
-                .padding(.top, 4)
+                .padding(.top, 2)
                 .transition(.opacity)
-                Divider().opacity(0.6).padding(.horizontal, 10)
             }
             fieldRow
         }
+        // Ideal height only: bar then field, no stretched blank strip between them.
+        .fixedSize(horizontal: false, vertical: true)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         .modulaGlassID("composer.field", in: glass)
         .accessibilityIdentifier("composer.field")
@@ -539,6 +572,8 @@ struct ModulaComposer: View {
                                 guard !Task.isCancelled, micPressStart != nil else { return }
                                 if dictation.isListening { dictation.stop() }
                                 if await recorder.start() {
+                                    // Finger already up while the recorder spun up: keep it as a hands-free note.
+                                    if micPressStart == nil { handsFreeRecording = true }
                                     HapticEngine.shared.play(.actionConfirmed)
                                 }
                             }
@@ -551,29 +586,41 @@ struct ModulaComposer: View {
                     .onEnded { _ in
                         micHoldTask?.cancel()
                         defer { micPressStart = nil; cancelDrag = 0 }
+                        let held = micPressStart.map { Date().timeIntervalSince($0) } ?? 0
                         if recorder.isRecording {
                             if cancelDrag >= 110 {
                                 recorder.cancel()
                                 HapticEngine.shared.play(.failure)
+                            } else if held < 1.2 {
+                                // Short hold: keep recording hands-free (trash / send) instead of
+                                // flashing the recorder and aborting a too-short note.
+                                handsFreeRecording = true
                             } else if let note = recorder.finish() {
                                 onVoiceNote?(note)
                                 HapticEngine.shared.play(.success)
                             }
-                        } else if let start = micPressStart, Date().timeIntervalSince(start) < 0.32 {
-                            if let onDictate { onDictate() } else {
-                                dictation.toggle(current: { text }, apply: { text = $0 })
+                        } else if held < 0.32 {
+                            // Tap: start a hands-free voice note (dictation stays on the keyboard's mic
+                            // and the VoiceOver "Dictate" action).
+                            if dictation.isListening { dictation.stop() }
+                            Task { @MainActor in
+                                if await recorder.start() {
+                                    handsFreeRecording = true
+                                    HapticEngine.shared.play(.actionConfirmed)
+                                }
                             }
-                            HapticEngine.shared.play(.lightImpact)
                         }
                     }
             )
             .accessibilityElement()
-            .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate")
-            .accessibilityHint("Touch and hold to record a voice note")
+            .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Record voice note")
+            .accessibilityHint("Tap to record, or touch and hold and release to send")
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction { dictation.toggle(current: { text }, apply: { text = $0 }) }
-            .accessibilityAction(named: "Record voice note") {
-                Task { _ = await recorder.start() }
+            .accessibilityAction {
+                Task { @MainActor in if await recorder.start() { handsFreeRecording = true } }
+            }
+            .accessibilityAction(named: "Dictate") {
+                if let onDictate { onDictate() } else { dictation.toggle(current: { text }, apply: { text = $0 }) }
             }
             .accessibilityIdentifier("composer.mic")
     }

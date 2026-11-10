@@ -1387,7 +1387,7 @@ struct PostCommentsView: View {
             }
             // Reserve headroom for Moliboo, who perches on top of the bar, so he sits on the
             // composer's own background instead of over the last comments.
-            .padding(.top, commentsMascotShown ? 40 : 6)
+            .padding(.top, commentsMascotShown ? 48 : 6)
             .padding(.bottom, mediaPanelActive ? 10 : 8)
             .frame(maxWidth: .infinity)
             // Floating glass bar over a soft progressive fade: comments stay visible as they
