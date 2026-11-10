@@ -64,9 +64,39 @@ final class PushNotificationTests: XCTestCase {
         XCTAssertTrue(PushNotificationAction(identifier: UNNotificationDefaultActionIdentifier, text: nil) == .open)
     }
 
-    func test_registersCategoriesMatchingTheWorker() {
+    func test_registersCategoriesMatchingTheWorker() throws {
         let ids = Set(PushNotificationCategories.all().map(\.identifier))
         XCTAssertTrue(ids == ["MODULA_COMMENT", "MODULA_MESSAGE", "MODULA_FOLLOW_REQUEST", "MODULA_GUBIC_INVITE"])
+        let message = try XCTUnwrap(PushNotificationCategories.all().first { $0.identifier == "MODULA_MESSAGE" })
+        let actions = Set(message.actions.map(\.identifier))
+        XCTAssertTrue(actions.contains(PushNotificationCategories.replyAction))
+        XCTAssertTrue(actions.contains(PushNotificationCategories.markReadAction))
+    }
+
+    func test_messageMarkReadAndIdempotentReply() {
+        UserDefaults.standard.removeObject(forKey: MessagingV3FlagStore.key)
+        let payload = PushPayload(userInfo: ["modula": [
+            "category": "messages",
+            "conversationId": "c1",
+            "messageId": "m1",
+            "messageType": "text"
+        ]])
+        XCTAssertEqual(payload.messageId, "m1")
+        XCTAssertEqual(payload.messageType, "text")
+        XCTAssertTrue(PushNotificationAction(identifier: PushNotificationCategories.markReadAction, text: nil) == .markRead)
+        let mark = PushNotificationAction.markRead.request(for: payload)
+        XCTAssertEqual(mark?.method, "POST")
+        XCTAssertEqual(mark?.path, "/v1/conversations/c1/read")
+        let reply = PushNotificationAction.reply("hi").request(for: payload)
+        XCTAssertEqual(reply?.path, "/v1/conversations/c1/messages")
+        XCTAssertEqual(reply?.body, .object(["text": .string("hi")]))
+        var caps = MessagingBackendCapabilities.production
+        caps.idempotentSend = true
+        MessagingV3FlagStore.save(caps)
+        let idempotent = PushNotificationAction.reply("hi").request(for: payload)
+        XCTAssertEqual(idempotent?.body?["text"], .string("hi"))
+        XCTAssertEqual(idempotent?.body?["clientMessageId"]?.string?.count, 36)
+        UserDefaults.standard.removeObject(forKey: MessagingV3FlagStore.key)
     }
 
     func test_decodesServerPreferences() throws {
