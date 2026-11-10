@@ -4,6 +4,7 @@ import Observation
 @MainActor @Observable
 final class MessagingStore {
     private let repository: GreenfieldMessagingRepository
+    private let client: GreenfieldClient
     private(set) var capabilities: MessagingBackendCapabilities
     /// People typing in each open chat (`GET /v1/conversations/:id/typing`, v2 only).
     private(set) var typingPeople: [ConversationID: [ConversationParticipant]] = [:]
@@ -51,8 +52,23 @@ final class MessagingStore {
     /// Server-owned unread total. Never summed from loaded rows.
     private(set) var accountUnreadCount: Int?
     private(set) var actionError: String?
+    private(set) var privacy = MessagingPrivacy()
+    private(set) var privacyState: MessagingLoadState = .idle
+    private(set) var presenceByActor: [String: PresenceItem] = [:]
+    private(set) var groups: [ConversationID: GroupDetail] = [:]
+    private(set) var historyHits: [HistorySearchHit] = []
+    private(set) var historyHasMore = false
+    private(set) var historyCursor: String?
+    private(set) var historyState: MessagingLoadState = .idle
+    private(set) var historyQuery = ""
+    private(set) var reactionDetails: [MessageID: [MessageReactionDetail]] = [:]
+    private(set) var receiptsByMessage: [MessageID: MessageReceipts] = [:]
+    private(set) var realtimeConnected = false
+    private var realtime: MessagingRealtimeClient?
+    private var presenceHeartbeatTask: Task<Void, Never>?
 
     init(client: GreenfieldClient, capabilities: MessagingBackendCapabilities = .production) {
+        self.client = client
         self.repository = GreenfieldMessagingRepository(client: client, capabilities: capabilities)
         var caps = capabilities
         caps.report = true
@@ -227,6 +243,17 @@ final class MessagingStore {
         #if DEBUG
         if MessagingDebugFixture.isEnabled { return }
         #endif
+        if let v3 = await repository.probeV3() {
+            var merged = v3
+            merged.photoVideo = false
+            merged.report = true
+            merged.block = true
+            capabilities = merged
+            MessagingV3FlagStore.save(merged)
+            await loadPrivacyIfNeeded()
+            startRealtimeIfNeeded()
+            return
+        }
         guard await repository.probeV2() else { return }
         capabilities.reactions = true
         capabilities.reply = true
@@ -275,7 +302,8 @@ final class MessagingStore {
             updateMessage(message.id, in: message.conversationID) { m in
                 m = Message(id: m.id, conversationID: m.conversationID, sender: m.sender, body: .text(clean), sentAt: m.sentAt,
                             delivery: m.delivery, isOwn: true, localDraft: nil, reactions: updated.reactions,
-                            replyTo: m.replyTo, editedAt: updated.editedAt ?? Date(), isDeleted: false)
+                            replyTo: m.replyTo, editedAt: updated.editedAt ?? Date(), isDeleted: false,
+                            kind: m.kind, attachments: m.attachments, mentions: m.mentions, clientMessageId: m.clientMessageId)
             }
             HapticEngine.shared.play(.success)
             return true
@@ -291,7 +319,7 @@ final class MessagingStore {
         let before = message
         updateMessage(message.id, in: message.conversationID) { m in
             m = Message(id: m.id, conversationID: m.conversationID, sender: m.sender, body: .text(""), sentAt: m.sentAt,
-                        delivery: m.delivery, isOwn: true, localDraft: nil, isDeleted: true)
+                        delivery: m.delivery, isOwn: true, localDraft: nil, isDeleted: true, kind: m.kind)
         }
         do {
             try await repository.unsend(conversation: message.conversationID, message: message.id)
@@ -305,10 +333,15 @@ final class MessagingStore {
     /// Throttled "I'm typing" ping (at most every 3 s while the composer changes).
     func noteTyping(_ id: ConversationID) {
         guard capabilities.typing, !id.hasPrefix("pending-direct:") else { return }
+        if capabilities.privacyControls, !privacy.typingIndicators { return }
         let now = Date()
         if let last = lastTypingPing[id], now.timeIntervalSince(last) < 3 { return }
         lastTypingPing[id] = now
-        Task { try? await repository.pingTyping(conversation: id) }
+        if let realtime, realtime.isConnected {
+            realtime.sendTyping(conversationID: id)
+        } else {
+            Task { try? await repository.pingTyping(conversation: id) }
+        }
     }
 
     func toggleMute(_ id: ConversationID) async {
@@ -460,7 +493,7 @@ final class MessagingStore {
         do {
             let confirmed = try await repository.send(
                 conversation: id,
-                message: MessageDraft(conversationID: id, text: text)
+                message: MessageDraft(conversationID: id, text: text, clientMessageId: freshClientMessageId())
             )
             let stored = Message(
                 id: confirmed.id,
@@ -516,19 +549,9 @@ final class MessagingStore {
         do {
             let confirmed = try await repository.send(
                 conversation: id,
-                message: MessageDraft(conversationID: id, text: text, replyToID: capabilities.reply ? replyTo?.id : nil)
+                message: MessageDraft(conversationID: id, text: text, replyToID: capabilities.reply ? replyTo?.id : nil, clientMessageId: freshClientMessageId())
             )
-            replace(localID: localID, in: id, with: Message(
-                id: confirmed.id,
-                conversationID: confirmed.conversationID,
-                sender: confirmed.sender,
-                body: confirmed.body,
-                sentAt: confirmed.sentAt,
-                delivery: confirmed.delivery == .unknown ? .sent : confirmed.delivery,
-                isOwn: true,
-                localDraft: nil,
-                replyTo: confirmed.replyTo ?? optimistic.replyTo
-            ))
+            replace(localID: localID, in: id, with: confirmedWithDelivery(confirmed, fallbackReply: optimistic.replyTo))
             sendingIDs.remove(localID)
             HapticEngine.shared.play(.success)
             return threads[id]?.first(where: { $0.id == confirmed.id })
@@ -1189,5 +1212,389 @@ enum MessageRecentTokenStore {
         guard !trimmed.isEmpty else { return }
         defaults.set(trimmed, forKey: reactionKey)
         remember(trimmed, defaults)
+    }
+}
+
+extension MessagingStore {
+    func freshClientMessageId() -> String? {
+        guard capabilities.idempotentSend else { return nil }
+        return UUID().uuidString
+    }
+
+    func confirmedWithDelivery(_ confirmed: Message, fallbackReply: MessageReplyPreview?) -> Message {
+        var message = confirmed
+        if message.delivery == .unknown { message.delivery = .sent }
+        if message.replyTo == nil { message.replyTo = fallbackReply }
+        return message
+    }
+
+    // MARK: Privacy
+
+    func loadPrivacyIfNeeded() async {
+        guard capabilities.privacyControls else { return }
+        if privacyState == .loaded || privacyState == .loading { return }
+        privacyState = .loading
+        do {
+            privacy = try await repository.privacy()
+            privacyState = .loaded
+        } catch {
+            privacyState = .failed("Couldn't load chat privacy.")
+        }
+    }
+
+    func setReadReceipts(_ on: Bool) async { await patchPrivacy(["readReceipts": .bool(on)]) }
+    func setTypingIndicators(_ on: Bool) async { await patchPrivacy(["typingIndicators": .bool(on)]) }
+    func setPresenceVisibility(_ value: PresenceVisibility) async {
+        await patchPrivacy(["presenceVisibility": .string(value.rawValue)])
+    }
+    func setNotificationPreview(_ value: NotificationPreviewSetting) async {
+        await patchPrivacy(["notificationPreview": .string(value.rawValue)])
+    }
+
+    private func patchPrivacy(_ fields: [String: JSONValue]) async {
+        guard capabilities.privacyControls else { return }
+        var body = fields
+        if privacy.version > 0 { body["version"] = .number(Double(privacy.version)) }
+        do {
+            privacy = try await repository.updatePrivacy(body)
+            privacyState = .loaded
+            HapticEngine.shared.play(.confirmation)
+        } catch APIError.rejected(409, _) {
+            if let fresh = try? await repository.privacy() { privacy = fresh }
+            actionError = "Chat privacy was updated on another device. Try again."
+        } catch {
+            actionError = "Couldn't update chat privacy."
+        }
+    }
+
+    // MARK: Groups
+
+    func createGroup(title: String, description: String?, handles: [String]) async -> Conversation? {
+        guard capabilities.groups else {
+            actionError = "Group chats aren't available on this server yet."
+            return nil
+        }
+        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return nil }
+        do {
+            let conversation = try await repository.createGroup(title: clean, description: description, handles: handles)
+            conversations.removeAll { $0.id == conversation.id }
+            conversations.insert(conversation, at: 0)
+            conversationState = .loaded
+            HapticEngine.shared.play(.success)
+            return conversation
+        } catch {
+            actionError = (error as? APIError)?.userFacingMessage ?? "Couldn't create the group."
+            HapticEngine.shared.play(.failure)
+            return nil
+        }
+    }
+
+    func loadGroup(_ id: ConversationID) async {
+        guard capabilities.groups else { return }
+        do {
+            groups[id] = try await repository.group(id)
+        } catch {
+            actionError = "Couldn't load group info."
+        }
+    }
+
+    func renameGroup(_ id: ConversationID, title: String, description: String?) async -> Bool {
+        guard capabilities.groups, groups[id]?.canAdmin == true else { return false }
+        do {
+            groups[id] = try await repository.updateGroup(id, title: title, description: description)
+            if let index = conversations.firstIndex(where: { $0.id == id }), var summary = conversations[index].group {
+                summary.title = title
+                summary.description = description
+                conversations[index].group = summary
+            }
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = "Couldn't update this group."
+            return false
+        }
+    }
+
+    func addGroupMembers(_ id: ConversationID, handles: [String]) async -> Bool {
+        guard capabilities.groups, groups[id]?.canAdmin == true else { return false }
+        do {
+            let result = try await repository.addGroupMembers(id, handles: handles)
+            groups[id] = result.group
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = (error as? APIError)?.userFacingMessage ?? "Couldn't add people to this group."
+            return false
+        }
+    }
+
+    func removeGroupMember(_ id: ConversationID, actor: String) async -> Bool {
+        guard capabilities.groups, groups[id]?.canAdmin == true else { return false }
+        do {
+            try await repository.removeGroupMember(id, actor: actor)
+            await loadGroup(id)
+            HapticEngine.shared.play(.confirmation)
+            return true
+        } catch {
+            actionError = "Couldn't remove this person."
+            return false
+        }
+    }
+
+    func setGroupRole(_ id: ConversationID, actor: String, role: GroupRole) async -> Bool {
+        guard capabilities.groups, groups[id]?.isOwner == true else { return false }
+        do {
+            groups[id] = try await repository.setGroupRole(id, actor: actor, role: role)
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = "Couldn't change this role."
+            return false
+        }
+    }
+
+    func leaveGroup(_ id: ConversationID) async -> Bool {
+        guard capabilities.groups else { return false }
+        do {
+            try await repository.leaveGroup(id)
+            groups[id] = nil
+            conversations.removeAll { $0.id == id }
+            threads[id] = nil
+            HapticEngine.shared.play(.confirmation)
+            return true
+        } catch {
+            actionError = "Couldn't leave this group."
+            return false
+        }
+    }
+
+    func mentionCandidates(in id: ConversationID, query: String?) -> [ModulaComposerMention] {
+        guard capabilities.mentions else { return [] }
+        let people: [ConversationParticipant]
+        if let members = groups[id]?.members {
+            people = members.filter { !$0.isMe && $0.state == "active" && !$0.blocked }.map(\.participant)
+        } else if let conversation = conversation(id: id) {
+            people = conversation.participants
+        } else {
+            return []
+        }
+        let needle = (query ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "@")).lowercased()
+        return people
+            .filter { needle.isEmpty || $0.handle.lowercased().contains(needle) || $0.displayName.lowercased().contains(needle) }
+            .prefix(8)
+            .map { ModulaComposerMention(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL) }
+    }
+
+    // MARK: Reactors and seen-by
+
+    func loadReactionDetails(_ message: Message) async {
+        guard capabilities.reactionDetails, !message.id.hasPrefix("local-") else { return }
+        do {
+            reactionDetails[message.id] = try await repository.reactionDetails(conversation: message.conversationID, message: message.id)
+        } catch {
+            actionError = "Couldn't load who reacted."
+        }
+    }
+
+    func loadReceipts(_ message: Message) async {
+        guard capabilities.groupReadReceipts, message.isOwn, !message.id.hasPrefix("local-") else { return }
+        do {
+            receiptsByMessage[message.id] = try await repository.receipts(conversation: message.conversationID, message: message.id)
+        } catch APIError.rejected(403, _) {
+            receiptsByMessage[message.id] = MessageReceipts(readBy: [], notYet: [], hiddenCount: 0, receiptsDisabled: true)
+        } catch {
+            actionError = "Couldn't load who has read this."
+        }
+    }
+
+    // MARK: History search
+
+    func searchHistory(_ query: String) async {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        historyQuery = q
+        guard capabilities.historySearch else {
+            historyHits = []; historyHasMore = false; historyCursor = nil; historyState = .idle
+            return
+        }
+        guard q.count >= 2 else {
+            historyHits = []; historyHasMore = false; historyCursor = nil; historyState = .idle
+            return
+        }
+        historyState = .loading
+        do {
+            let page = try await repository.searchMessages(query: q, conversationID: nil, cursor: nil)
+            historyHits = page.items
+            historyCursor = page.nextCursor
+            historyHasMore = page.hasMore
+            historyState = .loaded
+        } catch {
+            historyState = .failed("Couldn't search message history.")
+        }
+    }
+
+    func loadMoreHistory() async {
+        guard capabilities.historySearch, historyHasMore, let cursor = historyCursor, historyState != .loading else { return }
+        historyState = .loading
+        do {
+            let page = try await repository.searchMessages(query: historyQuery, conversationID: nil, cursor: cursor)
+            let seen = Set(historyHits.map(\.id))
+            historyHits.append(contentsOf: page.items.filter { !seen.contains($0.id) })
+            historyCursor = page.nextCursor
+            historyHasMore = page.hasMore
+            historyState = .loaded
+        } catch {
+            historyState = .loaded
+        }
+    }
+
+    // MARK: Presence
+
+    func presence(for actorID: String) -> PresenceItem? { presenceByActor[actorID] }
+
+    func refreshPresence(for actorIDs: [String]) async {
+        guard capabilities.presence, capabilities.privacyControls == false || privacy.presenceVisibility != .nobody else {
+            return
+        }
+        let ids = Array(Set(actorIDs.filter { !$0.isEmpty })).prefix(50)
+        guard !ids.isEmpty else { return }
+        if let items = try? await repository.presence(actorIDs: Array(ids)) {
+            for item in items { presenceByActor[item.actorId] = item }
+        }
+    }
+
+    // MARK: Voice notes
+
+    /// Upload a recorded note through the existing attachment pipeline, then send `kind: "voice"`.
+    /// Photo/video sending is never enabled here.
+    func sendVoice(_ note: ModulaVoiceNote, conversation id: ConversationID, viewer: ConversationParticipant) async -> Message? {
+        guard capabilities.voiceNotes, capabilities.send else {
+            actionError = "Voice notes aren't available on this server yet."
+            return nil
+        }
+        let maxMs = capabilities.voiceNoteMaxMs > 0 ? capabilities.voiceNoteMaxMs : 900_000
+        guard note.durationMs > 0, note.durationMs <= maxMs else {
+            actionError = "That voice note is too long."
+            return nil
+        }
+        let allowed = capabilities.voiceNoteMimeTypes
+        let mime = "audio/mp4"
+        if !allowed.isEmpty, !allowed.contains(mime) {
+            actionError = "This voice note format isn't supported."
+            return nil
+        }
+        let localID = "local-\(UUID().uuidString)"
+        let waveform = note.waveform.map { min(1, max(0, Double($0) / 100)) }
+        let optimistic = Message(
+            id: localID, conversationID: id, sender: viewer, body: .text(""),
+            sentAt: Date(), delivery: .sending, isOwn: true, localDraft: nil,
+            kind: .voice,
+            attachments: [MessageAttachment(id: localID, kind: .audio, mimeType: mime, byteSize: 0, durationMs: note.durationMs, waveform: waveform, width: nil, height: nil, url: note.fileURL)]
+        )
+        var items = threads[id] ?? []
+        items.append(optimistic)
+        threads[id] = items
+        sendingIDs.insert(localID)
+        do {
+            let data = try Data(contentsOf: note.fileURL)
+            let prepared = PreparedMedia(id: localID, kind: .audio, data: data, mimeType: mime, filename: "voice.m4a", altText: "Voice note")
+            let uploaded = try await GreenfieldMediaUploader(client: client).upload(prepared, progress: { _ in }, sessionCreated: { _, _ in })
+            let confirmed = try await repository.send(
+                conversation: id,
+                message: MessageDraft(
+                    conversationID: id,
+                    text: "",
+                    kind: .voice,
+                    clientMessageId: freshClientMessageId(),
+                    attachments: [MessageDraftAttachment(attachmentId: uploaded.remoteID, durationMs: note.durationMs, waveform: waveform)]
+                )
+            )
+            replace(localID: localID, in: id, with: confirmedWithDelivery(confirmed, fallbackReply: nil))
+            sendingIDs.remove(localID)
+            HapticEngine.shared.play(.success)
+            NotificationCenter.default.post(name: .modulaPushMoment, object: PushPrePromptMoment.messageSent.rawValue)
+            return threads[id]?.first(where: { $0.id == confirmed.id })
+        } catch {
+            markFailed(localID: localID, in: id)
+            sendingIDs.remove(localID)
+            actionError = "Couldn't send voice note."
+            HapticEngine.shared.play(.failure)
+            return nil
+        }
+    }
+
+    // MARK: Realtime
+
+    func startRealtimeIfNeeded() {
+        guard capabilities.realtime, let path = capabilities.realtimeSocketPath, !path.isEmpty else {
+            startPresenceHeartbeatFallback()
+            return
+        }
+        if realtime != nil { return }
+        let client = MessagingRealtimeClient(client: self.client, path: path, heartbeatMs: capabilities.realtimeHeartbeatMs)
+        client.onEvent = { [weak self] event in
+            Task { @MainActor in self?.handleRealtime(event) }
+        }
+        realtime = client
+        client.start()
+    }
+
+    func stopRealtime() {
+        realtime?.stop()
+        realtime = nil
+        realtimeConnected = false
+        presenceHeartbeatTask?.cancel()
+        presenceHeartbeatTask = nil
+    }
+
+    private func startPresenceHeartbeatFallback() {
+        guard capabilities.presence else { return }
+        presenceHeartbeatTask?.cancel()
+        presenceHeartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                _ = try? await self?.repository.presenceHeartbeat()
+                try? await Task.sleep(for: .seconds(25))
+            }
+        }
+    }
+
+    private func handleRealtime(_ event: MessagingRealtimeClient.Event) {
+        switch event {
+        case .hello:
+            realtimeConnected = true
+            presenceHeartbeatTask?.cancel()
+            presenceHeartbeatTask = nil
+        case .disconnected:
+            realtimeConnected = false
+            startPresenceHeartbeatFallback()
+        case .messageCreated(let conversation, _, _, _), .messageUpdated(let conversation, _), .messageDeleted(let conversation, _):
+            Task { _ = await pollThread(conversation); await pollInbox() }
+        case .reactionChanged(let conversation, let message):
+            if let item = messages(for: conversation).first(where: { $0.id == message }) {
+                Task { await loadReactionDetails(item); _ = await pollThread(conversation) }
+            } else {
+                Task { _ = await pollThread(conversation) }
+            }
+        case .typing(let conversation, let actor, let expiresAt):
+            if let expiry = expiresAt, expiry < Date() { return }
+            let person = conversation(id: conversation)?.participants.first(where: { $0.id == actor })
+                ?? groups[conversation]?.members.first(where: { $0.participant.id == actor })?.participant
+            if let person {
+                var people = typingPeople[conversation] ?? []
+                if !people.contains(where: { $0.id == person.id }) { people.append(person) }
+                typingPeople[conversation] = people
+            }
+        case .read(let conversation, _, _):
+            Task { _ = await pollThread(conversation) }
+        case .conversationUpdated(let conversation, _):
+            Task {
+                await pollInbox()
+                if capabilities.groups { await loadGroup(conversation) }
+            }
+        case .presence(let item):
+            presenceByActor[item.actorId] = item
+        case .error:
+            break
+        }
     }
 }
