@@ -428,9 +428,11 @@ final class PushNotificationController {
             "timezone": .string(TimeZone.current.identifier),
         ])
         do {
-            _ = try await client.authenticatedJSON("POST", path: PushAPI.devices, body: body)
+            let response = try await client.authenticatedJSON("POST", path: PushAPI.devices, body: body)
             defaults.set(token, forKey: Self.tokenKey)
             registration = .registered
+            // The VoIP registration proves device ownership with this id (`/v1/push/voip-devices`).
+            if let deviceID = response["device"]?["id"]?.string { CallManager.shared.pushDeviceRegistered(deviceID) }
         } catch {
             registration = .failed(Self.message(error))
         }
@@ -445,6 +447,7 @@ final class PushNotificationController {
         guard let token = defaults.string(forKey: Self.tokenKey) else { return }
         _ = try? await client.authenticatedJSON("DELETE", path: PushAPI.device(token), body: nil)
         defaults.removeObject(forKey: Self.tokenKey)
+        defaults.removeObject(forKey: CallManager.Keys.pushDevice)
         registration = .idle
         try? await UNUserNotificationCenter.current().setBadgeCount(0)
     }

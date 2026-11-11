@@ -220,6 +220,8 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var realtimeSocketPath: String? = nil
     var realtimeHeartbeatMs = 0
     var realtimeSingleInstance = false
+    /// 1:1 voice/video calls (`calls` block, migration 090). Off unless the server says enabled.
+    var calls: CallsCapabilities = .disabled
 
     /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
     static let production = MessagingBackendCapabilities(
@@ -481,6 +483,7 @@ enum MessagingPayloadDecoder {
         caps.realtimeSocketPath = realtime?["socketPath"]?.string
         caps.realtimeHeartbeatMs = realtime?["heartbeatMs"]?.int ?? 0
         caps.realtimeSingleInstance = realtime?["singleInstance"]?.bool ?? false
+        caps.calls = CallPayloadDecoder.capabilities(value["calls"])
         caps.privacyControls = !(value["privacyControls"]?.array ?? []).isEmpty
         caps.idempotentSend = value["idempotentSend"]?.bool ?? false
         let actions = Set((value["notificationActions"]?.array ?? []).compactMap(\.string))

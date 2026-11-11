@@ -250,6 +250,7 @@ final class MessagingStore {
             merged.block = true
             capabilities = merged
             MessagingV3FlagStore.save(merged)
+            CallManager.shared.updateCapabilities(merged.calls)
             await loadPrivacyIfNeeded()
             startRealtimeIfNeeded()
             return
@@ -1593,6 +1594,8 @@ extension MessagingStore {
             }
         case .presence(let item):
             presenceByActor[item.actorId] = item
+        case .callUpdated(let update):
+            CallManager.shared.handleRealtime(update)
         case .error:
             break
         }
