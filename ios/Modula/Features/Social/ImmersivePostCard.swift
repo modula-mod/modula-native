@@ -293,8 +293,17 @@ struct ImmersivePostCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay { if !isDetail { mediaCardStroke } }
-        .shadow(color: glow.opacity(isDetail ? 0 : 0.28), radius: 18, y: 8)
-        .shadow(color: .black.opacity(isDetail ? 0 : 0.12), radius: 4, y: 2)
+        // Shadows are cast by a plain shape behind the (opaque) media instead of the whole
+        // media/video/overlay tree: shadowing the tree forced an offscreen render pass for
+        // every card on every scroll frame.
+        .background {
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black)
+                    .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
+                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            }
+        }
         .environment(\.colorScheme, .dark)
     }
 

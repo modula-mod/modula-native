@@ -196,6 +196,8 @@ struct ReelQuickMenu: View {
     var onSave: () -> Void
     var onToggleCaptions: () -> Void
     var onToggleClear: () -> Void
+    var autoScroll = false
+    var onToggleAutoScroll: () -> Void = {}
     var onDismiss: () -> Void
 
     var body: some View {
@@ -230,6 +232,13 @@ struct ReelQuickMenu: View {
             Button { onToggleClear(); onDismiss() } label: {
                 Label(clearDisplay ? "Show UI" : "Clear display", systemImage: "eye").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }.buttonStyle(.plain)
+            Button { onToggleAutoScroll(); onDismiss() } label: {
+                Label(autoScroll ? "Auto-scroll on" : "Auto-scroll off", systemImage: autoScroll ? "arrow.down.to.line.circle.fill" : "arrow.down.to.line.circle")
+                    .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Moves to the next reel when a video ends")
+            .accessibilityIdentifier("reels.menu.autoscroll")
         }
         .padding(.bottom, 10)
         .frame(width: 260)

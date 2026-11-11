@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -191,7 +192,10 @@ struct ReelFeedView: View {
                             guard reel.postID != nil else { return }
                             showsComments = true
                         },
-                        onExpand: { expandedVideo = reel.attachment }
+                        onExpand: { expandedVideo = reel.attachment },
+                        onFinished: {
+                            withAnimation(.easeOut(duration: 0.25)) { move(1) }
+                        }
                     )
                     .containerRelativeFrame(.vertical)
                     .modifier(ReelPageTransition(reduceMotion: reduceMotion))
@@ -243,7 +247,9 @@ struct ReelPageView: View {
     var controlsTopInset: CGFloat = 0
     var onComment: () -> Void
     var onExpand: () -> Void
+    var onFinished: () -> Void = {}
     @Environment(AppEnvironment.self) private var app
+    @AppStorage("reels.autoScroll") private var autoScroll = false
     @State private var heartBurst = 0
     @State private var heartPoint: CGPoint? = nil
     @State private var clearDisplay = false
@@ -358,6 +364,11 @@ struct ReelPageView: View {
                     onSave: { Task { await app.postActions.toggleSave(resolved) } },
                     onToggleCaptions: { captionsOn.toggle() },
                     onToggleClear: { clearDisplay.toggle() },
+                    autoScroll: autoScroll,
+                    onToggleAutoScroll: {
+                        autoScroll.toggle()
+                        app.navigation.flash(autoScroll ? "Auto-scroll on" : "Auto-scroll off", symbol: "arrow.down.to.line.circle")
+                    },
                     onDismiss: { showsQuickMenu = false }
                 )
             }
@@ -382,6 +393,13 @@ struct ReelPageView: View {
         .onLongPressGesture(minimumDuration: 0.45) {
             HapticEngine.shared.play(.contextOpen)
             showsQuickMenu = true
+        }
+        // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
+        // re-render four times a second just to watch for the end).
+        .onReceive(NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)) { note in
+            guard autoScroll, isActive, !showsQuickMenu,
+                  let item = note.object as? AVPlayerItem, item === playback.player?.currentItem else { return }
+            onFinished()
         }
         // Hold the LEFT edge for 2× speed. This used to be a page-wide DragGesture(minimumDistance: 0),
         // which claimed every touch-down and left every button in Reels dead. Now it is a thin

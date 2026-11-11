@@ -41,8 +41,11 @@ final class ModulaVideoPlaybackController {
             guard let self, let next else { return }
             Task { @MainActor in
                 let total = next.currentItem?.duration.seconds ?? 0
-                self.duration = total.isFinite ? max(0, total) : 0
-                self.progress = self.duration > 0 ? min(max(time.seconds / self.duration, 0), 1) : 0
+                let duration = total.isFinite ? max(0, total) : 0
+                // Only publish real changes: duration is constant once known.
+                if duration != self.duration { self.duration = duration }
+                let progress = duration > 0 ? min(max(time.seconds / duration, 0), 1) : 0
+                if progress != self.progress { self.progress = progress }
             }
         }
     }
