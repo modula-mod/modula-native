@@ -198,6 +198,7 @@ struct ReelQuickMenu: View {
     var onToggleClear: () -> Void
     var autoScroll = false
     var onToggleAutoScroll: () -> Void = {}
+    var onCopyLink: (() -> Void)? = nil
     var onDismiss: () -> Void
 
     var body: some View {
@@ -223,6 +224,13 @@ struct ReelQuickMenu: View {
             Button { onNotInterested(); onDismiss() } label: {
                 Label("Not interested", systemImage: "eye.slash").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }.buttonStyle(.plain)
+            if let onCopyLink {
+                Button { onCopyLink(); onDismiss() } label: {
+                    Label("Copy link", systemImage: "link").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("reels.menu.copylink")
+            }
             Button { onSave(); onDismiss() } label: {
                 Label("Save video", systemImage: "bookmark").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }.buttonStyle(.plain)

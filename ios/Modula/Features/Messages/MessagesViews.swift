@@ -63,7 +63,12 @@ struct MessagesRootView: View {
 struct ConversationListView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var filter: InboxFilter = .all
+    /// Remembered across launches, so "Unread" stays on if that's how you triage.
+    @AppStorage("messages.inbox.filter") private var filterRaw = InboxFilter.all.rawValue
+    private var filter: InboxFilter {
+        get { InboxFilter(rawValue: filterRaw) ?? .all }
+        nonmutating set { filterRaw = newValue.rawValue }
+    }
     /// Remembered, so "Your circle" doesn't pop in and out each time you come back to the inbox.
     @AppStorage("messages.circle.open") private var circleOpen = false
     @State private var showCompose = false
@@ -428,7 +433,7 @@ struct ConversationListView: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             ModulaGlassGroup(spacing: 6) {
                 HStack(spacing: 6) {
-                    ForEach(InboxFilter.allCases) { item in
+                    ForEach(InboxFilter.allCases + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])) { item in
                         let on = item == filter
                         Button {
                             guard item != filter else { return }
@@ -863,6 +868,8 @@ struct MessageUnreadSeparator: View {
 /// Roadmap #07: bold, accent-coloured search matches (case and accent insensitive).
 enum MessageSearchHighlight {
     static func attributed(_ text: String, query: String, accent: Color) -> AttributedString {
+        // Fast path: not searching → no trimming/scanning per row per redraw.
+        if query.isEmpty { return AttributedString(text) }
         var result = AttributedString(text)
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return result }

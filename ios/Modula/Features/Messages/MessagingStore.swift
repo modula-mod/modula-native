@@ -15,7 +15,13 @@ final class MessagingStore {
     private(set) var wallpapers: [ConversationID: String] = MessagingLocalStore.dictionary("messages.wallpapers.v1")
     private(set) var starredIDs: Set<MessageID> = Set(UserDefaults.standard.stringArray(forKey: "messages.starred.v1") ?? [])
 
-    private(set) var conversations: [Conversation] = []
+    private(set) var conversations: [Conversation] = [] {
+        didSet { conversationsRevision &+= 1 }
+    }
+    /// Bumped on every `conversations` write; keys the inbox sort cache below.
+    @ObservationIgnored private var conversationsRevision = 0
+    /// Inbox redraws (typing, presence, unread ticks) used to re-sort every chat each time.
+    @ObservationIgnored private var newestFirstCache: (revision: Int, sorted: [Conversation])?
     private(set) var conversationCursor: String?
     private(set) var conversationHasMore = false
     private(set) var conversationState: MessagingLoadState = .idle
@@ -99,7 +105,15 @@ final class MessagingStore {
             (includeArchived || !isArchived(conversation.id))
             && (includeHidden || !isHidden(conversation.id))
         }
-        let newest = MessagingOrdering.conversationsNewestFirst(pool)
+        let sortedAll: [Conversation]
+        if let cache = newestFirstCache, cache.revision == conversationsRevision {
+            sortedAll = cache.sorted
+        } else {
+            sortedAll = MessagingOrdering.conversationsNewestFirst(conversations)
+            newestFirstCache = (conversationsRevision, sortedAll)
+        }
+        let allowed = Set(pool.map(\.id))
+        let newest = pool.count == conversations.count ? sortedAll : sortedAll.filter { allowed.contains($0.id) }
         let pinned = pinnedIDs.compactMap { id in newest.first { $0.id == id } }
         let ordered = pinned + newest.filter { !pinnedIDs.contains($0.id) }
         let query = conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

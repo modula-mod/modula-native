@@ -369,6 +369,11 @@ struct ReelPageView: View {
                         autoScroll.toggle()
                         app.navigation.flash(autoScroll ? "Auto-scroll on" : "Auto-scroll off", symbol: "arrow.down.to.line.circle")
                     },
+                    onCopyLink: reel.postID == nil ? nil : {
+                        UIPasteboard.general.url = ModulaShareLink.post(resolved.id)
+                        HapticEngine.shared.play(.success)
+                        app.navigation.flash("Link copied", symbol: "link")
+                    },
                     onDismiss: { showsQuickMenu = false }
                 )
             }

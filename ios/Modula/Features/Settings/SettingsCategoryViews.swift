@@ -1423,6 +1423,9 @@ struct ModulaStorageOverview: View {
 /// Last-launch timings recorded on this device by `ModulaPerf` (never uploaded).
 private struct AboutPerformanceSection: View {
     private let d = UserDefaults.standard
+    /// Same keys as Settings → Battery / Feed, surfaced here as speed switches.
+    @AppStorage("settings.battery.reduceMotionExtra") private var reduceEffects = false
+    @AppStorage("settings.feed.showReplies") private var expandThreads = true
 
     var body: some View {
         Section {
@@ -1439,8 +1442,16 @@ private struct AboutPerformanceSection: View {
                 let hitches = d.integer(forKey: "modula.perf.launchHitches")
                 LabeledContent("Dropped frames (first 12 s)", value: "\(hitches) of \(frames)")
             }
+            Toggle(isOn: $reduceEffects) {
+                Label("Lighter effects", systemImage: "hare")
+            }
+            .accessibilityHint("Turns off scroll reveal and decorative motion for a faster feel")
+            Toggle(isOn: $expandThreads) {
+                Label("Auto-open reply threads", systemImage: "text.bubble")
+            }
+            .accessibilityHint("Off makes the comments sheet open with fewer requests")
         } header: { Text("Performance") } footer: {
-            Text("Measured on this device on the last launch, from process start. Stays on your phone.")
+            Text("Timings are measured on this device on the last launch, from process start, and stay on your phone.")
         }
     }
 

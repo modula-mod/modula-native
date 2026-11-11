@@ -779,6 +779,8 @@ struct StoryViewer: View {
     @State private var replyDraft = ""
     @State private var reactedLocally = false
     @State private var burstEmoji: String?
+    /// Brief "Sent" chip above the reply bar after a reply or reaction is delivered.
+    @State private var sentReceipt: String?
     @State private var confirmMute = false
     @State private var confirmReport = false
     @State private var confirmDelete = false
@@ -1150,6 +1152,17 @@ struct StoryViewer: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if let sentReceipt {
+                Label(sentReceipt, systemImage: "checkmark.circle.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
+                    .modulaGlass(in: Capsule(), tint: .white.opacity(0.14))
+                    .transition(.opacity)
+                    .accessibilityIdentifier("story.sent")
+            }
+
             ModulaGlassGroup(spacing: 10) {
                 HStack(spacing: 10) {
                     replyField(item)
@@ -1213,7 +1226,7 @@ struct StoryViewer: View {
                     if canReply, !item.isOwn {
                         Task {
                             if await app.stories.reply(to: item.id, text: emoji) {
-                                app.navigation.flash("Sent \(emoji) to \(item.author.displayName)", symbol: "paperplane.fill")
+                                showSentReceipt("Sent \(emoji)")
                             }
                         }
                     }
@@ -1333,11 +1346,20 @@ struct StoryViewer: View {
         HapticEngine.shared.play(.selection)
         Task {
             if await app.stories.reply(to: item.id, text: text) {
-                app.navigation.flash("Reply sent to \(item.author.displayName)", symbol: "paperplane.fill")
+                showSentReceipt("Sent to \(item.author.displayName)")
             } else {
                 replyDraft = text
                 app.navigation.flash("Couldn’t send reply", symbol: "exclamationmark.triangle")
             }
+        }
+    }
+
+    private func showSentReceipt(_ text: String) {
+        HapticEngine.shared.play(.success)
+        withAnimation(.easeOut(duration: 0.2)) { sentReceipt = text }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            if sentReceipt == text { withAnimation(.easeOut(duration: 0.25)) { sentReceipt = nil } }
         }
     }
 

@@ -24,7 +24,8 @@ struct HomeView: View {
     @State private var commentsBubble: SocialPost?
     @State private var lastCommentsPost: SocialPost?
     @State private var bubbleExpiry: Task<Void, Never>?
-    @State private var feedFilter: HomeFeedFilter = .all
+    @State private var feedFilter: HomeFeedFilter = HomeFeedFilter(rawValue: UserDefaults.standard.string(forKey: "home.feedFilter.default") ?? "") ?? .all
+    @AppStorage("home.feedFilter.default") private var defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
     @State private var editingQuickActions = false
     @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
 
@@ -457,7 +458,29 @@ struct HomeView: View {
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    // Long-press: make this the filter Home opens with.
+                    .contextMenu {
+                        let count = app.home.visiblePosts(for: mode).filter(filter.matches).count
+                        Text("\(count) loaded \(count == 1 ? "post" : "posts")")
+                        if defaultFeedFilterRaw == filter.rawValue {
+                            Button("Default filter", systemImage: "checkmark") {}
+                                .disabled(true)
+                        } else {
+                            Button("Open Home with \(filter.title)", systemImage: "pin") {
+                                defaultFeedFilterRaw = filter.rawValue
+                                feedFilter = filter
+                                app.navigation.flash("Home opens with \(filter.title)", symbol: filter.symbol)
+                            }
+                        }
+                        if defaultFeedFilterRaw != HomeFeedFilter.all.rawValue {
+                            Button("Reset to All", systemImage: "arrow.uturn.backward") {
+                                defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
+                                feedFilter = .all
+                            }
+                        }
+                    }
                     .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityHint("Long-press to make this the default")
                     .accessibilityIdentifier("home.filter.\(filter.rawValue)")
                 }
             }
@@ -620,6 +643,14 @@ struct HomeView: View {
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.top, 8)
                     .padding(.bottom, 24)
+                }
+                if state.loadState == .loaded, !state.hasMore, state.nextCursor == nil,
+                   state.loadMoreError == nil, visiblePosts.count >= 3 {
+                    HomeCaughtUpMarker {
+                        Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+                    }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.vertical, 20)
                 }
                 if state.loadState == .loadingMore {
                     // Enhancements-50: a post-shaped skeleton holds the slot the next page fills.
@@ -1521,5 +1552,45 @@ struct HomeTodayCard: View {
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         .task { snapshot = await HomeTodayProvider.load(client: app.client) }
         .accessibilityIdentifier("home.today")
+    }
+}
+
+
+/// End of the loaded feed: nothing older to page in.
+struct HomeCaughtUpMarker: View {
+    var onRefresh: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .accessibilityHidden(true)
+                Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
+            }
+            Text("You’re all caught up")
+                .font(.headline)
+            Text("You’ve seen everything new in this feed.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Button {
+                HapticEngine.shared.play(.selection)
+                onRefresh()
+            } label: {
+                Label("Check for new posts", systemImage: "arrow.clockwise")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .frame(height: 34)
+                    .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.caughtup.refresh")
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.caughtup")
     }
 }
