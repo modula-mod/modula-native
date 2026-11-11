@@ -606,6 +606,25 @@ actor GreenfieldClient {
         return request
     }
 
+    /// Call signalling socket (`/v1/calls/:id/signalling`). The single-use, 60 s signalling
+    /// ticket is the bearer: never the access token, and never in the URL. The host always
+    /// comes from the configured base URL, not from the server's ticket response.
+    func callSignallingRequest(path: String, ticket: String) throws -> URLRequest {
+        guard let baseURL else { throw APIError.unconfigured }
+        guard CallSignalling.isSignallingPath(path), tokens != nil,
+              ticket.range(of: "^[A-Za-z0-9_-]{32,128}$", options: .regularExpression) != nil
+        else { throw APIError.unauthenticated }
+        guard var components = URLComponents(url: baseURL.appendingPathComponent(String(path.dropFirst())),
+                                              resolvingAgainstBaseURL: false) else { throw APIError.invalidResponse }
+        components.scheme = components.scheme?.lowercased() == "http" ? "ws" : "wss"
+        guard let url = components.url else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(ticket)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
     private func mediaRequest(for url: URL) async throws -> URLRequest {
         guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil else {
             throw APIError.invalidResponse
