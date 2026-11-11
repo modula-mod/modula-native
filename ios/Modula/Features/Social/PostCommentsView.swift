@@ -383,6 +383,10 @@ final class PostCommentsStore {
         expandedReplies.remove(comment.id)
     }
 
+    func collapseAllReplies() {
+        if !expandedReplies.isEmpty { expandedReplies.removeAll() }
+    }
+
     func delete(_ comment: SocialComment) async {
         do {
             try await repository.deleteComment(commentID: comment.id)
@@ -722,6 +726,19 @@ struct PostCommentsView: View {
                 .padding(.horizontal, 3)
                 .modulaGlass(in: Capsule(), interactive: false)
                 .frame(minHeight: 44)
+            }
+            if let store, store.expandedReplies.count > 1 {
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.collapseAllReplies() }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: "arrow.up.and.line.horizontal.and.arrow.down")
+                        .font(.footnote.weight(.semibold))
+                        .frame(width: 36, height: 36)
+                        .modulaGlass(in: Circle(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Collapse all replies")
             }
             Spacer(minLength: 8)
             Button {

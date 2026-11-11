@@ -338,6 +338,27 @@ struct ReelPageView: View {
                 .padding(.top, controlsTopInset + 10)
                 .padding(.trailing, 14)
             }
+            if !clearDisplay, !edgeBoost, abs(savedRate - 1) > 0.01, reel.attachment != nil {
+                Button {
+                    playback.setRate(1)
+                    savedRate = 1
+                    HapticEngine.shared.play(.selection)
+                    app.navigation.flash("Speed 1×", symbol: "gauge.with.needle")
+                } label: {
+                    Text(String(format: "%.2g×", savedRate))
+                        .font(.caption.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 36, minHeight: 36)
+                        .padding(.horizontal, 4)
+                        .modulaGlass(in: Capsule(), tint: .black.opacity(0.25))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Playback speed \(String(format: "%.2g", savedRate)) times. Tap to reset")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.top, controlsTopInset + 10)
+                .padding(.trailing, 58)
+            }
             if edgeBoost {
                 Text("2×")
                     .font(.title2.weight(.bold))

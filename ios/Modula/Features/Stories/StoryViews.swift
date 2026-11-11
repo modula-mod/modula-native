@@ -1295,6 +1295,7 @@ struct StoryViewer: View {
                     }
                     Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Copy link", systemImage: "link") { copyLink(item) }
                     if let media = item.media, media.url != nil, media.kind == .image || media.kind == .video {
                         Button("Save to Photos", systemImage: "arrow.down.to.line") { saveOwnStory(item) }
                     }
@@ -1389,6 +1390,12 @@ struct StoryViewer: View {
             navigation.flash(saved ? "Saved to Photos" : "Couldn’t save to Photos", symbol: saved ? "photo.badge.checkmark" : "exclamationmark.triangle")
             HapticEngine.shared.play(saved ? .saveComplete : .failure)
         }
+    }
+
+    private func copyLink(_ item: StoryItem) {
+        UIPasteboard.general.url = ModulaShareLink.story(item.id)
+        app.navigation.flash("Story link copied", symbol: "link")
+        HapticEngine.shared.play(.confirmation)
     }
 
     private func share(_ item: StoryItem) {

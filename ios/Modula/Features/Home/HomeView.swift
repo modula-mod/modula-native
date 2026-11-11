@@ -519,18 +519,30 @@ struct HomeView: View {
     }
 
     private var backToTopPill: some View {
-        Button {
-            ModulaTabReselect.post(.home)
-            HapticEngine.shared.play(.selection)
-        } label: {
-            Label("Back to top", systemImage: "arrow.up")
-                .font(.caption.weight(.bold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .modulaGlass(in: Capsule(), interactive: true)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.backToTop")
+        Label("Back to top", systemImage: "arrow.up")
+            .font(.caption.weight(.bold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .modulaGlass(in: Capsule(), interactive: true)
+            .contentShape(Capsule())
+            .onTapGesture {
+                ModulaTabReselect.post(.home)
+                HapticEngine.shared.play(.selection)
+            }
+            .onLongPressGesture(minimumDuration: 0.45) {
+                // Long-press: back to top and refresh.
+                ModulaTabReselect.post(.home)
+                HapticEngine.shared.play(.lightImpact)
+                Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Long-press to also refresh")
+            .accessibilityAction(named: "Back to top and refresh") {
+                ModulaTabReselect.post(.home)
+                Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+            }
+            .accessibilityIdentifier("home.backToTop")
     }
 
     private var newerPill: some View {

@@ -275,6 +275,8 @@ final class ModulaGlassSettings {
     static let shared = ModulaGlassSettings()
     private(set) var intensity: ModulaGlassIntensity = .standard
     private(set) var lighter = false
+    private(set) var glassBubbles = false
+    static let glassBubblesKey = "messages.glassBubbles"
     @ObservationIgnored private var observer: NSObjectProtocol?
 
     private init() {
@@ -290,5 +292,7 @@ final class ModulaGlassSettings {
         if nextIntensity != intensity { intensity = nextIntensity }
         let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra")
         if nextLighter != lighter { lighter = nextLighter }
+        let nextBubbles = defaults.bool(forKey: Self.glassBubblesKey)
+        if nextBubbles != glassBubbles { glassBubbles = nextBubbles }
     }
 }

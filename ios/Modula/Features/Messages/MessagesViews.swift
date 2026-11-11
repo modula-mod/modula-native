@@ -679,6 +679,12 @@ struct ConversationListView: View {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
         }
+        if let body = conversation.lastMessage?.body, !body.isEmpty {
+            Button("Copy Last Message", systemImage: "text.bubble") {
+                UIPasteboard.general.string = body
+                HapticEngine.shared.play(.confirmation)
+            }
+        }
         if app.messaging.capabilities.mute {
             Button(conversation.isMuted ? "Unmute" : "Mute…", systemImage: conversation.isMuted ? "bell" : "bell.slash") {
                 if conversation.isMuted {
@@ -2547,8 +2553,11 @@ struct MessageBubble: View {
     private var bubbleBackground: some View {
         if message.isOwn {
             bubbleShape.fill(ownGradient)
-        } else if reduceTransparency {
+        } else if reduceTransparency || !ModulaGlassSettings.shared.glassBubbles {
+            // Default: a flat fill + hairline. A live glass effect per received bubble
+            // re-sampled the wallpaper on every scroll frame.
             bubbleShape.fill(bubbleFill)
+                .overlay(bubbleShape.stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
         } else {
             Color.clear.modulaGlass(in: bubbleShape, interactive: false)
         }

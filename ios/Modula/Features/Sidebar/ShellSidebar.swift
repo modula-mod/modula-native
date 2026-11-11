@@ -628,6 +628,11 @@ struct ShellSidebarView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Search \(term)")
+                        .contextMenu {
+                            Button("Remove", systemImage: "xmark", role: .destructive) {
+                                recentSearchesRaw = recentSearches.filter { $0 != term }.joined(separator: "\n")
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, rowInset)

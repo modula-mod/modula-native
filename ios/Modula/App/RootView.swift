@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
+    @State private var visitedTabs: Set<AppTab> = []
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -197,7 +198,15 @@ struct RootView: View {
         return TabView(selection: reselectable) {
             ForEach(AppTab.allCases) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
-                    RouteView(route: navigation.root(for: tab))
+                    Group {
+                        // Lazy tabs: TabView builds every tab's root at launch; Messages,
+                        // Activity, Profile… now build on first visit instead.
+                        if tab == navigation.selectedTab || visitedTabs.contains(tab) {
+                            RouteView(route: navigation.root(for: tab))
+                        } else {
+                            Color.clear
+                        }
+                    }
                         .navigationDestination(for: AppRoute.self) {
                             RouteView(route: $0)
                                 // Pushed Settings / Premium pages: no minimised tab bubble (the profile avatar
@@ -228,6 +237,9 @@ struct RootView: View {
                 .badge(tab == .activity ? activityBadge : 0)
                 .tag(tab)
             }
+        }
+        .onChange(of: navigation.selectedTab, initial: true) { _, selected in
+            if !visitedTabs.contains(selected) { visitedTabs.insert(selected) }
         }
         .overlay {
             ProfileTabBarAvatarApplicator(image: app.profile.tabBarAvatar)

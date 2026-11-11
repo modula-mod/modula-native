@@ -353,13 +353,27 @@ private final class ModulaRemoteImageCache {
         storage.totalCostLimit = 160 * 1_024 * 1_024
     }
 
+    /// Avatars / story-tray rings / icons: tiny, reused everywhere, and previously
+    /// evicted whenever a few large feed photos filled the shared cache.
+    private let small: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 600
+        cache.totalCostLimit = 40 * 1_024 * 1_024
+        return cache
+    }()
+
     func image(for key: String) -> UIImage? {
-        storage.object(forKey: key as NSString)
+        small.object(forKey: key as NSString) ?? storage.object(forKey: key as NSString)
     }
 
     func insert(_ image: UIImage, for key: String) {
-        let pixels = Int(image.size.width * image.scale * image.size.height * image.scale)
-        storage.setObject(image, forKey: key as NSString, cost: min(pixels * 4, Int.max))
+        let width = image.size.width * image.scale, height = image.size.height * image.scale
+        let cost = min(Int(width * height) * 4, Int.max)
+        if max(width, height) <= 480 {
+            small.setObject(image, forKey: key as NSString, cost: cost)
+        } else {
+            storage.setObject(image, forKey: key as NSString, cost: cost)
+        }
     }
 }
 

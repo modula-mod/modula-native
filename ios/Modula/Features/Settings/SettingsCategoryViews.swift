@@ -1429,6 +1429,7 @@ private struct AboutPerformanceSection: View {
     @AppStorage("settings.battery.reduceMotionExtra") private var reduceEffects = false
     @AppStorage("settings.feed.showReplies") private var expandThreads = true
     @State private var imageCacheBytes: Int64?
+    @AppStorage(ModulaGlassSettings.glassBubblesKey) private var glassBubbles = false
 
     var body: some View {
         Section {
@@ -1453,6 +1454,20 @@ private struct AboutPerformanceSection: View {
                 Label("Auto-open reply threads", systemImage: "text.bubble")
             }
             .accessibilityHint("Off makes the comments sheet open with fewer requests")
+            Toggle(isOn: $glassBubbles) {
+                Label("Glass message bubbles", systemImage: "bubble.left")
+            }
+            .accessibilityHint("Off draws received messages with a flat fill, which scrolls faster")
+            Button {
+                let info = Bundle.main.infoDictionary
+                let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+                let build = info?["CFBundleVersion"] as? String ?? "?"
+                let device = UIDevice.current
+                UIPasteboard.general.string = "Modula \(version) (\(build)) · \(device.systemName) \(device.systemVersion)"
+                HapticEngine.shared.play(.confirmation)
+            } label: {
+                Label("Copy version info", systemImage: "doc.on.doc")
+            }
             Button {
                 ModulaImageDiskCache.clear()
                 imageCacheBytes = 0
