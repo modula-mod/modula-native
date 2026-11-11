@@ -781,6 +781,7 @@ struct StoryViewer: View {
     @State private var burstEmoji: String?
     @State private var confirmMute = false
     @State private var confirmReport = false
+    @State private var confirmDelete = false
     @State private var showsInsights = false
 
     private let teal = Color(hex: "#369CAA")
@@ -843,6 +844,24 @@ struct StoryViewer: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Delete this story?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                guard let item = currentItem else { return }
+                Task {
+                    if await app.stories.delete(itemID: item.id) {
+                        HapticEngine.shared.play(.actionConfirmed)
+                        app.navigation.flash("Story deleted", symbol: "trash")
+                        app.navigation.close()
+                    } else {
+                        app.navigation.flash("Couldn’t delete story", symbol: "exclamationmark.triangle")
+                        engine.resume()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) { engine.resume() }
+        } message: {
+            Text("It’s removed for everyone right away.")
         }
         .confirmationDialog("Report this story?", isPresented: $confirmReport, titleVisibility: .visible) {
             Button("Spam", role: .destructive) { reportCurrent(category: "spam") }
@@ -1255,6 +1274,10 @@ struct StoryViewer: View {
                     }
                     Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Delete story", systemImage: "trash", role: .destructive) {
+                        engine.pause()
+                        confirmDelete = true
+                    }
                 } else {
                     if canReply {
                         Button("Reply in Messages", systemImage: "bubble.left") { reply(item) }
@@ -1299,10 +1322,15 @@ struct StoryViewer: View {
         }
         replyDraft = ""
         replyFocused = false
-        // No story-reply endpoint yet — open Messages with an honest island confirmation.
-        app.navigation.open(.messages(.new))
-        app.navigation.flash("Continue in Messages", symbol: "bubble.left")
-        _ = item
+        HapticEngine.shared.play(.selection)
+        Task {
+            if await app.stories.reply(to: item.id, text: text) {
+                app.navigation.flash("Reply sent to \(item.author.displayName)", symbol: "paperplane.fill")
+            } else {
+                replyDraft = text
+                app.navigation.flash("Couldn’t send reply", symbol: "exclamationmark.triangle")
+            }
+        }
     }
 
     private func share(_ item: StoryItem) {

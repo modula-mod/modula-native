@@ -345,6 +345,8 @@ struct ShellSidebarView: View {
     @AppStorage(ModulaMascotSettings.kindKey) private var mascotRaw = ModulaMascotKind.pip.rawValue
     @AppStorage("shell.sidebar.developerExpanded") private var developerExpanded = false
     @State private var query = ""
+    /// Local-only, newest first, newline separated (never synced).
+    @AppStorage("shell.sidebar.recentSearches") private var recentSearchesRaw = ""
     @State private var searching = false
     @FocusState private var searchFocused: Bool
     /// Scales with Dynamic Type; 40pt at the default size (tighter than the old 46pt rows).
@@ -372,6 +374,9 @@ struct ShellSidebarView: View {
                 VStack(alignment: .leading, spacing: ModulaSpacing.md) {
                     if isFiltering {
                         searchResults(chats: chats)
+                    } else if searching, !recentSearches.isEmpty {
+                        recentSearchSection
+                        section(nil) { ForEach(primaryItems) { row($0) } }
                     } else {
                         section(nil) { ForEach(primaryItems) { row($0) } }
                         section("Library") { ForEach(libraryItems) { row($0) } }
@@ -474,7 +479,10 @@ struct ShellSidebarView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($searchFocused)
-                .onSubmit { if let first = filteredItems.first { onSelect(first.route, first.requiresSignIn) } }
+                .onSubmit {
+                    rememberQuery()
+                    if let first = filteredItems.first { onSelect(first.route, first.requiresSignIn) }
+                }
                 .accessibilityIdentifier("shell.sidebar.search.field")
             if !query.isEmpty {
                 Button { query = "" } label: {
@@ -573,6 +581,54 @@ struct ShellSidebarView: View {
 
     // MARK: Search
 
+    private var recentSearches: [String] {
+        recentSearchesRaw.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+
+    private func rememberQuery() {
+        let q = trimmedQuery
+        guard q.count >= 2 else { return }
+        var list = recentSearches.filter { $0.caseInsensitiveCompare(q) != .orderedSame }
+        list.insert(q, at: 0)
+        recentSearchesRaw = list.prefix(6).joined(separator: "\n")
+    }
+
+    private var recentSearchSection: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+            HStack {
+                Text("Recent searches")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button("Clear") { recentSearchesRaw = "" }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .accessibilityIdentifier("shell.sidebar.recent.clear")
+            }
+            .padding(.horizontal, rowInset)
+            ScrollView(.horizontal) {
+                HStack(spacing: ModulaSpacing.xs) {
+                    ForEach(recentSearches, id: \.self) { term in
+                        Button { query = term } label: {
+                            Label(term, systemImage: "clock.arrow.circlepath")
+                                .font(.subheadline)
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .frame(height: 30)
+                                .background(Color.primary.opacity(0.07), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Search \(term)")
+                    }
+                }
+                .padding(.horizontal, rowInset)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isFiltering: Bool { searching && !trimmedQuery.isEmpty }
 
@@ -596,10 +652,10 @@ struct ShellSidebarView: View {
         let items = filteredItems
         let chats = filteredChats(lists)
         if !items.isEmpty {
-            section("Destinations") { ForEach(items) { row($0) } }
+            section("Destinations") { ForEach(items) { row($0).simultaneousGesture(TapGesture().onEnded { rememberQuery() }) } }
         }
         if !chats.isEmpty {
-            section("Chats") { ForEach(chats) { chatRow($0) } }
+            section("Chats") { ForEach(chats) { chatRow($0).simultaneousGesture(TapGesture().onEnded { rememberQuery() }) } }
         }
         section(items.isEmpty && chats.isEmpty ? "No matches" : nil) {
             Button {
