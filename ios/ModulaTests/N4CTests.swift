@@ -1320,6 +1320,19 @@ final class MessagingCapabilityHonestyTests: XCTestCase {
         XCTAssertFalse(MessagingBackendCapabilities.production.realtime)
         XCTAssertFalse(MessagingBackendCapabilities.production.attachments)
         XCTAssertFalse(MessagingBackendCapabilities.production.typing)
+        // Migration 089 is not on production yet — v3 flags stay off until probeV3 succeeds.
+        XCTAssertFalse(MessagingBackendCapabilities.production.groups)
+        XCTAssertFalse(MessagingBackendCapabilities.production.mentions)
+        XCTAssertFalse(MessagingBackendCapabilities.production.voiceNotes)
+        XCTAssertFalse(MessagingBackendCapabilities.production.photoVideo)
+        XCTAssertFalse(MessagingBackendCapabilities.production.reactionDetails)
+        XCTAssertFalse(MessagingBackendCapabilities.production.groupReadReceipts)
+        XCTAssertFalse(MessagingBackendCapabilities.production.historySearch)
+        XCTAssertFalse(MessagingBackendCapabilities.production.presence)
+        XCTAssertFalse(MessagingBackendCapabilities.production.privacyControls)
+        XCTAssertFalse(MessagingBackendCapabilities.production.idempotentSend)
+        XCTAssertFalse(MessagingBackendCapabilities.production.notificationReply)
+        XCTAssertFalse(MessagingBackendCapabilities.production.notificationMarkRead)
         XCTAssertFalse(InMailBackendCapabilities.production.privacySettings)
         XCTAssertFalse(InMailBackendCapabilities.production.serverSearch)
         XCTAssertTrue(StoryBackendCapabilities.production.list)
@@ -2064,5 +2077,99 @@ final class ModuleStoreTests: XCTestCase {
         XCTAssertFalse(ok)
         XCTAssertNil(store.operations["digital.modula.vault-notes"])
         XCTAssertNotNil(store.lifecycleErrors["digital.modula.vault-notes"])
+    }
+}
+
+
+final class MessagingV3ContractTests: XCTestCase {
+    func testCapabilitiesV3RequiresVersion3() throws {
+        XCTAssertNil(MessagingPayloadDecoder.capabilitiesV3(from: try decode(#"{"version":2,"groups":true}"#)))
+        XCTAssertNil(MessagingPayloadDecoder.capabilitiesV3(from: try decode(#"{"groups":true}"#)))
+    }
+
+    func testCapabilitiesV3ForcesPhotoVideoOffAndKeepsV2Flags() throws {
+        let json = """
+        {"version":3,"groups":true,"maxGroupMembers":32,"mentions":true,"voiceNotes":true,
+         "voiceNoteMaxMs":900000,"voiceNoteMimeTypes":["audio/mp4"],"photoVideo":true,
+         "maxAttachmentsPerMessage":1,"reactionDetails":true,"groupReadReceipts":true,
+         "historySearch":true,"presence":true,"presenceOnlineWindowMs":70000,
+         "realtime":{"socketPath":"/v1/messaging/socket","heartbeatMs":25000,"singleInstance":true},
+         "privacyControls":["readReceipts","typingIndicators","presenceVisibility","notificationPreview"],
+         "idempotentSend":true,"notificationActions":["reply","markRead"]}
+        """
+        let caps = try XCTUnwrap(MessagingPayloadDecoder.capabilitiesV3(from: try decode(json)))
+        XCTAssertTrue(caps.groups)
+        XCTAssertEqual(caps.maxGroupMembers, 32)
+        XCTAssertTrue(caps.mentions)
+        XCTAssertTrue(caps.voiceNotes)
+        XCTAssertFalse(caps.photoVideo)
+        XCTAssertTrue(caps.reactionDetails)
+        XCTAssertTrue(caps.historySearch)
+        XCTAssertTrue(caps.presence)
+        XCTAssertTrue(caps.privacyControls)
+        XCTAssertTrue(caps.idempotentSend)
+        XCTAssertTrue(caps.notificationReply)
+        XCTAssertTrue(caps.notificationMarkRead)
+        XCTAssertEqual(caps.realtimeSocketPath, "/v1/messaging/socket")
+        XCTAssertTrue(caps.realtime)
+        XCTAssertTrue(caps.reactions)
+        XCTAssertTrue(caps.typing)
+        XCTAssertEqual(MessagingBackendCapabilities.Paths.capabilities, "/v1/messaging/capabilities")
+    }
+
+    func testSendBodyOmitsV3KeysUntilSet() {
+        let plain = MessageDraft(conversationID: "c1", text: "hi")
+        XCTAssertEqual(GreenfieldMessagingRepository.sendBody(plain), ["text": .string("hi")])
+        let voice = MessageDraft(
+            conversationID: "c1",
+            text: "",
+            kind: .voice,
+            clientMessageId: "12345678-1234-1234-1234-1234567890ab",
+            attachments: [MessageDraftAttachment(attachmentId: "att1", durationMs: 1200, waveform: [0, 0.5, 1.2, -1])]
+        )
+        let body = GreenfieldMessagingRepository.sendBody(voice)
+        XCTAssertEqual(body["kind"], .string("voice"))
+        XCTAssertEqual(body["clientMessageId"]?.string?.count, 36)
+        XCTAssertEqual(body["attachments"]?.array?.count, 1)
+        XCTAssertEqual(body["attachments"]?.array?.first?["waveform"]?.array, [.number(0), .number(0.5), .number(1), .number(0)])
+    }
+
+    func testPrivacyAndReceiptsAndSearchDecoders() throws {
+        let privacy = MessagingPayloadDecoder.privacy(try decode(#"{"readReceipts":false,"typingIndicators":false,"presenceVisibility":"nobody","notificationPreview":"name_only","version":4}"#))
+        XCTAssertFalse(privacy.readReceipts)
+        XCTAssertFalse(privacy.typingIndicators)
+        XCTAssertEqual(privacy.presenceVisibility, .nobody)
+        XCTAssertEqual(privacy.notificationPreview, .nameOnly)
+        XCTAssertEqual(privacy.version, 4)
+
+        let person = #"{"id":"a1","handle":"ada","displayName":"Ada","avatarUrl":null}"#
+        let receipts = MessagingPayloadDecoder.receipts(try decode("""
+        {"readBy":[{"participant":\(person),"readAt":"2026-11-10T10:00:00Z"}],"notYet":[\(person)],"hiddenCount":1,"receiptsDisabled":false}
+        """))
+        XCTAssertEqual(receipts.readBy.count, 1)
+        XCTAssertEqual(receipts.notYet.count, 1)
+        XCTAssertEqual(receipts.hiddenCount, 1)
+        XCTAssertFalse(receipts.receiptsDisabled)
+
+        let page = MessagingPayloadDecoder.searchPage(from: try decode(#"{"items":[{"messageId":"m1","conversationId":"c1","conversationKind":"direct","snippet":"hello","kind":"text","sentAt":"2026-11-10T10:00:00Z","isOwn":true}],"nextCursor":"c","hasMore":true}"#))
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items.first?.id, "m1")
+        XCTAssertTrue(page.hasMore)
+    }
+
+    func testFlagStorePersistsNotificationActions() {
+        UserDefaults.standard.removeObject(forKey: MessagingV3FlagStore.key)
+        var caps = MessagingBackendCapabilities.production
+        caps.idempotentSend = true
+        caps.notificationMarkRead = true
+        MessagingV3FlagStore.save(caps)
+        XCTAssertTrue(MessagingV3FlagStore.idempotentSend)
+        XCTAssertTrue(MessagingV3FlagStore.notificationMarkRead)
+        UserDefaults.standard.removeObject(forKey: MessagingV3FlagStore.key)
+        XCTAssertFalse(MessagingV3FlagStore.idempotentSend)
+    }
+
+    private func decode(_ raw: String) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: Data(raw.utf8))
     }
 }

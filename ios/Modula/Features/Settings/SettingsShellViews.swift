@@ -522,7 +522,7 @@ struct ChatsSettingsHost: View {
                             app.navigation.open(.settings(.chats(.previews)))
                         }
                         SettingsDivider()
-                        SettingsNavigationRow(title: "Chat privacy", subtitle: "Receipts on this device", symbol: "lock.rectangle.on.rectangle") {
+                        SettingsNavigationRow(title: "Chat privacy", subtitle: app.messaging.capabilities.privacyControls ? "Receipts, typing, last seen, lock screen" : "Receipts on this device", symbol: "lock.rectangle.on.rectangle") {
                             app.navigation.open(.settings(.chats(.privacy)))
                         }
                     }
@@ -565,15 +565,53 @@ struct ChatsSettingsHost: View {
             .navigationBarTitleDisplayMode(.inline)
         case .privacy:
             Form {
+                if app.messaging.capabilities.privacyControls {
+                    Section {
+                        Toggle("Read receipts", isOn: Binding(
+                            get: { app.messaging.privacy.readReceipts },
+                            set: { value in Task { await app.messaging.setReadReceipts(value) } }
+                        ))
+                        Toggle("Typing indicators", isOn: Binding(
+                            get: { app.messaging.privacy.typingIndicators },
+                            set: { value in Task { await app.messaging.setTypingIndicators(value) } }
+                        ))
+                        Picker("Last seen & online", selection: Binding(
+                            get: { app.messaging.privacy.presenceVisibility },
+                            set: { value in Task { await app.messaging.setPresenceVisibility(value) } }
+                        )) {
+                            ForEach(PresenceVisibility.allCases) { item in
+                                Text(item.title).tag(item)
+                            }
+                        }
+                    } footer: {
+                        Text("These apply across your chats. Turning receipts or last seen off is reciprocal — you won't see other people's either.")
+                    }
+                    Section {
+                        Picker("Lock screen preview", selection: Binding(
+                            get: { app.messaging.privacy.notificationPreview },
+                            set: { value in Task { await app.messaging.setNotificationPreview(value) } }
+                        )) {
+                            ForEach(NotificationPreviewSetting.allCases) { item in
+                                Text(item.title).tag(item)
+                            }
+                        }
+                    } footer: {
+                        Text("Controls what a message notification can show on the lock screen. Your phone still needs notifications allowed.")
+                    }
+                }
                 Section {
                     Toggle("Show read receipts (display)", isOn: $readReceiptsDisplay)
                 } footer: {
-                    Text("Only changes what you see. It doesn’t change what others see.")
+                    Text("Only changes what you see on this iPhone. It doesn’t change what others see.")
                 }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Chat privacy")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await app.messaging.probeCapabilities()
+                await app.messaging.loadPrivacyIfNeeded()
+            }
         }
     }
 }
