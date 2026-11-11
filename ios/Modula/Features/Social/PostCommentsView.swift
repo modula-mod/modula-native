@@ -424,7 +424,6 @@ struct PostCommentsView: View {
     @State private var locating = false
     @State private var revealedSpoilers: Set<SocialCommentID> = []
     @State private var translating: String?
-    @State private var swipeOffsets: [SocialCommentID: CGFloat] = [:]
     @State private var dropTargeted = false
     @State private var menuComment: SocialComment?
     @State private var assistantDraft: MascotAssistantDraft?
@@ -432,7 +431,6 @@ struct PostCommentsView: View {
     @State private var assistantBrain = MascotBrain()
     @AppStorage(ModulaMascotSettings.key(for: .comments)) private var commentsMascotShown = ModulaMascotSettings.defaultShown(.comments)
     @State private var sort: CommentSort = .best
-    @State private var heartBursts: [SocialCommentID: Int] = [:]
     @State private var searchText = ""
     @State private var showsSearch = false
     @State private var scrollTarget: SocialCommentID?
@@ -1105,26 +1103,20 @@ struct PostCommentsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .id(comment.id)
-        // Swipe left to reply (Telegram-style) with a haptic at the threshold.
-        .background(alignment: .trailing) {
-            Image(systemName: "arrowshape.turn.up.left.fill")
-                .font(.title3)
-                .foregroundStyle(app.appearance.liveAccent)
-                .opacity(Double(min(abs(swipeOffsets[comment.id] ?? 0) / 64, 1)))
-                .scaleEffect(min(abs(swipeOffsets[comment.id] ?? 0) / 64, 1))
-                .padding(.trailing, 4)
-        }
-        .offset(x: swipeOffsets[comment.id] ?? 0)
-        .simultaneousGesture(swipeToReply(comment, store: store))
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            Task { await store.react(comment, type: "like") }
-            heartBursts[comment.id, default: 0] += 1
-            HapticEngine.shared.play(.lightImpact)
-        })
-        .overlay {
-            DoubleTapHeartBurst(trigger: heartBursts[comment.id, default: 0])
-                .frame(width: 72, height: 72)
-        }
+        // Swipe left to reply (Telegram-style) + double-tap like. Drag/burst state lives in the
+        // row modifier so a swipe re-renders one row, not the whole comments sheet.
+        .modifier(CommentRowSwipeModifier(
+            accent: app.appearance.liveAccent,
+            reduceMotion: reduceMotion,
+            onReply: {
+                store.quoting = nil
+                store.replyingTo = comment
+                composerFocused = true
+            },
+            onDoubleTap: {
+                Task { await store.react(comment, type: "like") }
+            }
+        ))
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Reply") { store.replyingTo = comment; composerFocused = true }
         .accessibilityAction(named: "Like") {
@@ -1144,28 +1136,6 @@ struct PostCommentsView: View {
     private func isOP(_ comment: SocialComment) -> Bool {
         guard let postAuthorID, let authorID = comment.author?.id else { return false }
         return authorID == postAuthorID
-    }
-
-    private func swipeToReply(_ comment: SocialComment, store: PostCommentsStore) -> some Gesture {
-        DragGesture(minimumDistance: 14)
-            .onChanged { value in
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.2, value.translation.width < 0 else { return }
-                let offset = max(value.translation.width * 0.6, -90)
-                let previous = swipeOffsets[comment.id] ?? 0
-                if previous > -56 && offset <= -56 { HapticEngine.shared.play(.dragThreshold) }
-                swipeOffsets[comment.id] = offset
-            }
-            .onEnded { _ in
-                let triggered = (swipeOffsets[comment.id] ?? 0) <= -56
-                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.75)) {
-                    swipeOffsets[comment.id] = nil
-                }
-                if triggered {
-                    store.quoting = nil
-                    store.replyingTo = comment
-                    composerFocused = true
-                }
-            }
     }
 
     @ViewBuilder
@@ -1751,5 +1721,54 @@ struct CommentQuickEmojiRow: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("post.comment.quick")
+    }
+}
+
+
+/// Per-row swipe-to-reply and double-tap heart. Kept out of `PostCommentsView` state so
+/// a drag only invalidates this row.
+private struct CommentRowSwipeModifier: ViewModifier {
+    let accent: Color
+    let reduceMotion: Bool
+    let onReply: () -> Void
+    let onDoubleTap: () -> Void
+    @State private var offset: CGFloat = 0
+    @State private var burst = 0
+
+    func body(content: Content) -> some View {
+        content
+            .background(alignment: .trailing) {
+                let t = min(abs(offset) / 64, 1)
+                Image(systemName: "arrowshape.turn.up.left.fill")
+                    .font(.title3)
+                    .foregroundStyle(accent)
+                    .opacity(Double(t))
+                    .scaleEffect(t)
+                    .padding(.trailing, 4)
+            }
+            .offset(x: offset)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 14)
+                    .onChanged { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) * 1.2, value.translation.width < 0 else { return }
+                        let next = max(value.translation.width * 0.6, -90)
+                        if offset > -56 && next <= -56 { HapticEngine.shared.play(.dragThreshold) }
+                        offset = next
+                    }
+                    .onEnded { _ in
+                        let triggered = offset <= -56
+                        withAnimation(.easeOut(duration: reduceMotion ? 0.12 : 0.2)) { offset = 0 }
+                        if triggered { onReply() }
+                    }
+            )
+            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                onDoubleTap()
+                burst += 1
+                HapticEngine.shared.play(.lightImpact)
+            })
+            .overlay {
+                DoubleTapHeartBurst(trigger: burst)
+                    .frame(width: 72, height: 72)
+            }
     }
 }

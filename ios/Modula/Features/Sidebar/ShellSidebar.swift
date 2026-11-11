@@ -831,7 +831,31 @@ struct ShellSidebarView: View {
         .buttonStyle(.plain)
         .modulaAccentCTA()
         .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
+        // Long-press: quick-create straight into a specific composer.
+        .contextMenu {
+            Button("Text post", systemImage: "text.alignleft") { quickCreate(.post) }
+            Button("Photo", systemImage: "photo") { quickCreate(.photo) }
+            Button("Video", systemImage: "video") { quickCreate(.video) }
+            Button("Poll", systemImage: "chart.bar.xaxis") { quickCreate(.poll) }
+            Button("Link", systemImage: "link") { quickCreate(.link) }
+            Divider()
+            Button("All create options", systemImage: "plus.square.on.square") {
+                onClose()
+                app.navigation.presented = .createPicker
+            }
+        }
+        .accessibilityHint("Long-press for photo, video, poll or link")
         .accessibilityIdentifier("shell.sidebar.create")
+    }
+
+    private func quickCreate(_ route: ComposeRoute) {
+        onClose()
+        if app.auth.isSignedIn {
+            app.navigation.presented = .composer(route)
+        } else {
+            app.navigation.requestAuthentication(returningTo: .compose(route))
+        }
+        HapticEngine.shared.play(.contextOpen)
     }
 }
 
