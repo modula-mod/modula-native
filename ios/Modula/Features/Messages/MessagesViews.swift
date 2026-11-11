@@ -226,7 +226,10 @@ struct ConversationListView: View {
             .task {
                 #if DEBUG
                 if MessagingDebugFixture.isEnabled {
-                    if app.messaging.conversations.isEmpty { app.messaging.installDebugInbox(MessagingDebugFixture.inbox()) }
+                    if app.messaging.conversations.isEmpty {
+                        app.messaging.installDebugInbox(MessagingDebugFixture.inbox())
+                        for id in ["fx-crew", "fx-sophia"] where !app.messaging.isPinned(id) { app.messaging.togglePin(id) }
+                    }
                     return
                 }
                 #endif
@@ -496,7 +499,31 @@ struct ConversationListView: View {
                 if !app.messaging.requests.isEmpty, filter == .all, !searching {
                     requestsEntry
                 }
-                ForEach(items) { conversation in
+                let pinnedCount = (filter == .all && !searching && !selecting)
+                    ? items.prefix(while: { pinned.contains($0.id) }).count : 0
+                if pinnedCount > 0 {
+                    InboxSectionHeader(title: "Pinned", symbol: "pin.fill", count: pinnedCount)
+                    ForEach(items.prefix(pinnedCount)) { inboxRow($0, lastID: items.last?.id) }
+                    if items.count > pinnedCount {
+                        InboxSectionHeader(title: "Chats", symbol: "bubble.left.and.bubble.right.fill", count: items.count - pinnedCount)
+                    }
+                    ForEach(items.dropFirst(pinnedCount)) { inboxRow($0, lastID: items.last?.id) }
+                } else {
+                    ForEach(items) { inboxRow($0, lastID: items.last?.id) }
+                }
+                if filter == .all, !searching, !selecting {
+                    inboxLibraryRows
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .modulaSoftScrollEdge()
+            .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
+        }
+    }
+
+    @ViewBuilder
+    private func inboxRow(_ conversation: Conversation, lastID: ConversationID?) -> some View {
                     Button {
                         if selecting {
                             if selectedIDs.contains(conversation.id) { selectedIDs.remove(conversation.id) }
@@ -561,20 +588,10 @@ struct ConversationListView: View {
                     }
                     .contextMenu { contextMenu(conversation) }
                     .onAppear {
-                        if conversation.id == items.last?.id {
+                        if conversation.id == lastID {
                             Task { await app.messaging.loadMoreConversations() }
                         }
                     }
-                }
-                if filter == .all, !searching, !selecting {
-                    inboxLibraryRows
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .modulaSoftScrollEdge()
-            .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
-        }
     }
 
     @ViewBuilder
@@ -1367,6 +1384,14 @@ struct ConversationView: View {
                 }
             }
         .task {
+            #if DEBUG
+            if MessagingDebugFixture.isEnabled {
+                if app.messaging.messages(for: conversationID).isEmpty {
+                    app.messaging.installDebugThread(conversationID, messages: MessagingDebugFixture.thread(conversationID))
+                }
+                return
+            }
+            #endif
             await app.messaging.loadThreadIfNeeded(conversationID)
             await app.messaging.probeCapabilities()
             if app.messaging.capabilities.groups, conversation?.kind == .group {
@@ -1568,8 +1593,8 @@ struct ConversationView: View {
                 // Floating day chip (Liquid Glass) while scrolling history: fires only when
                 // the visible set changes, and only writes state when the day label does.
                 .onScrollTargetVisibilityChange(idType: MessageID.self, threshold: 0.3) { ids in
-                    let dates = ids.compactMap { id in items.first(where: { $0.id == id })?.sentAt }
-                    guard let earliest = dates.min() else { return }
+                    let visible = Set(ids)
+                    guard !visible.isEmpty, let earliest = items.first(where: { visible.contains($0.id) })?.sentAt else { return }
                     let label = MessageDayLabel.string(for: earliest)
                     if label != floatingDay { floatingDay = label }
                 }
@@ -1609,10 +1634,11 @@ struct ConversationView: View {
                     }
                     if atBottom, let last = items.last?.id { app.messaging.markReadLocally(last, in: conversationID) }
                 }
-                .onScrollGeometryChange(for: CGFloat.self) { geo in
-                    geo.contentOffset.y
-                } action: { _, y in
-                    prefetchOlderIfNeeded(y: y, items: items, proxy: proxy)
+                // Bool output: the action runs only when crossing the 280 pt line, not every frame.
+                .onScrollGeometryChange(for: Bool.self) { geo in
+                    geo.contentOffset.y < 280
+                } action: { _, nearTop in
+                    if nearTop { prefetchOlderIfNeeded(y: 0, items: items, proxy: proxy) }
                 }
                 // Roadmap #03: open at the first message that arrived since this device last
                 // reached the end of the chat, marked "New messages". Otherwise the newest.
@@ -4591,5 +4617,30 @@ enum MessageDayLabel {
             return date.formatted(.dateTime.day().month(.abbreviated))
         }
         return date.formatted(.dateTime.day().month(.abbreviated).year())
+    }
+}
+
+
+/// Liquid Glass section header for the inbox (Pinned / Chats). Static, so it costs nothing while scrolling.
+private struct InboxSectionHeader: View {
+    let title: String
+    let symbol: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.caption2.weight(.bold))
+            Text(title).font(.caption.weight(.semibold))
+            Text(count.formatted()).font(.caption2.weight(.bold)).monospacedDigit().foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .modulaGlass(in: Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .listRowInsets(EdgeInsets(top: 10, leading: ModulaLayout.contentInset, bottom: 2, trailing: ModulaLayout.contentInset))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }

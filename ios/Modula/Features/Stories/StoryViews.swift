@@ -1451,7 +1451,10 @@ struct StoryProgressBar: View {
                 .frame(height: 2.5)
             }
         }
-        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+        // Liquid Glass track instead of a shadow: the shadow re-rendered offscreen on every progress tick.
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .modulaGlass(in: Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Story \(index + 1) of \(count)")
         .accessibilityIdentifier("story.progress")

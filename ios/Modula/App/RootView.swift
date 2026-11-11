@@ -289,6 +289,8 @@ struct RootView: View {
             switch target {
             case "sidebar": navigation.presentSidebar()
             case "settings": navigation.open(.settings(.root))
+            case "inbox": navigation.open(.messages(.inbox))
+            case "chat": navigation.open(.messages(.inbox)); try? await Task.sleep(for: .milliseconds(500)); navigation.push(.messages(.conversation("fx-sophia")))
             default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
             }
         }

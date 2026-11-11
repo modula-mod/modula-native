@@ -35,6 +35,7 @@ struct ReelFeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var showsComments = false
+    @State private var commentsDetent: PresentationDetent = .medium
     @State private var expandedVideo: ModulaAttachment?
     /// Bottom edge of the top bar in screen space, so page controls
     /// (full-screen button) are laid out below it instead of under it.
@@ -159,7 +160,7 @@ struct ReelFeedView: View {
         .sheet(isPresented: $showsComments) {
             if let reel = current, reel.postID != nil {
                 PostCommentsSheet(postID: reel.postID ?? reel.id)
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.medium, .large], selection: $commentsDetent)
                     .presentationDragIndicator(.visible)
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
@@ -184,12 +185,13 @@ struct ReelFeedView: View {
                 ForEach(app.reels.items) { reel in
                     ReelPageView(
                         reel: reel,
-                        isActive: app.reels.activeID == reel.id && !showsComments && expandedVideo == nil && scenePhase == .active,
+                        isActive: app.reels.activeID == reel.id && expandedVideo == nil && scenePhase == .active,
                         coordinator: videoCoordinator,
                         reduceMotion: reduceMotion,
                         controlsTopInset: topBarBottom,
                         onComment: {
                             guard reel.postID != nil else { return }
+                            commentsDetent = .medium
                             showsComments = true
                         },
                         onExpand: { expandedVideo = reel.attachment },

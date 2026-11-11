@@ -238,6 +238,8 @@ struct SettingsView: View {
                         }
                     }
 
+                    if query.isEmpty { SettingsRecentsCard() }
+
                     settingsSection("Privacy & Security") {
                         TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
                         TelegramDivider()

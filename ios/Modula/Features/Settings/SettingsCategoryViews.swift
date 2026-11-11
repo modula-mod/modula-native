@@ -28,6 +28,7 @@ struct SettingsDestinationHost: View {
             .modulaSoftScrollEdge()
             // Forms/Lists: keep the last row (and footers) clear of the tab bar and floating buttons.
             .contentMargins(.bottom, SettingsInsets.bottom, for: .scrollContent)
+            .onAppear { SettingsRecents.record(route) }
     }
 
     @ViewBuilder
@@ -1493,5 +1494,66 @@ private struct AboutPerformanceSection: View {
         if d.object(forKey: key) != nil {
             LabeledContent(title, value: "\(d.integer(forKey: key)) ms")
         }
+    }
+}
+
+
+/// The last few settings pages opened, shown at the top of Settings. Local only.
+enum SettingsRecents {
+    static let key = "settings.recentRoutes"
+
+    static func record(_ route: SettingsRoute) {
+        guard route != .root, SettingsRegistry.destination(for: route) != nil else { return }
+        let path = RouteSerializer.serialize(.settings(route))
+        var list = UserDefaults.standard.stringArray(forKey: key) ?? []
+        list.removeAll { $0 == path }
+        list.insert(path, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(3)), forKey: key)
+    }
+
+    static func load() -> [SettingsDestination] {
+        (UserDefaults.standard.stringArray(forKey: key) ?? []).compactMap { path in
+            guard case .settings(let route)? = RouteRegistry.parse(path) else { return nil }
+            return SettingsRegistry.destination(for: route)
+        }
+    }
+
+    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+}
+
+struct SettingsRecentsCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var recents: [SettingsDestination] = []
+
+    var body: some View {
+        Group {
+            if !recents.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Recently opened")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Clear") {
+                            SettingsRecents.clear()
+                            withAnimation(.snappy) { recents = [] }
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityIdentifier("settings.recents.clear")
+                    }
+                    .padding(.horizontal, 4)
+                    TelegramSettingsCard {
+                        ForEach(Array(recents.enumerated()), id: \.element.id) { index, item in
+                            if index > 0 { TelegramDivider() }
+                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent) {
+                                app.navigation.open(.settings(item.route))
+                            }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("settings.recents")
+            }
+        }
+        .onAppear { recents = SettingsRecents.load() }
     }
 }
