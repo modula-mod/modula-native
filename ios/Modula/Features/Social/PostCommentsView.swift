@@ -44,22 +44,42 @@ final class PostCommentsStore {
         self.draft = UserDefaults.standard.string(forKey: "comments.draft.\(postID)") ?? ""
     }
 
+    /// Last first page per post (memory only) so reopening a sheet paints instantly,
+    /// then refreshes in place.
+    private static var firstPageCache: [SocialPostID: (items: [SocialComment], author: String?)] = [:]
+
     func load() async {
-        isLoading = true
+        if items.isEmpty, let cached = Self.firstPageCache[postID] {
+            items = cached.items
+            if postAuthorHandle == nil { postAuthorHandle = cached.author }
+            isLoading = false
+        } else {
+            isLoading = items.isEmpty
+        }
         loadError = nil
         do {
+            // Comments and the post (for the author/pin rule) in parallel, not one after the other.
+            let repository = self.repository
+            let postID = self.postID
+            let needsAuthor = postAuthorHandle == nil
+            async let authorHandle: String? = needsAuthor ? (try? await repository.post(id: postID))?.author?.handle : nil
             let page = try await repository.comments(postID: postID, cursor: nil)
             items = page.items
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             isLoading = false
-            if postAuthorHandle == nil, let post = try? await repository.post(id: postID) {
-                postAuthorHandle = post.author?.handle
+            if needsAuthor, let handle = await authorHandle { postAuthorHandle = handle }
+            Self.firstPageCache[postID] = (page.items, postAuthorHandle)
+            if Self.firstPageCache.count > 24, let drop = Self.firstPageCache.keys.first(where: { $0 != postID }) {
+                Self.firstPageCache[drop] = nil
             }
-            // Settings → Feed → "Expand reply threads": open the first few threads.
+            // Settings → Feed → "Expand reply threads": open the first few threads together.
             if ModulaPreferences.feedShowReplyThreads {
-                for comment in Self.threadsToExpand(page.items) {
-                    await loadReplies(for: comment)
+                let threads = Self.threadsToExpand(page.items)
+                await withTaskGroup(of: Void.self) { group in
+                    for comment in threads {
+                        group.addTask { await self.loadReplies(for: comment) }
+                    }
                 }
             }
         } catch let api as APIError {
