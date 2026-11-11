@@ -1577,7 +1577,7 @@ extension MessagingStore {
             }
         case .typing(let conversation, let actor, let expiresAt):
             if let expiry = expiresAt, expiry < Date() { return }
-            let person = conversation(id: conversation)?.participants.first(where: { $0.id == actor })
+            let person = self.conversation(id: conversation)?.participants.first(where: { $0.id == actor })
                 ?? groups[conversation]?.members.first(where: { $0.participant.id == actor })?.participant
             if let person {
                 var people = typingPeople[conversation] ?? []
