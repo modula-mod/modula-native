@@ -442,7 +442,7 @@
 		N50100000000000000000005 /* MessagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000005 /* MessagingStore.swift */; };
 		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
 		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
-		N5010000000000000000000E /* MessagingInboxTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* MessagingInboxTools.swift */; };
+		B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */; };
 		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
 		N50100000000000000000009 /* InMailRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000009 /* InMailRepository.swift */; };
 		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
@@ -963,7 +963,7 @@
 		N40100000000000000000005 /* MessagingStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingStore.swift; path = Features/Messages/MessagingStore.swift; sourceTree = "<group>"; };
 		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
 		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
-		N4010000000000000000000E /* MessagingInboxTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingInboxTools.swift; path = Features/Messages/MessagingInboxTools.swift; sourceTree = "<group>"; };
+		0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingInboxTools.swift; path = Features/Messages/MessagingInboxTools.swift; sourceTree = "<group>"; };
 		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000009 /* InMailRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailRepository.swift; path = Features/InMail/InMailRepository.swift; sourceTree = "<group>"; };
 		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
@@ -1242,7 +1242,7 @@
 				N40100000000000000000005 /* MessagingStore.swift */,
 				N40100000000000000000006 /* MessageContextActions.swift */,
 				N40100000000000000000007 /* MessagesViews.swift */,
-				N4010000000000000000000E /* MessagingInboxTools.swift */,
+				0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */,
 				N40100000000000000000008 /* InMailModels.swift */,
 				N40100000000000000000009 /* InMailRepository.swift */,
 				N4010000000000000000000A /* InMailStore.swift */,
@@ -2057,7 +2057,7 @@
 				N50100000000000000000005 /* MessagingStore.swift in Sources */,
 				N50100000000000000000006 /* MessageContextActions.swift in Sources */,
 				N50100000000000000000007 /* MessagesViews.swift in Sources */,
-				N5010000000000000000000E /* MessagingInboxTools.swift in Sources */,
+				B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */,
 				N50100000000000000000008 /* InMailModels.swift in Sources */,
 				N50100000000000000000009 /* InMailRepository.swift in Sources */,
 				N5010000000000000000000A /* InMailStore.swift in Sources */,

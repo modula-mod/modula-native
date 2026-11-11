@@ -972,9 +972,9 @@ enum MessagingDraftStore {
         (defaults.dictionary(forKey: key) as? [String: String]) ?? [:]
     }
 
-    private static var pending: Task<Void, Never>?
+    @MainActor private static var pending: Task<Void, Never>?
 
-    static func scheduleSave(_ drafts: [ConversationID: String], _ defaults: UserDefaults = .standard) {
+    @MainActor static func scheduleSave(_ drafts: [ConversationID: String], _ defaults: UserDefaults = .standard) {
         pending?.cancel()
         let snapshot = drafts
         pending = Task { @MainActor in

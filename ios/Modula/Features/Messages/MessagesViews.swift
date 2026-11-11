@@ -739,7 +739,9 @@ struct ConversationListView: View {
             hideNotice = "Turn on a device passcode or Face ID in iOS Settings to open hidden chats."
             return
         }
-        if app.messaging.hiddenUnlockedThisSession || await MessagePrivacyAuth.confirm(reason: "Open hidden chats") {
+        var unlocked = app.messaging.hiddenUnlockedThisSession
+        if !unlocked { unlocked = await MessagePrivacyAuth.confirm(reason: "Open hidden chats") }
+        if unlocked {
             app.messaging.unlockHiddenFolder()
             inboxDestination = .hidden
         }
@@ -2513,9 +2515,9 @@ struct MessageComposer: View {
                 reply: reply,
                 onCancelReply: onCancelReply,
                 mediaPanelActive: $showStickers,
+                showsFormatting: showsFormatting,
                 collapsesWhenUnfocused: false,
                 hidesMascotWhileComposing: true,
-                showsFormatting: showsFormatting,
                 onSend: onSend
             )
             if showStickers {
