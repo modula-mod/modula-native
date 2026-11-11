@@ -227,6 +227,18 @@ actor GreenfieldClient {
 
     func currentAccountID() -> String? { accountID }
 
+    /// Background check after `cachedRestore()`. Uses the live token state (no keychain
+    /// re-read), so it can't race a token refresh that is already in flight.
+    func revalidateAccount() async throws -> GreenfieldAccount {
+        let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
+        guard account.status == "active" else { throw APIError.unauthenticated }
+        accountID = account.accountId
+        if let current = tokens {
+            try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: current.sessionId, account: account)))
+        }
+        return account
+    }
+
     func restore() async throws -> GreenfieldAccount? {
         guard let data = try keychain.load() else { return nil }
         let stored = try JSONDecoder().decode(SessionTokens.self, from: data)

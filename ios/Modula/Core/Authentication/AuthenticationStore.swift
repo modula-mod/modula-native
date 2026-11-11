@@ -56,13 +56,9 @@ final class AuthenticationStore {
         let client = self.client
         Task { [weak self] in
             do {
-                let fresh = try await client.restore()
+                let fresh = try await client.revalidateAccount()
                 guard let self else { return }
-                if let fresh {
-                    if fresh != self.account { self.account = fresh }
-                } else {
-                    await self.onRevalidationFailed?()
-                }
+                if fresh != self.account { self.account = fresh }
             } catch {
                 guard let self, !GreenfieldClient.isConnectivityFailure(error) else { return }
                 await self.onRevalidationFailed?()
