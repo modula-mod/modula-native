@@ -1390,6 +1390,19 @@ struct ConversationView: View {
                 if app.messaging.messages(for: conversationID).isEmpty {
                     app.messaging.installDebugThread(conversationID, messages: MessagingDebugFixture.thread(conversationID))
                 }
+                // `--debug-autoscroll-chat`: bounce between the oldest and newest message for the
+                // 12 s hitch window (MODULA_PERF hitch), so chat scrolling can be compared in the simulator.
+                if ProcessInfo.processInfo.arguments.contains("--debug-autoscroll-chat") {
+                    let ids = app.messaging.messages(for: conversationID).map(\.id)
+                    guard let first = ids.first, let last = ids.last else { return }
+                    try? await Task.sleep(for: .milliseconds(600))
+                    for _ in 0..<6 {
+                        jumpTarget = first
+                        try? await Task.sleep(for: .milliseconds(800))
+                        jumpTarget = last
+                        try? await Task.sleep(for: .milliseconds(800))
+                    }
+                }
                 return
             }
             #endif

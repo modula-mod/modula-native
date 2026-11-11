@@ -785,6 +785,8 @@ struct StoryViewer: View {
     @State private var confirmReport = false
     @State private var confirmDelete = false
     @State private var showsInsights = false
+    /// Downward drag while dismissing: the story shrinks into a rounded card that follows the finger.
+    @State private var dismissDrag: CGFloat = 0
 
     private let teal = Color(hex: "#369CAA")
 
@@ -834,6 +836,9 @@ struct StoryViewer: View {
             }
             chrome(item)
         }
+        .scaleEffect(1 - min(dismissDrag, 500) / 500 * 0.2)
+        .offset(y: dismissDrag * 0.5)
+        .clipShape(RoundedRectangle(cornerRadius: min(dismissDrag / 3, 40), style: .continuous))
         .statusBarHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
@@ -878,8 +883,20 @@ struct StoryViewer: View {
             Button("Cancel", role: .cancel) {}
         }
         .simultaneousGesture(
-            DragGesture(minimumDistance: 40).onEnded { value in
+            DragGesture(minimumDistance: 40)
+                .onChanged { value in
+                    guard !replyFocused, value.translation.height > 0,
+                          value.translation.height > abs(value.translation.width) else { return }
+                    if dismissDrag == 0 { engine.pause() }
+                    dismissDrag = value.translation.height
+                }
+                .onEnded { value in
+                if value.translation.height <= 80, dismissDrag > 0 {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { dismissDrag = 0 }
+                    engine.resume()
+                }
                 if value.translation.height > 80 {
+                    HapticEngine.shared.play(.navigation)
                     app.navigation.close()
                 } else if value.translation.height < -60, abs(value.translation.width) < 80 {
                     // Swipe up → reply (and quick reactions).

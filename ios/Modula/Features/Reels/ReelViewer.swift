@@ -170,6 +170,14 @@ struct ReelFeedView: View {
             AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
         .onChange(of: app.reels.activeID) { _, id in prefetchNeighbours(of: id) }
+        #if DEBUG
+        .task {
+            // `--debug-open-comments`: open the comments sheet on the first reel for screenshots.
+            guard ProcessInfo.processInfo.arguments.contains("--debug-open-comments") else { return }
+            try? await Task.sleep(for: .milliseconds(1500))
+            if current?.postID != nil { commentsDetent = .medium; showsComments = true }
+        }
+        #endif
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
     }

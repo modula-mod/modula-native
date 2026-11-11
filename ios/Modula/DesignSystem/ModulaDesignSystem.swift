@@ -1073,6 +1073,16 @@ struct ModulaEmptyState: View {
         } description: {
             Text(message)
         }
+        // Liquid Glass card that hugs the content, centred in whatever space the caller gives.
+        .padding(.vertical, 4)
+        .background {
+            let card = RoundedRectangle(cornerRadius: 30, style: .continuous)
+            Color.clear.modulaGlass(in: card, interactive: false, specular: true)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: 440)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .modulaPageEntrance()
     }
 }
