@@ -222,6 +222,8 @@ struct ModulaComposer: View {
     /// Formatting tools are opt-in: the "Aa" button in the field toggles them.
     @State private var formatBarRequested = false
     @State private var formatBarHide: Task<Void, Never>?
+    /// Non-observed scratch for the debounced mention/hashtag lookups (no re-render per keystroke).
+    @State private var queries = ComposerQueryBox()
     @State private var attachAppeared = false
     @State private var attachPage: Int? = 0
     /// Keeps the docked composer open for the moment between a pill tap and the keyboard appearing.
@@ -240,7 +242,25 @@ struct ModulaComposer: View {
     }
 
     private var motion: Animation {
-        reduceMotion ? .easeOut(duration: 0.12) : .spring(duration: 0.28, bounce: 0)
+        .easeOut(duration: reduceMotion ? 0.12 : 0.2)
+    }
+
+    /// Clearing is immediate (only if something was showing); lookups wait for a 250ms pause.
+    private func scheduleQueries(_ value: String) {
+        queries.task?.cancel()
+        let mention = ModulaComposerState.mentionQuery(in: value)
+        let hashtag = ModulaComposerState.hashtagQuery(in: value)
+        if mention == nil, queries.mention != nil { onMentionQuery?(nil) }
+        if hashtag == nil, queries.hashtag != nil { onHashtagQuery?(nil) }
+        queries.mention = mention
+        queries.hashtag = hashtag
+        guard mention != nil || hashtag != nil else { return }
+        queries.task = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            if let mention { onMentionQuery?(mention) }
+            if let hashtag { onHashtagQuery?(hashtag) }
+        }
     }
 
     /// Quick ease, no bounce, for the card growing/shrinking around the formatting bar.
@@ -269,7 +289,7 @@ struct ModulaComposer: View {
 
     /// Bouncier than the in-bar tweaks. Reduce Motion crossfades instead.
     private var collapseAnimation: Animation {
-        reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.42, dampingFraction: 0.58)
+        .easeOut(duration: reduceMotion ? 0.12 : 0.2)
     }
 
     /// Keyboard dismissed, and nothing else (attach menu, media panel, recording) is using the dock.
@@ -317,8 +337,7 @@ struct ModulaComposer: View {
         }
         }
         .onChange(of: text) { _, value in
-            onMentionQuery?(ModulaComposerState.mentionQuery(in: value))
-            onHashtagQuery?(ModulaComposerState.hashtagQuery(in: value))
+            scheduleQueries(value)
             // A vertical TextField inserts "\n" for Return; treat a trailing newline as Send.
             guard returnSends, value.hasSuffix("\n") else { return }
             text = String(value.dropLast())
@@ -500,11 +519,14 @@ struct ModulaComposer: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemBackground))
         }
+        // Nothing (e.g. the first formatting tool) can render past the card's rounded edge.
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
                 .allowsHitTesting(false)
         }
+        .animation(barMotion, value: formatBarShown)
         .accessibilityIdentifier("composer.field")
     }
 
@@ -545,7 +567,11 @@ struct ModulaComposer: View {
             }
             if showsFormatting && !recorder.isRecording {
                 Button {
-                    formatBarRequested.toggle()
+                    formatBarHide?.cancel()
+                    withAnimation(barMotion) {
+                        formatBarRequested.toggle()
+                        formatBarShown = formatBarRequested
+                    }
                     if !focused { focused = true }
                     HapticEngine.shared.play(.selection)
                 } label: {
@@ -784,7 +810,8 @@ struct ModulaComposer: View {
                     in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false, specular: true)
         .modulaGlassID("composer.attach", in: glass)
-        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+        // Crossfade (cheap) instead of a slide racing the keyboard going down.
+        .transition(.opacity)
         .onAppear {
             attachPage = 0
             attachAppeared = false
@@ -949,6 +976,12 @@ struct ModulaComposer: View {
 
 /// Matched-geometry morph between the docked composer and the floating pill.
 /// Reduce Motion leaves this off so the swap is a crossfade.
+private final class ComposerQueryBox {
+    var mention: String?
+    var hashtag: String?
+    var task: Task<Void, Never>?
+}
+
 private struct ComposerDockMorph: ViewModifier {
     var namespace: Namespace.ID
     var enabled: Bool

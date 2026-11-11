@@ -269,7 +269,8 @@ final class PostCommentsStore {
 
     func updateHashtagQuery(_ query: String?) {
         hashtagTask?.cancel()
-        guard let query, !query.isEmpty else { hashtagSuggestions = []; return }
+        // Only write when it changes: every @Observable write re-renders the whole comments sheet.
+        guard let query, !query.isEmpty else { if !hashtagSuggestions.isEmpty { hashtagSuggestions = [] }; return }
         hashtagTask = Task { [client] in
             try? await Task.sleep(for: .milliseconds(200))
             guard !Task.isCancelled else { return }
@@ -1309,15 +1310,10 @@ struct PostCommentsView: View {
                     })
                 }
                 // Instagram-style quick reactions: one tap drops an emoji into an empty comment.
-                if composerFocused, (store?.draft ?? "").isEmpty, !mediaStage.isExpanded, store != nil {
-                    CommentQuickEmojiRow { emoji in
-                        store?.draft = emoji
-                        HapticEngine.shared.play(.selection)
-                    }
-                    .padding(.leading, 12)
-                    // Leave the trailing corner for Moliboo, who perches on the composer just below.
-                    .padding(.trailing, commentsMascotShown ? 70 : 12)
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                // Leaf view reads the draft, so typing never re-evaluates this whole sheet
+                // (comments list, post header) just to know whether the draft is empty.
+                if composerFocused, !mediaStage.isExpanded, let store {
+                    CommentQuickEmojiGate(store: store, trailing: commentsMascotShown ? 70 : 12)
                 }
                 // Composer + perched mascot always sit fully above the emoji/GIF panel
                 // (keyboard-replacement). Opaque backing stops the comment list showing through.
@@ -1567,7 +1563,8 @@ struct PostCommentsSheet: View {
                 },
                 onExpand: {
                     if selectedDetent != .large {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { selectedDetent = .large }
+                        // Plain ease alongside the keyboard (no spring fighting the system curve).
+                        withAnimation(.easeOut(duration: 0.25)) { selectedDetent = .large }
                     }
                 },
                 commentCount: commentCount,
@@ -1709,6 +1706,30 @@ struct CommentCameraPicker: UIViewControllerRepresentable {
     }
 }
 
+
+/// Shows the quick-emoji row only while the draft is empty. Owns the draft read so the parent sheet
+/// is not invalidated on every keystroke.
+private struct CommentQuickEmojiGate: View {
+    let store: PostCommentsStore
+    var trailing: CGFloat
+
+    var body: some View {
+        let empty = store.draft.isEmpty
+        Group {
+            if empty {
+                CommentQuickEmojiRow { emoji in
+                    store.draft = emoji
+                    HapticEngine.shared.play(.selection)
+                }
+                .padding(.leading, 12)
+                // Leave the trailing corner for Moliboo, who perches on the composer just below.
+                .padding(.trailing, trailing)
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: empty)
+    }
+}
 
 /// Quick emoji above the comment composer (shown while focused with an empty draft).
 struct CommentQuickEmojiRow: View {

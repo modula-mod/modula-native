@@ -402,6 +402,11 @@ extension View {
     }
 }
 
+final class MascotTypingBox {
+    var last = Date.distantPast
+    var settle: Task<Void, Never>?
+}
+
 struct ModulaComposerMascotModifier: ViewModifier {
     let placement: ModulaMascotPlacement
     var busy: Bool
@@ -503,7 +508,8 @@ struct ModulaComposerMascot: View {
     @State private var holdTask: Task<Void, Never>?
     @State private var lastTap: Date = .distantPast
     @State private var moved = false
-    @State private var typingSettle: Task<Void, Never>?
+    /// Non-observed typing scratch: throttles reactions without a state write per keystroke.
+    @State private var typing = MascotTypingBox()
     /// Global top of the mascot: the picker grows upward from here, so its grid is capped to the room above.
     @State private var mascotTop: CGFloat = 800
     private let context = MascotContext.shared
@@ -626,13 +632,20 @@ struct ModulaComposerMascot: View {
         } else if !old.isEmpty && new.isEmpty && !busy {
             sent()
         } else if !new.isEmpty {
-            if brain.poke() { MascotSound.shared.play(.wake) }
-            brain.keystroke()
-            let line = new.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? new
-            brain.caret = CGFloat(min(Double(line.count % 36) / 36, 1))
-            if new.count > old.count, let last = new.last { emojiReaction(last) }
-            typingSettle?.cancel()
-            typingSettle = Task { @MainActor in
+            if new.count > old.count, let last = new.last, last.unicodeScalars.contains(where: { $0.properties.isEmoji && $0.value > 0xFF }) {
+                emojiReaction(last)
+            }
+            // At most ~6 typing reactions a second, not one per key.
+            let now = Date()
+            if now.timeIntervalSince(typing.last) >= 0.16 {
+                typing.last = now
+                if brain.poke() { MascotSound.shared.play(.wake) }
+                brain.keystroke()
+                let line = new.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? new
+                brain.caret = CGFloat(min(Double(line.count % 36) / 36, 1))
+            }
+            typing.settle?.cancel()
+            typing.settle = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(1500))
                 guard !Task.isCancelled else { return }
                 brain.react(.pleased)

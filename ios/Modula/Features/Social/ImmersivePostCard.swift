@@ -569,7 +569,7 @@ struct ImmersivePostCard: View {
         VStack(alignment: .leading, spacing: 8) {
             reactionSummaryChip(onMedia: true)
             if let text = post.text, !text.isEmpty {
-                Text(PostTextLinks.attributed(text))
+                Text(ModulaRichText.attributed(text, revealSpoilers: false))
                     .font(.system(.subheadline, design: font))
                     .foregroundStyle(.white)
                     .tint(app.appearance.liveAccent.mix(with: .white, by: 0.55))
