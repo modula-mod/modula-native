@@ -1,5 +1,6 @@
 @preconcurrency import LinkPresentation
 import SwiftUI
+import Photos
 import UIKit
 
 /// The first web link in a chat message, classified for inline display.
@@ -307,6 +308,7 @@ struct MessageImageViewer: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var dismissDrag: CGFloat = 0
+    @State private var visibleImage: UIImage?
 
     private let maxScale: CGFloat = 5
 
@@ -318,27 +320,43 @@ struct MessageImageViewer: View {
             ModulaRemoteImage(url: url, cacheKey: "message-full:\(url.absoluteString)", maximumPixelSize: 2600) { phase in
                 if case .success(let full) = phase {
                     zoomable(full)
+                        .onAppear { visibleImage = full }
                 } else {
                     zoomable(preview)
+                        .onAppear { if visibleImage == nil { visibleImage = preview } }
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.45), in: Circle())
+        .overlay(alignment: .top) {
+            HStack {
+                Button(action: saveVisibleImage) {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.45), in: Circle())
+                }
+                .padding(.leading, 16)
+                .padding(.top, 8)
+                .accessibilityLabel("Save to Photos")
+                .accessibilityIdentifier("messages.imageViewer.save")
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.45), in: Circle())
+                }
+                .padding(.trailing, 16)
+                .padding(.top, 8)
+                .accessibilityLabel("Close image")
+                .accessibilityIdentifier("messages.imageViewer.close")
             }
-            .padding(.trailing, 16)
-            .padding(.top, 8)
-            .accessibilityLabel("Close image")
-            .accessibilityIdentifier("messages.imageViewer.close")
         }
-        .statusBarHidden()
+                .statusBarHidden()
         .accessibilityIdentifier("messages.imageViewer")
     }
 
@@ -392,6 +410,29 @@ struct MessageImageViewer: View {
             .accessibilityAction(named: scale > 1 ? "Zoom out" : "Zoom in") {
                 if scale > 1 { reset(animated: false) } else { scale = 2.5; lastScale = 2.5 }
             }
+    }
+
+    private func saveVisibleImage() {
+        let image = visibleImage ?? preview
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                Task { @MainActor in
+                    HapticEngine.shared.play(.warning)
+                    ModulaToastCenter.shared.show("Allow Photos access in Settings to save", symbol: "photo.badge.exclamationmark", tone: .info)
+                }
+                return
+            }
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }) { success, _ in
+                Task { @MainActor in
+                    HapticEngine.shared.play(success ? .saveComplete : .failure)
+                    ModulaToastCenter.shared.show(success ? "Saved to Photos" : "Couldn't save image",
+                                                  symbol: success ? "checkmark.circle" : "exclamationmark.triangle",
+                                                  tone: .info)
+                }
+            }
+        }
     }
 
     private func reset(animated: Bool) {
