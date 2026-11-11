@@ -346,7 +346,8 @@ struct PostBody: View {
     var body: some View {
         if let text = post.text, !text.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text(PostTextLinks.attributed(displayedText(text)))
+                // Rich markup (<mark>, **bold**, links…) like comments, never raw tags.
+                Text(ModulaRichText.attributed(displayedText(text), revealSpoilers: false))
                     .font(bodyFont)
                     .foregroundStyle(.primary)
                     .lineSpacing(captionSize.lineSpacing)

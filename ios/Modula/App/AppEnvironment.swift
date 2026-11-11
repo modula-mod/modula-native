@@ -296,18 +296,9 @@ final class AppEnvironment {
         #endif
         if auth.isSignedIn {
             appLock.refreshColdLaunchLock()
-            if gate.pendingDestination != nil {
-                // A queued deep link may target a module: resolve the catalogue first, as before.
-                await catalogue.load()
-            } else {
-                // The catalogue (network + installation lookups) used to run before the gate
-                // opened, holding the boot screen. Open the shell now; it fills in behind.
-                refreshLaunchState()
-                refreshQuickActions()
-                Task { [catalogue] in await catalogue.load() }
-                await push.attach(environment: self)
-                return
-            }
+            // Loaded behind the boot gate: running it on the main actor after the shell
+            // appears competed with the first interactive frames.
+            await catalogue.load()
         }
         refreshLaunchState()
         refreshQuickActions()
