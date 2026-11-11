@@ -577,6 +577,19 @@ struct ProfileIdentityBlock: View {
                 }
             }
             .accessibilityElement(children: .combine)
+            .contentShape(Rectangle())
+            .contextMenu {
+                Button("Copy @\(profile.handle)", systemImage: "at") {
+                    UIPasteboard.general.string = "@\(profile.handle)"
+                    HapticEngine.shared.play(.confirmation)
+                    ModulaToastCenter.shared.show("Handle copied", symbol: "at", tone: .info)
+                }
+                Button("Copy profile link", systemImage: "link") {
+                    UIPasteboard.general.string = profile.shareURL.absoluteString
+                    HapticEngine.shared.play(.confirmation)
+                    ModulaToastCenter.shared.show("Link copied", symbol: "link", tone: .info)
+                }
+            }
             .accessibilityIdentifier("profile.handle")
 
             if let headline = profile.headline, !headline.isEmpty {

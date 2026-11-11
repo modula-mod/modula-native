@@ -320,6 +320,7 @@ struct HomeView: View {
                         .modulaGlass(in: Capsule(), interactive: false, tint: .orange.opacity(0.35))
                         .accessibilityIdentifier("home.greeting.streak")
                 }
+                HomeGlanceChips()
                 Text("Your space. Your people. Your modules.")
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.85))
@@ -1636,5 +1637,41 @@ struct HomeCaughtUpMarker: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.caughtup")
+    }
+}
+
+
+/// "What's waiting" chips in the Home greeting. Only non-zero counts show; each opens its place.
+struct HomeGlanceChips: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let chats = app.messaging.accountUnreadCount ?? 0
+        let alerts = app.activity.state(for: .all).unreadCount ?? 0
+        let stories = app.stories.trayGroups.reduce(0) { $0 + ((!$1.isOwn && $1.hasStories && $1.ring == .unseen) ? 1 : 0) }
+        if chats + alerts + stories > 0 {
+            HStack(spacing: 6) {
+                if chats > 0 { chip("\(chats) chat\(chats == 1 ? "" : "s")", symbol: "bubble.left.fill", id: "chats") { app.navigation.open(.messages(.inbox)) } }
+                if alerts > 0 { chip("\(alerts) alert\(alerts == 1 ? "" : "s")", symbol: "bell.fill", id: "alerts") { app.navigation.open(.activity(.all)) } }
+                if stories > 0 { chip("\(stories) stor\(stories == 1 ? "y" : "ies")", symbol: "circle.dashed", id: "stories") { app.navigation.open(.stories(.root)) } }
+            }
+            .accessibilityIdentifier("home.glance")
+        }
+    }
+
+    private func chip(_ title: String, symbol: String, id: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.navigation)
+            action()
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .modulaGlass(in: Capsule(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.glance.\(id)")
     }
 }

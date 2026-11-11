@@ -706,13 +706,26 @@ struct PostCommentsView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .accessibilityHidden(true)
                     Text("Comments").font(.headline)
                     if displayedCount > 0 {
                         Text("\(displayedCount)")
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .font(.caption.weight(.bold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7)
+                            .frame(minHeight: 20)
+                            .background(Capsule().fill(app.appearance.liveAccent))
+                            .contentTransition(.numericText(value: Double(displayedCount)))
                             .accessibilityLabel("\(displayedCount) comments")
                     }
+                }
+                .padding(.horizontal, isSheet ? 12 : 0)
+                .frame(minHeight: isSheet ? 36 : 0)
+                .background {
+                    if isSheet { Color.clear.modulaGlass(in: Capsule(), interactive: false, specular: true) }
                 }
                 // Segmented sort (Hick: three visible choices beat a hidden menu).
                 HStack(spacing: 6) {

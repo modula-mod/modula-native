@@ -1194,6 +1194,7 @@ struct ConversationView: View {
     @State private var replyQuote: String?
     @State private var composerFocused = false
     @State private var isAtBottom = true
+    @State private var didInitialScroll = false
     @State private var floatingDay: String?
     @State private var showsFloatingDay = false
     @State private var floatingDayHide: Task<Void, Never>?
@@ -1660,6 +1661,15 @@ struct ConversationView: View {
                 }
                 // Follow the conversation only when the reader is already at the end or just sent:
                 // never yank someone reading history (respect for the user's place = control).
+                // First page on screen (cache, fixture or network): start at the newest message,
+                // without animation, exactly once.
+                .task(id: items.isEmpty) {
+                    guard !items.isEmpty, !didInitialScroll, jumpTarget == nil else { return }
+                    didInitialScroll = true
+                    try? await Task.sleep(for: .milliseconds(30))
+                    var t = Transaction(); t.disablesAnimations = true
+                    withTransaction(t) { if let last = items.last?.id { proxy.scrollTo(last, anchor: .bottom) } }
+                }
                 .onChange(of: items.last?.id) { _, _ in
                     guard let last = items.last else { return }
                     if last.isOwn || isAtBottom {

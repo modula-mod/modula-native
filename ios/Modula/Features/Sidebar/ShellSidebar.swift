@@ -509,7 +509,9 @@ struct ShellSidebarView: View {
     private var primaryItems: [ShellSidebarItem] {
         var items: [ShellSidebarItem] = [
             .init(id: "home", title: "Home", symbol: "house", route: app.navigation.root(for: .home),
-                  requiresSignIn: false, keywords: "feed posts timeline"),
+                  requiresSignIn: false,
+                  badge: app.stories.trayGroups.reduce(0) { $0 + ((!$1.isOwn && $1.hasStories && $1.ring == .unseen) ? 1 : 0) },
+                  keywords: "feed posts timeline stories"),
             .init(id: "messages", title: "Messages", symbol: "bubble.left.and.bubble.right",
                   route: .messages(.inbox), requiresSignIn: true, badge: app.messaging.accountUnreadCount ?? 0,
                   keywords: "chat dm inbox"),

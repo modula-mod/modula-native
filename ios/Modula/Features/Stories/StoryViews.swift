@@ -801,7 +801,13 @@ struct StoryViewer: View {
         let item = group.items.indices.contains(engine.index) ? group.items[engine.index] : group.items.first
         ZStack {
             Color.black.ignoresSafeArea()
-            content(item)
+            // Liquid-glass dissolve between stories: the next one condenses out of a blur.
+            ZStack {
+                content(item)
+                    .id(item?.id)
+                    .transition(reduceMotion ? .opacity : .storyGlass)
+            }
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.3), value: engine.index)
             // Edge taps / hold — primary navigation. Bottom Previous/Next text removed.
             HStack(spacing: 0) {
                 Color.clear
@@ -4389,5 +4395,29 @@ private struct StoryDraftsGallery: View {
             }
         }
         .accessibilityLabel("Draft, \(draft.preview)")
+    }
+}
+
+
+// MARK: - Story glass transition
+
+private struct StoryGlassDissolve: ViewModifier {
+    let blur: CGFloat
+    let scale: CGFloat
+    let opacity: Double
+    func body(content: Content) -> some View {
+        content.blur(radius: blur).scaleEffect(scale).opacity(opacity)
+    }
+}
+
+extension AnyTransition {
+    /// Incoming story sharpens from a frosted blur; the outgoing one frosts over and fades.
+    static var storyGlass: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(active: StoryGlassDissolve(blur: 18, scale: 1.04, opacity: 0),
+                                 identity: StoryGlassDissolve(blur: 0, scale: 1, opacity: 1)),
+            removal: .modifier(active: StoryGlassDissolve(blur: 14, scale: 0.98, opacity: 0),
+                               identity: StoryGlassDissolve(blur: 0, scale: 1, opacity: 1))
+        )
     }
 }
