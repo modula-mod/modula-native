@@ -35,6 +35,8 @@ final class PostCommentsStore {
     static let characterLimit = 5000
     private(set) var loadingReplies: Set<SocialCommentID> = []
     private(set) var expandedReplies: Set<SocialCommentID> = []
+    /// Top-level comments on the server's first page that this sheet hasn't shown yet.
+    private(set) var newCommentCount = 0
 
     init(client: GreenfieldClient, postState: PostStateStore, postID: SocialPostID, capabilities: PostBackendCapabilities = .production) {
         self.repository = GreenfieldPostRepository(client: client, capabilities: capabilities)
@@ -381,6 +383,19 @@ final class PostCommentsStore {
 
     func collapseReplies(for comment: SocialComment) {
         expandedReplies.remove(comment.id)
+    }
+
+    func checkForNewComments() async {
+        guard !isLoading, !isSending,
+              let page = try? await repository.comments(postID: postID, cursor: nil) else { return }
+        let known = Set(items.map(\.id))
+        let fresh = page.items.filter { $0.parentID == nil && !known.contains($0.id) }.count
+        if fresh != newCommentCount { newCommentCount = fresh }
+    }
+
+    func showNewComments() async {
+        newCommentCount = 0
+        await load()
     }
 
     func collapseAllReplies() {
@@ -858,6 +873,30 @@ struct PostCommentsView: View {
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
+                    Color.clear.frame(height: 0)
+                        .task(id: store.postID) {
+                            while !Task.isCancelled {
+                                try? await Task.sleep(for: .seconds(25))
+                                guard !Task.isCancelled else { return }
+                                await store.checkForNewComments()
+                            }
+                        }
+                    if store.newCommentCount > 0, searchText.isEmpty {
+                        Button {
+                            HapticEngine.shared.play(.selection)
+                            Task { await store.showNewComments() }
+                        } label: {
+                            Label(store.newCommentCount == 1 ? "1 new comment" : "\(store.newCommentCount) new comments", systemImage: "arrow.up")
+                                .font(.footnote.weight(.semibold))
+                                .padding(.horizontal, 14)
+                                .frame(height: 34)
+                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.35), specular: true)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .accessibilityIdentifier("comments.newPill")
+                    }
                     let rootList = filteredRoots(store)
                     ForEach(rootList) { comment in
                         commentRow(comment, store: store)

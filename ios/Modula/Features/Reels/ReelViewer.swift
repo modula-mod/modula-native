@@ -424,6 +424,13 @@ struct ReelPageView: View {
         }
         // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
         // re-render four times a second just to watch for the end).
+        .overlay(alignment: .bottom) {
+            if reel.attachment != nil, !clearDisplay {
+                ReelProgressBar(playback: playback)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 30)
+            }
+        }
         .onAppear {
             // Speed chosen in the quick menu sticks across reels and launches.
             if abs(Double(playback.rate) - savedRate) > 0.01 { playback.setRate(Float(savedRate)) }
@@ -770,5 +777,50 @@ struct ReelsInstallModuleCard: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("reels.install-module")
+    }
+}
+
+
+/// Thin played / buffered bar. Its own view so 4 Hz progress updates re-render only
+/// this strip, not the reel page. Drag along it to scrub.
+struct ReelProgressBar: View {
+    let playback: ModulaVideoPlaybackController
+    @State private var scrubbing: Double?
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let played = scrubbing ?? playback.progress
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.18))
+                Capsule().fill(.white.opacity(0.36)).frame(width: width * max(playback.buffered, played))
+                Capsule().fill(.white.opacity(0.95)).frame(width: width * played)
+            }
+            .frame(height: scrubbing == nil ? 2.5 : 5)
+            .frame(maxHeight: .infinity, alignment: .center)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in scrubbing = min(max(value.location.x / max(width, 1), 0), 1) }
+                    .onEnded { value in
+                        playback.seek(to: min(max(value.location.x / max(width, 1), 0), 1))
+                        scrubbing = nil
+                        HapticEngine.shared.play(.selection)
+                    }
+            )
+            .animation(.easeOut(duration: 0.15), value: scrubbing == nil)
+        }
+        .frame(height: 22)
+        .accessibilityElement()
+        .accessibilityLabel("Playback position")
+        .accessibilityValue("\(Int((playback.progress * 100).rounded())) percent, \(Int((playback.buffered * 100).rounded())) percent loaded")
+        .accessibilityAdjustableAction { direction in
+            let step = 0.1
+            switch direction {
+            case .increment: playback.seek(to: min(playback.progress + step, 1))
+            case .decrement: playback.seek(to: max(playback.progress - step, 0))
+            @unknown default: break
+            }
+        }
     }
 }

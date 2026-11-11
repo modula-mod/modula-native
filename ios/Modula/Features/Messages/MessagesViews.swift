@@ -1177,6 +1177,9 @@ struct ConversationView: View {
     @State private var replyQuote: String?
     @State private var composerFocused = false
     @State private var isAtBottom = true
+    @State private var floatingDay: String?
+    @State private var showsFloatingDay = false
+    @State private var floatingDayHide: Task<Void, Never>?
     @State private var pinnedBeforeKeyboard = false
     @State private var pinnedBeforeInfo = false
     @State private var unseenCount = 0
@@ -1553,6 +1556,7 @@ struct ConversationView: View {
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.vertical, 12)
+                    .scrollTargetLayout()
                 }
                 // Only pin to the newest message while the reader is already there.
                 // Leaving this on while scrolling history yanks the thread when content size changes.
@@ -1561,6 +1565,40 @@ struct ConversationView: View {
                 .contentMargins(.bottom, 40, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
+                // Floating day chip (Liquid Glass) while scrolling history: fires only when
+                // the visible set changes, and only writes state when the day label does.
+                .onScrollTargetVisibilityChange(idType: MessageID.self, threshold: 0.3) { ids in
+                    let dates = ids.compactMap { id in items.first(where: { $0.id == id })?.sentAt }
+                    guard let earliest = dates.min() else { return }
+                    let label = MessageDayLabel.string(for: earliest)
+                    if label != floatingDay { floatingDay = label }
+                }
+                .onScrollPhaseChange { _, phase in
+                    if phase.isScrolling {
+                        floatingDayHide?.cancel()
+                        if !showsFloatingDay, !isAtBottom { withAnimation(.easeOut(duration: 0.15)) { showsFloatingDay = true } }
+                    } else if showsFloatingDay {
+                        floatingDayHide?.cancel()
+                        floatingDayHide = Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(1400))
+                            guard !Task.isCancelled else { return }
+                            withAnimation(.easeOut(duration: 0.25)) { showsFloatingDay = false }
+                        }
+                    }
+                }
+                .overlay(alignment: .top) {
+                    if showsFloatingDay, let floatingDay {
+                        Text(floatingDay)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                            .padding(.top, 8)
+                            .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
                 .onScrollGeometryChange(for: Bool.self) { geo in
                     geo.contentOffset.y + geo.containerSize.height >= geo.contentSize.height + geo.contentInsets.bottom - 80
                 } action: { _, atBottom in
@@ -4538,5 +4576,20 @@ struct MessagesLiquidEdge: Shape {
         p.addLine(to: CGPoint(x: 0, y: h))
         p.closeSubpath()
         return p
+    }
+}
+
+
+/// "Today" / "Yesterday" / "Monday" / "3 Nov" / "3 Nov 2025" for the floating day chip.
+enum MessageDayLabel {
+    static func string(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+        if days < 7 { return date.formatted(.dateTime.weekday(.wide)) }
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            return date.formatted(.dateTime.day().month(.abbreviated))
+        }
+        return date.formatted(.dateTime.day().month(.abbreviated).year())
     }
 }

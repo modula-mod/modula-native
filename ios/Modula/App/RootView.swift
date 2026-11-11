@@ -67,6 +67,9 @@ struct RootView: View {
                 delegate.consumePendingShortcutIfNeeded()
             }
             app.refreshQuickActions()
+            #if DEBUG
+            openQALaunchTarget()
+            #endif
         }
         .task {
             // After the first frames, so Home's feed request goes out first; and the
@@ -272,6 +275,25 @@ struct RootView: View {
         let mentions = events.filter { !$0.isRead && $0.kind.isMention }.count
         return ModulaFocusState.activityBadge(unread: unread, unreadMentions: mentions)
     }
+
+    #if DEBUG
+    /// QA only (stripped from Release): `--uitest-open settings|sidebar|<route>`
+    /// opens a screen after launch so simulator screenshots need no taps.
+    private func openQALaunchTarget() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--uitest-open"), arguments.indices.contains(index + 1) else { return }
+        let target = arguments[index + 1]
+        let navigation = app.navigation
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            switch target {
+            case "sidebar": navigation.presentSidebar()
+            case "settings": navigation.open(.settings(.root))
+            default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
+            }
+        }
+    }
+    #endif
 
     private func refreshTabAvatar() async {
         await app.profile.refreshTabBarAvatar(

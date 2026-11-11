@@ -760,8 +760,13 @@ struct ShellSidebarView: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 if chat.isUnread {
-                    Circle().fill(app.appearance.liveAccent).frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
+                    Text(chat.unreadCount > 99 ? "99+" : "\(chat.unreadCount)")
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(chat.isMuted ? Color.secondary : Color.white)
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .background(chat.isMuted ? Color.primary.opacity(0.12) : app.appearance.liveAccent, in: Capsule())
+                        .accessibilityLabel("\(chat.unreadCount) unread")
                 }
             }
             .padding(.horizontal, rowInset)
@@ -832,16 +837,24 @@ struct ShellSidebarView: View {
             let profile = app.profile.ownProfile
             Button { onSelect(.me(.overview), true) } label: {
                 HStack(spacing: ModulaSpacing.xs) {
-                    ModulaAvatar(initials: profile?.initials ?? "", url: profile?.avatarURL, size: 30, name: profile?.displayName)
-                    Text(profile?.displayName ?? "Profile")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    ModulaAvatar(initials: profile?.initials ?? "", url: profile?.avatarURL, size: 32, name: profile?.displayName)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(profile?.displayName ?? "Profile")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if let handle = profile?.handle, !handle.isEmpty, !typeSize.isAccessibilitySize {
+                            Text("@\(handle)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
                 .padding(.leading, 4).padding(.trailing, ModulaSpacing.sm)
-                .frame(minHeight: 40)
-                .background(Color.primary.opacity(0.06), in: Capsule())
+                .frame(minHeight: 44)
+                .modulaGlass(in: Capsule(), interactive: true, specular: true)
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
