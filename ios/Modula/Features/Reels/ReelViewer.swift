@@ -797,6 +797,11 @@ struct ReelProgressBar: View {
     let playback: ModulaVideoPlaybackController
     @State private var scrubbing: Double?
 
+    static func clock(_ seconds: Double) -> String {
+        let total = max(Int(seconds.rounded()), 0)
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
@@ -808,6 +813,20 @@ struct ReelProgressBar: View {
             }
             .frame(height: scrubbing == nil ? 2.5 : 5)
             .frame(maxHeight: .infinity, alignment: .center)
+            .overlay(alignment: .bottomLeading) {
+                if let scrubbing, playback.duration > 0 {
+                    Text("\(Self.clock(scrubbing * playback.duration)) / \(Self.clock(playback.duration))")
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .modulaGlass(in: Capsule(), interactive: false, tint: .black.opacity(0.2))
+                        .fixedSize()
+                        .offset(x: min(max(width * scrubbing - 48, 0), max(width - 110, 0)), y: -26)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
+            }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)

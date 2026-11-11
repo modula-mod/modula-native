@@ -1631,10 +1631,19 @@ struct ConversationView: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                            .modulaGlass(in: Capsule(), interactive: true, specular: true)
+                            .contentShape(Capsule())
+                            .onTapGesture {
+                                // Jump to the first message of that day.
+                                if let target = items.first(where: { MessageDayLabel.string(for: $0.sentAt) == floatingDay })?.id {
+                                    jumpTarget = target
+                                    HapticEngine.shared.play(.selection)
+                                }
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityHint("Jumps to the first message of this day")
                             .padding(.top, 8)
                             .transition(.opacity.combined(with: .scale(scale: 0.94)))
-                            .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
                 }

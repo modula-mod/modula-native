@@ -302,8 +302,15 @@ struct HomeView: View {
                         .frame(height: 26)
                         .modulaGlass(in: Capsule(), interactive: false)
                 }
-                Text(name)
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                Button {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(app.navigation.root(for: .profile))
+                } label: {
+                    Text(name)
+                        .font(.system(size: 40, weight: .heavy, design: .rounded))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+                .accessibilityHint("Opens your profile")
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)

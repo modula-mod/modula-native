@@ -54,6 +54,9 @@ struct RootView: View {
         // Ideas30 #18: offline banner. #27: one-time "What's new" sheet (opens the 30-ideas gallery).
         .overlay(alignment: .top) { Lab30OfflineBanner() }
         .modifier(Lab30WhatsNewPresenter())
+        #if DEBUG
+        .modifier(DebugCommentsSheetPresenter())
+        #endif
         .modulaConsumesIntentRoutes()
         .background(palette.canvas.ignoresSafeArea())
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
@@ -300,6 +303,7 @@ struct RootView: View {
             case "activity": navigation.open(.activity(.all))
             case "reels": navigation.open(.reels(.feed))
             case "home": break
+            case "comments": navigation.push(.post("fx-post", .comments))
             case "chat": navigation.open(.messages(.inbox)); try? await Task.sleep(for: .milliseconds(500)); navigation.push(.messages(.conversation("fx-sophia")))
             default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
             }
