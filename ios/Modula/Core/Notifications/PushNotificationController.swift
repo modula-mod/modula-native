@@ -355,9 +355,13 @@ final class PushNotificationController {
                 }
             }
         }
-        await refreshAuthorization()
-        if flagEnabled, environment.auth.isSignedIn, authorization.allowsRemote {
-            UIApplication.shared.registerForRemoteNotifications()
+        // Off the boot path: reading notification settings is an XPC round trip.
+        Task(priority: .utility) { @MainActor [weak self, weak environment] in
+            guard let self else { return }
+            await self.refreshAuthorization()
+            if self.flagEnabled, environment?.auth.isSignedIn == true, self.authorization.allowsRemote {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
         }
     }
 

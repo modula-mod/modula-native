@@ -841,8 +841,10 @@ struct PostCommentsView: View {
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(filteredRoots(store)) { comment in
+                    let rootList = filteredRoots(store)
+                    ForEach(rootList) { comment in
                         commentRow(comment, store: store)
+                            .onAppear { prefetchMoreIfNeeded(comment, in: rootList, store: store) }
                         let replies = filteredReplies(store, parent: comment)
                         if store.expandedReplies.contains(comment.id) || (!searchText.isEmpty && !replies.isEmpty) {
                             ForEach(replies) { reply in
@@ -939,6 +941,15 @@ struct PostCommentsView: View {
     private func sortedReplies(_ items: [SocialComment]) -> [SocialComment] {
         // Replies always read chronologically so threads stay coherent.
         items.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// Starts the next page while ~6 comments are still below, so scrolling doesn't
+    /// stop at a "Load more" button.
+    private func prefetchMoreIfNeeded(_ comment: SocialComment, in list: [SocialComment], store: PostCommentsStore) {
+        guard searchText.isEmpty, store.hasMore, !store.isLoadingMore,
+              let index = list.lastIndex(where: { $0.id == comment.id }),
+              index >= list.count - 6 else { return }
+        Task { await store.loadMore() }
     }
 
     private func filteredRoots(_ store: PostCommentsStore) -> [SocialComment] {

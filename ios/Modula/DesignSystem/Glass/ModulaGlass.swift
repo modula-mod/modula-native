@@ -42,12 +42,19 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
     var prominent = false
     var specular = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @AppStorage(ModulaGlassIntensity.storageKey) private var intensityRaw = ModulaGlassIntensity.standard.rawValue
 
-    private var intensity: ModulaGlassIntensity { ModulaGlassIntensity(rawValue: intensityRaw) ?? .standard }
+    // One shared observable: an @AppStorage per glass view subscribed every capsule
+    // in every feed row to UserDefaults.
+    private var intensity: ModulaGlassIntensity { ModulaGlassSettings.shared.intensity }
 
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, *), !reduceTransparency {
+        if ModulaGlassSettings.shared.lighter {
+            // Lighter effects: an opaque fill, no glass sampling, no shadow pass.
+            content
+                .background(Color(uiColor: .secondarySystemBackground).opacity(0.94), in: shape)
+                .background((tint ?? .clear).opacity(prominent ? 0.9 : 0.18), in: shape)
+                .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.7))
+        } else if #available(iOS 26.0, *), !reduceTransparency {
             content
                 .background {
                     if intensity == .frosted { shape.fill(.thinMaterial) }
@@ -259,4 +266,29 @@ extension View {
     /// The one filled accent CTA used app-wide.
     func modulaAccentCTA() -> some View { modifier(ModulaAccentCTAModifier(shape: Capsule())) }
     func modulaAccentCTA<S: InsettableShape>(in shape: S) -> some View { modifier(ModulaAccentCTAModifier(shape: shape)) }
+}
+
+
+/// Glass intensity + Lighter effects, read once and shared by every glass surface.
+@MainActor @Observable
+final class ModulaGlassSettings {
+    static let shared = ModulaGlassSettings()
+    private(set) var intensity: ModulaGlassIntensity = .standard
+    private(set) var lighter = false
+    @ObservationIgnored private var observer: NSObjectProtocol?
+
+    private init() {
+        read()
+        observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { ModulaGlassSettings.shared.read() }
+        }
+    }
+
+    func read() {
+        let defaults = UserDefaults.standard
+        let nextIntensity = ModulaGlassIntensity(rawValue: defaults.string(forKey: ModulaGlassIntensity.storageKey) ?? "") ?? .standard
+        if nextIntensity != intensity { intensity = nextIntensity }
+        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra")
+        if nextLighter != lighter { lighter = nextLighter }
+    }
 }

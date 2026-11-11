@@ -37,8 +37,19 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         )
         log(op: "conversations", id: nil, started: started)
         let page = MessagingPayloadDecoder.conversationPage(from: value)
-        if cursor == nil { conversationMemory["root"] = page }
+        if cursor == nil {
+            conversationMemory["root"] = page
+            ModulaWarmCache.store(value, name: "inbox", account: await client.currentAccountID())
+        }
         return page
+    }
+
+    /// Inbox first page saved by the previous launch (this account only).
+    func warmConversations() async -> ConversationPage? {
+        if let cached = conversationMemory["root"] { return cached }
+        guard let value = await ModulaWarmCache.load(name: "inbox", account: await client.currentAccountID()) else { return nil }
+        let page = MessagingPayloadDecoder.conversationPage(from: value)
+        return page.items.isEmpty ? nil : page
     }
 
     func conversation(_ id: ConversationID, cursor: String?) async throws -> MessagePage {

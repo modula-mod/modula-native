@@ -27,6 +27,7 @@ struct HomeView: View {
     @State private var feedFilter: HomeFeedFilter = HomeFeedFilter(rawValue: UserDefaults.standard.string(forKey: "home.feedFilter.default") ?? "") ?? .all
     @AppStorage("home.feedFilter.default") private var defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
     @State private var editingQuickActions = false
+    @State private var showsBackToTop = false
     @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
 
     var body: some View {
@@ -129,6 +130,11 @@ struct HomeView: View {
                     storyTrayFolded = folded
                 }
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 2_400
+            } action: { _, far in
+                withAnimation(.easeOut(duration: 0.2)) { showsBackToTop = far }
+            }
             .onScrollPhaseChange { _, phase in
                 if phase == .interacting { HomeMascotCompanion.noteActivity() }
                 ModulaScrollActivity.shared.set(phase.isScrolling)
@@ -142,6 +148,10 @@ struct HomeView: View {
 
             if state.newerAvailable {
                 newerPill
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else if showsBackToTop {
+                backToTopPill
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -506,6 +516,21 @@ struct HomeView: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("home.offline")
+    }
+
+    private var backToTopPill: some View {
+        Button {
+            ModulaTabReselect.post(.home)
+            HapticEngine.shared.play(.selection)
+        } label: {
+            Label("Back to top", systemImage: "arrow.up")
+                .font(.caption.weight(.bold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .modulaGlass(in: Capsule(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.backToTop")
     }
 
     private var newerPill: some View {
@@ -1010,7 +1035,7 @@ extension HomeView {
                 ModulaImagePrefetcher.prefetch(
                     url: attachment.bestPreviewURL ?? attachment.playableURL,
                     cacheKey: "attachment:\(attachment.id):feed-image",
-                    maximumPixelSize: 2_000,
+                    maximumPixelSize: ModulaFeedImage.maxPixels,
                     client: app.client
                 )
             }

@@ -250,6 +250,7 @@ struct ReelPageView: View {
     var onFinished: () -> Void = {}
     @Environment(AppEnvironment.self) private var app
     @AppStorage("reels.autoScroll") private var autoScroll = false
+    @AppStorage("reels.playbackRate") private var savedRate = 1.0
     @State private var heartBurst = 0
     @State private var heartPoint: CGPoint? = nil
     @State private var clearDisplay = false
@@ -355,6 +356,7 @@ struct ReelPageView: View {
                     clearDisplay: clearDisplay,
                     onRate: { rate in
                         playback.setRate(rate)
+                        savedRate = Double(rate)
                         app.navigation.flash(String(format: "Speed %.2g×", rate), symbol: "gauge.with.needle")
                     },
                     onNotInterested: {
@@ -401,6 +403,10 @@ struct ReelPageView: View {
         }
         // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
         // re-render four times a second just to watch for the end).
+        .onAppear {
+            // Speed chosen in the quick menu sticks across reels and launches.
+            if abs(Double(playback.rate) - savedRate) > 0.01 { playback.setRate(Float(savedRate)) }
+        }
         .onReceive(NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)) { note in
             guard autoScroll, isActive, !showsQuickMenu,
                   let item = note.object as? AVPlayerItem, item === playback.player?.currentItem else { return }
@@ -420,7 +426,7 @@ struct ReelPageView: View {
                         playback.setRate(2)
                         HapticEngine.shared.play(.selection)
                     } else if !pressing, edgeBoost {
-                        playback.setRate(1)
+                        playback.setRate(Float(savedRate))
                         edgeBoost = false
                     }
                 })

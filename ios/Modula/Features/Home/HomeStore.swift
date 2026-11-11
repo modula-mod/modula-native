@@ -77,7 +77,19 @@ final class HomeStore {
         generations[mode, default: 0] += 1
         let generation = generations[mode, default: 0]
         var state = self.state(for: mode)
-        let previousFirstID = state.items.first?.id
+        // Stale-while-revalidate: paint last launch's first page now, replace it when
+        // the network answers (no "New posts" pill for that swap).
+        var seededFromWarm = false
+        if state.items.isEmpty, let warm = await repository.warmPage(mode: mode),
+           generation == generations[mode, default: 0], self.state(for: mode).items.isEmpty {
+            postActions.ingest(warm.items)
+            state.items = warm.items.map(posts.resolved)
+            state.nextCursor = nil
+            state.hasMore = false
+            state.rankingVersion = warm.rankingVersion
+            seededFromWarm = true
+        }
+        let previousFirstID = seededFromWarm ? nil : state.items.first?.id
         let hasContent = !state.items.isEmpty
         state.loadState = hasContent ? .refreshing : .loading
         state.lastError = nil

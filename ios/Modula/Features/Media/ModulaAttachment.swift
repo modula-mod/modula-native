@@ -1,4 +1,5 @@
 import CoreGraphics
+import CryptoKit
 import Foundation
 import ImageIO
 import SwiftUI
@@ -323,7 +324,13 @@ private actor ModulaRemoteImagePipeline {
 
     func data(for key: String, fetch: @escaping @Sendable () async throws -> Data) async throws -> Data {
         if let existing = inFlight[key] { return try await existing.value }
-        let task = Task { try await fetch() }
+        // Disk first (survives relaunch), network second; file IO stays off the actor.
+        let task = Task.detached(priority: .userInitiated) { () async throws -> Data in
+            if let disk = ModulaImageDiskCache.read(key) { return disk }
+            let data = try await fetch()
+            ModulaImageDiskCache.write(data, key: key)
+            return data
+        }
         inFlight[key] = task
         do {
             let data = try await task.value
@@ -353,5 +360,70 @@ private final class ModulaRemoteImageCache {
     func insert(_ image: UIImage, for key: String) {
         let pixels = Int(image.size.width * image.scale * image.size.height * image.scale)
         storage.setObject(image, forKey: key as NSString, cost: min(pixels * 4, Int.max))
+    }
+}
+
+
+/// Feed images are decoded at this longest side (a full-width card on the largest
+/// iPhone is ~1320 px wide); 2000 px decoded 56% more pixels for no visible gain.
+enum ModulaFeedImage {
+    static let maxPixels: CGFloat = 1_600
+}
+
+/// Encoded image bytes on disk (Caches/modula-images), keyed by the stable media
+/// cache key, so relaunches and re-visits don't re-download. Trimmed to ~250 MB
+/// after launch, cleared from Settings → Storage and on sign-out.
+enum ModulaImageDiskCache {
+    nonisolated static var root: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("modula-images", isDirectory: true)
+    }
+
+    nonisolated private static func file(for key: String) -> URL {
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        return root.appendingPathComponent(String(digest.prefix(40)))
+    }
+
+    nonisolated static func read(_ key: String) -> Data? {
+        let url = file(for: key)
+        guard let data = try? Data(contentsOf: url), !data.isEmpty else { return nil }
+        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+        return data
+    }
+
+    nonisolated static func write(_ data: Data, key: String) {
+        guard !data.isEmpty, data.count <= 12_000_000 else { return }
+        let url = file(for: key)
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    nonisolated static func byteCount() -> Int64 {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        return files.reduce(Int64(0)) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+    }
+
+    nonisolated static func clear() {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    nonisolated static func trimInBackground(limit: Int64 = 250_000_000, target: Int64 = 180_000_000) {
+        Task.detached(priority: .background) {
+            let fm = FileManager.default
+            let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
+            guard let files = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: keys) else { return }
+            var entries = files.map { url -> (URL, Int64, Date) in
+                let values = try? url.resourceValues(forKeys: Set(keys))
+                return (url, Int64(values?.fileSize ?? 0), values?.contentModificationDate ?? .distantPast)
+            }
+            var total = entries.reduce(Int64(0)) { $0 + $1.1 }
+            guard total > limit else { return }
+            entries.sort { $0.2 < $1.2 }
+            for entry in entries where total > target {
+                try? fm.removeItem(at: entry.0)
+                total -= entry.1
+            }
+        }
     }
 }

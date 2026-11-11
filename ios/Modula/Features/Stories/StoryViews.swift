@@ -1295,6 +1295,9 @@ struct StoryViewer: View {
                     }
                     Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
+                    if let media = item.media, media.url != nil, media.kind == .image || media.kind == .video {
+                        Button("Save to Photos", systemImage: "arrow.down.to.line") { saveOwnStory(item) }
+                    }
                     Button("Delete story", systemImage: "trash", role: .destructive) {
                         engine.pause()
                         confirmDelete = true
@@ -1360,6 +1363,31 @@ struct StoryViewer: View {
         Task {
             try? await Task.sleep(for: .seconds(2))
             if sentReceipt == text { withAnimation(.easeOut(duration: 0.25)) { sentReceipt = nil } }
+        }
+    }
+
+    /// Downloads your own story's original media and adds it to Photos (add-only access).
+    private func saveOwnStory(_ item: StoryItem) {
+        guard let media = item.media, let url = media.url else { return }
+        let client = app.client
+        let navigation = app.navigation
+        navigation.flash("Saving…", symbol: "arrow.down.circle")
+        Task { @MainActor in
+            var saved = false
+            if media.kind == .video {
+                if let temp = try? await client.downloadMedia(from: url) {
+                    let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
+                    let destination = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+                    try? FileManager.default.copyItem(at: temp, to: destination)
+                    saved = await StoryVideoExporter.saveToPhotos(destination)
+                    try? FileManager.default.removeItem(at: destination)
+                }
+            } else if let data = try? await client.mediaData(from: url) {
+                saved = await ModulaPhotoLibrarySaver.save(data)
+            }
+            navigation.flash(saved ? "Saved to Photos" : "Couldn’t save to Photos", symbol: saved ? "photo.badge.checkmark" : "exclamationmark.triangle")
+            HapticEngine.shared.play(saved ? .saveComplete : .failure)
         }
     }
 

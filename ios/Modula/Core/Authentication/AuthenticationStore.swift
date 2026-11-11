@@ -38,6 +38,38 @@ final class AuthenticationStore {
     }
     #endif
 
+    /// Called when the background check after an instant (cached) restore finds the
+    /// session is no longer valid.
+    var onRevalidationFailed: (@MainActor () async -> Void)?
+
+    /// Cold launch: adopt the account saved with this session immediately and verify
+    /// `/v1/accounts/me` in the background, instead of holding the boot gate on a
+    /// network round trip (and a token refresh). Falls back to the blocking path.
+    func restoreFast() async {
+        guard !busy else { return }
+        guard let cached = await client.cachedRestore() else {
+            await restore()
+            return
+        }
+        account = cached
+        error = nil
+        let client = self.client
+        Task { [weak self] in
+            do {
+                let fresh = try await client.restore()
+                guard let self else { return }
+                if let fresh {
+                    if fresh != self.account { self.account = fresh }
+                } else {
+                    await self.onRevalidationFailed?()
+                }
+            } catch {
+                guard let self, !GreenfieldClient.isConnectivityFailure(error) else { return }
+                await self.onRevalidationFailed?()
+            }
+        }
+    }
+
     func restore() async {
         guard !busy else { return }
         busy = true

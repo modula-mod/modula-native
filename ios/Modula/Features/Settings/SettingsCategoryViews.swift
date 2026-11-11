@@ -708,6 +708,7 @@ struct StorageUsageSnapshot: Sendable {
         // transfer, or another subsystem. Only the URL response cache is known
         // to be rebuildable here.
         URLCache.shared.removeAllCachedResponses()
+        ModulaImageDiskCache.clear()
     }
 
     private static func folderSize(_ url: URL) -> Int64 {
@@ -774,7 +775,7 @@ private struct PackageStorageSnapshot: Sendable {
                     runtimeBytes: size(runtimeRoot),
                     modelBytes: support.map { size($0.appendingPathComponent("Modula/Packages/ModelData")) } ?? 0,
                     assetBytes: support.map { size($0.appendingPathComponent("Modula/Packages/AssetPacks")) } ?? 0,
-                    temporaryBytes: Int64(URLCache.shared.currentDiskUsage),
+                    temporaryBytes: Int64(URLCache.shared.currentDiskUsage) + ModulaImageDiskCache.byteCount(),
                     packages: packages.sorted { $0.id < $1.id }, runtimeDigests: runtimeDigests)
     }
 
@@ -929,6 +930,7 @@ private struct PackageStorageDownloadsView: View {
 
     private func clearTemporaryCache() {
         URLCache.shared.removeAllCachedResponses()
+        ModulaImageDiskCache.clear()
         Task { await refresh() }
     }
 }
@@ -1426,6 +1428,7 @@ private struct AboutPerformanceSection: View {
     /// Same keys as Settings → Battery / Feed, surfaced here as speed switches.
     @AppStorage("settings.battery.reduceMotionExtra") private var reduceEffects = false
     @AppStorage("settings.feed.showReplies") private var expandThreads = true
+    @State private var imageCacheBytes: Int64?
 
     var body: some View {
         Section {
@@ -1450,6 +1453,21 @@ private struct AboutPerformanceSection: View {
                 Label("Auto-open reply threads", systemImage: "text.bubble")
             }
             .accessibilityHint("Off makes the comments sheet open with fewer requests")
+            Button {
+                ModulaImageDiskCache.clear()
+                imageCacheBytes = 0
+                HapticEngine.shared.play(.selection)
+            } label: {
+                LabeledContent {
+                    Text(imageCacheBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "…")
+                } label: {
+                    Label("Clear image cache", systemImage: "photo.stack")
+                }
+            }
+            .disabled(imageCacheBytes == 0)
+            .task {
+                imageCacheBytes = await Task.detached(priority: .utility) { ModulaImageDiskCache.byteCount() }.value
+            }
         } header: { Text("Performance") } footer: {
             Text("Timings are measured on this device on the last launch, from process start, and stay on your phone.")
         }

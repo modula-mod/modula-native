@@ -1365,7 +1365,7 @@ struct SmartCropImage: View {
             ModulaRemoteImage(
                 url: attachment.bestPreviewURL ?? attachment.playableURL,
                 cacheKey: "attachment:\(attachment.id):feed-image",
-                maximumPixelSize: 2_000,
+                maximumPixelSize: ModulaFeedImage.maxPixels,
                 retryID: retryID
             ) { phase in
                 switch phase {

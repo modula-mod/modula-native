@@ -146,17 +146,13 @@ private struct SessionTokens: Codable, Sendable {
     let sessionId: String
     let accessExpiresAt: String
     let refreshExpiresAt: String
+    // Checked before every authenticated request: shared formatters instead of
+    // allocating two ISO8601DateFormatters per call.
     var accessValid: Bool {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: accessExpiresAt) ?? ISO8601DateFormatter().date(from: accessExpiresAt)
-        return (date?.timeIntervalSinceNow ?? 0) > 30
+        (ModulaISODate.parse(accessExpiresAt)?.timeIntervalSinceNow ?? 0) > 30
     }
     var refreshValid: Bool {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: refreshExpiresAt) ?? ISO8601DateFormatter().date(from: refreshExpiresAt)
-        return (date?.timeIntervalSinceNow ?? 0) > 0
+        (ModulaISODate.parse(refreshExpiresAt)?.timeIntervalSinceNow ?? 0) > 0
     }
 }
 
@@ -213,6 +209,23 @@ actor GreenfieldClient {
             self.artifactTransport = transport
         }
     }
+
+    /// Instant launch: the account saved with this exact session, with no network.
+    /// The caller revalidates with `restore()` right after the shell is on screen.
+    func cachedRestore() -> GreenfieldAccount? {
+        guard let data = try? keychain.load(),
+              let stored = try? JSONDecoder().decode(SessionTokens.self, from: data),
+              stored.refreshValid,
+              let cached = try? offlineAccountKeychain.load(),
+              let record = try? JSONDecoder().decode(OfflineAccountRecord.self, from: cached),
+              record.sessionId == stored.sessionId,
+              record.account.status == "active" else { return nil }
+        tokens = stored
+        accountID = record.account.accountId
+        return record.account
+    }
+
+    func currentAccountID() -> String? { accountID }
 
     func restore() async throws -> GreenfieldAccount? {
         guard let data = try keychain.load() else { return nil }
