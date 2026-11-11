@@ -683,7 +683,7 @@ struct HomeView: View {
                 }
                 if state.loadState == .loaded, !state.hasMore, state.nextCursor == nil,
                    state.loadMoreError == nil, visiblePosts.count >= 3 {
-                    HomeCaughtUpMarker {
+                    HomeCaughtUpMarker(updated: state.lastRefresh) {
                         Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
@@ -1595,6 +1595,7 @@ struct HomeTodayCard: View {
 
 /// End of the loaded feed: nothing older to page in.
 struct HomeCaughtUpMarker: View {
+    var updated: Date? = nil
     var onRefresh: () -> Void
     @Environment(AppEnvironment.self) private var app
 
@@ -1613,6 +1614,12 @@ struct HomeCaughtUpMarker: View {
             Text("You’ve seen everything new in this feed.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            if let updated {
+                Text("Updated \(updated.formatted(.relative(presentation: .named)))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityIdentifier("home.caughtup.updated")
+            }
             Button {
                 HapticEngine.shared.play(.selection)
                 onRefresh()

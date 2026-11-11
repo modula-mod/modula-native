@@ -350,7 +350,7 @@ struct SettingsView: View {
             scrollY = y
         }
         .modulaSoftScrollEdge()
-        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .background(SettingsAmbientBackdrop().ignoresSafeArea())
         .overlay {
             if !isSearching {
                 IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }

@@ -1308,6 +1308,7 @@ struct StoryViewer: View {
                         Button("Reply in Messages", systemImage: "bubble.left") { reply(item) }
                     }
                     Button("Share", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Copy link", systemImage: "link") { copyLink(item) }
                     Button("Mute", systemImage: "speaker.slash") { confirmMute = true }
                     Button("Report", systemImage: "flag", role: .destructive) { confirmReport = true }
                 }

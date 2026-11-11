@@ -457,7 +457,7 @@ struct ShellSidebarView: View {
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 40, height: 40)
-                    .background(Color.primary.opacity(0.07), in: Circle())
+                    .modulaGlass(in: Circle(), interactive: true, specular: true)
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
             }
@@ -495,7 +495,7 @@ struct ShellSidebarView: View {
         }
         .padding(.horizontal, ModulaSpacing.sm)
         .frame(minHeight: 40)
-        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous), interactive: true)
     }
 
     private func endSearch() {
@@ -624,7 +624,7 @@ struct ShellSidebarView: View {
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)
                                 .frame(height: 30)
-                                .background(Color.primary.opacity(0.07), in: Capsule())
+                                .modulaGlass(in: Capsule(), interactive: true)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Search \(term)")
@@ -699,16 +699,16 @@ struct ShellSidebarView: View {
         }
     }
 
-    private func rowLabel(symbol: String, title: String, badge: Int = 0) -> some View {
+    private func rowLabel(symbol: String, title: String, badge: Int = 0, selected: Bool = false) -> some View {
         HStack(spacing: ModulaSpacing.sm) {
             Image(systemName: symbol)
-                .font(.body.weight(.regular))
+                .font(.body.weight(selected ? .semibold : .regular))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(.primary.opacity(0.78))
+                .foregroundStyle(selected ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(Color.primary.opacity(0.78)))
                 .frame(width: 24)
                 .accessibilityHidden(true)
             Text(title)
-                .font(.body)
+                .font(selected ? .body.weight(.semibold) : .body)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             Spacer(minLength: 0)
@@ -724,13 +724,24 @@ struct ShellSidebarView: View {
         }
         .padding(.horizontal, rowInset)
         .frame(minHeight: rowHeight)
+        .background {
+            if selected {
+                // Current destination: one tinted Liquid Glass pill.
+                let pill = RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous)
+                Color.clear
+                    .modulaGlass(in: pill, interactive: false, tint: app.appearance.liveAccent.opacity(0.4), specular: true)
+                    .padding(.horizontal, 6)
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
     }
 
     private func row(_ item: ShellSidebarItem) -> some View {
-        Button { onSelect(item.route, item.requiresSignIn) } label: {
-            rowLabel(symbol: item.symbol, title: item.title, badge: item.badge)
+        let selected = item.route == app.navigation.root(for: app.navigation.selectedTab)
+        return Button { onSelect(item.route, item.requiresSignIn) } label: {
+            rowLabel(symbol: item.symbol, title: item.title, badge: item.badge, selected: selected)
         }
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .buttonStyle(ShellSidebarRowStyle())
         .accessibilityLabel(item.badge > 0 ? "\(item.title), \(item.badge) unread" : item.title)
         .accessibilityIdentifier("shell.sidebar.\(item.id)")

@@ -69,10 +69,13 @@ struct RootView: View {
             app.refreshQuickActions()
         }
         .task {
+            // After the first frames, so Home's feed request goes out first; and the
+            // catalogue the boot gate already loaded isn't fetched a second time.
+            try? await Task.sleep(for: .milliseconds(700))
             if app.catalogue.accountID == nil {
                 app.catalogue.accountID = app.auth.account?.accountId
             }
-            await app.catalogue.load()
+            if !app.catalogue.loaded { await app.catalogue.load() }
             if app.auth.isSignedIn {
                 await app.profile.loadIfNeeded(
                     .me,

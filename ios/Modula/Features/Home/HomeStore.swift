@@ -10,7 +10,17 @@ final class HomeStore {
         .following: HomeModeState(),
         .forYou: HomeModeState(),
         .modules: HomeModeState()
-    ]
+    ] { didSet { modesRevision &+= 1 } }
+    /// Memo for `visiblePosts(for:)`: Home asked for it 3+ times per body pass (and once
+    /// per filter chip), each time filtering + resolving the whole feed.
+    @ObservationIgnored private var modesRevision: UInt64 = 0
+    @ObservationIgnored private var visibleMemo: [HomeMode: VisibleMemo] = [:]
+    private struct VisibleMemo {
+        let modes: UInt64
+        let posts: UInt64
+        let options: HomeFeedDisplayOptions
+        let value: [SocialPost]
+    }
     private(set) var actionError: String?
     var isOfflineHint = false
     /// Bumped by every refresh. A page that was requested under an older generation is
@@ -46,7 +56,17 @@ final class HomeStore {
     }
 
     func visiblePosts(for mode: HomeMode) -> [SocialPost] {
-        applyDisplay(visibleItems(state(for: mode).items), mode: mode)
+        // Read the observed inputs every time so SwiftUI keeps tracking them.
+        let items = state(for: mode).items
+        let postsRevision = posts.revision
+        let options = displayOptions(for: mode)
+        if let memo = visibleMemo[mode], memo.modes == modesRevision,
+           memo.posts == postsRevision, memo.options == options {
+            return memo.value
+        }
+        let value = applyDisplay(visibleItems(items), mode: mode)
+        visibleMemo[mode] = VisibleMemo(modes: modesRevision, posts: postsRevision, options: options, value: value)
+        return value
     }
 
     func state(for mode: HomeMode) -> HomeModeState {
