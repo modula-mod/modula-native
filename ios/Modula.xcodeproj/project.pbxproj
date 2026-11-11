@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CA1200000000000000000001 /* CallModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000001 /* CallModels.swift */; };
+		CA1200000000000000000002 /* CallRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000002 /* CallRepository.swift */; };
+		CA1200000000000000000003 /* CallSignallingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000003 /* CallSignallingClient.swift */; };
+		CA1200000000000000000004 /* CallMediaEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000004 /* CallMediaEngine.swift */; };
+		CA1200000000000000000005 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000005 /* CallManager.swift */; };
+		CA1200000000000000000006 /* CallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000006 /* CallViews.swift */; };
+		CA1200000000000000000100 /* CallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000100 /* CallTests.swift */; };
+		CA1400000000000000000001 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = CA1500000000000000000001 /* WebRTC */; };
 		96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */; };
 		F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */; };
 		D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */; };
@@ -526,6 +534,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CA1100000000000000000001 /* CallModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallModels.swift; path = Features/Calls/CallModels.swift; sourceTree = "<group>"; };
+		CA1100000000000000000002 /* CallRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallRepository.swift; path = Features/Calls/CallRepository.swift; sourceTree = "<group>"; };
+		CA1100000000000000000003 /* CallSignallingClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallSignallingClient.swift; path = Features/Calls/CallSignallingClient.swift; sourceTree = "<group>"; };
+		CA1100000000000000000004 /* CallMediaEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallMediaEngine.swift; path = Features/Calls/CallMediaEngine.swift; sourceTree = "<group>"; };
+		CA1100000000000000000005 /* CallManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallManager.swift; path = Features/Calls/CallManager.swift; sourceTree = "<group>"; };
+		CA1100000000000000000006 /* CallViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallViews.swift; path = Features/Calls/CallViews.swift; sourceTree = "<group>"; };
+		CA1100000000000000000100 /* CallTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallTests.swift; sourceTree = "<group>"; };
 		871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooItems.xcassets; path = Resources/MolibooGame/MolibooItems.xcassets; sourceTree = "<group>"; };
 		EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameViews.swift; path = Features/MolibooGame/MolibooGameViews.swift; sourceTree = "<group>"; };
 		2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameAPI.swift; path = Features/MolibooGame/MolibooGameAPI.swift; sourceTree = "<group>"; };
@@ -1053,6 +1068,7 @@
 				A80100000000000000000003 /* MLXHuggingFace in Frameworks */,
 				A80100000000000000000004 /* HuggingFace in Frameworks */,
 				A80100000000000000000005 /* Tokenizers in Frameworks */,
+				CA1400000000000000000001 /* WebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1116,6 +1132,7 @@
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
+				CA1100000000000000000100 /* CallTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
@@ -1248,6 +1265,12 @@
 				N40100000000000000000007 /* MessagesViews.swift */,
 				0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */,
 				C0MSGV3100000000000001 /* MessagingRealtime.swift */,
+				CA1100000000000000000001 /* CallModels.swift */,
+				CA1100000000000000000002 /* CallRepository.swift */,
+				CA1100000000000000000003 /* CallSignallingClient.swift */,
+				CA1100000000000000000004 /* CallMediaEngine.swift */,
+				CA1100000000000000000005 /* CallManager.swift */,
+				CA1100000000000000000006 /* CallViews.swift */,
 				C0MSGV3100000000000002 /* MessagingV3Views.swift */,
 				N40100000000000000000008 /* InMailModels.swift */,
 				N40100000000000000000009 /* InMailRepository.swift */,
@@ -1694,6 +1717,7 @@
 				A90100000000000000000003 /* MLXHuggingFace */,
 				A90100000000000000000004 /* HuggingFace */,
 				A90100000000000000000005 /* Tokenizers */,
+				CA1500000000000000000001 /* WebRTC */,
 			);
 			productName = Modula;
 			productReference = 790594A395FC6962F78767AC /* Modula.app */;
@@ -1741,6 +1765,7 @@
 				AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				AA0100000000000000000002 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+				CA1600000000000000000001 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			productRefGroup = 388B9B4ACD3E9E4C0F090FA8 /* Products */;
 			projectDirPath = "";
@@ -1975,6 +2000,7 @@
 				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
+				CA1200000000000000000100 /* CallTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 				876A4A792369DBEA180D421D /* PremiumTests.swift in Sources */,
@@ -2065,6 +2091,12 @@
 				N50100000000000000000007 /* MessagesViews.swift in Sources */,
 				B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */,
 				C0MSGV3100000000000011 /* MessagingRealtime.swift in Sources */,
+				CA1200000000000000000001 /* CallModels.swift in Sources */,
+				CA1200000000000000000002 /* CallRepository.swift in Sources */,
+				CA1200000000000000000003 /* CallSignallingClient.swift in Sources */,
+				CA1200000000000000000004 /* CallMediaEngine.swift in Sources */,
+				CA1200000000000000000005 /* CallManager.swift in Sources */,
+				CA1200000000000000000006 /* CallViews.swift in Sources */,
 				C0MSGV3100000000000012 /* MessagingV3Views.swift in Sources */,
 				N50100000000000000000008 /* InMailModels.swift in Sources */,
 				N50100000000000000000009 /* InMailRepository.swift in Sources */,
@@ -2779,6 +2811,14 @@
 				version = 1.3.4;
 			};
 		};
+		CA1600000000000000000001 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = exactVersion;
+				version = 156.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2806,6 +2846,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */;
 			productName = Tokenizers;
+		};
+		CA1500000000000000000001 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CA1600000000000000000001 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

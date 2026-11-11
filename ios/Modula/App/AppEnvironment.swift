@@ -20,6 +20,9 @@ final class AppEnvironment {
     let home: HomeStore
     let profile: ProfileStore
     let messaging: MessagingStore
+    /// 1:1 calls (CallKit, PushKit, WebRTC). A launch-time singleton because PushKit must be
+    /// registered in `didFinishLaunching`, before SwiftUI builds any view.
+    var calls: CallManager { CallManager.shared }
     let inMail: InMailStore
     let stories: StoryStore
     let reels: ReelStore
@@ -86,7 +89,10 @@ final class AppEnvironment {
         runtime.activation = moduleActivation
         auth = AuthenticationStore(client: client)
         push = PushNotificationController(client: client)
-        auth.willSignOut = { [push] in await push.unregisterForSignOut() }
+        auth.willSignOut = { [push] in
+            await CallManager.shared.signOut()
+            await push.unregisterForSignOut()
+        }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
         posts = PostStateStore()
@@ -139,6 +145,7 @@ final class AppEnvironment {
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)
+            CallManager.shared.accountChanged(signedIn: account != nil)
             catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
             Task {
@@ -303,6 +310,13 @@ final class AppEnvironment {
         refreshLaunchState()
         refreshQuickActions()
         await push.attach(environment: self)
+        CallManager.shared.attach(client: client, signedIn: auth.isSignedIn)
+        if auth.isSignedIn {
+            // Off the boot path: one capability probe so the messaging socket (which carries
+            // `call.updated`) runs and call buttons know whether the server enables calls.
+            let messagingStore = messaging
+            Task(priority: .utility) { await messagingStore.probeCapabilities() }
+        }
     }
 
     func refreshLaunchState() {
