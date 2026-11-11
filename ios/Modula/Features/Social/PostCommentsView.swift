@@ -450,7 +450,12 @@ struct PostCommentsView: View {
     @State private var assistantHandled: Set<String> = []
     @State private var assistantBrain = MascotBrain()
     @AppStorage(ModulaMascotSettings.key(for: .comments)) private var commentsMascotShown = ModulaMascotSettings.defaultShown(.comments)
-    @State private var sort: CommentSort = .best
+    /// Remembered: the comments sheet reopens with the order you last picked.
+    @AppStorage("comments.sort") private var sortRaw = CommentSort.best.rawValue
+    private var sort: CommentSort {
+        get { CommentSort(rawValue: sortRaw) ?? .best }
+        nonmutating set { sortRaw = newValue.rawValue }
+    }
     @State private var searchText = ""
     @State private var showsSearch = false
     @State private var scrollTarget: SocialCommentID?

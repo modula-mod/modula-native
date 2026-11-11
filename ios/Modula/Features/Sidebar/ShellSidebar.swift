@@ -536,7 +536,10 @@ struct ShellSidebarView: View {
         var items = ShellSidebarDestination.allCases
             .filter { $0.section == .library }
             .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
-                                    requiresSignIn: $0.requiresSignIn, keywords: $0.subtitle ?? "") }
+                                    requiresSignIn: $0.requiresSignIn,
+                                    // Unpublished posts/stories on this device, so drafts aren't forgotten.
+                                    badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
+                                    keywords: $0.subtitle ?? "") }
         #if DEBUG
         items.append(.init(id: "developer", title: "Module Studio", symbol: "wrench.and.screwdriver", route: .developer(.studio), requiresSignIn: false))
         #endif
