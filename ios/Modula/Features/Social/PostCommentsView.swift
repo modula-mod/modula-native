@@ -463,13 +463,13 @@ struct PostCommentsView: View {
                 }
                 .onChange(of: scrollTarget) { _, id in
                     guard let id else { return }
-                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82)) {
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.22)) {
                         proxy.scrollTo(id, anchor: .center)
                     }
                     scrollTarget = nil
                 }
                 .onChange(of: focusComposerRequest) { _, _ in
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.86)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
                         proxy.scrollTo("post.comments.anchor", anchor: .top)
                     }
                     composerFocused = true
@@ -675,7 +675,7 @@ struct PostCommentsView: View {
                     ForEach(CommentSort.allCases) { option in
                         let selected = sort == option
                         Button {
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) { sort = option }
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { sort = option }
                             HapticEngine.shared.play(.selection)
                         } label: {
                             Text(option.title)
@@ -700,7 +700,7 @@ struct PostCommentsView: View {
             }
             Spacer(minLength: 8)
             Button {
-                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.78)) {
+                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
                     showsSearch.toggle()
                     if !showsSearch { searchText = "" }
                 }
@@ -825,7 +825,7 @@ struct PostCommentsView: View {
                             }
                             if !replies.isEmpty || comment.replyCount > 0 {
                                 Button {
-                                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy) {
+                                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.2)) {
                                         store.collapseReplies(for: comment)
                                     }
                                     HapticEngine.shared.play(.selection)
@@ -1124,7 +1124,7 @@ struct PostCommentsView: View {
         }
         .onLongPressGesture(minimumDuration: 0.35) {
             HapticEngine.shared.play(.actionConfirmed)
-            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82)) { menuComment = comment }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.22)) { menuComment = comment }
         }
         .accessibilityAction(named: "More actions") { menuComment = comment }
     }
@@ -1275,7 +1275,7 @@ struct PostCommentsView: View {
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
                     .gesture(DragGesture(minimumDistance: 24).onEnded { value in
                         if value.translation.height > 70 {
-                            withAnimation(.snappy) { mediaStage = .collapsed }
+                            withAnimation(.easeOut(duration: 0.2)) { mediaStage = .collapsed }
                         }
                     })
                 }
@@ -1322,7 +1322,7 @@ struct PostCommentsView: View {
                             if value {
                                 mediaPanelTab = .emoji
                                 stickerSection = nil
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                                withAnimation(.easeOut(duration: 0.22)) {
                                     mediaStage = .collapsed
                                 }
                             }
@@ -1402,8 +1402,8 @@ struct PostCommentsView: View {
         .background {
             if mediaPanelActive { canvas.ignoresSafeArea(edges: .bottom) }
         }
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.85), value: mediaPanelActive)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: mediaStage)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: mediaPanelActive)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: mediaStage)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
@@ -1424,14 +1424,14 @@ struct PostCommentsView: View {
         case "photos":
             composerFocused = false
             mediaPanelActive = false
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { mediaStage = .library }
+            withAnimation(.easeOut(duration: 0.22)) { mediaStage = .library }
         case "camera":
             composerFocused = false
             mediaPanelActive = false
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { mediaStage = .camera }
+            withAnimation(.easeOut(duration: 0.22)) { mediaStage = .camera }
         case "gif", "sticker", "mascot":
             composerFocused = false
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { mediaStage = .collapsed }
+            withAnimation(.easeOut(duration: 0.22)) { mediaStage = .collapsed }
             mediaPanelTab = option.id == "gif" ? .gifs : .stickers
             stickerSection = option.id == "mascot" ? "mascots" : nil
             mediaPanelActive = true

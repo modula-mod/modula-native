@@ -1258,8 +1258,18 @@ struct ImmersivePostCard: View {
                 .allowsHitTesting(false)
             }
         }
-        .shadow(color: glow.opacity(isDetail ? 0 : 0.16), radius: 16, y: 6)
-        .shadow(color: .black.opacity(isDetail ? 0 : 0.06), radius: 3, y: 1)
+        // Shadow cast by a plain shape with its interior cut out (the card stays translucent),
+        // instead of shadowing the whole text/action subtree twice on every scroll frame.
+        .background {
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black)
+                    .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
+                    .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                    .mask(ModulaOutsideRoundedRect(radius: radius).fill(style: FillStyle(eoFill: true)))
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var textActions: some View {
@@ -1936,3 +1946,14 @@ struct MediaUnavailableStage: View {
     }
 }
 
+
+
+/// Everything outside a rounded rect (even-odd). Used to keep only a shape's outer shadow.
+struct ModulaOutsideRoundedRect: Shape {
+    var radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect.insetBy(dx: -60, dy: -60))
+        path.addRoundedRect(in: rect, cornerSize: CGSize(width: radius, height: radius), style: .continuous)
+        return path
+    }
+}
