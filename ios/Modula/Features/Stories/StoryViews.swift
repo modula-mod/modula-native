@@ -1201,7 +1201,7 @@ struct StoryViewer: View {
 
     private static let quickEmoji = ["😂", "😮", "😍", "😢", "👏", "🔥", "🎉", "💯"]
 
-    /// Quick reactions (kept on device until the story reactions API ships).
+    /// Quick reactions: shown on the story locally and sent to the author as a reply when replies are available.
     private func quickReactions(_ item: StoryItem) -> some View {
         HStack(spacing: 4) {
             ForEach(Self.quickEmoji, id: \.self) { emoji in
@@ -1209,6 +1209,14 @@ struct StoryViewer: View {
                     LocalEmojiReactionStore.shared.set(emoji, for: "story:\(item.id)")
                     reactedLocally = true
                     replyFocused = false
+                    // Instagram-style: a quick reaction is delivered to the author as a story reply.
+                    if canReply, !item.isOwn {
+                        Task {
+                            if await app.stories.reply(to: item.id, text: emoji) {
+                                app.navigation.flash("Sent \(emoji) to \(item.author.displayName)", symbol: "paperplane.fill")
+                            }
+                        }
+                    }
                     withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { burstEmoji = emoji }
                     HapticEngine.shared.play(.success)
                     Task {

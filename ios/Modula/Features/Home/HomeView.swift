@@ -606,7 +606,7 @@ struct HomeView: View {
                     }
                     .onAppear {
                         ModulaPerf.mark("firstFeedRow")
-                        prefetchAhead(after: post)
+                        prefetchAhead(after: post, in: visiblePosts)
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
                             Task { await app.home.loadMore(mode) }
                         }
@@ -968,8 +968,9 @@ struct HomeView: View {
 // MARK: - Image prefetch (keeps the next cards' photos decoded before they scroll in)
 
 extension HomeView {
-    fileprivate func prefetchAhead(after post: SocialPost) {
-        let items = app.home.visiblePosts(for: mode)
+    /// Uses the list the ForEach already built: recomputing `visiblePosts` (filter + resolve
+    /// over the whole feed) on every row appearance was O(n²) while scrolling.
+    fileprivate func prefetchAhead(after post: SocialPost, in items: [SocialPost]) {
         guard let index = items.firstIndex(where: { $0.id == post.id }) else { return }
         for next in items.dropFirst(index + 1).prefix(4) {
             for media in next.media.prefix(2) {
