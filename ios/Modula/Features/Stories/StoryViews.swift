@@ -779,8 +779,11 @@ struct StoryViewer: View {
     @State private var replyDraft = ""
     @State private var reactedLocally = false
     @State private var burstEmoji: String?
+    /// Brief "Sent" chip above the reply bar after a reply or reaction is delivered.
+    @State private var sentReceipt: String?
     @State private var confirmMute = false
     @State private var confirmReport = false
+    @State private var confirmDelete = false
     @State private var showsInsights = false
 
     private let teal = Color(hex: "#369CAA")
@@ -798,7 +801,13 @@ struct StoryViewer: View {
         let item = group.items.indices.contains(engine.index) ? group.items[engine.index] : group.items.first
         ZStack {
             Color.black.ignoresSafeArea()
-            content(item)
+            // Liquid-glass dissolve between stories: the next one condenses out of a blur.
+            ZStack {
+                content(item)
+                    .id(item?.id)
+                    .transition(reduceMotion ? .opacity : .storyGlass)
+            }
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.3), value: engine.index)
             // Edge taps / hold — primary navigation. Bottom Previous/Next text removed.
             HStack(spacing: 0) {
                 Color.clear
@@ -843,6 +852,24 @@ struct StoryViewer: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Delete this story?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                guard let item = currentItem else { return }
+                Task {
+                    if await app.stories.delete(itemID: item.id) {
+                        HapticEngine.shared.play(.actionConfirmed)
+                        app.navigation.flash("Story deleted", symbol: "trash")
+                        app.navigation.close()
+                    } else {
+                        app.navigation.flash("Couldn’t delete story", symbol: "exclamationmark.triangle")
+                        engine.resume()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) { engine.resume() }
+        } message: {
+            Text("It’s removed for everyone right away.")
         }
         .confirmationDialog("Report this story?", isPresented: $confirmReport, titleVisibility: .visible) {
             Button("Spam", role: .destructive) { reportCurrent(category: "spam") }
@@ -1131,6 +1158,17 @@ struct StoryViewer: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if let sentReceipt {
+                Label(sentReceipt, systemImage: "checkmark.circle.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
+                    .modulaGlass(in: Capsule(), tint: .white.opacity(0.14))
+                    .transition(.opacity)
+                    .accessibilityIdentifier("story.sent")
+            }
+
             ModulaGlassGroup(spacing: 10) {
                 HStack(spacing: 10) {
                     replyField(item)
@@ -1182,7 +1220,7 @@ struct StoryViewer: View {
 
     private static let quickEmoji = ["😂", "😮", "😍", "😢", "👏", "🔥", "🎉", "💯"]
 
-    /// Quick reactions (kept on device until the story reactions API ships).
+    /// Quick reactions: shown on the story locally and sent to the author as a reply when replies are available.
     private func quickReactions(_ item: StoryItem) -> some View {
         HStack(spacing: 4) {
             ForEach(Self.quickEmoji, id: \.self) { emoji in
@@ -1190,6 +1228,14 @@ struct StoryViewer: View {
                     LocalEmojiReactionStore.shared.set(emoji, for: "story:\(item.id)")
                     reactedLocally = true
                     replyFocused = false
+                    // Instagram-style: a quick reaction is delivered to the author as a story reply.
+                    if canReply, !item.isOwn {
+                        Task {
+                            if await app.stories.reply(to: item.id, text: emoji) {
+                                showSentReceipt("Sent \(emoji)")
+                            }
+                        }
+                    }
                     withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { burstEmoji = emoji }
                     HapticEngine.shared.play(.success)
                     Task {
@@ -1255,11 +1301,20 @@ struct StoryViewer: View {
                     }
                     Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Copy link", systemImage: "link") { copyLink(item) }
+                    if let media = item.media, media.url != nil, media.kind == .image || media.kind == .video {
+                        Button("Save to Photos", systemImage: "arrow.down.to.line") { saveOwnStory(item) }
+                    }
+                    Button("Delete story", systemImage: "trash", role: .destructive) {
+                        engine.pause()
+                        confirmDelete = true
+                    }
                 } else {
                     if canReply {
                         Button("Reply in Messages", systemImage: "bubble.left") { reply(item) }
                     }
                     Button("Share", systemImage: "square.and.arrow.up") { share(item) }
+                    Button("Copy link", systemImage: "link") { copyLink(item) }
                     Button("Mute", systemImage: "speaker.slash") { confirmMute = true }
                     Button("Report", systemImage: "flag", role: .destructive) { confirmReport = true }
                 }
@@ -1299,10 +1354,55 @@ struct StoryViewer: View {
         }
         replyDraft = ""
         replyFocused = false
-        // No story-reply endpoint yet — open Messages with an honest island confirmation.
-        app.navigation.open(.messages(.new))
-        app.navigation.flash("Continue in Messages", symbol: "bubble.left")
-        _ = item
+        HapticEngine.shared.play(.selection)
+        Task {
+            if await app.stories.reply(to: item.id, text: text) {
+                showSentReceipt("Sent to \(item.author.displayName)")
+            } else {
+                replyDraft = text
+                app.navigation.flash("Couldn’t send reply", symbol: "exclamationmark.triangle")
+            }
+        }
+    }
+
+    private func showSentReceipt(_ text: String) {
+        HapticEngine.shared.play(.success)
+        withAnimation(.easeOut(duration: 0.2)) { sentReceipt = text }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            if sentReceipt == text { withAnimation(.easeOut(duration: 0.25)) { sentReceipt = nil } }
+        }
+    }
+
+    /// Downloads your own story's original media and adds it to Photos (add-only access).
+    private func saveOwnStory(_ item: StoryItem) {
+        guard let media = item.media, let url = media.url else { return }
+        let client = app.client
+        let navigation = app.navigation
+        navigation.flash("Saving…", symbol: "arrow.down.circle")
+        Task { @MainActor in
+            var saved = false
+            if media.kind == .video {
+                if let temp = try? await client.downloadMedia(from: url) {
+                    let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension
+                    let destination = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+                    try? FileManager.default.copyItem(at: temp, to: destination)
+                    saved = await StoryVideoExporter.saveToPhotos(destination)
+                    try? FileManager.default.removeItem(at: destination)
+                }
+            } else if let data = try? await client.mediaData(from: url) {
+                saved = await ModulaPhotoLibrarySaver.save(data)
+            }
+            navigation.flash(saved ? "Saved to Photos" : "Couldn’t save to Photos", symbol: saved ? "photo.badge.checkmark" : "exclamationmark.triangle")
+            HapticEngine.shared.play(saved ? .saveComplete : .failure)
+        }
+    }
+
+    private func copyLink(_ item: StoryItem) {
+        UIPasteboard.general.url = ModulaShareLink.story(item.id)
+        app.navigation.flash("Story link copied", symbol: "link")
+        HapticEngine.shared.play(.confirmation)
     }
 
     private func share(_ item: StoryItem) {
@@ -1357,7 +1457,10 @@ struct StoryProgressBar: View {
                 .frame(height: 2.5)
             }
         }
-        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+        // Liquid Glass track instead of a shadow: the shadow re-rendered offscreen on every progress tick.
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .modulaGlass(in: Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Story \(index + 1) of \(count)")
         .accessibilityIdentifier("story.progress")
@@ -4292,5 +4395,29 @@ private struct StoryDraftsGallery: View {
             }
         }
         .accessibilityLabel("Draft, \(draft.preview)")
+    }
+}
+
+
+// MARK: - Story glass transition
+
+private struct StoryGlassDissolve: ViewModifier {
+    let blur: CGFloat
+    let scale: CGFloat
+    let opacity: Double
+    func body(content: Content) -> some View {
+        content.blur(radius: blur).scaleEffect(scale).opacity(opacity)
+    }
+}
+
+extension AnyTransition {
+    /// Incoming story sharpens from a frosted blur; the outgoing one frosts over and fades.
+    static var storyGlass: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(active: StoryGlassDissolve(blur: 18, scale: 1.04, opacity: 0),
+                                 identity: StoryGlassDissolve(blur: 0, scale: 1, opacity: 1)),
+            removal: .modifier(active: StoryGlassDissolve(blur: 14, scale: 0.98, opacity: 0),
+                               identity: StoryGlassDissolve(blur: 0, scale: 1, opacity: 1))
+        )
     }
 }

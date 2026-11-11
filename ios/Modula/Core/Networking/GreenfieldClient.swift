@@ -146,17 +146,13 @@ private struct SessionTokens: Codable, Sendable {
     let sessionId: String
     let accessExpiresAt: String
     let refreshExpiresAt: String
+    // Checked before every authenticated request: shared formatters instead of
+    // allocating two ISO8601DateFormatters per call.
     var accessValid: Bool {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: accessExpiresAt) ?? ISO8601DateFormatter().date(from: accessExpiresAt)
-        return (date?.timeIntervalSinceNow ?? 0) > 30
+        (ModulaISODate.parse(accessExpiresAt)?.timeIntervalSinceNow ?? 0) > 30
     }
     var refreshValid: Bool {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: refreshExpiresAt) ?? ISO8601DateFormatter().date(from: refreshExpiresAt)
-        return (date?.timeIntervalSinceNow ?? 0) > 0
+        (ModulaISODate.parse(refreshExpiresAt)?.timeIntervalSinceNow ?? 0) > 0
     }
 }
 
@@ -212,6 +208,35 @@ actor GreenfieldClient {
             // Preserve injected transports, including the isolated-network test session.
             self.artifactTransport = transport
         }
+    }
+
+    /// Instant launch: the account saved with this exact session, with no network.
+    /// The caller revalidates with `restore()` right after the shell is on screen.
+    func cachedRestore() -> GreenfieldAccount? {
+        guard let data = try? keychain.load(),
+              let stored = try? JSONDecoder().decode(SessionTokens.self, from: data),
+              stored.refreshValid,
+              let cached = try? offlineAccountKeychain.load(),
+              let record = try? JSONDecoder().decode(OfflineAccountRecord.self, from: cached),
+              record.sessionId == stored.sessionId,
+              record.account.status == "active" else { return nil }
+        tokens = stored
+        accountID = record.account.accountId
+        return record.account
+    }
+
+    func currentAccountID() -> String? { accountID }
+
+    /// Background check after `cachedRestore()`. Uses the live token state (no keychain
+    /// re-read), so it can't race a token refresh that is already in flight.
+    func revalidateAccount() async throws -> GreenfieldAccount {
+        let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
+        guard account.status == "active" else { throw APIError.unauthenticated }
+        accountID = account.accountId
+        if let current = tokens {
+            try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: current.sessionId, account: account)))
+        }
+        return account
     }
 
     func restore() async throws -> GreenfieldAccount? {

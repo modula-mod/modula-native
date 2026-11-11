@@ -28,6 +28,7 @@ struct SettingsDestinationHost: View {
             .modulaSoftScrollEdge()
             // Forms/Lists: keep the last row (and footers) clear of the tab bar and floating buttons.
             .contentMargins(.bottom, SettingsInsets.bottom, for: .scrollContent)
+            .onAppear { SettingsRecents.record(route) }
     }
 
     @ViewBuilder
@@ -708,6 +709,7 @@ struct StorageUsageSnapshot: Sendable {
         // transfer, or another subsystem. Only the URL response cache is known
         // to be rebuildable here.
         URLCache.shared.removeAllCachedResponses()
+        ModulaImageDiskCache.clear()
     }
 
     private static func folderSize(_ url: URL) -> Int64 {
@@ -774,7 +776,7 @@ private struct PackageStorageSnapshot: Sendable {
                     runtimeBytes: size(runtimeRoot),
                     modelBytes: support.map { size($0.appendingPathComponent("Modula/Packages/ModelData")) } ?? 0,
                     assetBytes: support.map { size($0.appendingPathComponent("Modula/Packages/AssetPacks")) } ?? 0,
-                    temporaryBytes: Int64(URLCache.shared.currentDiskUsage),
+                    temporaryBytes: Int64(URLCache.shared.currentDiskUsage) + ModulaImageDiskCache.byteCount(),
                     packages: packages.sorted { $0.id < $1.id }, runtimeDigests: runtimeDigests)
     }
 
@@ -929,6 +931,7 @@ private struct PackageStorageDownloadsView: View {
 
     private func clearTemporaryCache() {
         URLCache.shared.removeAllCachedResponses()
+        ModulaImageDiskCache.clear()
         Task { await refresh() }
     }
 }
@@ -1192,6 +1195,7 @@ struct AboutSettingsHost: View {
                     Text("Include the version and build when you contact support so we can find the right fix faster.")
                 }
                 if route == .root {
+                    AboutPerformanceSection()
                     Section {
                         Button { app.navigation.open(.settings(.about(.privacy))) } label: { Label("Privacy Policy", systemImage: "hand.raised") }
                         Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms of Service", systemImage: "doc.text") }
@@ -1415,5 +1419,141 @@ struct ModulaStorageOverview: View {
         }
         .buttonStyle(.plain)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+    }
+}
+
+
+/// Last-launch timings recorded on this device by `ModulaPerf` (never uploaded).
+private struct AboutPerformanceSection: View {
+    private let d = UserDefaults.standard
+    /// Same keys as Settings → Battery / Feed, surfaced here as speed switches.
+    @AppStorage("settings.battery.reduceMotionExtra") private var reduceEffects = false
+    @AppStorage("settings.feed.showReplies") private var expandThreads = true
+    @State private var imageCacheBytes: Int64?
+    @AppStorage(ModulaGlassSettings.glassBubblesKey) private var glassBubbles = false
+
+    var body: some View {
+        Section {
+            #if DEBUG
+            LabeledContent("Build type", value: "Debug (slower)")
+            #else
+            LabeledContent("Build type", value: "Release (optimised)")
+            #endif
+            row("First frame", key: "modula.perf.firstFrame")
+            row("Ready", key: "modula.perf.gateReady")
+            row("Home feed", key: "modula.perf.firstFeedRow")
+            if d.object(forKey: "modula.perf.launchFrames") != nil {
+                let frames = d.integer(forKey: "modula.perf.launchFrames")
+                let hitches = d.integer(forKey: "modula.perf.launchHitches")
+                LabeledContent("Dropped frames (first 12 s)", value: "\(hitches) of \(frames)")
+            }
+            Toggle(isOn: $reduceEffects) {
+                Label("Lighter effects", systemImage: "hare")
+            }
+            .accessibilityHint("Turns off scroll reveal and decorative motion for a faster feel")
+            Toggle(isOn: $expandThreads) {
+                Label("Auto-open reply threads", systemImage: "text.bubble")
+            }
+            .accessibilityHint("Off makes the comments sheet open with fewer requests")
+            Toggle(isOn: $glassBubbles) {
+                Label("Glass message bubbles", systemImage: "bubble.left")
+            }
+            .accessibilityHint("Off draws received messages with a flat fill, which scrolls faster")
+            Button {
+                let info = Bundle.main.infoDictionary
+                let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+                let build = info?["CFBundleVersion"] as? String ?? "?"
+                let device = UIDevice.current
+                UIPasteboard.general.string = "Modula \(version) (\(build)) · \(device.systemName) \(device.systemVersion)"
+                HapticEngine.shared.play(.confirmation)
+            } label: {
+                Label("Copy version info", systemImage: "doc.on.doc")
+            }
+            Button {
+                ModulaImageDiskCache.clear()
+                imageCacheBytes = 0
+                HapticEngine.shared.play(.selection)
+            } label: {
+                LabeledContent {
+                    Text(imageCacheBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "…")
+                } label: {
+                    Label("Clear image cache", systemImage: "photo.stack")
+                }
+            }
+            .disabled(imageCacheBytes == 0)
+            .task {
+                imageCacheBytes = await Task.detached(priority: .utility) { ModulaImageDiskCache.byteCount() }.value
+            }
+        } header: { Text("Performance") } footer: {
+            Text("Timings are measured on this device on the last launch, from process start, and stay on your phone.")
+        }
+    }
+
+    @ViewBuilder
+    private func row(_ title: String, key: String) -> some View {
+        if d.object(forKey: key) != nil {
+            LabeledContent(title, value: "\(d.integer(forKey: key)) ms")
+        }
+    }
+}
+
+
+/// The last few settings pages opened, shown at the top of Settings. Local only.
+enum SettingsRecents {
+    static let key = "settings.recentRoutes"
+
+    static func record(_ route: SettingsRoute) {
+        guard route != .root, SettingsRegistry.destination(for: route) != nil else { return }
+        let path = RouteSerializer.serialize(.settings(route))
+        var list = UserDefaults.standard.stringArray(forKey: key) ?? []
+        list.removeAll { $0 == path }
+        list.insert(path, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(3)), forKey: key)
+    }
+
+    static func load() -> [SettingsDestination] {
+        (UserDefaults.standard.stringArray(forKey: key) ?? []).compactMap { path in
+            guard case .settings(let route)? = RouteRegistry.parse(path) else { return nil }
+            return SettingsRegistry.destination(for: route)
+        }
+    }
+
+    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+}
+
+struct SettingsRecentsCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var recents: [SettingsDestination] = []
+
+    var body: some View {
+        Group {
+            if !recents.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Recently opened")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Clear") {
+                            SettingsRecents.clear()
+                            withAnimation(.snappy) { recents = [] }
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityIdentifier("settings.recents.clear")
+                    }
+                    .padding(.horizontal, 4)
+                    TelegramSettingsCard {
+                        ForEach(Array(recents.enumerated()), id: \.element.id) { index, item in
+                            if index > 0 { TelegramDivider() }
+                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent) {
+                                app.navigation.open(.settings(item.route))
+                            }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("settings.recents")
+            }
+        }
+        .onAppear { recents = SettingsRecents.load() }
     }
 }

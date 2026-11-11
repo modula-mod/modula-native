@@ -24,8 +24,10 @@ struct HomeView: View {
     @State private var commentsBubble: SocialPost?
     @State private var lastCommentsPost: SocialPost?
     @State private var bubbleExpiry: Task<Void, Never>?
-    @State private var feedFilter: HomeFeedFilter = .all
+    @State private var feedFilter: HomeFeedFilter = HomeFeedFilter(rawValue: UserDefaults.standard.string(forKey: "home.feedFilter.default") ?? "") ?? .all
+    @AppStorage("home.feedFilter.default") private var defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
     @State private var editingQuickActions = false
+    @State private var showsBackToTop = false
     @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
 
     var body: some View {
@@ -128,6 +130,11 @@ struct HomeView: View {
                     storyTrayFolded = folded
                 }
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 2_400
+            } action: { _, far in
+                withAnimation(.easeOut(duration: 0.2)) { showsBackToTop = far }
+            }
             .onScrollPhaseChange { _, phase in
                 if phase == .interacting { HomeMascotCompanion.noteActivity() }
                 ModulaScrollActivity.shared.set(phase.isScrolling)
@@ -141,6 +148,10 @@ struct HomeView: View {
 
             if state.newerAvailable {
                 newerPill
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else if showsBackToTop {
+                backToTopPill
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -309,6 +320,7 @@ struct HomeView: View {
                         .modulaGlass(in: Capsule(), interactive: false, tint: .orange.opacity(0.35))
                         .accessibilityIdentifier("home.greeting.streak")
                 }
+                HomeGlanceChips()
                 Text("Your space. Your people. Your modules.")
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.85))
@@ -457,7 +469,29 @@ struct HomeView: View {
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    // Long-press: make this the filter Home opens with.
+                    .contextMenu {
+                        let count = app.home.visiblePosts(for: mode).filter(filter.matches).count
+                        Text("\(count) loaded \(count == 1 ? "post" : "posts")")
+                        if defaultFeedFilterRaw == filter.rawValue {
+                            Button("Default filter", systemImage: "checkmark") {}
+                                .disabled(true)
+                        } else {
+                            Button("Open Home with \(filter.title)", systemImage: "pin") {
+                                defaultFeedFilterRaw = filter.rawValue
+                                feedFilter = filter
+                                app.navigation.flash("Home opens with \(filter.title)", symbol: filter.symbol)
+                            }
+                        }
+                        if defaultFeedFilterRaw != HomeFeedFilter.all.rawValue {
+                            Button("Reset to All", systemImage: "arrow.uturn.backward") {
+                                defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
+                                feedFilter = .all
+                            }
+                        }
+                    }
                     .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityHint("Long-press to make this the default")
                     .accessibilityIdentifier("home.filter.\(filter.rawValue)")
                 }
             }
@@ -483,6 +517,33 @@ struct HomeView: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("home.offline")
+    }
+
+    private var backToTopPill: some View {
+        Label("Back to top", systemImage: "arrow.up")
+            .font(.caption.weight(.bold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .modulaGlass(in: Capsule(), interactive: true)
+            .contentShape(Capsule())
+            .onTapGesture {
+                ModulaTabReselect.post(.home)
+                HapticEngine.shared.play(.selection)
+            }
+            .onLongPressGesture(minimumDuration: 0.45) {
+                // Long-press: back to top and refresh.
+                ModulaTabReselect.post(.home)
+                HapticEngine.shared.play(.lightImpact)
+                Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Long-press to also refresh")
+            .accessibilityAction(named: "Back to top and refresh") {
+                ModulaTabReselect.post(.home)
+                Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+            }
+            .accessibilityIdentifier("home.backToTop")
     }
 
     private var newerPill: some View {
@@ -605,7 +666,8 @@ struct HomeView: View {
                         if visible, ambient.postID != resolved.id { ambient.postID = resolved.id }
                     }
                     .onAppear {
-                        prefetchAhead(after: post)
+                        ModulaPerf.mark("firstFeedRow")
+                        prefetchAhead(after: post, in: visiblePosts)
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
                             Task { await app.home.loadMore(mode) }
                         }
@@ -619,6 +681,14 @@ struct HomeView: View {
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.top, 8)
                     .padding(.bottom, 24)
+                }
+                if state.loadState == .loaded, !state.hasMore, state.nextCursor == nil,
+                   state.loadMoreError == nil, visiblePosts.count >= 3 {
+                    HomeCaughtUpMarker(updated: state.lastRefresh) {
+                        Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+                    }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .padding(.vertical, 20)
                 }
                 if state.loadState == .loadingMore {
                     // Enhancements-50: a post-shaped skeleton holds the slot the next page fills.
@@ -967,8 +1037,9 @@ struct HomeView: View {
 // MARK: - Image prefetch (keeps the next cards' photos decoded before they scroll in)
 
 extension HomeView {
-    fileprivate func prefetchAhead(after post: SocialPost) {
-        let items = app.home.visiblePosts(for: mode)
+    /// Uses the list the ForEach already built: recomputing `visiblePosts` (filter + resolve
+    /// over the whole feed) on every row appearance was O(n²) while scrolling.
+    fileprivate func prefetchAhead(after post: SocialPost, in items: [SocialPost]) {
         guard let index = items.firstIndex(where: { $0.id == post.id }) else { return }
         for next in items.dropFirst(index + 1).prefix(4) {
             for media in next.media.prefix(2) {
@@ -977,7 +1048,7 @@ extension HomeView {
                 ModulaImagePrefetcher.prefetch(
                     url: attachment.bestPreviewURL ?? attachment.playableURL,
                     cacheKey: "attachment:\(attachment.id):feed-image",
-                    maximumPixelSize: 2_000,
+                    maximumPixelSize: ModulaFeedImage.maxPixels,
                     client: app.client
                 )
             }
@@ -1519,5 +1590,88 @@ struct HomeTodayCard: View {
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         .task { snapshot = await HomeTodayProvider.load(client: app.client) }
         .accessibilityIdentifier("home.today")
+    }
+}
+
+
+/// End of the loaded feed: nothing older to page in.
+struct HomeCaughtUpMarker: View {
+    var updated: Date? = nil
+    var onRefresh: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .accessibilityHidden(true)
+                Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
+            }
+            Text("You’re all caught up")
+                .font(.headline)
+            Text("You’ve seen everything new in this feed.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if let updated {
+                Text("Updated \(updated.formatted(.relative(presentation: .named)))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityIdentifier("home.caughtup.updated")
+            }
+            Button {
+                HapticEngine.shared.play(.selection)
+                onRefresh()
+            } label: {
+                Label("Check for new posts", systemImage: "arrow.clockwise")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .frame(height: 34)
+                    .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.caughtup.refresh")
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.caughtup")
+    }
+}
+
+
+/// "What's waiting" chips in the Home greeting. Only non-zero counts show; each opens its place.
+struct HomeGlanceChips: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let chats = app.messaging.accountUnreadCount ?? 0
+        let alerts = app.activity.state(for: .all).unreadCount ?? 0
+        let stories = app.stories.trayGroups.reduce(0) { $0 + ((!$1.isOwn && $1.hasStories && $1.ring == .unseen) ? 1 : 0) }
+        if chats + alerts + stories > 0 {
+            HStack(spacing: 6) {
+                if chats > 0 { chip("\(chats) chat\(chats == 1 ? "" : "s")", symbol: "bubble.left.fill", id: "chats") { app.navigation.open(.messages(.inbox)) } }
+                if alerts > 0 { chip("\(alerts) alert\(alerts == 1 ? "" : "s")", symbol: "bell.fill", id: "alerts") { app.navigation.open(.activity(.all)) } }
+                if stories > 0 { chip("\(stories) stor\(stories == 1 ? "y" : "ies")", symbol: "circle.dashed", id: "stories") { app.navigation.open(.stories(.root)) } }
+            }
+            .accessibilityIdentifier("home.glance")
+        }
+    }
+
+    private func chip(_ title: String, symbol: String, id: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.navigation)
+            action()
+        } label: {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .modulaGlass(in: Capsule(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.glance.\(id)")
     }
 }

@@ -182,7 +182,9 @@ struct ModulaLiveMascot: View {
 
     var body: some View {
         let conditions = context.conditions(dark: colorScheme == .dark)
-        let fps: Double = (conditions.lowPower || ModulaScrollActivity.shared.isScrolling) ? 20 : 60
+        // 30 fps idle is visually identical for the mascot's slow idle motion and halves
+        // its main-thread cost while typing; scrolling/low power drop further.
+        let fps: Double = (conditions.lowPower || ModulaScrollActivity.shared.isScrolling) ? 15 : 30
         let c = Self.container(size)
         let foot = kind.footFraction * size
         TimelineView(.animation(minimumInterval: 1.0 / fps, paused: paused)) { timeline in

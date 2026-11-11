@@ -27,7 +27,8 @@ enum PostRendererKind: Equatable, Sendable {
 @MainActor @Observable
 final class FeedVideoCoordinator {
     private(set) var activeVideoID: AttachmentID?
-    private var visibility: [AttachmentID: Double] = [:]
+    // Written on every scroll frame by each visible video; not observed so cards don't re-render.
+    @ObservationIgnored private var visibility: [AttachmentID: Double] = [:]
     let activationThreshold: Double
 
     init(activationThreshold: Double = 0.55) {
@@ -35,16 +36,21 @@ final class FeedVideoCoordinator {
     }
 
     func updateVisibility(id: AttachmentID, fraction: Double) {
-        visibility[id] = min(max(fraction, 0), 1)
-        activeVideoID = visibility
+        // Quantise to 5 % steps: per-frame jitter no longer recomputes anything.
+        let clamped = (min(max(fraction, 0), 1) * 20).rounded() / 20
+        guard visibility[id] != clamped else { return }
+        visibility[id] = clamped
+        let next = visibility
             .filter { $0.value >= activationThreshold }
             .max { lhs, rhs in lhs.value < rhs.value }?.key
+        if next != activeVideoID { activeVideoID = next }
     }
 
     func remove(id: AttachmentID) {
         visibility[id] = nil
         if activeVideoID == id {
-            activeVideoID = visibility.filter { $0.value >= activationThreshold }.max { $0.value < $1.value }?.key
+            let next = visibility.filter { $0.value >= activationThreshold }.max { $0.value < $1.value }?.key
+            if next != activeVideoID { activeVideoID = next }
         }
     }
 }
@@ -191,7 +197,7 @@ struct ModulaPostImage: View {
         ModulaRemoteImage(
             url: attachment.bestPreviewURL ?? attachment.playableURL,
             cacheKey: "attachment:\(attachment.id):feed-image",
-            maximumPixelSize: 2_000,
+            maximumPixelSize: ModulaFeedImage.maxPixels,
             retryID: retryID
         ) { phase in
             switch phase {

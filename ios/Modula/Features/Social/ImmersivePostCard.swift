@@ -147,7 +147,6 @@ struct ImmersivePostCard: View {
     @State private var showsReactions = false
     @State private var hoveredReaction: String?
     @State private var showsReactionGrid = false
-    @State private var moreFrame: CGRect = .zero
     @State private var viewer: ImmersiveViewerItem?
     @State private var reactionFrames: [String: CGRect] = [:]
     @State private var heartFrame: CGRect = .zero
@@ -294,8 +293,17 @@ struct ImmersivePostCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay { if !isDetail { mediaCardStroke } }
-        .shadow(color: glow.opacity(isDetail ? 0 : 0.28), radius: 18, y: 8)
-        .shadow(color: .black.opacity(isDetail ? 0 : 0.12), radius: 4, y: 2)
+        // Shadows are cast by a plain shape behind the (opaque) media instead of the whole
+        // media/video/overlay tree: shadowing the tree forced an offscreen render pass for
+        // every card on every scroll frame.
+        .background {
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black)
+                    .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
+                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            }
+        }
         .environment(\.colorScheme, .dark)
     }
 
@@ -539,7 +547,6 @@ struct ImmersivePostCard: View {
             .environment(\.colorScheme, appScheme)
         }
         .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
         .accessibilityIdentifier("post.more.\(post.id)")
     }
 
@@ -1251,8 +1258,18 @@ struct ImmersivePostCard: View {
                 .allowsHitTesting(false)
             }
         }
-        .shadow(color: glow.opacity(isDetail ? 0 : 0.16), radius: 16, y: 6)
-        .shadow(color: .black.opacity(isDetail ? 0 : 0.06), radius: 3, y: 1)
+        // Shadow cast by a plain shape with its interior cut out (the card stays translucent),
+        // instead of shadowing the whole text/action subtree twice on every scroll frame.
+        .background {
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black)
+                    .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
+                    .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                    .mask(ModulaOutsideRoundedRect(radius: radius).fill(style: FillStyle(eoFill: true)))
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var textActions: some View {
@@ -1348,7 +1365,7 @@ struct SmartCropImage: View {
             ModulaRemoteImage(
                 url: attachment.bestPreviewURL ?? attachment.playableURL,
                 cacheKey: "attachment:\(attachment.id):feed-image",
-                maximumPixelSize: 2_000,
+                maximumPixelSize: ModulaFeedImage.maxPixels,
                 retryID: retryID
             ) { phase in
                 switch phase {
@@ -1929,3 +1946,14 @@ struct MediaUnavailableStage: View {
     }
 }
 
+
+
+/// Everything outside a rounded rect (even-odd). Used to keep only a shape's outer shadow.
+struct ModulaOutsideRoundedRect: Shape {
+    var radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect.insetBy(dx: -60, dy: -60))
+        path.addRoundedRect(in: rect, cornerSize: CGSize(width: radius, height: radius), style: .continuous)
+        return path
+    }
+}

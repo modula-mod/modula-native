@@ -34,8 +34,19 @@ actor GreenfieldHomeRepository: HomeRepository {
             value = try await client.json("GET", path: path)
         }
         let page = SocialPayloadDecoder.homePage(from: value)
-        if cursor == nil { cache[mode] = page }
+        if cursor == nil {
+            cache[mode] = page
+            ModulaWarmCache.store(value, name: "home-\(mode.apiQueryValue)", account: await client.currentAccountID())
+        }
         return page
+    }
+
+    /// First page saved by the previous launch (this account only).
+    func warmPage(mode: HomeMode) async -> HomePage? {
+        if let cached = cache[mode] { return cached }
+        guard let value = await ModulaWarmCache.load(name: "home-\(mode.apiQueryValue)", account: await client.currentAccountID()) else { return nil }
+        let page = SocialPayloadDecoder.homePage(from: value)
+        return page.items.isEmpty ? nil : page
     }
 
     func refresh(mode: HomeMode) async throws -> HomePage {
