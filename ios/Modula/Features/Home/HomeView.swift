@@ -605,6 +605,7 @@ struct HomeView: View {
                         if visible, ambient.postID != resolved.id { ambient.postID = resolved.id }
                     }
                     .onAppear {
+                        ModulaPerf.mark("firstFeedRow")
                         prefetchAhead(after: post)
                         if post.id == state.items.suffix(3).first?.id || post.id == state.items.last?.id {
                             Task { await app.home.loadMore(mode) }

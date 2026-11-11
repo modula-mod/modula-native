@@ -2287,7 +2287,10 @@ struct MessageBubble: View {
     @State private var showsTime = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
-    @State private var rowFrame: CGRect = .zero
+    // Plain reference box: the row's on-screen frame is only needed when a long-press
+    // opens the focus menu, so writing it every scroll frame must not re-render the bubble.
+    @State private var rowFrameBox = ModulaFrameBox()
+    private var rowFrame: CGRect { rowFrameBox.frame }
     /// Roadmap #18: at accessibility text sizes bubbles use nearly the full width (smaller side
     /// gutter, no avatar column) so large text wraps less and stays readable.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -2449,7 +2452,7 @@ struct MessageBubble: View {
             swipe: swipeToReply,
             onAction: onAction
         ))
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rowFrame = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rowFrameBox.frame = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(message.delivery == .failed ? "Not sent. Swipe up or down for Retry." : "")

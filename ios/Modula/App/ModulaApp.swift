@@ -18,6 +18,7 @@ struct ModulaApp: App {
                 // Web links anywhere in the app open in the Modula browser (Settings → Links).
                 .environment(\.openURL, OpenURLAction { url in ModulaLinkRouter.handle(url, source: nil) })
                 .onAppear {
+                    ModulaPerf.mark("firstFrame")
                     #if DEBUG
                     MainThreadHangWatchdog.start()
                     #endif
@@ -206,3 +207,69 @@ enum MainThreadHangWatchdog {
     }
 }
 #endif
+
+// MARK: - Perf probe
+// Prints `MODULA_PERF <mark> <ms since process start>` once per mark to stdout
+// (visible with `devicectl device process launch --console`), plus a 1 s
+// frame-hitch summary for the first ~12 s after launch. No network, no files.
+@MainActor
+enum ModulaPerf {
+    static let processStart: Double = {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return Date().timeIntervalSince1970 }
+        let tv = info.kp_proc.p_un.__p_starttime
+        return Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000
+    }()
+    private static var marked = Set<String>()
+    private static var monitor: HitchMonitor?
+
+    static func mark(_ name: String) {
+        guard !marked.contains(name) else { return }
+        marked.insert(name)
+        let ms = Int((Date().timeIntervalSince1970 - processStart) * 1000)
+        print("MODULA_PERF \(name) \(ms)ms")
+        if name == "firstFrame", monitor == nil {
+            let m = HitchMonitor()
+            monitor = m
+            m.start()
+        }
+    }
+
+    final class HitchMonitor: NSObject {
+        private var link: CADisplayLink?
+        private var last: CFTimeInterval = 0
+        private var windowStart: CFTimeInterval = 0
+        private var frames = 0, hitches = 0
+        private var hitchMs: Double = 0, worst: Double = 0
+        private var windows = 0
+
+        func start() {
+            let l = CADisplayLink(target: self, selector: #selector(tick(_:)))
+            l.add(to: .main, forMode: .common)
+            link = l
+        }
+
+        @objc private func tick(_ l: CADisplayLink) {
+            let now = l.timestamp
+            if last > 0 {
+                let expected = max(l.targetTimestamp - l.timestamp, 1.0 / 120.0)
+                let dt = now - last
+                frames += 1
+                if dt > expected * 1.5 {
+                    hitches += 1
+                    hitchMs += (dt - expected) * 1000
+                    worst = max(worst, dt * 1000)
+                }
+            } else { windowStart = now }
+            last = now
+            if now - windowStart >= 1 {
+                windows += 1
+                print("MODULA_PERF hitch w=\(windows) frames=\(frames) hitches=\(hitches) hitchMs=\(Int(hitchMs)) worstMs=\(Int(worst))")
+                frames = 0; hitches = 0; hitchMs = 0; worst = 0; windowStart = now
+                if windows >= 12 { l.invalidate(); link = nil }
+            }
+        }
+    }
+}

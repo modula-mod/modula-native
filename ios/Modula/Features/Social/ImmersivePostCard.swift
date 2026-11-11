@@ -147,7 +147,6 @@ struct ImmersivePostCard: View {
     @State private var showsReactions = false
     @State private var hoveredReaction: String?
     @State private var showsReactionGrid = false
-    @State private var moreFrame: CGRect = .zero
     @State private var viewer: ImmersiveViewerItem?
     @State private var reactionFrames: [String: CGRect] = [:]
     @State private var heartFrame: CGRect = .zero
@@ -539,7 +538,6 @@ struct ImmersivePostCard: View {
             .environment(\.colorScheme, appScheme)
         }
         .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
         .accessibilityIdentifier("post.more.\(post.id)")
     }
 

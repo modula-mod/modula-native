@@ -382,7 +382,7 @@ struct Lab30ScrollReactiveHeader<Content: View>: View {
             .blur(radius: max(0, offset) / 40)
             content()
         }
-        .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.y + $0.contentInsets.top }) { _, new in offset = new }
+        .onScrollGeometryChange(for: CGFloat.self, of: { min(max($0.contentOffset.y + $0.contentInsets.top, -1), 130).rounded() }) { _, new in offset = new }
         .safeAreaInset(edge: .top, spacing: 0) {
             if offset > 70 {
                 Text(title).font(.headline)
@@ -1352,3 +1352,4 @@ struct Lab30GalleryView: View {
         .overlay { Lab30CoachMarksOverlay(marks: Lab30CoachMarksOverlay.defaultMarks) }
     }
 }
+

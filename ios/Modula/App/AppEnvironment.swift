@@ -304,8 +304,21 @@ final class AppEnvironment {
         if auth.isSignedIn {
             appLock.refreshColdLaunchLock()
             // Loaded behind the boot gate: running it on the main actor after the shell
-            // appears competed with the first interactive frames.
-            await catalogue.load()
+            // appears competed with the first interactive frames. Cold launch no longer
+            // waits on every catalogue round trip, though: a deep link waits for the full
+            // load, otherwise the gate opens after at most 450 ms and the rest finishes behind it.
+            let catalogue = self.catalogue
+            let load = Task { await catalogue.load() }
+            if gate.pendingDestination != nil {
+                await load.value
+            } else {
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await load.value }
+                    group.addTask { try? await Task.sleep(for: .milliseconds(450)) }
+                    await group.next()
+                    group.cancelAll()
+                }
+            }
         }
         refreshLaunchState()
         refreshQuickActions()

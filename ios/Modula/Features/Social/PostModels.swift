@@ -617,10 +617,7 @@ enum SocialPayloadDecoder {
 
     static func decodeDate(_ raw: String?) -> Date? {
         guard let raw else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: raw) { return date }
-        return ISO8601DateFormatter().date(from: raw)
+        return ModulaISODate.parse(raw)
     }
 
     private static func emptyToNil(_ value: String?) -> String? {
@@ -737,7 +734,7 @@ struct SocialCommentMedia: Identifiable, Hashable, Sendable {
                 totalVotes: value["totalVotes"]?.int ?? 0,
                 viewerVote: value["viewerVote"]?.int,
                 closed: value["closed"]?.bool ?? false,
-                closesAt: value["closesAt"]?.string.flatMap { ISO8601DateFormatter().date(from: $0) }
+                closesAt: value["closesAt"]?.string.flatMap { ModulaISODate.parse($0) }
             )
         case "location":
             guard let lat = value["latitude"]?.number, let lng = value["longitude"]?.number else { return nil }
@@ -748,5 +745,21 @@ struct SocialCommentMedia: Identifiable, Hashable, Sendable {
         default:
             return nil
         }
+    }
+}
+
+
+/// Shared ISO-8601 parsing. Allocating two `ISO8601DateFormatter`s per field was the
+/// most expensive part of decoding a feed/message page; these are reused (thread-safe).
+enum ModulaISODate {
+    nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    nonisolated(unsafe) private static let plain = ISO8601DateFormatter()
+
+    nonisolated static func parse(_ raw: String) -> Date? {
+        fractional.date(from: raw) ?? plain.date(from: raw)
     }
 }
