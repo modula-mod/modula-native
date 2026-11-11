@@ -1192,6 +1192,7 @@ struct AboutSettingsHost: View {
                     Text("Include the version and build when you contact support so we can find the right fix faster.")
                 }
                 if route == .root {
+                    AboutPerformanceSection()
                     Section {
                         Button { app.navigation.open(.settings(.about(.privacy))) } label: { Label("Privacy Policy", systemImage: "hand.raised") }
                         Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms of Service", systemImage: "doc.text") }
@@ -1415,5 +1416,38 @@ struct ModulaStorageOverview: View {
         }
         .buttonStyle(.plain)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+    }
+}
+
+
+/// Last-launch timings recorded on this device by `ModulaPerf` (never uploaded).
+private struct AboutPerformanceSection: View {
+    private let d = UserDefaults.standard
+
+    var body: some View {
+        Section {
+            #if DEBUG
+            LabeledContent("Build type", value: "Debug (slower)")
+            #else
+            LabeledContent("Build type", value: "Release (optimised)")
+            #endif
+            row("First frame", key: "modula.perf.firstFrame")
+            row("Ready", key: "modula.perf.gateReady")
+            row("Home feed", key: "modula.perf.firstFeedRow")
+            if d.object(forKey: "modula.perf.launchFrames") != nil {
+                let frames = d.integer(forKey: "modula.perf.launchFrames")
+                let hitches = d.integer(forKey: "modula.perf.launchHitches")
+                LabeledContent("Dropped frames (first 12 s)", value: "\(hitches) of \(frames)")
+            }
+        } header: { Text("Performance") } footer: {
+            Text("Measured on this device on the last launch, from process start. Stays on your phone.")
+        }
+    }
+
+    @ViewBuilder
+    private func row(_ title: String, key: String) -> some View {
+        if d.object(forKey: key) != nil {
+            LabeledContent(title, value: "\(d.integer(forKey: key)) ms")
+        }
     }
 }

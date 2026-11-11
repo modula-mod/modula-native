@@ -230,6 +230,8 @@ enum ModulaPerf {
         marked.insert(name)
         let ms = Int((Date().timeIntervalSince1970 - processStart) * 1000)
         print("MODULA_PERF \(name) \(ms)ms")
+        // Settings → About → Performance shows the last launch (local only).
+        UserDefaults.standard.set(ms, forKey: "modula.perf.\(name)")
         if name == "firstFrame", monitor == nil {
             let m = HitchMonitor()
             monitor = m
@@ -244,6 +246,8 @@ enum ModulaPerf {
         private var frames = 0, hitches = 0
         private var hitchMs: Double = 0, worst: Double = 0
         private var windows = 0
+        private var totalFrames = 0, totalHitches = 0
+        private var totalHitchMs: Double = 0
 
         func start() {
             let l = CADisplayLink(target: self, selector: #selector(tick(_:)))
@@ -267,8 +271,15 @@ enum ModulaPerf {
             if now - windowStart >= 1 {
                 windows += 1
                 print("MODULA_PERF hitch w=\(windows) frames=\(frames) hitches=\(hitches) hitchMs=\(Int(hitchMs)) worstMs=\(Int(worst))")
+                totalFrames += frames; totalHitches += hitches; totalHitchMs += hitchMs
                 frames = 0; hitches = 0; hitchMs = 0; worst = 0; windowStart = now
-                if windows >= 12 { l.invalidate(); link = nil }
+                if windows >= 12 {
+                    l.invalidate(); link = nil
+                    let d = UserDefaults.standard
+                    d.set(totalFrames, forKey: "modula.perf.launchFrames")
+                    d.set(totalHitches, forKey: "modula.perf.launchHitches")
+                    d.set(Int(totalHitchMs), forKey: "modula.perf.launchHitchMs")
+                }
             }
         }
     }
