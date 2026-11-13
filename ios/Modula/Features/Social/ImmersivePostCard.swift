@@ -1534,8 +1534,28 @@ struct ReactionBurst: Identifiable, Equatable {
 private struct ReactionBurstView: View {
     let burst: ReactionBurst
     @State private var go = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
 
     var body: some View {
+        if ModulaEffectGate.reduceMotion(systemReduceMotion) {
+            calmBody
+        } else {
+            burstBody
+        }
+    }
+
+    /// Roadmap #19: Reduce Motion keeps the confirmation (the chosen emoji appears and
+    /// fades where it was picked) without particles, flinging, scaling or rotation.
+    private var calmBody: some View {
+        Text(burst.emoji)
+            .font(.system(size: 40))
+            .opacity(go ? 0 : 1)
+            .position(burst.origin)
+            .allowsHitTesting(false)
+            .onAppear { withAnimation(.easeOut(duration: 0.6).delay(0.2)) { go = true } }
+    }
+
+    private var burstBody: some View {
         ZStack {
             if burst.fling {
                 Text(burst.emoji)

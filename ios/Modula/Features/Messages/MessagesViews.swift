@@ -451,6 +451,26 @@ struct ConversationListView: View {
     }
 }
 
+/// Roadmap #07: bold, accent-coloured search matches (case and accent insensitive).
+enum MessageSearchHighlight {
+    static func attributed(_ text: String, query: String, accent: Color) -> AttributedString {
+        var result = AttributedString(text)
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return result }
+        var searchStart = text.startIndex
+        while searchStart < text.endIndex,
+              let found = text.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive], range: searchStart..<text.endIndex) {
+            if let lower = AttributedString.Index(found.lowerBound, within: result),
+               let upper = AttributedString.Index(found.upperBound, within: result) {
+                result[lower..<upper].inlinePresentationIntent = .stronglyEmphasized
+                result[lower..<upper].foregroundColor = accent
+            }
+            searchStart = found.upperBound
+        }
+        return result
+    }
+}
+
 /// Liquid Glass search capsule (local filter over loaded chats).
 struct MessagesGlassSearchField: View {
     @Binding var text: String
@@ -561,7 +581,7 @@ struct ConversationRow: View {
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(app.messaging.title(for: conversation))
+                    Text(MessageSearchHighlight.attributed(app.messaging.title(for: conversation), query: app.messaging.conversationQuery, accent: accent))
                         .font(.body.weight(unread ? .semibold : .medium))
                         .lineLimit(1)
                     if isGroup {
@@ -609,15 +629,17 @@ struct ConversationRow: View {
         if let draft {
             return Text("Draft: ").fontWeight(.semibold).foregroundStyle(app.appearance.liveAccent) + Text(draft)
         }
-        let body = conversation.lastMessage?.body ?? ""
-        if body.isEmpty { return Text("No messages yet").italic() }
-        if lastIsOwn { return Text("You: ").fontWeight(.medium) + Text(body) }
+        let raw = conversation.lastMessage?.body ?? ""
+        if raw.isEmpty { return Text("No messages yet").italic() }
+        // Roadmap #07: matched words are highlighted while searching.
+        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: app.appearance.liveAccent))
+        if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
         if isGroup, let senderID = conversation.lastMessage?.senderID,
            let sender = conversation.participants.first(where: { $0.id == senderID }) {
             let first = sender.displayName.split(separator: " ").first.map(String.init) ?? sender.displayName
-            return Text("\(first): ").fontWeight(.medium) + Text(body)
+            return Text("\(first): ").fontWeight(.medium) + body
         }
-        return Text(body)
+        return body
     }
 
     private var accessibilityLabel: String {
@@ -1080,14 +1102,15 @@ struct ConversationView: View {
     }
 
     /// The words lift off the composer and settle into the thread (peak-end: sending feels good).
+    /// Roadmap #19: under Reduce Motion the sent words fade out in place instead of
+    /// lifting off, so the "sent" confirmation is still there without movement.
     private func launchFlyIn(_ text: String) {
-        guard !reduceMotion else { return }
         flyUp = false
         flyText = text
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(16))
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) { flyUp = true }
-            try? await Task.sleep(for: .milliseconds(460))
+            withAnimation(reduceMotion ? .easeOut(duration: 0.4) : .spring(response: 0.42, dampingFraction: 0.8)) { flyUp = true }
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 420 : 460))
             flyText = nil
             flyUp = false
         }
@@ -1104,8 +1127,8 @@ struct ConversationView: View {
                 .padding(.vertical, 10)
                 .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(app.appearance.liveAccent))
                 .frame(maxWidth: 280, alignment: .trailing)
-                .scaleEffect(flyUp ? 1 : 0.9, anchor: .bottomTrailing)
-                .offset(y: flyUp ? -96 : 0)
+                .scaleEffect(reduceMotion || flyUp ? 1 : 0.9, anchor: .bottomTrailing)
+                .offset(y: reduceMotion ? 0 : (flyUp ? -96 : 0))
                 .opacity(flyUp ? 0 : 1)
                 .padding(.trailing, ModulaLayout.contentInset)
                 .padding(.bottom, 4)

@@ -39,6 +39,7 @@ enum MessageInlineContent: Equatable, Sendable {
 
 struct MessageInlineContentView: View {
     let content: MessageInlineContent
+    @State private var viewing: MessageLinkTarget?
 
     var body: some View {
         switch content {
@@ -46,12 +47,24 @@ struct MessageInlineContentView: View {
             ModulaRemoteImage(url: url, cacheKey: "message-inline:\(url.absoluteString)", maximumPixelSize: 900) { phase in
                 switch phase {
                 case .success(let image):
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: 240, maxHeight: 240)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .accessibilityLabel("Image from \(url.host() ?? "link")")
+                    // Roadmap #05: tap opens the full-screen viewer (pinch / double-tap zoom).
+                    Button {
+                        HapticEngine.shared.play(.navigation)
+                        viewing = MessageLinkTarget(url: url)
+                    } label: {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: 240, maxHeight: 240)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Image from \(url.host() ?? "link")")
+                    .accessibilityHint("Opens full screen")
+                    .accessibilityIdentifier("messages.inlineImage")
+                    .fullScreenCover(item: $viewing) { target in
+                        MessageImageViewer(url: target.url, preview: image)
+                    }
                 default:
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.primary.opacity(0.06))
@@ -248,5 +261,115 @@ struct MessageLinkInspectorSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+
+// MARK: - Full-screen image viewer (roadmap #05)
+
+/// Edge-to-edge viewer for an image already shown in the chat: pinch to zoom, double-tap to
+/// zoom in/out, drag to pan when zoomed, swipe down or Close to return to the same place.
+/// Viewing only: nothing is saved or uploaded.
+struct MessageImageViewer: View {
+    let url: URL
+    let preview: UIImage
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+    @State private var dismissDrag: CGFloat = 0
+
+    private let maxScale: CGFloat = 5
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .opacity(1 - min(abs(dismissDrag) / 400, 0.6))
+                .ignoresSafeArea()
+            ModulaRemoteImage(url: url, cacheKey: "message-full:\(url.absoluteString)", maximumPixelSize: 2600) { phase in
+                if case .success(let full) = phase {
+                    zoomable(full)
+                } else {
+                    zoomable(preview)
+                }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.45), in: Circle())
+            }
+            .padding(.trailing, 16)
+            .padding(.top, 8)
+            .accessibilityLabel("Close image")
+            .accessibilityIdentifier("messages.imageViewer.close")
+        }
+        .statusBarHidden()
+        .accessibilityIdentifier("messages.imageViewer")
+    }
+
+    private func zoomable(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFit()
+            .scaleEffect(scale)
+            .offset(x: offset.width, y: offset.height + dismissDrag)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                MagnifyGesture()
+                    .onChanged { value in
+                        scale = min(max(lastScale * value.magnification, 1), maxScale)
+                    }
+                    .onEnded { _ in
+                        lastScale = scale
+                        if scale <= 1.01 { reset(animated: true) }
+                    }
+            )
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        if scale > 1 {
+                            offset = CGSize(width: lastOffset.width + value.translation.width,
+                                            height: lastOffset.height + value.translation.height)
+                        } else {
+                            dismissDrag = value.translation.height
+                        }
+                    }
+                    .onEnded { value in
+                        if scale > 1 {
+                            lastOffset = offset
+                        } else if abs(value.translation.height) > 120 {
+                            dismiss()
+                        } else {
+                            withAnimation(reduceMotion ? nil : .snappy) { dismissDrag = 0 }
+                        }
+                    }
+            )
+            .onTapGesture(count: 2) {
+                if scale > 1 {
+                    reset(animated: true)
+                } else {
+                    withAnimation(reduceMotion ? nil : .snappy) { scale = 2.5; lastScale = 2.5 }
+                }
+            }
+            .accessibilityLabel("Image from \(url.host() ?? "link")")
+            .accessibilityAddTraits(.isImage)
+            .accessibilityAction(named: scale > 1 ? "Zoom out" : "Zoom in") {
+                if scale > 1 { reset(animated: false) } else { scale = 2.5; lastScale = 2.5 }
+            }
+    }
+
+    private func reset(animated: Bool) {
+        withAnimation(animated && !reduceMotion ? .snappy : nil) {
+            scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero; dismissDrag = 0
+        }
     }
 }
