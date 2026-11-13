@@ -13,23 +13,14 @@ struct AuthChrome<Content: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: ModulaSpacing.lg) {
-                VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
-                    SignInBrandMark(compact: true)
-                        .padding(.bottom, ModulaSpacing.xs)
-                    Text(title)
-                        .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.bold))
-                        .accessibilityAddTraits(.isHeader)
-                    Text(subtitle)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                AuthBrandHeader(title: title, subtitle: subtitle)
                 ModulaGlassGroup(spacing: ModulaSpacing.md) {
                     content
                 }
             }
             .padding(.horizontal, ModulaSpacing.lg)
-            .padding(.vertical, ModulaSpacing.md)
+            .padding(.top, ModulaSpacing.sm)
+            .padding(.bottom, ModulaSpacing.xl)
             .frame(maxWidth: 520)
             .frame(maxWidth: .infinity)
         }
@@ -86,14 +77,14 @@ struct AuthGlassField<Focus: Hashable>: View {
             HStack(spacing: ModulaSpacing.sm) {
                 Image(systemName: hasError ? "exclamationmark.circle" : symbol)
                     .font(.body.weight(.medium))
-                    .foregroundStyle(hasError ? Color.red : (isFocused ? accent : Color.secondary))
+                    .foregroundStyle(hasError ? Color.red : (isFocused ? accent : restingInk))
                     .frame(width: iconWidth)
                     .contentTransition(.symbolEffect(.replace))
                     .accessibilityHidden(true)
                 ZStack(alignment: .leading) {
                     Text(title)
                         .font(floated ? .caption.weight(.semibold) : .body)
-                        .foregroundStyle(hasError ? Color.red : (isFocused ? accent : Color.secondary))
+                        .foregroundStyle(hasError ? Color.red : (isFocused ? accent : restingInk))
                         .offset(y: floated ? -height * 0.2 : 0)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -111,7 +102,7 @@ struct AuthGlassField<Focus: Hashable>: View {
                     } label: {
                         Image(systemName: revealed ? "eye.slash" : "eye")
                             .font(.body.weight(.medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(restingInk)
                             .contentTransition(.symbolEffect(.replace))
                             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
                     }
@@ -163,6 +154,11 @@ struct AuthGlassField<Focus: Hashable>: View {
         .accessibilityIdentifier(identifier)
     }
 
+    /// Label/icon ink at rest: clearly readable on glass (system secondary washed out on light glass).
+    private var restingInk: Color {
+        Color.primary.opacity(contrast == .increased ? 0.85 : (scheme == .dark ? 0.68 : 0.62))
+    }
+
     private var glowColor: Color {
         guard isFocused, !opaque else { return .clear }
         return (hasError ? Color.red : accent).opacity(scheme == .dark ? 0.38 : 0.24)
@@ -175,9 +171,11 @@ struct AuthGlassField<Focus: Hashable>: View {
         } else if #available(iOS 26.0, *) {
             Color.clear
                 .glassEffect(.regular.tint(isFocused ? accent.opacity(0.14) : .clear).interactive(), in: Capsule())
+                .overlay { Capsule().fill(AuthFieldSurface.frost(scheme)).allowsHitTesting(false) }
         } else {
             Color.clear
                 .modulaGlass(in: Capsule(), interactive: false, tint: isFocused ? accent.opacity(0.14) : nil)
+                .overlay { Capsule().fill(AuthFieldSurface.frost(scheme)).allowsHitTesting(false) }
         }
     }
 
@@ -188,7 +186,7 @@ struct AuthGlassField<Focus: Hashable>: View {
                 .strokeBorder(
                     hasError ? Color.red.opacity(0.8)
                         : isFocused ? accent.opacity(0.9)
-                        : Color.primary.opacity(contrast == .increased ? 0.3 : 0.08),
+                        : Color.primary.opacity(contrast == .increased ? 0.35 : 0.14),
                     lineWidth: isFocused || hasError ? 1.5 : 0.75
                 )
             if !opaque {
@@ -355,17 +353,102 @@ struct AuthSuccessState: View {
 /// Inline error banner shared by the auth screens.
 struct AuthErrorBanner: View {
     let message: String
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        Label(message, systemImage: "exclamationmark.triangle.fill")
-            .font(.footnote.weight(.medium))
-            .foregroundStyle(.red)
-            .padding(ModulaSpacing.sm)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.red.opacity(scheme == .dark ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+        AuthNoticeBanner(message: message)
             .onAppear { AccessibilityNotification.Announcement(message).post() }
+    }
+}
+
+/// Calm inline notice for auth: primary-coloured text on a quiet tinted surface with a
+/// small coloured icon. A signed-out session reads as information, not an alarm.
+struct AuthNoticeBanner<Accessory: View>: View {
+    let message: String
+    @ViewBuilder var accessory: Accessory
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(message: String, @ViewBuilder accessory: () -> Accessory) {
+        self.message = message
+        self.accessory = accessory()
+    }
+
+    static func isSessionNotice(_ message: String) -> Bool { message.hasPrefix("Your session ended") }
+
+    private var informational: Bool { Self.isSessionNotice(message) }
+    private var tint: Color { informational ? Color.orange : Color.red }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: ModulaSpacing.sm) {
+            Image(systemName: informational ? "clock.arrow.circlepath" : "exclamationmark.circle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 20)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                accessory
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, ModulaSpacing.md)
+        .padding(.vertical, ModulaSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AuthFieldSurface.frost(scheme), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(tint.opacity(scheme == .dark ? 0.35 : 0.25), lineWidth: 0.75)
+        )
+        .accessibilityElement(children: .combine)
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+    }
+}
+
+/// Shared auth header: compact brand lockup (mark + wordmark) on the leading edge, then the
+/// title and subtitle. Same position on every auth screen.
+struct AuthBrandHeader<Extra: View>: View {
+    let title: String
+    let subtitle: String
+    var compact = false
+    @ViewBuilder var extra: Extra
+    @Environment(AppEnvironment.self) private var app
+
+    init(title: String, subtitle: String, compact: Bool = false, @ViewBuilder extra: () -> Extra) {
+        self.title = title
+        self.subtitle = subtitle
+        self.compact = compact
+        self.extra = extra()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.sm) {
+            HStack(spacing: ModulaSpacing.sm) {
+                SignInBrandMark(compact: true, side: 40)
+                ModulaWordmark(height: 18)
+            }
+            .padding(.bottom, ModulaSpacing.xs)
+            .accessibilityHidden(true)
+            Text(title)
+                .font(.system(compact ? .title : .largeTitle, design: app.appearance.fontDesign).weight(.bold))
+                .accessibilityAddTraits(.isHeader)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(subtitle)
+                .font(.body)
+                .foregroundStyle(Color.primary.opacity(0.66))
+                .fixedSize(horizontal: false, vertical: true)
+            extra
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Frosted fill laid over field glass so labels stay legible on bright backdrops.
+enum AuthFieldSurface {
+    static func frost(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.white.opacity(0.07) : Color.white.opacity(0.62)
     }
 }
 
@@ -422,12 +505,8 @@ struct RegisterView: View {
                         .onSubmit { Task { await submit() } }
                     AuthPasswordStrengthMeter(password: password)
                 }
-                Toggle(isOn: $acceptedTerms) {
-                    Text("I agree to the Modula terms").font(.subheadline)
-                }
-                .tint(app.appearance.liveAccent)
-                .padding(.horizontal, ModulaSpacing.xs)
-                .onChange(of: acceptedTerms) { _, _ in HapticEngine.shared.play(.selection) }
+                AuthTermsRow(accepted: $acceptedTerms)
+                    .onChange(of: acceptedTerms) { _, _ in HapticEngine.shared.play(.selection) }
                 if let error {
                     AuthErrorBanner(message: error)
                         .accessibilityIdentifier("auth.register.error")
@@ -737,7 +816,7 @@ struct AuthPrimaryButton: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let height = 48.0
+    private static let height = 52.0
 
     /// Full-width pill that contracts into a circular loader while busy.
     /// Under Reduce Motion the width stays fixed and only the content fades.
@@ -761,8 +840,7 @@ struct AuthPrimaryButton: View {
             }
             .frame(maxWidth: contracted ? Self.height : .infinity)
             .frame(minHeight: Self.height)
-            // Every primary action wears the shared accent CTA (fill, rim, lift; outline when disabled).
-            .modulaAccentCTA()
+            .modifier(AuthCTAStyle(active: enabled || busy))
             .contentShape(Capsule())
             .frame(maxWidth: .infinity)
         }
@@ -771,5 +849,82 @@ struct AuthPrimaryButton: View {
         .animation(ModulaMotion.animation(.morph, personality: app.appearance.motion, reduceMotion: reduceMotion), value: busy)
         .accessibilityLabel(title)
         .accessibilityValue(busy ? "In progress" : "")
+    }
+}
+
+/// Auth primary CTA: a solid, high-contrast accent pill when it can be used (text colour picked
+/// from the accent's luminance), and a neutral, clearly inert pill when it can't.
+private struct AuthCTAStyle: ViewModifier {
+    let active: Bool
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        let accent = app.appearance.liveAccent
+        if active {
+            let ink = Self.ink(on: accent)
+            content
+                .foregroundStyle(ink)
+                .tint(ink)
+                .background {
+                    Capsule().fill(accent)
+                        .overlay(Capsule().fill(LinearGradient(colors: [.white.opacity(0.16), .black.opacity(0.10)], startPoint: .top, endPoint: .bottom)))
+                }
+                .overlay(Capsule().strokeBorder(.white.opacity(0.28), lineWidth: 0.75).allowsHitTesting(false))
+                .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.3), radius: 12, y: 5)
+        } else {
+            content
+                .foregroundStyle(Color.primary.opacity(contrast == .increased ? 0.6 : 0.4))
+                .background(Capsule().fill(Color.primary.opacity(scheme == .dark ? 0.10 : 0.07)))
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(contrast == .increased ? 0.3 : 0.1), lineWidth: 0.75))
+        }
+    }
+
+    static func ink(on color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.62 ? .black : .white
+    }
+}
+
+/// Terms consent as a field-height row aligned with the inputs above it.
+struct AuthTermsRow: View {
+    @Binding var accepted: Bool
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+    @ScaledMetric(relativeTo: .body) private var height = 58.0
+
+    var body: some View {
+        Toggle(isOn: $accepted) {
+            HStack(spacing: ModulaSpacing.sm) {
+                Image(systemName: "doc.text")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(accepted ? app.appearance.liveAccent : Color.primary.opacity(0.62))
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+                Text("I agree to the Modula terms")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .tint(app.appearance.liveAccent)
+        .padding(.leading, ModulaSpacing.md + 2)
+        .padding(.trailing, ModulaSpacing.md)
+        .frame(minHeight: height)
+        .background(AuthFieldSurface.frost(scheme), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75))
+        .accessibilityIdentifier("auth.register.terms")
+    }
+}
+
+extension AuthNoticeBanner where Accessory == EmptyView {
+    init(message: String) { self.init(message: message) { EmptyView() } }
+}
+
+extension AuthBrandHeader where Extra == EmptyView {
+    init(title: String, subtitle: String, compact: Bool = false) {
+        self.init(title: title, subtitle: subtitle, compact: compact) { EmptyView() }
     }
 }

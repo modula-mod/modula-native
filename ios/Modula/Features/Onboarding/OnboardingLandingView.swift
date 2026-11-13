@@ -68,6 +68,11 @@ struct OnboardingLandingView: View {
             VStack(spacing: 0) {
                 stage
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Bubbles dissolve before the status bar instead of being cut off by it.
+                    .mask {
+                        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.2), .init(color: .black, location: 1)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
                     .ignoresSafeArea(edges: .top)
                 copy
             }
@@ -120,7 +125,8 @@ struct OnboardingLandingView: View {
     private func stageFrame(time: Double) -> some View {
         GeometryReader { proxy in
             let size = proxy.size
-            let unit = min(size.width, 560) / 390
+            // 0.84: the reference sizes read oversized on device; keeps the cluster inside the stage.
+            let unit = min(size.width, 560) / 390 * 0.84
             let origin = CGPoint(x: size.width / 2, y: size.height - 86 * unit)
             let emitter = OnboardingLanding.Emitter(rise: Double(origin.y / unit) + 140)
             let pulse = reduceMotion ? 0 : emitter.emitPulse(at: time)

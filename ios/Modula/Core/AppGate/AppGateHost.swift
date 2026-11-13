@@ -219,7 +219,7 @@ struct PreShellAuthHost: View {
             // One backdrop for the whole signed-out flow, created once: the wave keeps its
             // clock running while only the foreground (landing, onboarding, auth screens)
             // transitions above it.
-            ModulaAuthBackdrop()
+            ModulaAuthBackdrop(calm: !showsLanding)
             if showsLanding {
                 OnboardingLandingView {
                     withAnimation(ModulaMotion.animation(.presentation, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
