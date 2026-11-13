@@ -85,6 +85,8 @@ struct SettingsDestinationHost: View {
             HelpSettingsHost(route: nested)
         case .whatsNew(let nested):
             WhatsNewSettingsHost(route: nested)
+        case .migration(let nested):
+            MigrationSettingsHost(route: nested)
         case .creator(let nested):
             CreatorSettingsHost(route: nested)
 
