@@ -451,6 +451,24 @@ struct ConversationListView: View {
     }
 }
 
+/// Roadmap #03: marks where this device's unread messages start.
+struct MessageUnreadSeparator: View {
+    @Environment(AppEnvironment.self) private var app
+    var body: some View {
+        HStack(spacing: 8) {
+            Rectangle().fill(app.appearance.liveAccent.opacity(0.5)).frame(height: 1)
+            Text("New messages")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .fixedSize()
+            Rectangle().fill(app.appearance.liveAccent.opacity(0.5)).frame(height: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("New messages start here")
+        .accessibilityIdentifier("messages.unreadSeparator")
+    }
+}
+
 /// Roadmap #07: bold, accent-coloured search matches (case and accent insensitive).
 enum MessageSearchHighlight {
     static func attributed(_ text: String, query: String, accent: Color) -> AttributedString {
@@ -566,6 +584,7 @@ struct ConversationRow: View {
     var draft: String? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.routeTransitionNamespace) private var routeTransitions
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isGroup: Bool { conversation.kind == .group || conversation.participants.count > 1 }
     private var lastIsOwn: Bool {
@@ -577,10 +596,15 @@ struct ConversationRow: View {
         let unread = conversation.isUnread
         let accent = app.appearance.liveAccent
         HStack(alignment: .center, spacing: 12) {
-            ConversationAvatar(participants: conversation.participants, unread: unread, size: 54)
+            ConversationAvatar(participants: conversation.participants, unread: unread, size: dynamicTypeSize.isAccessibilitySize ? 40 : 54)
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                // Roadmap #18: at accessibility sizes the time moves under the name instead of
+                // squeezing it.
+                let titleLayout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+                    : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 6))
+                titleLayout {
                     Text(MessageSearchHighlight.attributed(app.messaging.title(for: conversation), query: app.messaging.conversationQuery, accent: accent))
                         .font(.body.weight(unread ? .semibold : .medium))
                         .lineLimit(1)
@@ -596,7 +620,7 @@ struct ConversationRow: View {
                         Image(systemName: "pin.fill").font(.caption2).foregroundStyle(accent)
                             .accessibilityHidden(true)
                     }
-                    Spacer(minLength: 6)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 6) }
                     Text(Self.relative(conversation.updatedAt))
                         .font(.caption.weight(unread ? .semibold : .regular))
                         .foregroundStyle(unread ? accent : Color.secondary)
@@ -745,6 +769,10 @@ struct ConversationView: View {
     @State private var unsending: Message?
     @State private var flyText: String?
     @State private var flyUp = false
+    @State private var firstUnreadID: MessageID?
+    @State private var resolvedUnread = false
+    @State private var highlightedID: MessageID?
+    @AppStorage("messages.gestureTip.dismissed") private var gestureTipDismissed = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -771,6 +799,7 @@ struct ConversationView: View {
             // Composer floats over the thread so messages scroll under its glass.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
+                    gestureTip
                     smartReplies
                     composer
                 }
@@ -883,8 +912,22 @@ struct ConversationView: View {
                                     .padding(.top, index == 0 ? 0 : 14)
                                     .padding(.bottom, 6)
                             }
+                            if message.id == firstUnreadID {
+                                MessageUnreadSeparator()
+                                    .padding(.top, 14)
+                                    .padding(.bottom, 6)
+                            }
                             MessageBubble(message: message, position: position, showsStatus: message.id == lastOwnID) { action in
                                 handle(action, message: message)
+                            }
+                            // Roadmap #09: the original of a tapped reply quote glows briefly.
+                            .background {
+                                if highlightedID == message.id {
+                                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                        .fill(app.appearance.liveAccent.opacity(0.18))
+                                        .padding(-6)
+                                        .transition(.opacity)
+                                }
                             }
                             // Tight spacing inside a run of messages, roomier between senders.
                             .padding(.top, index == 0 ? 0 : (position.startsGroup ? 10 : 2))
@@ -916,6 +959,25 @@ struct ConversationView: View {
                         isAtBottom = atBottom
                         if atBottom { unseenCount = 0 }
                     }
+                    if atBottom, let last = items.last?.id { app.messaging.markReadLocally(last, in: conversationID) }
+                }
+                // Roadmap #03: open at the first message that arrived since this device last
+                // reached the end of the chat, marked "New messages". Otherwise the newest.
+                .onAppear {
+                    guard !resolvedUnread else { return }
+                    resolvedUnread = true
+                    firstUnreadID = app.messaging.firstUnreadLocally(in: conversationID)
+                    if let target = firstUnreadID {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(60))
+                            proxy.scrollTo(target, anchor: .top)
+                        }
+                    } else if let last = items.last?.id {
+                        app.messaging.markReadLocally(last, in: conversationID)
+                    }
+                }
+                .onDisappear {
+                    if isAtBottom, let last = items.last?.id { app.messaging.markReadLocally(last, in: conversationID) }
                 }
                 // Follow the conversation only when the reader is already at the end or just sent:
                 // never yank someone reading history (respect for the user's place = control).
@@ -923,6 +985,7 @@ struct ConversationView: View {
                     guard let last = items.last else { return }
                     if last.isOwn || isAtBottom {
                         scrollToLatest(items, proxy: proxy)
+                        app.messaging.markReadLocally(last.id, in: conversationID)
                     } else {
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { unseenCount += 1 }
                     }
@@ -934,6 +997,45 @@ struct ConversationView: View {
                 }
                 .overlay(alignment: .bottomTrailing) { jumpControl(items: items, proxy: proxy) }
             }
+        }
+    }
+
+    /// Roadmap #21: a one-time, dismissible card that names the hidden chat gestures and their
+    /// visible alternative (touch and hold / VoiceOver actions), with a link to Gesture settings.
+    @ViewBuilder
+    private var gestureTip: some View {
+        if !gestureTipDismissed, !app.messaging.messages(for: conversationID).isEmpty {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "hand.tap").font(.title3).foregroundStyle(app.appearance.liveAccent)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Chat shortcuts").font(.subheadline.weight(.semibold))
+                    Text("Touch and hold a message for Reply, React, Copy and more. Shortcuts: double-tap to ❤️, swipe right to reply. Tap a quote to see the original.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Gesture settings") {
+                        app.navigation.open(.settings(.gestures(.root)))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .accessibilityIdentifier("messages.gestureTip.settings")
+                }
+                Spacer(minLength: 0)
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy) { gestureTipDismissed = true }
+                } label: {
+                    Image(systemName: "xmark").font(.caption.weight(.bold)).frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss chat shortcuts")
+                .accessibilityIdentifier("messages.gestureTip.dismiss")
+            }
+            .padding(12)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.bottom, 6)
+            .transition(.opacity)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("messages.gestureTip")
         }
     }
 
@@ -1041,6 +1143,28 @@ struct ConversationView: View {
                 announceIncoming(count: added)
             }
         }
+    }
+
+    /// Roadmap #09: scroll to (and briefly highlight) the message a reply quotes, when it is in
+    /// the loaded history. Otherwise say so plainly rather than reconstructing it.
+    private func jumpToOriginal(_ id: MessageID, deleted: Bool) {
+        let items = app.messaging.messages(for: conversationID)
+        guard let original = items.first(where: { $0.id == id }) else {
+            app.navigation.flash(deleted ? "The original message was unsent" : "The original message isn’t loaded", symbol: "text.bubble")
+            return
+        }
+        if original.isDeleted {
+            app.navigation.flash("The original message was unsent", symbol: "text.bubble")
+            return
+        }
+        HapticEngine.shared.play(.selection)
+        jumpTarget = id
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { highlightedID = id }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.6))
+            withAnimation(.easeOut(duration: 0.4)) { if highlightedID == id { highlightedID = nil } }
+        }
+        AccessibilityNotification.Announcement("Showing the original message from \(original.isOwn ? "you" : original.sender.displayName)").post()
     }
 
     /// Roadmap #13: tell VoiceOver users something arrived without moving their focus or
@@ -1208,6 +1332,8 @@ struct ConversationView: View {
             Task { _ = await app.messaging.report(message: message) }
         case let id where id.hasPrefix("react:"):
             Task { await app.messaging.toggleReaction(String(id.dropFirst(6)), on: message) }
+        case let id where id.hasPrefix("jumpReply:"):
+            jumpToOriginal(MessageID(id.dropFirst(10)), deleted: message.replyTo?.deleted == true)
         case "reply":
             // Swipe-to-reply (Settings → Gestures): quote the message into the composer.
             // There is no reply-to field on POST /v1/conversations/:id/messages, so the quote stays in the text.
@@ -1264,14 +1390,19 @@ struct MessageBubble: View {
     var onAction: (ModulaContextAction) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    /// Roadmap #18: at accessibility text sizes bubbles use nearly the full width (smaller side
+    /// gutter, no avatar column) so large text wraps less and stays readable.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var largeText: Bool { dynamicTypeSize.isAccessibilitySize }
+    private var sideGutter: CGFloat { largeText ? 12 : 48 }
 
     private static let avatarSize = 28.0
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if message.isOwn {
-                Spacer(minLength: 48)
-            } else {
+                Spacer(minLength: sideGutter)
+            } else if !largeText {
                 // Avatar only on the last bubble of an incoming run; keep the
                 // gutter elsewhere so the run stays aligned.
                 Group {
@@ -1286,7 +1417,15 @@ struct MessageBubble: View {
             }
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 6) {
                 if let replyTo = message.replyTo, !message.isDeleted {
-                    MessageReplyQuote(preview: replyTo)
+                    // Roadmap #09: tapping the quote jumps to the original message.
+                    Button {
+                        onAction(.init(id: "jumpReply:\(replyTo.id)", title: "Show original"))
+                    } label: {
+                        MessageReplyQuote(preview: replyTo)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows the original message")
+                    .accessibilityIdentifier("messages.replyQuote")
                 }
                 if message.isDeleted {
                     Text(message.isOwn ? "You unsent a message" : "This message was unsent")
@@ -1348,7 +1487,7 @@ struct MessageBubble: View {
                     }
                 }
             }
-            if !message.isOwn { Spacer(minLength: 48) }
+            if !message.isOwn { Spacer(minLength: sideGutter) }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.55), value: message.reactions)
         .offset(x: replyOffset)
@@ -1485,6 +1624,9 @@ struct MessageBubble: View {
             .init(id: "copy", title: "Copy"),
             .init(id: "reply", title: "Reply"),
         ]
+        if let replyTo = message.replyTo, !message.isDeleted {
+            flat.append(.init(id: "jumpReply:\(replyTo.id)", title: "Show original message"))
+        }
         for action in actions where !["copy", "reply", "retry"].contains(action.id) {
             if action.children.isEmpty {
                 flat.append(action)

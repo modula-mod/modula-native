@@ -343,6 +343,26 @@ final class MessagingStore {
         return nick.isEmpty ? conversation.title : nick
     }
 
+    // MARK: Device-only reading position (roadmap #03)
+
+    /// Newest message this device saw while the reader was at the end of a chat. Local only:
+    /// it is not a server read receipt and doesn't sync between devices.
+    private(set) var lastReadIDs: [ConversationID: MessageID] = MessagingLocalStore.dictionary("messages.lastRead.v1")
+
+    func markReadLocally(_ messageID: MessageID, in id: ConversationID) {
+        guard !messageID.hasPrefix("local-"), lastReadIDs[id] != messageID else { return }
+        lastReadIDs[id] = messageID
+        MessagingLocalStore.save(lastReadIDs, "messages.lastRead.v1")
+    }
+
+    /// First incoming message after this device's saved position, if that position is in the
+    /// loaded page. Nil when there is no saved position or it isn't loaded (nothing is guessed).
+    func firstUnreadLocally(in id: ConversationID) -> MessageID? {
+        let items = messages(for: id)
+        guard let anchor = lastReadIDs[id], let index = items.firstIndex(where: { $0.id == anchor }) else { return nil }
+        return items[(index + 1)...].first(where: { !$0.isOwn && !$0.isDeleted })?.id
+    }
+
     func setNickname(_ name: String, for id: ConversationID) {
         let clean = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(40))
         nicknames[id] = clean.isEmpty ? nil : clean
