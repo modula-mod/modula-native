@@ -31,6 +31,7 @@ final class AppEnvironment {
     let publishing: GreenfieldPublishingRepository
     let mediaUploader: any MediaUploading
     let attachmentDownloads: AttachmentDownloadManager
+    let molibooOwnership: MolibooOwnershipStore
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
@@ -74,6 +75,11 @@ final class AppEnvironment {
         #else
         client = GreenfieldClient(baseURL: url)
         #endif
+        molibooOwnership = MolibooOwnershipStore(client: client)
+        MolibooPackageManager.shared.configure(greenfieldClient: client, baseURL: url)
+        MolibooPackageManager.shared.authorization = { [weak molibooOwnership] descriptor in
+            molibooOwnership?.canActivate(characterID: descriptor.moliboo.characterId) == true
+        }
         catalogue = ProductHubStore(client: client)
         catalogue.activation = moduleActivation
         #if DEBUG
@@ -86,7 +92,10 @@ final class AppEnvironment {
         runtime.activation = moduleActivation
         auth = AuthenticationStore(client: client)
         push = PushNotificationController(client: client)
-        auth.willSignOut = { [push] in await push.unregisterForSignOut() }
+        auth.willSignOut = { [push, molibooOwnership] in
+            await push.unregisterForSignOut()
+            molibooOwnership.clear()
+        }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
         posts = PostStateStore()
@@ -141,8 +150,10 @@ final class AppEnvironment {
             runtime?.setAccount(account?.accountId)
             catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
+            self?.molibooOwnership.setAccountID(account?.accountId)
             Task {
                 await catalogueStore?.load()
+                await self?.molibooOwnership.refresh()
                 await MainActor.run { self?.refreshLaunchState() }
             }
         }

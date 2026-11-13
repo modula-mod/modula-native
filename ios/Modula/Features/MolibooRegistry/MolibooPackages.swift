@@ -118,6 +118,7 @@ enum MolibooPackageError: Error, Equatable, LocalizedError {
     case dependency(String)
     case dependencyCycle(String)
     case invalidPatch(String)
+    case unauthorized
     case notInstalled
     case nothingToRollBack
     case network(String)
@@ -136,6 +137,7 @@ enum MolibooPackageError: Error, Equatable, LocalizedError {
         case .dependency(let d): "A required package is missing (\(d))."
         case .dependencyCycle(let d): "The package dependencies form a cycle (\(d))."
         case .invalidPatch(let s): "The character data is invalid (\(s))."
+        case .unauthorized: "This account does not own this Moliboo."
         case .notInstalled: "This package is not installed."
         case .nothingToRollBack: "There is no previous version to restore."
         case .network(let s): "Download failed (\(s))."
@@ -570,22 +572,45 @@ extension ModulaMascotKind.Palette {
 @MainActor
 @Observable
 final class MolibooPackageManager {
-    enum Status: Equatable { case idle, checking, downloading(String), installed(String), failed(String), rolledBack(String) }
+    enum Status: Equatable {
+        case notInstalled
+        case checking
+        case downloading(String)
+        case verifying(String)
+        case installing(String)
+        case installed(String)
+        case updateAvailable(String)
+        case updating(String)
+        case failed(String)
+        case rollingBack(String)
+        case rolledBack(String)
+    }
 
     static let shared = MolibooPackageManager()
 
     private(set) var catalog: [MolibooPackageDescriptor] = []
-    private(set) var status: Status = .idle
+    private(set) var status: Status = .notInstalled {
+        didSet {
+            guard statusHistory.last != status else { return }
+            statusHistory.append(status)
+            if statusHistory.count > 64 { statusHistory.removeFirst(statusHistory.count - 64) }
+        }
+    }
+    private(set) var statusHistory: [Status] = [.notInstalled]
     private(set) var lastError: String?
     var baseURL: URL?
 
     @ObservationIgnored let runtime: MolibooPackageRuntime
     @ObservationIgnored private let session: URLSession
+    @ObservationIgnored private var greenfieldClient: GreenfieldClient?
     @ObservationIgnored var policy: () -> ModuleTrustPolicy = { ModuleTrustPolicy.current }
     @ObservationIgnored var hostVersion: String = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0.0.0"
     @ObservationIgnored var registry: MolibooCharacterRegistry? = MolibooRegistryStore.bundled
     /// Test hook: health check after activation (default decodes the patch back from disk and renders its spec).
     @ObservationIgnored var healthCheck: ((MolibooCharacterPatch) -> Bool)?
+    /// App policy hook. Cached ownership can be displayed offline but cannot
+    /// authorize a new activation; the live store supplies only online-confirmed ownership.
+    @ObservationIgnored var authorization: ((MolibooPackageDescriptor) -> Bool)?
 
     init(runtime: MolibooPackageRuntime = .shared, session: URLSession = .shared, baseURL: URL? = MolibooPackageManager.configuredBaseURL) {
         self.runtime = runtime
@@ -594,8 +619,15 @@ final class MolibooPackageManager {
         runtime.store.sweepStaging()
     }
 
-    /// The package source. GreenField has no public Moliboo endpoint yet, so only Debug builds read a QA source from
-    /// `-MolibooPackageBaseURL <url>` or `MOLIBOO_PACKAGE_BASE_URL`; Release has none and stays on the built-in art.
+    /// Binds the shared manager to the same isolated/authenticated GreenField
+    /// transport as the app. Tests can continue to inject a standalone QA host.
+    func configure(greenfieldClient: GreenfieldClient, baseURL: URL?) {
+        self.greenfieldClient = greenfieldClient
+        self.baseURL = baseURL
+    }
+
+    /// Optional standalone source for package lifecycle tests and explicit Debug QA.
+    /// The app normally binds this manager to its configured GreenField origin.
     nonisolated static var configuredBaseURL: URL? {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
@@ -616,15 +648,28 @@ final class MolibooPackageManager {
         guard let baseURL else { status = .failed("No package source"); lastError = "No package source is configured."; return }
         status = .checking
         do {
-            // Always revalidate: a heuristically cached catalogue would hide new releases until the cache expires.
-            var req = URLRequest(url: baseURL.appendingPathComponent("catalog.json"), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
-            req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-            let (data, resp) = try await session.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200, data.count <= 1_000_000 else { throw MolibooPackageError.network("catalogue") }
-            let cat = try JSONDecoder().decode(MolibooPackageCatalog.self, from: data)
-            guard cat.schemaVersion == MolibooPackageCatalog.schemaVersion else { throw MolibooPackageError.unsupportedSchema(cat.schemaVersion) }
-            catalog = cat.packages
-            status = .idle
+            if let greenfieldClient {
+                var discovered: [MolibooPackageDescriptor] = []
+                var cursor: String?
+                repeat {
+                    var path = "/v1/moliboos/packs?limit=50"
+                    if let cursor { path += "&cursor=\(cursor)" }
+                    let value = try await greenfieldClient.publicJSON("GET", path: path)
+                    discovered += try (value["items"]?.array ?? []).map(Self.decodeDescriptor)
+                    cursor = value["hasMore"]?.bool == true ? value["nextCursor"]?.string : nil
+                } while cursor != nil
+                catalog = discovered
+            } else {
+                // Standalone QA compatibility surface used by the package security tests.
+                var req = URLRequest(url: baseURL.appendingPathComponent("catalog.json"), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+                req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+                let (data, resp) = try await session.data(for: req)
+                guard (resp as? HTTPURLResponse)?.statusCode == 200, data.count <= 1_000_000 else { throw MolibooPackageError.network("catalogue") }
+                let cat = try JSONDecoder().decode(MolibooPackageCatalog.self, from: data)
+                guard cat.schemaVersion == MolibooPackageCatalog.schemaVersion else { throw MolibooPackageError.unsupportedSchema(cat.schemaVersion) }
+                catalog = cat.packages
+            }
+            status = updates.first.map { .updateAvailable($0.id) } ?? (installedVersions.isEmpty ? .notInstalled : .installed("ready"))
             lastError = nil
         } catch {
             status = .failed("catalogue")
@@ -646,9 +691,11 @@ final class MolibooPackageManager {
     @discardableResult
     func install(_ d: MolibooPackageDescriptor) async -> Bool {
         do {
-            let order = try MolibooPackageValidator.installOrder(for: d, catalog: catalog, installed: Set(installedVersions.keys))
-            for item in order { try await installOne(item) }
-            status = .installed("\(d.packageId)@\(d.version)")
+            let root = try await verifiedManifest(for: d)
+            if let authorization, !authorization(root) { throw MolibooPackageError.unauthorized }
+            let order = try await installOrder(for: root)
+            for item in order { try await installOne(item, updating: installedVersions[item.packageId] != nil) }
+            status = .installed(root.id)
             lastError = nil
             return true
         } catch {
@@ -660,10 +707,11 @@ final class MolibooPackageManager {
         }
     }
 
-    private func installOne(_ d: MolibooPackageDescriptor) async throws {
+    private func installOne(_ d: MolibooPackageDescriptor, updating: Bool) async throws {
         try MolibooPackageValidator.validate(descriptor: d, registry: registry, hostVersion: hostVersion)
-        status = .downloading(d.id)
+        status = updating ? .updating(d.id) : .downloading(d.id)
         let data = try await download(d)
+        status = .verifying(d.id)
         let container = try MolibooPackageValidator.verify(artifact: data, descriptor: d, policy: policy())
         guard let file = container.files.first(where: { $0.path == "character.json" }), let raw = Data(base64Encoded: file.data) else {
             throw MolibooPackageError.corrupt("character.json")
@@ -671,12 +719,14 @@ final class MolibooPackageManager {
         let patch: MolibooCharacterPatch
         do { patch = try JSONDecoder().decode(MolibooCharacterPatch.self, from: raw) } catch { throw MolibooPackageError.invalidPatch("decode") }
         try MolibooPackageValidator.validate(patch: patch, descriptor: d, registry: registry)
+        status = .installing(d.id)
         let store = runtime.store
         let staging = try store.stage(container, descriptor: d)
         _ = try store.activate(staging: staging, packageId: d.packageId, version: d.version)
         // Post-activation health check: the activated files must decode and render; otherwise restore the last good one.
         let healthy = store.activePatch(d.packageId).map { healthCheck?($0.1) ?? Self.renders($0.1) } ?? false
         if !healthy {
+            status = .rollingBack(d.packageId)
             if (try? store.rollback(d.packageId)) == nil { try? store.remove(d.packageId) }
             runtime.reload()
             status = .rolledBack(d.packageId)
@@ -686,6 +736,18 @@ final class MolibooPackageManager {
     }
 
     private func download(_ d: MolibooPackageDescriptor) async throws -> Data {
+        if let greenfieldClient {
+            do {
+                return try await greenfieldClient.downloadVerifiedMolibooPack(
+                    packageID: d.packageId,
+                    version: d.version,
+                    expectedSha256: d.artifact.sha256,
+                    maximumBytes: MolibooPackageLimits.maxArtifactBytes
+                )
+            } catch {
+                throw MolibooPackageError.network((error as? APIError)?.diagnosticDescription ?? "verified download")
+            }
+        }
         let path = d.artifact.download.pathOrUrl
         let url: URL?
         if path.hasPrefix("https://") || path.hasPrefix("http://") { url = URL(string: path) }
@@ -712,6 +774,7 @@ final class MolibooPackageManager {
 
     func rollback(_ packageId: String) {
         do {
+            status = .rollingBack(packageId)
             let i = try runtime.store.rollback(packageId)
             runtime.reload()
             status = .rolledBack("\(packageId)@\(i.active ?? "built-in")")
@@ -726,6 +789,221 @@ final class MolibooPackageManager {
     func remove(_ packageId: String) {
         try? runtime.store.remove(packageId)
         runtime.reload()
-        status = .idle
+        status = installedVersions.isEmpty ? .notInstalled : .installed("ready")
+    }
+
+    private static func decodeDescriptor(_ value: JSONValue) throws -> MolibooPackageDescriptor {
+        do { return try JSONDecoder().decode(MolibooPackageDescriptor.self, from: JSONEncoder().encode(value)) }
+        catch { throw MolibooPackageError.corrupt("manifest") }
+    }
+
+    /// A catalogue entry is discovery only. Installation always re-reads the
+    /// versioned server manifest and trusts only that response.
+    private func verifiedManifest(for discovered: MolibooPackageDescriptor) async throws -> MolibooPackageDescriptor {
+        guard let greenfieldClient else { return discovered }
+        let path = "/v1/moliboos/packs/\(discovered.packageId)/manifest?version=\(discovered.version)"
+        let value = try await greenfieldClient.publicJSON("GET", path: path)
+        guard let raw = value["manifest"] else { throw MolibooPackageError.corrupt("manifest") }
+        let manifest = try Self.decodeDescriptor(raw)
+        guard Self.manifestIsSameRelease(manifest, discovered: discovered) else {
+            throw MolibooPackageError.corrupt("manifest identity")
+        }
+        try MolibooPackageValidator.validate(descriptor: manifest, registry: registry, hostVersion: hostVersion)
+        return manifest
+    }
+
+    private func installOrder(for root: MolibooPackageDescriptor) async throws -> [MolibooPackageDescriptor] {
+        var order: [MolibooPackageDescriptor] = []
+        var visiting = Set<String>(), done = Set<String>()
+        func visit(_ descriptor: MolibooPackageDescriptor) async throws {
+            if done.contains(descriptor.packageId) || installedVersions[descriptor.packageId] == descriptor.version { return }
+            if !visiting.insert(descriptor.packageId).inserted { throw MolibooPackageError.dependencyCycle(descriptor.packageId) }
+            for dependency in descriptor.dependencies {
+                guard let candidate = latestByPackage[dependency.packageId] else { throw MolibooPackageError.dependency(dependency.packageId) }
+                let manifest = try await verifiedManifest(for: candidate)
+                guard Self.satisfies(manifest.version, range: dependency.versionRange) else { throw MolibooPackageError.dependency(dependency.packageId) }
+                try await visit(manifest)
+            }
+            visiting.remove(descriptor.packageId)
+            done.insert(descriptor.packageId)
+            order.append(descriptor)
+        }
+        try await visit(root)
+        return order
+    }
+
+    nonisolated static func satisfies(_ version: String, range: String) -> Bool {
+        if range == "*" { return true }
+        if range.hasPrefix("^") {
+            let floor = String(range.dropFirst())
+            guard MolibooRegistryValidator.isSemVer(floor), MolibooRegistryValidator.isSemVer(version) else { return false }
+            let wanted = floor.split(separator: ".").compactMap { Int($0) }
+            let candidate = version.split(separator: ".").compactMap { Int($0) }
+            guard wanted.count == 3, candidate.count == 3,
+                  MolibooPackageValidator.compareSemVer(version, floor) >= 0 else { return false }
+            if wanted[0] > 0 { return candidate[0] == wanted[0] }
+            if wanted[1] > 0 { return candidate[0] == 0 && candidate[1] == wanted[1] }
+            return candidate[0] == 0 && candidate[1] == 0 && candidate[2] == wanted[2]
+        }
+        return version == range
+    }
+
+    nonisolated static func manifestIsSameRelease(_ manifest: MolibooPackageDescriptor, discovered: MolibooPackageDescriptor) -> Bool {
+        manifest.packageId == discovered.packageId && manifest.version == discovered.version
+            && manifest.releaseId == discovered.releaseId
+    }
+}
+
+// MARK: - Server-authoritative ownership and equipped character
+
+struct MolibooOwnedItem: Codable, Equatable, Sendable, Identifiable {
+    struct Character: Codable, Equatable, Sendable {
+        var characterId: String
+        var number: Int
+        var key: String
+        var name: String
+        var familyId: String
+        var series: Int
+    }
+    var itemId: String
+    var type: String
+    var slot: String
+    var wearable: Bool
+    var revoked: Bool
+    var character: Character?
+    var id: String { itemId }
+}
+
+struct MolibooServerOutfit: Codable, Equatable, Sendable {
+    var revision: Int
+    var items: [MolibooOwnedItem]
+}
+
+@MainActor
+@Observable
+final class MolibooOwnershipStore {
+    private struct Cache: Codable { var ownership: [MolibooOwnedItem]; var outfit: MolibooServerOutfit }
+
+    private let client: GreenfieldClient
+    private let files: PrivateFileStore
+    private(set) var ownership: [MolibooOwnedItem] = []
+    private(set) var outfit = MolibooServerOutfit(revision: 0, items: [])
+    private(set) var loading = false
+    private(set) var ownershipConfirmedOnline = false
+    private(set) var accountID: String?
+    var error: String?
+
+    init(client: GreenfieldClient, files: PrivateFileStore = PrivateFileStore(domain: .molibooOwnership)) {
+        self.client = client
+        self.files = files
+    }
+
+    func setAccountID(_ id: String?) {
+        accountID = id
+        ownership = []
+        outfit = .init(revision: 0, items: [])
+        ownershipConfirmedOnline = false
+        error = nil
+        guard let id, let data = try? files.loadData(filename: filename(id)),
+              let cache = try? JSONDecoder().decode(Cache.self, from: data) else { return }
+        ownership = cache.ownership
+        outfit = cache.outfit
+        applyServerCharacter()
+    }
+
+    func clear() { setAccountID(nil) }
+
+    func owns(characterID: String) -> Bool {
+        ownership.contains { !$0.revoked && $0.wearable && $0.character?.characterId == characterID }
+    }
+
+    func canActivate(characterID: String) -> Bool {
+        ownershipConfirmedOnline && owns(characterID: characterID)
+    }
+
+    func refresh() async {
+        guard accountID != nil, !loading else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            var all: [MolibooOwnedItem] = []
+            var cursor: String?
+            repeat {
+                var path = "/v1/me/moliboos/ownership?limit=50"
+                if let cursor { path += "&cursor=\(cursor)" }
+                let value = try await client.authenticatedJSON("GET", path: path)
+                all += (value["items"]?.array ?? []).compactMap(Self.item)
+                cursor = value["hasMore"]?.bool == true ? value["nextCursor"]?.string : nil
+            } while cursor != nil
+            let value = try await client.authenticatedJSON("GET", path: "/v1/me/moliboos/outfit")
+            ownership = all
+            outfit = Self.outfit(value)
+            ownershipConfirmedOnline = true
+            applyServerCharacter()
+            persist()
+            error = nil
+        } catch {
+            self.error = (error as? APIError)?.userFacingMessage ?? "Couldn’t refresh Moliboo ownership. Saved ownership remains available offline."
+        }
+    }
+
+    func equip(character: MolibooRegistryCharacter) async -> Bool {
+        guard owns(characterID: character.id), let owned = ownership.first(where: { !$0.revoked && $0.character?.characterId == character.id }) else {
+            error = "Only Moliboos owned by this account can be equipped."
+            return false
+        }
+        let retained = outfit.items.filter { $0.slot != "character" && !$0.revoked }
+        let requested = [MolibooOwnedItem(itemId: owned.itemId, type: owned.type, slot: "character", wearable: true, revoked: false, character: owned.character)] + retained
+        let body: JSONValue = .object([
+            "expectedRevision": .number(Double(outfit.revision)),
+            "items": .array(requested.map { .object(["slot": .string($0.slot), "itemId": .string($0.itemId)]) }),
+        ])
+        do {
+            let value = try await client.authenticatedJSON("PUT", path: "/v1/me/moliboos/outfit", body: body)
+            outfit = Self.outfit(value)
+            applyServerCharacter()
+            persist()
+            error = nil
+            return true
+        } catch let api as APIError where api.code == "REVISION_CONFLICT" {
+            await refresh()
+            error = "Your Moliboo changed on another device. The latest outfit was restored; choose again to replace it."
+            return false
+        } catch {
+            self.error = (error as? APIError)?.userFacingMessage ?? "Couldn’t save this Moliboo. Your previous outfit is unchanged."
+            return false
+        }
+    }
+
+    private static func item(_ value: JSONValue) -> MolibooOwnedItem? {
+        guard let itemId = value["itemId"]?.string, let type = value["type"]?.string, let slot = value["slot"]?.string else { return nil }
+        let c = value["character"].flatMap { raw -> MolibooOwnedItem.Character? in
+            guard let characterId = raw["characterId"]?.string, let number = raw["number"]?.number,
+                  let key = raw["key"]?.string, let name = raw["name"]?.string,
+                  let familyId = raw["familyId"]?.string, let series = raw["series"]?.number else { return nil }
+            return .init(characterId: characterId, number: Int(number), key: key, name: name, familyId: familyId, series: Int(series))
+        }
+        return .init(itemId: itemId, type: type, slot: slot, wearable: value["wearable"]?.bool == true,
+                     revoked: value["revoked"]?.bool == true, character: c)
+    }
+
+    private static func outfit(_ value: JSONValue) -> MolibooServerOutfit {
+        .init(revision: Int(value["revision"]?.number ?? 0), items: (value["items"]?.array ?? []).compactMap(item))
+    }
+
+    private func applyServerCharacter() {
+        guard let key = outfit.items.first(where: { $0.slot == "character" && !$0.revoked })?.character?.key,
+              ModulaMascotKind(rawValue: key) != nil else { return }
+        UserDefaults.standard.set(key, forKey: ModulaMascotSettings.kindKey)
+    }
+
+    private func filename(_ accountID: String) -> String {
+        let safe = accountID.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        return "\(safe.isEmpty ? "account" : safe).json"
+    }
+
+    private func persist() {
+        guard let accountID, let data = try? JSONEncoder().encode(Cache(ownership: ownership, outfit: outfit)) else { return }
+        try? files.saveData(data, filename: filename(accountID))
     }
 }
