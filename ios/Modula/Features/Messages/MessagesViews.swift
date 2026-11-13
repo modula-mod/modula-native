@@ -150,7 +150,7 @@ struct ConversationListView: View {
 
     /// Scope, search and filters scroll with the list (like Messages), so the large title
     /// collapses normally instead of starting half-faded under a tall pinned bar.
-    private var header: some View {
+    private func header(matches: Int) -> some View {
         VStack(spacing: 8) {
             if circleOpen && !circle.isEmpty {
                 circleRow
@@ -159,9 +159,33 @@ struct ConversationListView: View {
             MessagesScopePicker(selection: .inbox)
             MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Find a conversation")
                 .padding(.horizontal, ModulaLayout.contentInset)
+            searchScopeCaption(matches: matches)
             filterRow
         }
         .padding(.bottom, 6)
+    }
+
+    /// Roadmap #07: say exactly what a search covered, so a partial local search is never
+    /// mistaken for a full account-history search.
+    @ViewBuilder
+    private func searchScopeCaption(matches: Int) -> some View {
+        let query = app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces)
+        if !query.isEmpty {
+            let loaded = app.messaging.conversations.count
+            let found = matches == 1 ? "1 match" : "\(matches) matches"
+            let scope = loaded == 1 ? "1 loaded conversation" : "\(loaded) loaded conversations"
+            Label {
+                Text("\(found) · searched \(scope) on this device: names, nicknames, handles and latest messages")
+            } icon: {
+                Image(systemName: "iphone")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, ModulaLayout.contentInset + 4)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("messages.search.scope")
+        }
     }
 
     /// The circle springs open into a scrollable row; tap a face to jump into that chat (Fitts: big targets).
@@ -245,14 +269,14 @@ struct ConversationListView: View {
         let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
         if items.isEmpty {
             VStack(spacing: 0) {
-                header
+                header(matches: items.count)
                 emptyState(searching: searching)
                     .frame(maxHeight: .infinity)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         } else {
             List {
-                header
+                header(matches: items.count)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -734,7 +758,11 @@ struct ConversationView: View {
             }
             .sheet(isPresented: $showInfo) {
                 ChatInfoSheet(conversationID: conversationID) { id in jumpTarget = id }
+                    .messageLinkInspector()
             }
+            // Roadmap #14: links in this chat (bubbles and Chat info) open an inspector first,
+            // so the real destination is visible before leaving the conversation.
+            .messageLinkInspector()
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
@@ -985,10 +1013,25 @@ struct ConversationView: View {
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
             guard scenePhase == .active else { continue }
-            if await app.messaging.pollThread(conversationID) > 0 {
+            let added = await app.messaging.pollThread(conversationID)
+            if added > 0 {
                 HapticEngine.shared.play(.selection)
+                announceIncoming(count: added)
             }
         }
+    }
+
+    /// Roadmap #13: tell VoiceOver users something arrived without moving their focus or
+    /// reading the message aloud (they choose when to go and read it).
+    private func announceIncoming(count: Int) {
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        let sender = app.messaging.messages(for: conversationID).last(where: { !$0.isOwn })?.sender.displayName
+        let text = count == 1
+            ? "New message" + (sender.map { " from \($0)" } ?? "")
+            : "\(count) new messages"
+        var announcement = AttributedString(text)
+        announcement.accessibilitySpeechAnnouncementPriority = .low
+        AccessibilityNotification.Announcement(announcement).post()
     }
 
     private func scrollToLatest(_ items: [Message], proxy: ScrollViewProxy) {
@@ -1309,8 +1352,9 @@ struct MessageBubble: View {
             if message.delivery == .failed {
                 Button("Retry") { onAction(.init(id: "retry", title: "Retry")) }
             }
-            Button("Copy") { onAction(.init(id: "copy", title: "Copy")) }
-            Button("Reply") { onAction(.init(id: "reply", title: "Reply")) }
+            ForEach(voiceOverActions) { action in
+                Button(action.accessibilityLabel ?? action.title) { onAction(action) }
+            }
         }
         .accessibilityIdentifier("messages.bubble.\(message.id)")
     }
@@ -1409,6 +1453,25 @@ struct MessageBubble: View {
                                children: emojis.map { ModulaContextAction(id: "react:\($0)", title: $0) }), at: 0)
         }
         return items
+    }
+
+    /// Roadmap #13: every action the long-press menu offers is also a named VoiceOver action
+    /// (React, Star, Edit, Forward, Unsend…), with Copy and Reply always first as before.
+    private var voiceOverActions: [ModulaContextAction] {
+        var flat: [ModulaContextAction] = [
+            .init(id: "copy", title: "Copy"),
+            .init(id: "reply", title: "Reply"),
+        ]
+        for action in actions where !["copy", "reply", "retry"].contains(action.id) {
+            if action.children.isEmpty {
+                flat.append(action)
+            } else {
+                flat += action.children.map {
+                    ModulaContextAction(id: $0.id, title: $0.title, accessibilityLabel: "\(action.title) \($0.title)")
+                }
+            }
+        }
+        return flat
     }
 
     private var accessibilityLabel: String {
