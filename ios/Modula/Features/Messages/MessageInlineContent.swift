@@ -90,11 +90,38 @@ struct MessageLinkPreview: View {
     var body: some View {
         Group {
             if let metadata {
-                LinkPreviewRepresentable(metadata: metadata)
-                    .frame(minHeight: 60)
+                // A compact card in the app's own style (title + domain) instead of LPLinkView,
+                // which truncated long addresses mid-host ("https://www.kl-cc.co…").
+                Link(destination: url) {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "safari")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(metadata.title?.isEmpty == false ? metadata.title! : MessagePreviewText.displayHost(url))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            Text(MessagePreviewText.displayHost(url))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: 280, alignment: .leading)
+                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Link: \(metadata.title ?? MessagePreviewText.displayHost(url))")
+                .accessibilityIdentifier("messages.linkCard")
             } else {
                 Link(destination: url) {
-                    Label(url.host() ?? url.absoluteString, systemImage: failed ? "link" : "globe")
+                    Label(MessagePreviewText.displayHost(url), systemImage: failed ? "link" : "globe")
                         .font(.footnote.weight(.semibold))
                         .lineLimit(1)
                         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -371,5 +398,71 @@ struct MessageImageViewer: View {
         withAnimation(animated && !reduceMotion ? .snappy : nil) {
             scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero; dismissDrag = 0
         }
+    }
+}
+
+
+// MARK: - Quote / sticker / link text (no raw tokens on screen)
+
+/// Messages sent while the server had no reply field carry the quote as leading "> " lines.
+/// Split them off so bubbles show a quote block instead of raw markdown.
+enum MessageQuoteText {
+    static func split(_ text: String) -> (quote: String?, body: String) {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        var quoted: [String] = []
+        var index = 0
+        while index < lines.count, lines[index].trimmingCharacters(in: .whitespaces).hasPrefix(">") {
+            var line = lines[index].trimmingCharacters(in: .whitespaces)
+            line.removeFirst()
+            if line.hasPrefix(" ") { line.removeFirst() }
+            quoted.append(line)
+            index += 1
+        }
+        guard index > 0 else { return (nil, text) }
+        let body = lines[index...].joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        let quote = quoted.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return (quote, body)
+    }
+}
+
+/// One-line, human text for anywhere a message is summarised: inbox rows, Starred, search,
+/// notifications, reply quotes. Never shows `{{sticker:…}}` tokens, `>` quote markers or a raw URL.
+enum MessagePreviewText {
+    static func plain(_ raw: String) -> String {
+        let split = MessageQuoteText.split(raw)
+        let parsed = ModulaLocalSticker.extract(split.body)
+        var text = parsed.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty, let first = parsed.stickers.first {
+            return "Sticker · \(first.label)"
+        }
+        if text.isEmpty, let quote = split.quote, !quote.isEmpty {
+            return "Reply: " + plain(quote)
+        }
+        if text.isEmpty { return split.quote != nil ? "Reply" : "" }
+        if let url = MessageInlineContent.firstURL(in: text) {
+            let urlText = url.absoluteString
+            let stripped = text.replacingOccurrences(of: urlText, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if stripped.isEmpty || text == urlText || text.hasPrefix(urlText) && stripped.count < 2 {
+                return "🔗 " + displayHost(url)
+            }
+            text = text.replacingOccurrences(of: urlText, with: displayHost(url))
+        }
+        return text.replacingOccurrences(of: "\n", with: " ")
+    }
+
+    /// "https://www.kl-cc.co.uk/x" → "kl-cc.co.uk".
+    static func displayHost(_ url: URL) -> String {
+        var host = url.host(percentEncoded: false) ?? url.absoluteString
+        if host.lowercased().hasPrefix("www.") { host.removeFirst(4) }
+        return host
+    }
+
+    /// Short visible form of a link inside a bubble: domain plus a trimmed path.
+    static func displayLink(_ url: URL) -> String {
+        let host = displayHost(url)
+        var path = url.path(percentEncoded: false)
+        if path == "/" { path = "" }
+        let full = host + path
+        return full.count <= 34 ? full : String(full.prefix(32)) + "…"
     }
 }

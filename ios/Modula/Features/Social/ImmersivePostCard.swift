@@ -1479,7 +1479,7 @@ struct ImmersivePostContextPanel: View {
 }
 
 /// "+" grid: every emoji maps onto one of the server's 8 reaction types. Searchable by name.
-private struct ReactionGridSheet: View {
+struct ReactionGridSheet: View {
     var onPick: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""

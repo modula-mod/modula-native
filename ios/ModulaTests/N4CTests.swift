@@ -616,6 +616,45 @@ final class WebGameInstalledIsolationTests: XCTestCase {
 
 @MainActor
 final class MessagingDomainTests: XCTestCase {
+    func testQuoteLinesBecomeQuoteBlock() {
+        let split = MessageQuoteText.split("> Hey!\n> second\nSounds good")
+        XCTAssertEqual(split.quote, "Hey!\nsecond")
+        XCTAssertEqual(split.body, "Sounds good")
+        XCTAssertEqual(MessageQuoteText.split(">").quote, "")
+        XCTAssertEqual(MessageQuoteText.split(">").body, "")
+        XCTAssertNil(MessageQuoteText.split("No quote > here").quote)
+    }
+
+    func testPreviewTextNeverShowsRawTokens() {
+        XCTAssertFalse(MessagePreviewText.plain("> {{sticker:mascot:meteo}}").contains("{{"))
+        XCTAssertFalse(MessagePreviewText.plain("> {{sticker:mascot:meteo}}").hasPrefix(">"))
+        XCTAssertEqual(MessagePreviewText.plain("> Hey!\nYes"), "Yes")
+        XCTAssertEqual(MessagePreviewText.plain(">"), "Reply")
+        XCTAssertEqual(MessagePreviewText.plain("https://www.kl-cc.co.uk/menu?x=1"), "🔗 kl-cc.co.uk")
+        XCTAssertEqual(MessagePreviewText.plain("Look https://www.kl-cc.co.uk/menu"), "Look kl-cc.co.uk")
+        XCTAssertTrue(MessagePreviewText.plain("{{sticker:mascot:pip}}").hasPrefix("Sticker"))
+    }
+
+    func testBubbleLinkShowsDomainFirstButOpensFullURL() {
+        let attributed = MessageLinkText.attributed("Menu: https://www.kl-cc.co.uk/menu")
+        XCTAssertEqual(String(attributed.characters), "Menu: kl-cc.co.uk/menu")
+        XCTAssertEqual(attributed.runs.compactMap(\.link).first?.absoluteString, "https://www.kl-cc.co.uk/menu")
+    }
+
+    func testFocusLayoutKeepsBarAndMenuOnScreen() {
+        let screen = CGRect(x: 0, y: 0, width: 400, height: 800)
+        // Bubble at the very top: shifted down so the reaction bar fits under the safe area.
+        let top = MessageFocusLayout.resolve(bubble: CGRect(x: 0, y: 40, width: 400, height: 60), menuCount: 5, hasBar: true, container: screen, safeTop: 50, safeBottom: 30)
+        XCTAssertGreaterThanOrEqual(40 + top.shift - MessageFocusLayout.barHeight - MessageFocusLayout.gap, 58 - 0.5)
+        // Bubble at the bottom: shifted up so the menu fits above the home indicator.
+        let bottom = MessageFocusLayout.resolve(bubble: CGRect(x: 0, y: 700, width: 400, height: 60), menuCount: 5, hasBar: true, container: screen, safeTop: 50, safeBottom: 30)
+        let menuBottom = 700 + bottom.shift + 60 + MessageFocusLayout.gap + 5 * MessageFocusLayout.rowHeight
+        XCTAssertLessThanOrEqual(menuBottom, 800 - 30 - 8 + 0.5)
+        // A huge message is clipped rather than pushing the menu off screen.
+        let huge = MessageFocusLayout.resolve(bubble: CGRect(x: 0, y: 0, width: 400, height: 2000), menuCount: 5, hasBar: true, container: screen, safeTop: 50, safeBottom: 30)
+        XCTAssertLessThan(huge.bubbleHeight, 800)
+    }
+
     func testConversationDecodingAndOrdering() {
         let payload: JSONValue = .object([
             "items": .array([

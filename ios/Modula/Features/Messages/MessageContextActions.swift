@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum MessageContextActions {
     static func own(
@@ -231,3 +232,193 @@ enum MessagingDebugFixture {
     }
 }
 #endif
+
+
+// MARK: - Hold to react (iMessage-style focus)
+
+/// What the long-pressed bubble hands to the conversation: the message, where its row sits on
+/// screen, and the actions its menu offers (reactions come from the bar, not a submenu).
+struct MessageFocusRequest: Identifiable, Equatable {
+    var id: MessageID { message.id }
+    let message: Message
+    let position: MessageGroupPosition
+    let frame: CGRect
+    let actions: [ModulaContextAction]
+    let canReact: Bool
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id && lhs.frame == rhs.frame }
+}
+
+/// Places the reaction bar above and the menu below the lifted bubble, clamped to the screen.
+/// Pure so it can be unit-tested.
+enum MessageFocusLayout {
+    static let barHeight: CGFloat = 52
+    static let rowHeight: CGFloat = 46
+    static let gap: CGFloat = 10
+
+    struct Result: Equatable {
+        /// Vertical shift applied to the bubble (and the bar/menu attached to it).
+        var shift: CGFloat
+        /// Height the bubble preview is clipped to (very long messages).
+        var bubbleHeight: CGFloat
+    }
+
+    static func resolve(bubble: CGRect, menuCount: Int, hasBar: Bool, container: CGRect, safeTop: CGFloat, safeBottom: CGFloat) -> Result {
+        let top = container.minY + safeTop + 8
+        let bottom = container.maxY - safeBottom - 8
+        let menuHeight = CGFloat(menuCount) * rowHeight
+        let above = hasBar ? barHeight + gap : 0
+        let below = menuCount > 0 ? menuHeight + gap : 0
+        let available = max(80, bottom - top - above - below)
+        let bubbleHeight = min(bubble.height, available)
+        var minY = bubble.minY
+        if minY - above < top { minY = top + above }
+        if minY + bubbleHeight + below > bottom { minY = bottom - below - bubbleHeight }
+        return Result(shift: minY - bubble.minY, bubbleHeight: bubbleHeight)
+    }
+}
+
+struct MessageFocusOverlay: View {
+    let request: MessageFocusRequest
+    var currentReaction: String?
+    var onSelect: (ModulaContextAction) -> Void
+    var onMoreReactions: () -> Void
+    var onDismiss: () -> Void
+
+    static let quickReactions = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
+
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var shown = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            let container = proxy.frame(in: .global)
+            let layout = MessageFocusLayout.resolve(
+                bubble: request.frame,
+                menuCount: request.actions.count,
+                hasBar: request.canReact,
+                container: container,
+                safeTop: proxy.safeAreaInsets.top,
+                safeBottom: proxy.safeAreaInsets.bottom
+            )
+            let origin = CGPoint(x: request.frame.minX - container.minX, y: request.frame.minY - container.minY + layout.shift)
+            let alignment: HorizontalAlignment = request.message.isOwn ? .trailing : .leading
+            ZStack(alignment: .topLeading) {
+                backdrop
+                VStack(alignment: alignment, spacing: MessageFocusLayout.gap) {
+                    if request.canReact { reactionBar.scaleEffect(shown ? 1 : 0.6, anchor: request.message.isOwn ? .bottomTrailing : .bottomLeading) }
+                    MessageBubble(message: request.message, position: request.position, showsStatus: false, isPreview: true) { _ in }
+                        .frame(width: request.frame.width, height: layout.bubbleHeight, alignment: .top)
+                        .clipped()
+                        .scaleEffect(shown && !reduceMotion ? 1.03 : 1, anchor: request.message.isOwn ? .trailing : .leading)
+                        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+                        .allowsHitTesting(false)
+                    if !request.actions.isEmpty { actionMenu.scaleEffect(shown ? 1 : 0.6, anchor: request.message.isOwn ? .topTrailing : .topLeading) }
+                }
+                .frame(width: request.frame.width, alignment: request.message.isOwn ? .trailing : .leading)
+                .offset(x: origin.x, y: origin.y - (request.canReact ? MessageFocusLayout.barHeight + MessageFocusLayout.gap : 0))
+                .opacity(shown ? 1 : 0)
+            }
+            .frame(width: container.width, height: container.height, alignment: .topLeading)
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            HapticEngine.shared.play(.contextOpen)
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.78)) { shown = true }
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
+        }
+        .accessibilityAction(.escape) { dismiss() }
+        .accessibilityIdentifier("messages.focus")
+    }
+
+    private var backdrop: some View {
+        Group {
+            if reduceTransparency {
+                Color.black.opacity(0.55)
+            } else {
+                Rectangle().fill(.ultraThinMaterial).overlay(Color.black.opacity(0.18))
+            }
+        }
+        .opacity(shown ? 1 : 0)
+        .contentShape(Rectangle())
+        .onTapGesture { dismiss() }
+        .accessibilityLabel("Close message menu")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var reactionBar: some View {
+        HStack(spacing: 2) {
+            ForEach(Self.quickReactions, id: \.self) { emoji in
+                Button {
+                    select(.init(id: "react:\(emoji)", title: emoji))
+                } label: {
+                    Text(emoji)
+                        .font(.system(size: 28))
+                        .frame(width: 42, height: 42)
+                        .background {
+                            if currentReaction == emoji { Circle().fill(app.appearance.liveAccent.opacity(0.25)) }
+                        }
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.85, haptic: .selection))
+                .accessibilityLabel(currentReaction == emoji ? "Remove \(emoji) reaction" : "React \(emoji)")
+            }
+            Button {
+                onMoreReactions()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("More reactions")
+        }
+        .padding(.horizontal, 8)
+        .frame(height: MessageFocusLayout.barHeight)
+        .modulaGlass(in: Capsule(), interactive: true)
+        .accessibilityIdentifier("messages.focus.reactions")
+    }
+
+    private var actionMenu: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(request.actions.enumerated()), id: \.element.id) { index, action in
+                Button {
+                    select(action)
+                } label: {
+                    HStack {
+                        Text(action.title)
+                        Spacer(minLength: 16)
+                        if let symbol = action.systemImage { Image(systemName: symbol) }
+                    }
+                    .font(.body)
+                    .foregroundStyle(action.role == .destructive ? Color.red : Color.primary)
+                    .padding(.horizontal, 16)
+                    .frame(height: MessageFocusLayout.rowHeight)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("messages.focus.action.\(action.id)")
+                if index < request.actions.count - 1 { Divider().padding(.leading, 16) }
+            }
+        }
+        .frame(width: 240)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
+        .accessibilityIdentifier("messages.focus.menu")
+    }
+
+    private func select(_ action: ModulaContextAction) {
+        onSelect(action)
+        dismiss()
+    }
+
+    private func dismiss() {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { shown = false }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 140))
+            onDismiss()
+        }
+    }
+}
