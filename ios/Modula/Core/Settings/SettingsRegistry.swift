@@ -200,7 +200,7 @@ enum SettingsRegistry {
             item(.premium(.profile), "Your Premium profile", "Membership mark on your profile", "person.crop.circle", .developerOnly, terms: ["premium profile"]),
             item(.premium(.settings), "Premium settings", "Badge and subscription", "gearshape", .developerOnly, terms: ["premium settings"]),
             item(.premium(.upsell), "Upgrade preview", "Next plan, no urgency", "arrow.up.circle", .developerOnly, terms: ["upsell", "upgrade"]),
-            item(.moliboo, "Moliboo", "Choose, dress up, 3D, motion and sounds", "pawprint.fill", .implemented, terms: ["moliboo", "moliboos", "mascot", "companion", "wardrobe", "studio", "pebble", "3d"]),
+            item(.moliboo, "Moliboo", "Your 2D companion: choose, dress up, motion and sounds", "pawprint.fill", .implemented, terms: ["moliboo", "moliboos", "mascot", "companion", "wardrobe", "studio", "pebble", "3d"]),
             item(.chats(.root), "Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .implemented, terms: ["chats", "messages", "messaging"]),
             item(.chats(.composer), "Composer", "Enter to send and spell check", "keyboard", .implemented, terms: ["composer", "enter to send"]),
             item(.chats(.previews), "Chat Previews", "Media and link previews", "eye", .implemented, terms: ["previews", "links"]),
