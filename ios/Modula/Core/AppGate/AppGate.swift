@@ -5,7 +5,7 @@ import Observation
 @MainActor @Observable
 final class AppGate {
     private(set) var state: AppLaunchState = .booting
-    private(set) var pendingDestination: PendingDestination?
+    private(set) var pendingDestination: PendingDestination? = AppGate.restorePending()
     private(set) var lastFailure: String?
 
     let onboarding = OnboardingSeenStore()
@@ -66,16 +66,52 @@ final class AppGate {
     func enqueue(_ route: AppRoute) {
         if route.isPreAuthSurface {
             pendingDestination = nil
+            Self.persist(nil)
             return
         }
-        pendingDestination = PendingDestination(route: route, capturedAt: Date())
+        let pending = PendingDestination(route: route, capturedAt: Date())
+        pendingDestination = pending
+        Self.persist(pending)
     }
 
     func takePendingDestination() -> AppRoute? {
         guard state == .ready else { return nil }
         let route = pendingDestination?.route
         pendingDestination = nil
+        Self.persist(nil)
         return route
+    }
+
+    // MARK: Pending link survives sign-in (and an app relaunch during sign-in)
+
+    /// A followed link waits this long for sign-in, then is dropped rather than surprising the user later.
+    nonisolated static let pendingLifetime: TimeInterval = 30 * 60
+    nonisolated private static let pendingRouteKey = "gate.pendingRoute.v1"
+    nonisolated private static let pendingAtKey = "gate.pendingRouteAt.v1"
+
+    nonisolated static func persist(_ pending: PendingDestination?, defaults: UserDefaults = .standard) {
+        guard let pending else {
+            defaults.removeObject(forKey: pendingRouteKey)
+            defaults.removeObject(forKey: pendingAtKey)
+            return
+        }
+        defaults.set(RouteSerializer.serialize(pending.route), forKey: pendingRouteKey)
+        defaults.set(pending.capturedAt.timeIntervalSince1970, forKey: pendingAtKey)
+    }
+
+    nonisolated static func restorePending(defaults: UserDefaults = .standard, now: Date = Date()) -> PendingDestination? {
+        guard let value = defaults.string(forKey: pendingRouteKey),
+              let route = RouteParser.parse(value),
+              !route.isPreAuthSurface else {
+            persist(nil, defaults: defaults)
+            return nil
+        }
+        let captured = Date(timeIntervalSince1970: defaults.double(forKey: pendingAtKey))
+        guard now.timeIntervalSince(captured) < pendingLifetime, captured <= now else {
+            persist(nil, defaults: defaults)
+            return nil
+        }
+        return PendingDestination(route: route, capturedAt: captured)
     }
 }
 

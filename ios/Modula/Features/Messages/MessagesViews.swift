@@ -760,6 +760,8 @@ struct ConversationView: View {
     @State private var replyQuote: String?
     @State private var composerFocused = false
     @State private var isAtBottom = true
+    @State private var pinnedBeforeKeyboard = false
+    @State private var pinnedBeforeInfo = false
     @State private var unseenCount = 0
     @State private var forwarding: Message?
     @State private var showInfo = false
@@ -994,6 +996,29 @@ struct ConversationView: View {
                     guard let target else { return }
                     withAnimation(reduceMotion ? nil : .snappy(duration: 0.35)) { proxy.scrollTo(target, anchor: .center) }
                     jumpTarget = nil
+                }
+                // Roadmap #02: the keyboard shrinks the viewport without moving the content, so a
+                // reader pinned to the newest message lost it behind the keyboard. Remember "pinned"
+                // before the keyboard animates, and re-pin once it is up. Readers in history keep
+                // their place (the top of the viewport doesn't move).
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                    pinnedBeforeKeyboard = isAtBottom
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                    guard pinnedBeforeKeyboard else { return }
+                    scrollToLatest(items, proxy: proxy)
+                }
+                // Returning from Chat info: a reader who was at the end comes back at the end,
+                // including anything that arrived while the sheet was up.
+                .onChange(of: showInfo) { _, open in
+                    if open {
+                        pinnedBeforeInfo = isAtBottom
+                    } else if pinnedBeforeInfo {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(80))
+                            scrollToLatest(items, proxy: proxy)
+                        }
+                    }
                 }
                 .overlay(alignment: .bottomTrailing) { jumpControl(items: items, proxy: proxy) }
             }

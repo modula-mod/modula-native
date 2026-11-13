@@ -10,6 +10,7 @@ struct ProfileView: View {
     @Environment(\.leadingInteractionInset) private var leadingInteractionInset
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var profileTypeSize
     @State private var headerProgress: CGFloat = 0
     /// Raw content offset: drives the top-bar title so it only appears once the big name is under it.
     @State private var scrollOffset: CGFloat = 0
@@ -941,12 +942,17 @@ struct ProfileView: View {
 
     /// Compact inline stats (X / Threads style); each count opens its list.
     private func metrics(_ profile: ModulaProfile) -> some View {
-        HStack(spacing: 16) {
+        // Accessibility text sizes: one stat per line instead of three clipped side by side.
+        let layout = profileTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 16))
+        return layout {
             statLink(profile.postCount, "posts") { openSection(.posts) }
             statLink(profile.followerCount, profile.followerCount == 1 ? "follower" : "followers") { openSection(.followers) }
             statLink(profile.followingCount, "following") { openSection(.following) }
-            Spacer(minLength: 0)
+            if !profileTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("profile.stats")
     }
 

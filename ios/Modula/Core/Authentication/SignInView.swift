@@ -91,6 +91,13 @@ struct SignInView: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                if app.gate.pendingDestination != nil {
+                    Label("After you sign in, Modula opens the link you followed.", systemImage: "link")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("auth.pendingLink")
+                }
             }
             .fixedSize(horizontal: false, vertical: true)
         }

@@ -64,24 +64,87 @@ extension View {
 
 // MARK: - Error / retry
 
+/// Which recovery screen an error message maps to. Pure, so it is unit-testable.
+enum ModulaRecoveryKind: Equatable {
+    case offline, signedOut, unavailable, failed
+
+    static func classify(message: String, isOnline: Bool) -> ModulaRecoveryKind {
+        if !isOnline { return .offline }
+        if message == APIError.unauthenticated.userFacingMessage { return .signedOut }
+        let unavailable: Set<String> = [
+            APIError.unconfigured.userFacingMessage,
+            APIError.invalidResponse.userFacingMessage,
+            APIError.rejected(503, "SERVER_UNAVAILABLE").userFacingMessage,
+        ]
+        return unavailable.contains(message) ? .unavailable : .failed
+    }
+
+    var title: String {
+        switch self {
+        case .offline: "You're offline"
+        case .signedOut: "You're signed out"
+        case .unavailable: "Not available right now"
+        case .failed: "Something went wrong"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .offline: "wifi.slash"
+        case .signedOut: "person.crop.circle.badge.exclamationmark"
+        case .unavailable: "server.rack"
+        case .failed: "exclamationmark.triangle"
+        }
+    }
+
+    func detail(for message: String) -> String {
+        switch self {
+        case .offline: "We'll retry automatically when you're back online."
+        case .signedOut: "Sign in again to see this. Nothing on this iPhone was deleted."
+        case .unavailable: "Modula couldn't load this part right now. Your connection looks fine — try again in a moment."
+        case .failed: message
+        }
+    }
+}
+
 /// Error state with an accent retry CTA, an in-flight spinner, offline-aware copy and an
-/// automatic retry when connectivity returns. VoiceOver announces the failure once.
+/// automatic retry when connectivity returns. Signed-out and server-unavailable errors get
+/// their own recovery copy (and a Sign In action). VoiceOver announces the failure once.
 struct ModulaRetryState: View {
     var message: String
     var retry: (() -> Void)?
     @State private var net = Lab30Connectivity.shared
     @State private var retrying = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
+
+    private var kind: ModulaRecoveryKind { .classify(message: message, isOnline: net.isOnline) }
 
     var body: some View {
+        let kind = kind
         ContentUnavailableView {
-            Label(net.isOnline ? "Something went wrong" : "You're offline",
-                  systemImage: net.isOnline ? "exclamationmark.triangle" : "wifi.slash")
+            Label(kind.title, systemImage: kind.symbol)
                 .symbolEffect(.bounce, options: .nonRepeating, isActive: !ModulaEffectGate.reduceMotion(reduceMotion))
         } description: {
-            Text(net.isOnline ? message : "We'll retry automatically when you're back online.")
+            Text(kind.detail(for: message))
         } actions: {
-            if let retry {
+            if kind == .signedOut, let app {
+                Button {
+                    HapticEngine.shared.play(.lightImpact)
+                    app.navigation.open(.auth(.login))
+                } label: {
+                    HStack(spacing: ModulaSpacing.xs) {
+                        Image(systemName: "person.crop.circle")
+                        Text("Sign In")
+                    }
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, ModulaSpacing.lg)
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .modulaAccentCTA()
+                .accessibilityIdentifier("recovery.signIn")
+            } else if let retry {
                 Button {
                     HapticEngine.shared.play(.lightImpact)
                     retrying = true
@@ -102,9 +165,10 @@ struct ModulaRetryState: View {
                 .accessibilityHint("Reloads this content")
             }
         }
+        .accessibilityIdentifier("recovery.\(String(describing: kind))")
         .onAppear {
             HapticEngine.shared.play(.warning)
-            UIAccessibility.post(notification: .announcement, argument: net.isOnline ? message : "You're offline")
+            UIAccessibility.post(notification: .announcement, argument: "\(kind.title). \(kind.detail(for: message))")
         }
         .onChange(of: net.isOnline) { _, online in
             if online, let retry { retry() }
