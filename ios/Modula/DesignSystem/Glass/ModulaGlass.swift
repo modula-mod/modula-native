@@ -148,27 +148,37 @@ struct ModulaGlassSendButton: View {
     var action: () -> Void
 
     var body: some View {
+        // Visible disc is smaller than the 44pt touch target; no glow ring or scale-up.
+        let disc = min(size, 44) * 0.8
+        let active = ready || busy
+        let ink = active ? Self.ink(on: tint) : Color.secondary
         Button(action: action) {
-            Group {
+            ZStack {
+                Circle()
+                    .fill(active ? AnyShapeStyle(tint) : AnyShapeStyle(Color.primary.opacity(0.08)))
+                    .frame(width: disc, height: disc)
                 if busy {
-                    ProgressView().controlSize(.small).tint(.white)
+                    ProgressView().controlSize(.small).tint(ink)
                 } else {
                     Image(systemName: systemImage)
-                        .font(.system(size: size * 0.4, weight: .bold))
+                        .font(.system(size: disc * 0.46, weight: .bold))
+                        .foregroundStyle(ink)
                         .contentTransition(.symbolEffect(.replace))
                 }
             }
-            .foregroundStyle(ready || busy ? Color.white : Color.secondary)
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .modulaGlass(in: Circle(), interactive: true, tint: ready || busy ? tint : nil, prominent: ready || busy, specular: true)
-        .scaleEffect(ready && !busy ? 1.08 : 1)
-        .shadow(color: ready && !busy ? tint.opacity(0.45) : .clear, radius: 8, y: 0)
         .disabled(!ready && !busy)
-        .animation(.spring(response: 0.28, dampingFraction: 0.62), value: ready)
+        .animation(.snappy(duration: 0.18), value: active)
         .accessibilityLabel(busy ? "Sending" : title)
+    }
+
+    private static func ink(on color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.62 ? .black : .white
     }
 }
 

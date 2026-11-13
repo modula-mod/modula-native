@@ -646,8 +646,20 @@ struct ModulaRichFormattingBar: View {
     var onLink: () -> Void
     var onAbbr: () -> Void
     var onTranslate: (() -> Void)?
+    /// Drawn inside another glass surface (the composer card): no own capsule, edge fades on overflow.
+    var embedded = false
 
     var body: some View {
+        if embedded {
+            bar.frame(height: 40)
+        } else {
+            bar
+                .frame(height: 42)
+                .modulaGlass(in: Capsule(), interactive: false, specular: true)
+        }
+    }
+
+    private var bar: some View {
         HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
@@ -661,22 +673,27 @@ struct ModulaRichFormattingBar: View {
                         ForEach(group.1) { tool in toolButton(tool) }
                     }
                 }
-                .padding(.horizontal, 6)
+                .padding(.horizontal, embedded ? 10 : 6)
             }
             .scrollClipDisabled(false)
+            // Soft edge fades so overflowing tools read as scrollable instead of cut off.
+            .mask {
+                LinearGradient(stops: [
+                    .init(color: .clear, location: 0), .init(color: .black, location: 0.04),
+                    .init(color: .black, location: 0.94), .init(color: .clear, location: 1)
+                ], startPoint: .leading, endPoint: .trailing)
+            }
             if let onTranslate {
                 Button(action: onTranslate) {
                     Image(systemName: "translate").font(.subheadline.weight(.semibold)).frame(width: 36, height: 34)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), interactive: true)
                 .accessibilityLabel("Translate")
                 .accessibilityIdentifier("composer.translate")
-                .padding(.trailing, 4)
+                .padding(.trailing, 6)
             }
         }
-        .frame(height: 42)
-        .modulaGlass(in: Capsule(), interactive: false, specular: true)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("composer.formatting")
     }
