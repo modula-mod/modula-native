@@ -67,6 +67,7 @@ struct SignInView: View {
         .accessibilityIdentifier("auth.login")
         .disabled(app.auth.busy)
         .onAppear {
+            if email.isEmpty, let verified = app.auth.lastVerifiedEmail { email = verified }
             guard !appeared else { return }
             withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                 appeared = true
@@ -103,10 +104,10 @@ struct SignInView: View {
     private var formFields: some View {
         VStack(alignment: .leading, spacing: ModulaSpacing.md) {
             AuthGlassField(
-                title: "Email or username",
+                title: "Email",
                 symbol: "envelope",
                 text: $email,
-                prompt: "Email or username",
+                prompt: "The email you signed up with",
                 message: emailMessage,
                 focus: $focused,
                 focusValue: Field.email,
@@ -159,6 +160,8 @@ struct SignInView: View {
                 errorBanner(error)
             }
 
+            pendingSignupBanner
+
             AuthPrimaryButton(title: "Sign In", busy: app.auth.busy, enabled: canSubmit) {
                 Task { await submit() }
             }
@@ -170,6 +173,31 @@ struct SignInView: View {
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: app.auth.error)
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: emailMessage)
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: passwordMessage)
+    }
+
+    /// A sign-up waiting for its code never blocks sign-in: it is offered here, and signing
+    /// in to another account forgets it.
+    @ViewBuilder
+    private var pendingSignupBanner: some View {
+        if let pending = app.auth.pendingSignup {
+            // The button sits outside the banner: the banner combines its children for
+            // VoiceOver, which would swallow a nested button.
+            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                AuthNoticeBanner(message: "Finishing sign-up for \(pending.email)? Enter the code we emailed you.")
+                    .accessibilityIdentifier("auth.pending")
+                Button("Enter verification code") {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(.auth(.verify))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.pending.resume")
+            }
+        } else if let notice = app.auth.pendingNotice {
+            AuthNoticeBanner(message: notice)
+                .accessibilityIdentifier("auth.pending.notice")
+        }
     }
 
     private var cardShape: RoundedRectangle {
@@ -213,7 +241,7 @@ struct SignInView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .modulaMaterial(.control, in: Capsule())
+                    .modifier(AuthGlassCapsule())
                     .disabled(app.auth.busy)
                     .accessibilityIdentifier("auth.sign-in-fixture")
                     if fixtureUnavailable {
@@ -261,8 +289,10 @@ struct SignInView: View {
 
     private var emailMessage: String? {
         guard emailTouched || attemptedSubmit else { return nil }
-        if trimmedEmail.isEmpty { return "Enter your email or username." }
-        if trimmedEmail.contains("@"), !Self.looksLikeEmail(trimmedEmail) {
+        if trimmedEmail.isEmpty { return "Enter your email." }
+        // Greenfield signs in by email only (authentication/service.ts `login`).
+        if !trimmedEmail.contains("@") { return "Sign in with your email address, not your username." }
+        if !Self.looksLikeEmail(trimmedEmail) {
             return "That email address looks incomplete."
         }
         return nil
@@ -284,9 +314,9 @@ struct SignInView: View {
     }
 
     private func submit() async {
-        guard canSubmit else {
+        guard canSubmit, Self.looksLikeEmail(trimmedEmail) else {
             attemptedSubmit = true
-            focused = trimmedEmail.isEmpty ? .email : .password
+            focused = (trimmedEmail.isEmpty || !Self.looksLikeEmail(trimmedEmail)) ? .email : .password
             shake += 1
             HapticEngine.shared.play(.warning)
             return

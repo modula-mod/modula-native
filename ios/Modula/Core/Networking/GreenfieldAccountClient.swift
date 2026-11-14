@@ -12,8 +12,28 @@ struct RegistrationPayload: Sendable {
 struct RegistrationResult: Sendable, Equatable {
     var accountID: String?
     var status: String?
+    /// Greenfield returns `verificationChallengeId`; the code can only be confirmed with it.
     var challengeID: String?
     var verificationRequired: Bool
+    var handle: String? = nil
+    /// When the emailed code stops working (`verificationExpiresAt`).
+    var expiresAt: Date? = nil
+}
+
+/// `POST /v1/accounts/resend-verification`. Greenfield at ab0efa4f answers `{resent: true}`
+/// only; a newer server may also name the replacement challenge, which is kept if present.
+struct ResendVerificationResult: Sendable, Equatable {
+    var challengeID: String?
+    var expiresAt: Date?
+}
+
+enum GreenfieldTimestamp {
+    static func parse(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
 }
 
 struct GreenfieldSessionInfo: Sendable, Identifiable, Equatable {
@@ -48,9 +68,12 @@ extension GreenfieldClient {
         return RegistrationResult(
             accountID: value["accountId"]?.string ?? value["account_id"]?.string,
             status: value["status"]?.string,
-            challengeID: value["challengeId"]?.string ?? value["challenge_id"]?.string,
+            challengeID: value["verificationChallengeId"]?.string
+                ?? value["challengeId"]?.string ?? value["challenge_id"]?.string,
             verificationRequired: value["verificationRequired"]?.bool
-                ?? (value["status"]?.string != "active")
+                ?? (value["status"]?.string != "active"),
+            handle: value["primaryHandle"]?.string,
+            expiresAt: GreenfieldTimestamp.parse(value["verificationExpiresAt"]?.string)
         )
     }
 
@@ -62,16 +85,22 @@ extension GreenfieldClient {
         let _: JSONValue = try await publicJSON("POST", path: "/v1/accounts/verify-email", body: .object(body))
     }
 
-    func resendVerification(email: String) async throws {
-        let _: JSONValue = try await publicJSON("POST", path: "/v1/accounts/resend-verification", body: .object([
+    @discardableResult
+    func resendVerification(email: String) async throws -> ResendVerificationResult {
+        let value: JSONValue = try await publicJSON("POST", path: "/v1/accounts/resend-verification", body: .object([
             "email": .string(email)
         ]))
+        return ResendVerificationResult(
+            challengeID: value["verificationChallengeId"]?.string ?? value["challengeId"]?.string,
+            expiresAt: GreenfieldTimestamp.parse(value["verificationExpiresAt"]?.string ?? value["expiresAt"]?.string)
+        )
     }
 
     func resetPassword(token: String, newPassword: String) async throws {
         let _: JSONValue = try await publicJSON("POST", path: "/v1/accounts/reset-password", body: .object([
             "token": .string(token),
-            "password": .string(newPassword)
+            // Greenfield reads `newPassword` (register-routes.ts reset-password handler).
+            "newPassword": .string(newPassword)
         ]))
     }
 

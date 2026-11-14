@@ -736,6 +736,9 @@ actor GreenfieldClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        // Greenfield authenticates with bearer tokens only (no cookies, CORS credentials off),
+        // so nothing from an earlier request (e.g. a pending sign-up) can ride along.
+        request.httpShouldHandleCookies = false
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
