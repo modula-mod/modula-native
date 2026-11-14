@@ -707,7 +707,15 @@ final class WebGameHostHardeningTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
-    private func install(_ files: [String: Data], id: String) throws -> URL {
+    /// `bypassingHygiene` simulates a document that every validator missed, so the
+    /// production host (header CSP + rule list) is the only thing in its way.
+    private func install(_ files: [String: Data], id: String, bypassingHygiene: Bool = false) throws -> URL {
+        try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(bypassingHygiene) {
+            try installVerified(files, id: id)
+        }
+    }
+
+    private func installVerified(_ files: [String: Data], id: String) throws -> URL {
         let archive = try HardeningGameFixture.archive(files)
         let frontend = Data("""
             {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","mpsVersion":"1.0","productId":"\(id)","releaseVersion":"0.1.0","mode":"declarative","entry":"home","hostRuntime":{"versionRange":">=1.0.0"},"routes":[{"path":"/","viewId":"home"}],"views":[{"id":"home","kind":"dashboard","root":{"type":"section","children":[{"type":"text","text":"Ready"}]}}],"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true}}
@@ -730,14 +738,17 @@ final class WebGameHostHardeningTests: XCTestCase {
     }
 
     /// Opens a game through the production delegate, rule list and loader.
-    private func open(_ entry: URL) async throws -> (probe: WebGameBrowserProbe, url: URL) {
-        let url = try WebGameResourceProbe.entryURL(entry: entry)
+    private func open(_ entry: URL, bypassingHygiene: Bool = false) async throws -> (probe: WebGameBrowserProbe, url: URL) {
         let finished = expectation(description: "game document loaded")
         finished.assertForOverFulfill = false
         let outcome = NavigationOutcome()
-        let probe = try WebGameResourceProbe.browser(entry: entry) { error in
-            outcome.error = error
-            finished.fulfill()
+        let (url, probe) = try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(bypassingHygiene) {
+            let url = try WebGameResourceProbe.entryURL(entry: entry)
+            let probe = try WebGameResourceProbe.browser(entry: entry) { error in
+                outcome.error = error
+                finished.fulfill()
+            }
+            return (url, probe)
         }
         try attach(probe.browser)
         let started = await probe.load(url)
@@ -763,6 +774,88 @@ final class WebGameHostHardeningTests: XCTestCase {
         listener.start(queue: DispatchQueue(label: "game-hardening-listener"))
         await fulfillment(of: [ready], timeout: 5)
         return (listener, try XCTUnwrap(listener.port), connections)
+    }
+
+    func testHTMLHeaderPolicyIsTheBoundaryAndMeetsTheContract() throws {
+        let header = try WebGameDocumentPolicy.parse(WebGameResourceProbe.htmlContentSecurityPolicy)
+        // Contract: default-src no wider than 'self' modula-game:; script-src local
+        // only without unsafe-eval; these directives exactly 'none'.
+        let defaults = try XCTUnwrap(header["default-src"])
+        XCTAssertTrue(Set(defaults).isSubset(of: ["'none'", "'self'", "modula-game:"]), "\(defaults)")
+        let scripts = try XCTUnwrap(header["script-src"])
+        XCTAssertEqual(scripts, ["'self'"])
+        for name in ["connect-src", "frame-src", "worker-src", "base-uri", "form-action", "object-src"] {
+            XCTAssertEqual(header[name], ["'none'"], name)
+        }
+        // The header is a constant: serving any document yields the same bytes,
+        // whatever its own meta policy says.
+        let permissive = HardeningGameFixture.document("default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *")
+        let entry = try install(["index.html": Data(permissive.utf8)], id: "digital.modula.qa-header-constant", bypassingHygiene: true)
+        let url = try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(true) { try WebGameResourceProbe.entryURL(entry: entry) }
+        let task = RecordingGameSchemeTask(url)
+        try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(true) { try WebGameResourceProbe.serve(entry: entry, task: task) }
+        let response = try XCTUnwrap(task.response as? HTTPURLResponse)
+        XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Security-Policy"), WebGameResourceProbe.htmlContentSecurityPolicy)
+    }
+
+    /// Sentinel's #188 bypass classes, loaded through the production loader with
+    /// package hygiene switched off. Nothing may reach the network and no
+    /// injected script may run.
+    func testValidatorBypassPayloadsAreContainedByTheHost() async throws {
+        let (listener, port, connections) = try await loopbackListener()
+        defer { listener.cancel() }
+        let target = "127.0.0.1:\(port.rawValue)"
+        let strict = HardeningGameFixture.strictPolicy
+        let beacon = """
+            <script>
+            window.__injected = 'ran';
+            fetch('http://\(target)/inline-fetch').catch(() => {});
+            try { new WebSocket('ws://\(target)/inline-socket'); } catch (_) {}
+            new Image().src = 'http://\(target)/inline-beacon.png';
+            </script>
+            """
+        let permissive = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *; img-src *"
+        let payloads: [(String, String)] = [
+            ("comment-trick remote script before meta CSP",
+             "<!doctype html><html><head><!--><script src=\"http://\(target)/x.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"><title>t</title></head><body>\(beacon)</body></html>"),
+            ("trailing-space http-equiv with a permissive policy",
+             "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy \" content=\"\(permissive)\"><title>t</title></head><body><script src=\"http://\(target)/trailing.js\"></script>\(beacon)</body></html>"),
+            ("permissive meta CSP trying to loosen the header",
+             "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"\(permissive)\"><title>t</title></head><body><img src=\"http://\(target)/loosen.png\"><script src=\"http://\(target)/loosen.js\"></script>\(beacon)</body></html>"),
+            ("no meta CSP, inline fetch/WebSocket/image beacon",
+             "<!doctype html><html><head><title>t</title></head><body>\(beacon)<script>eval(\"window.__injected = 'eval'\")</script></body></html>"),
+        ]
+        for (index, payload) in payloads.enumerated() {
+            let (label, html) = payload
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: html), "hygiene unexpectedly accepted: \(label)")
+            let entry = try install(["index.html": Data(html.utf8)], id: "digital.modula.qa-bypass-\(index)", bypassingHygiene: true)
+            let before = connections.value
+            let (probe, url) = try await open(entry, bypassingHygiene: true)
+            try await Task.sleep(for: .milliseconds(1_500))
+            let injected = try await value(probe.browser, "String(window.__injected)")
+            XCTAssertEqual(injected, "undefined", "injected script ran: \(label)")
+            XCTAssertEqual(connections.value, before, "network reached: \(label)")
+            XCTAssertEqual(probe.browser.url?.absoluteString, url.absoluteString, label)
+            probe.browser.removeFromSuperview()
+            probe.close()
+        }
+    }
+
+    func testDocumentHygieneRejectsCommentTrickAndPaddedHTTPEquiv() {
+        let strict = HardeningGameFixture.strictPolicy
+        let rejected: [String: String] = [
+            "comment trick <!-->": "<!doctype html><html><head><!--><script src=\"http://127.0.0.1:9/x.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "comment trick <!--->": "<!doctype html><html><head><!---><script src=\"http://127.0.0.1:9/x.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "comment trick with later close": "<!doctype html><html><head><!--><script src=\"http://127.0.0.1:9/x.js\"></script><!-- note --><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "--!> closes a comment": "<!doctype html><html><head><!-- a --!><script src=\"http://127.0.0.1:9/x.js\"></script><!-- b --><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "padded http-equiv, strict content": "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy \" content=\"\(strict)\"></head></html>",
+            "padded http-equiv, permissive content": "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy \" content=\"default-src *; script-src *\"></head></html>",
+            "padded http-equiv beside a strict one": HardeningGameFixture.document().replacingOccurrences(of: "<title>", with: "<meta http-equiv=\" content-security-policy\" content=\"default-src *\"><title>"),
+        ]
+        for (label, html) in rejected.sorted(by: { $0.key < $1.key }) {
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: html), label)
+        }
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: "<!-- build 1 --><!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>"))
     }
 
     func testTopNavigationToAnotherListedFileOrRemoteURLIsCancelled() async throws {

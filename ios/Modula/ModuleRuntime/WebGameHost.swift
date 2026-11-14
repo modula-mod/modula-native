@@ -336,9 +336,12 @@ private struct WebGameSurface: UIViewRepresentable {
 /// ambiguity. WebKit receives no local-file read grant or Native message bridge.
 private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "modula-game"
-    // Applied by the host on the HTML response, independent of any policy
-    // declared by a downloadable package.
-    private static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
+    // Applied by the host on every HTML response, independent of any policy
+    // declared by a downloadable package. This header (with the local-only
+    // rule list) is the security boundary: it is never derived from, or
+    // relaxed by, the document. A document meta CSP can only add restrictions,
+    // because browsers enforce every policy present.
+    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
     // Every non-HTML response (SVG, scripts, styles, media) also carries a
     // policy, so a document type that can script itself can never run code
     // or reach the network even if WebKit renders it as a document.
@@ -492,6 +495,7 @@ enum WebGameResourceProbe {
     }
 
     static var resourceContentSecurityPolicy: String { VerifiedGameSchemeHandler.resourceContentSecurityPolicy }
+    static var htmlContentSecurityPolicy: String { VerifiedGameSchemeHandler.contentSecurityPolicy }
 
     static func browser(entry: URL, onNavigationComplete: @escaping (Error?) -> Void) throws -> WebGameBrowserProbe {
         let handler = try VerifiedGameSchemeHandler(entry: entry)

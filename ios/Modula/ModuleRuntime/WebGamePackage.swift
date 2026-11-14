@@ -40,15 +40,27 @@ struct WebGamePackage {
         guard let html = files["index.html"].flatMap({ String(data: $0, encoding: .utf8) }) else {
             throw WebGamePackageError.invalid("restrictive Content Security Policy")
         }
-        do {
-            _ = try WebGameDocumentPolicy.validate(html: html)
-        } catch WebGameDocumentPolicy.Rejection.policy(let reason) {
-            throw WebGamePackageError.invalid("restrictive Content Security Policy: \(reason)")
+        // Hygiene only: the security boundary is the host's own header CSP and
+        // local-only rule list (WebGameHost), never a document-declared policy.
+        if !WebGamePackage.skipsDocumentPolicyHygiene {
+            do {
+                _ = try WebGameDocumentPolicy.validate(html: html)
+            } catch WebGameDocumentPolicy.Rejection.policy(let reason) {
+                throw WebGamePackageError.invalid("restrictive Content Security Policy: \(reason)")
+            }
         }
         self.sha256 = expectedSha256
         self.archive = archive
         self.files = files
     }
+
+    #if DEBUG
+    /// Tests only: lets a hostile document that a validator missed reach the
+    /// production host, to prove the host header CSP and rule list contain it.
+    @TaskLocal static var skipsDocumentPolicyHygiene = false
+    #else
+    static var skipsDocumentPolicyHygiene: Bool { false }
+    #endif
 
     static func members(archive: Data, expectedSha256: String) throws -> [String: Data] {
         guard archive.count <= Self.maximumCompressedBytes,
@@ -227,9 +239,12 @@ struct WebGamePackage {
 /// Parses the entry document's declared Content-Security-Policy instead of
 /// matching substrings, mirroring the intent of GreenField's ingestion gate
 /// (services/greenfield-api/src/gubic/web-game-csp.ts, #182). It refuses
-/// anything it cannot interpret unambiguously. The host still applies its own
-/// policy header to every response; this check keeps a package from shipping
-/// a weaker declared policy than the signed `network: 'none'` contract.
+/// anything it cannot interpret unambiguously.
+///
+/// This is package hygiene, NOT a security boundary: HTML parsing here can
+/// never be guaranteed to match WebKit's (GreenField #188 had 8 bypasses).
+/// The boundary is the host header CSP on every response plus the fail-closed
+/// local-only WKContentRuleList in WebGameHost, which no document can relax.
 enum WebGameDocumentPolicy {
     enum Rejection: Error, Equatable { case policy(String) }
     typealias Directives = [String: [String]]
@@ -254,16 +269,23 @@ enum WebGameDocumentPolicy {
     /// then parses and validates its directives.
     @discardableResult
     static func validate(html: String) throws -> Directives {
-        let uncommented = replace(#"<!--[\s\S]*?(?:-->|$)"#, in: html, with: " ")
+        // `<!-->` and `<!--->` are complete (abruptly closed) comments in HTML;
+        // `--!>` also closes one. Treating them otherwise hides markup.
+        let uncommented = replace(#"<!--(?:>|->|[\s\S]*?(?:--!?>|$))"#, in: html, with: " ")
         var markup = uncommented
         for name in rawTextElements {
             markup = replace("(<\(name)\\b[^>]*>)[\\s\\S]*?(?:</\(name)\\s*>|$)", in: markup, with: "$1</\(name)>")
         }
         let text = markup as NSString
-        let metas = matches("<meta\\b" + tagPattern, in: markup).filter { range in
-            let tagAttributes = try? attributes(of: text.substring(with: range))
-            return tagAttributes?["http-equiv"]?.trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased() == "content-security-policy"
+        var metas: [NSRange] = []
+        for range in matches("<meta\\b" + tagPattern, in: markup) {
+            guard let equiv = try attributes(of: text.substring(with: range))["http-equiv"]?.lowercased() else { continue }
+            if equiv == "content-security-policy" {
+                metas.append(range)
+            } else if equiv.trimmingCharacters(in: .whitespacesAndNewlines) == "content-security-policy" {
+                // Browsers may or may not honour a padded name; refuse the ambiguity.
+                throw Rejection.policy("ambiguous http-equiv \"\(equiv)\"")
+            }
         }
         guard metas.count == 1, let meta = metas.first else {
             throw Rejection.policy(metas.isEmpty ? "no effective CSP meta element" : "more than one CSP meta element")

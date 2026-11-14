@@ -25,7 +25,11 @@ struct GubicGameSource: Identifiable {
 /// Plain Swift type (not NSObject) so it stays out of the generated ObjC header; WebKit sees `makeWebKitHandler()`.
 final class GubicSchemeHandler: @unchecked Sendable {
     static let scheme = "gubic"
-    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    /// Every non-HTML response (SVG, scripts, styles, media) carries a
+    /// script-free, sandboxed policy too, so a self-scripting type such as SVG
+    /// can never run code or reach the network even if rendered as a document.
+    static let resourceContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; sandbox"
 
     let origin: String
     private let files: [String: Data]
@@ -47,6 +51,14 @@ final class GubicSchemeHandler: @unchecked Sendable {
     }
 
     func close() { lock.lock(); closed = true; lock.unlock() }
+
+    /// Only the entry document may occupy the main frame (the bridge bootstrap
+    /// is injected there). Every other main-frame target, including other
+    /// listed files such as SVG or HTML, every subframe and every new window
+    /// is refused.
+    func allowsNavigation(to url: URL, isMainFrame: Bool) -> Bool {
+        isMainFrame && url.absoluteString == entryURL.absoluteString && allows(url)
+    }
 
     func makeWebKitHandler() -> any WKURLSchemeHandler { GubicWebKitSchemeHandler(owner: self) }
 
@@ -70,9 +82,9 @@ final class GubicSchemeHandler: @unchecked Sendable {
         case "woff2": "font/woff2"
         default: "application/octet-stream"
         }
-        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
+        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store",
+                       "Content-Security-Policy": mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy]
         if mime == "text/html" {
-            headers["Content-Security-Policy"] = Self.contentSecurityPolicy
             headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
         }
         guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
