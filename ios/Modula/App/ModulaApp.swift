@@ -11,6 +11,7 @@ struct ModulaApp: App {
     var body: some Scene {
         WindowGroup {
             AppGateHost()
+                .modifier(CallOverlayHost())
                 .environment(environment)
                 .tint(environment.appearance.liveAccent)
                 .preferredColorScheme(environment.appearance.colorScheme)
@@ -99,6 +100,8 @@ final class ModulaAppDelegate: NSObject, UIApplicationDelegate {
         }
         // Set before launch finishes so a notification that cold-launched the app is delivered.
         UNUserNotificationCenter.current().delegate = PushNotificationDelegate.shared
+        // PushKit must be registered during launch so a VoIP push that woke the app is delivered.
+        CallManager.shared.bootstrapAtLaunch()
         return true
     }
 

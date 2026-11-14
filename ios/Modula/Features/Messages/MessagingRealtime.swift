@@ -15,6 +15,7 @@ final class MessagingRealtimeClient {
         case read(conversationID: ConversationID, actorID: String, readAt: Date?)
         case conversationUpdated(conversationID: ConversationID, reason: String)
         case presence(PresenceItem)
+        case callUpdated(CallRealtimeUpdate)
         case error(String)
         case disconnected
     }
@@ -127,6 +128,8 @@ final class MessagingRealtimeClient {
         case "presence":
             guard let actor = value["actorId"]?.string else { return }
             onEvent?(.presence(PresenceItem(actorId: actor, status: PresenceStatus(parsing: value["status"]?.string), lastActiveAt: MessagingPayloadDecoder.decodeDate(value["lastActiveAt"]?.string))))
+        case "call.updated":
+            if let update = CallPayloadDecoder.realtimeUpdate(value) { onEvent?(.callUpdated(update)) }
         case "error":
             onEvent?(.error(value["reason"]?.string ?? "socket"))
         default:

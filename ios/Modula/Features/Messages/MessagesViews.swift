@@ -1308,6 +1308,9 @@ struct ConversationView: View {
                 ToolbarItem(placement: .principal) { header }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
+                        if showsCallButtons {
+                            CallHeaderButtons(conversationID: conversationID)
+                        }
                         Button {
                             searching.toggle()
                             if !searching { searchQuery = ""; searchScope = .all }
@@ -1356,6 +1359,9 @@ struct ConversationView: View {
             if app.messaging.capabilities.presence, let actor = conversation?.participants.first?.id {
                 await app.messaging.refreshPresence(for: [actor])
             }
+            if app.calls.capabilities.enabled, conversation?.kind == .direct {
+                await app.calls.loadHistory(conversationID)
+            }
         }
         .task(id: conversationID) { await pollLoop() }
         .onChange(of: searchQuery) { _, _ in
@@ -1371,6 +1377,33 @@ struct ConversationView: View {
     }
 
     private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
+
+    /// Calls only in an accepted 1:1 chat, and only when the server reports calls enabled.
+    /// The server re-checks blocks, privacy and acceptance on every start.
+    private var showsCallButtons: Bool {
+        guard app.calls.capabilities.canCall, let conversation, conversation.kind == .direct,
+              !conversationID.hasPrefix("pending-direct:") else { return false }
+        return !app.messaging.requests.contains { $0.conversationID == conversationID }
+    }
+
+    private var callSlots: CallHistoryPlacement.Slots {
+        guard app.calls.capabilities.enabled, conversation?.kind == .direct else { return .init() }
+        let calls = app.calls.history(for: conversationID)
+        guard !calls.isEmpty else { return .init() }
+        return CallHistoryPlacement.place(
+            calls: calls,
+            messages: app.messaging.messages(for: conversationID).map { (id: $0.id, sentAt: $0.sentAt) },
+            hasOlder: app.messaging.threadHasMore[conversationID] ?? false
+        )
+    }
+
+    private func callRow(_ record: CallRecord) -> some View {
+        CallHistoryRow(record: record, canCallBack: showsCallButtons && app.calls.canStartCall(record.mediaKind)) { kind in
+            Task { await app.calls.startCall(conversationID: conversationID, mediaKind: kind) }
+        }
+        .padding(.vertical, 8)
+        .id("call.\(record.id)")
+    }
 
     /// Name and avatar in the navigation bar; a direct chat's header opens that profile.
     private var header: some View {
@@ -1437,8 +1470,10 @@ struct ConversationView: View {
                         olderHeader(items: items, proxy: proxy)
                         let replyCounts = MessageReplyGrouping.counts(in: items)
                         let lastOwnID = items.last(where: \.isOwn)?.id
+                        let calls = callSlots
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
+                            ForEach(calls.before[message.id] ?? []) { record in callRow(record) }
                             if let label = MessageTimeline.separator(at: index, in: items) {
                                 MessageTimeSeparator(label: label)
                                     .padding(.top, index == 0 ? 0 : 14)
@@ -1495,6 +1530,7 @@ struct ConversationView: View {
                                 ? .opacity
                                 : .move(edge: .bottom).combined(with: .opacity))
                         }
+                        ForEach(calls.trailing) { record in callRow(record) }
                         if let people = app.messaging.typingPeople[conversationID], !people.isEmpty {
                             MessagesTypingBubble(people: people)
                                 .padding(.top, 10)
