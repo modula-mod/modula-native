@@ -64,7 +64,7 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         let value: JSONValue = try await client.authenticatedJSON(
             "POST",
             path: MessagingBackendCapabilities.Paths.send(conversationID: conversation),
-            body: .object(message.replyToID.map { ["text": .string(message.text), "replyToMessageId": .string($0)] } ?? ["text": .string(message.text)])
+            body: .object(Self.sendBody(message))
         )
         log(op: "send", id: conversation, started: started)
         let payload = value["message"] ?? value
@@ -234,6 +234,142 @@ actor GreenfieldMessagingRepository: MessagingRepository {
             "POST", path: "/v1/reports",
             body: .object(["targetType": .string(targetType), "targetId": .string(targetID), "category": .string(category)])
         )
+    }
+
+
+    /// Probe messaging v3 (`GET /v1/messaging/capabilities`). Nil means the route is not deployed yet
+    /// (current production, no migration 089). A 401 is not treated as "missing".
+    func probeV3() async -> MessagingBackendCapabilities? {
+        do {
+            let value: JSONValue = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.capabilities)
+            return MessagingPayloadDecoder.capabilitiesV3(from: value)
+        } catch {
+            return nil
+        }
+    }
+
+    static func sendBody(_ message: MessageDraft) -> [String: JSONValue] {
+        var body: [String: JSONValue] = ["text": .string(message.text)]
+        if let reply = message.replyToID { body["replyToMessageId"] = .string(reply) }
+        if let client = message.clientMessageId, (8...64).contains(client.count) {
+            body["clientMessageId"] = .string(client)
+        }
+        if message.kind != .text {
+            body["kind"] = .string(message.kind.rawValue)
+        }
+        if !message.attachments.isEmpty {
+            body["attachments"] = .array(message.attachments.map { item in
+                var object: [String: JSONValue] = [
+                    "attachmentId": .string(item.attachmentId),
+                    "durationMs": .number(Double(item.durationMs)),
+                ]
+                if !item.waveform.isEmpty {
+                    object["waveform"] = .array(item.waveform.prefix(128).map { .number(min(1, max(0, $0))) })
+                }
+                return .object(object)
+            })
+        }
+        return body
+    }
+
+    func privacy() async throws -> MessagingPrivacy {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.privacy)
+        return MessagingPayloadDecoder.privacy(value["privacy"] ?? value)
+    }
+
+    func updatePrivacy(_ patch: [String: JSONValue]) async throws -> MessagingPrivacy {
+        let value: JSONValue = try await client.authenticatedJSON("PATCH", path: MessagingBackendCapabilities.Paths.privacy, body: .object(patch))
+        return MessagingPayloadDecoder.privacy(value["privacy"] ?? value)
+    }
+
+    func createGroup(title: String, description: String?, handles: [String]) async throws -> Conversation {
+        var body: [String: JSONValue] = ["title": .string(title), "handles": .array(handles.map { .string($0) })]
+        if let description, !description.isEmpty { body["description"] = .string(description) }
+        let value: JSONValue = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.groups, body: .object(body))
+        if let conversation = MessagingPayloadDecoder.conversation(value["conversation"] ?? value) {
+            return conversation
+        }
+        throw APIError.invalidResponse
+    }
+
+    func group(_ id: ConversationID) async throws -> GroupDetail {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.group(id))
+        if let detail = MessagingPayloadDecoder.groupDetail(value["group"] ?? value) { return detail }
+        throw APIError.invalidResponse
+    }
+
+    func updateGroup(_ id: ConversationID, title: String?, description: String?) async throws -> GroupDetail {
+        var body: [String: JSONValue] = [:]
+        if let title { body["title"] = .string(title) }
+        if let description { body["description"] = .string(description) }
+        let value: JSONValue = try await client.authenticatedJSON("PATCH", path: MessagingBackendCapabilities.Paths.group(id), body: .object(body))
+        if let detail = MessagingPayloadDecoder.groupDetail(value["group"] ?? value) { return detail }
+        throw APIError.invalidResponse
+    }
+
+    func addGroupMembers(_ id: ConversationID, handles: [String]) async throws -> (added: [String], group: GroupDetail) {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST", path: MessagingBackendCapabilities.Paths.groupMembers(id),
+            body: .object(["handles": .array(handles.map { .string($0) })])
+        )
+        guard let group = MessagingPayloadDecoder.groupDetail(value["group"] ?? value) else { throw APIError.invalidResponse }
+        let added = (value["added"]?.array ?? []).compactMap(\.string)
+        return (added, group)
+    }
+
+    func removeGroupMember(_ id: ConversationID, actor: String) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("DELETE", path: MessagingBackendCapabilities.Paths.groupMember(id, actor: actor), body: nil)
+    }
+
+    func setGroupRole(_ id: ConversationID, actor: String, role: GroupRole) async throws -> GroupDetail {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST", path: MessagingBackendCapabilities.Paths.groupMemberRole(id, actor: actor),
+            body: .object(["role": .string(role.rawValue)])
+        )
+        if let group = MessagingPayloadDecoder.groupDetail(value["group"] ?? value) { return group }
+        throw APIError.invalidResponse
+    }
+
+    func leaveGroup(_ id: ConversationID) async throws {
+        let _: JSONValue = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.groupLeave(id), body: .object([:]))
+    }
+
+    func reactionDetails(conversation: ConversationID, message: MessageID) async throws -> [MessageReactionDetail] {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.reactions(conversation, message))
+        return MessagingPayloadDecoder.reactionDetails(value)
+    }
+
+    func receipts(conversation: ConversationID, message: MessageID) async throws -> MessageReceipts {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.receipts(conversation, message))
+        return MessagingPayloadDecoder.receipts(value)
+    }
+
+    func searchMessages(query: String, conversationID: ConversationID?, cursor: String?, limit: Int = 30) async throws -> HistorySearchPage {
+        var path = MessagingBackendCapabilities.Paths.historySearch + "?limit=\(min(50, max(1, limit)))"
+        if let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "&q=\(encoded)"
+        }
+        if let conversationID, let encoded = conversationID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "&conversationId=\(encoded)"
+        }
+        if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "&cursor=\(encoded)"
+        }
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: path)
+        return MessagingPayloadDecoder.searchPage(from: value)
+    }
+
+    func presenceHeartbeat() async throws -> Int {
+        let value: JSONValue = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.presenceHeartbeat, body: .object([:]))
+        return value["onlineWindowMs"]?.int ?? 70_000
+    }
+
+    func presence(actorIDs: [String]) async throws -> [PresenceItem] {
+        let clipped = Array(actorIDs.prefix(50))
+        guard !clipped.isEmpty else { return [] }
+        let query = clipped.map { $0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0 }.joined(separator: ",")
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.presence + "?actorIds=\(query)")
+        return MessagingPayloadDecoder.presenceItems(value)
     }
 
     private func log(op: String, id: String?, started: Date) {

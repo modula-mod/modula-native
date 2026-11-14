@@ -115,6 +115,7 @@ enum PushNotificationCategories {
     static let replyAction = "MODULA_REPLY"
     static let likeAction = "MODULA_LIKE"
     static let acceptAction = "MODULA_ACCEPT"
+    static let markReadAction = "MODULA_MARK_READ"
 
     static func all() -> Set<UNNotificationCategory> {
         let reply = UNTextInputNotificationAction(
@@ -131,6 +132,12 @@ enum PushNotificationCategories {
             options: [.authenticationRequired],
             icon: UNNotificationActionIcon(systemImageName: "heart")
         )
+        let markRead = UNNotificationAction(
+            identifier: markReadAction,
+            title: "Mark as read",
+            options: [.authenticationRequired],
+            icon: UNNotificationActionIcon(systemImageName: "checkmark.bubble")
+        )
         let accept = UNNotificationAction(
             identifier: acceptAction,
             title: "Accept",
@@ -145,7 +152,7 @@ enum PushNotificationCategories {
         )
         return [
             UNNotificationCategory(identifier: comment, actions: [reply, like], intentIdentifiers: [], options: []),
-            UNNotificationCategory(identifier: message, actions: [reply], intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: message, actions: [reply, markRead], intentIdentifiers: [], options: []),
             UNNotificationCategory(identifier: followRequest, actions: [accept], intentIdentifiers: [], options: []),
             UNNotificationCategory(identifier: gubicInvite, actions: [acceptInvite], intentIdentifiers: [], options: []),
         ]
@@ -160,6 +167,8 @@ struct PushPayload: Equatable, Sendable {
     var resourceType: String?
     var resourceId: String?
     var conversationId: String?
+    var messageId: String?
+    var messageType: String?
     var followRequestId: String?
     var notificationId: String?
 
@@ -171,6 +180,8 @@ struct PushPayload: Equatable, Sendable {
         resourceType = modula["resourceType"] as? String
         resourceId = modula["resourceId"] as? String
         conversationId = modula["conversationId"] as? String
+        messageId = modula["messageId"] as? String
+        messageType = modula["messageType"] as? String
         followRequestId = modula["followRequestId"] as? String
         notificationId = modula["notificationId"] as? String
     }
@@ -186,6 +197,7 @@ enum PushNotificationAction: Equatable, Sendable {
     case open
     case reply(String)
     case like
+    case markRead
     case accept
     case dismiss
 
@@ -193,6 +205,7 @@ enum PushNotificationAction: Equatable, Sendable {
         switch identifier {
         case PushNotificationCategories.replyAction: self = .reply(text ?? "")
         case PushNotificationCategories.likeAction: self = .like
+        case PushNotificationCategories.markReadAction: self = .markRead
         case PushNotificationCategories.acceptAction: self = .accept
         case UNNotificationDismissActionIdentifier: self = .dismiss
         default: self = .open
@@ -207,7 +220,13 @@ enum PushNotificationAction: Equatable, Sendable {
             let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
             if let conversation = payload.conversationId {
-                return ("POST", "/v1/conversations/\(escape(conversation))/messages", .object(["text": .string(text)]))
+                var body: [String: JSONValue] = ["text": .string(text)]
+                // clientMessageId only when a v3 probe has confirmed idempotent send
+                // (push can fire before this session has probed).
+                if MessagingV3FlagStore.idempotentSend {
+                    body["clientMessageId"] = .string(UUID().uuidString)
+                }
+                return ("POST", "/v1/conversations/\(escape(conversation))/messages", .object(body))
             }
             if payload.resourceType == "post", let post = payload.resourceId {
                 return ("POST", "/v1/posts/\(escape(post))/comments", .object(["text": .string(text)]))
@@ -216,6 +235,9 @@ enum PushNotificationAction: Equatable, Sendable {
         case .like:
             guard payload.resourceType == "post", let post = payload.resourceId else { return nil }
             return ("POST", "/v1/posts/\(escape(post))/like", .object([:]))
+        case .markRead:
+            guard let conversation = payload.conversationId else { return nil }
+            return ("POST", "/v1/conversations/\(escape(conversation))/read", nil)
         case .accept:
             guard payload.category == "follows", let id = payload.followRequestId else { return nil }
             return ("POST", "/v1/follow-requests/\(escape(id))/accept", .object([:]))
