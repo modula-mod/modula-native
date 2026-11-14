@@ -298,21 +298,23 @@ final class AuthPendingSignupTests: XCTestCase {
 
         // Forge's fix returns the new challenge: it is stored and used.
         clock.now = clock.now.addingTimeInterval(61)
-        responses.resend = #"{"ok":true,"data":{"resent":true,"challengeId":"chal-2","expiresAt":"\#(iso(clock.now.addingTimeInterval(1_800)))"}}"#
+        responses.resend = #"{"ok":true,"data":{"resent":true,"challengeId":"chal-2","expiresAt":"\#(iso(clock.now.addingTimeInterval(1_800)))","delivery":{"channel":"email","recipient":"n•••@example.com"}},"meta":{"requestId":"r","serverTime":"\#(iso(clock.now))"}}"#
         _ = await store.resendPendingCode()
-        XCTAssertEqual(store.pendingSignup?.challengeID, "chal-2")
-        XCTAssertNil(store.pendingNotice)
+        XCTAssertEqual(store.pendingSignup?.challengeID, "chal-2", "#190 resend replaces the stored challenge")
+        XCTAssertEqual(store.pendingSignup?.recipient, "n•••@example.com")
+        let notice = try XCTUnwrap(store.pendingNotice)
+        XCTAssertTrue(notice.hasPrefix("If n•••@example.com has a sign-up waiting"), "never claims the account exists")
         XCTAssertEqual(PendingSignupStore(namespace: namespace).load()?.challengeID, "chal-2")
         XCTAssertEqual(store.pendingSignup?.expiresAt.timeIntervalSince1970 ?? 0,
                        clock.now.addingTimeInterval(1_800).timeIntervalSince1970, accuracy: 1)
 
-        // RATE_LIMITED: wait out Greenfield's 10-minute window and say so.
+        // Verification-send limit (5 per 10 min, retryable:false, no details): wait ~10 minutes.
         clock.now = clock.now.addingTimeInterval(61)
-        PendingSignupRouter.handler = { _, _, _ in (429, #"{"ok":false,"error":{"code":"RATE_LIMITED"}}"#) }
+        PendingSignupRouter.handler = { _, _, _ in (429, #"{"ok":false,"error":{"code":"RATE_LIMITED","message":"x","retryable":false},"meta":{"requestId":"r"}}"#) }
         let limited = await store.resendPendingCode()
         XCTAssertFalse(limited)
         XCTAssertEqual(store.resendWait(), PendingSignupStore.rateLimitedCooldown, accuracy: 0.5)
-        XCTAssertTrue(store.signupError?.contains("10 minutes") == true)
+        XCTAssertEqual(store.signupError, "Too many codes requested. Try again in about 10 minutes.")
         XCTAssertEqual(PendingSignupStore(namespace: namespace).load()?.resendWait(at: clock.now) ?? 0,
                        PendingSignupStore.rateLimitedCooldown, accuracy: 0.5)
     }
@@ -368,5 +370,97 @@ final class AuthPendingSignupTests: XCTestCase {
         let request = try XCTUnwrap(PendingSignupRouter.log.last)
         XCTAssertNil(request.body["password"])
         XCTAssertNil(request.authorization)
+    }
+
+    // MARK: modula-latest #190 contract
+
+    func testEmailVerificationRequiredOnSignInResumesAtCodeStep() async throws {
+        let store = makeStore()
+        let expires = iso(clock.now.addingTimeInterval(3_600))
+        PendingSignupRouter.handler = { method, path, _ in
+            guard method == "POST", path == "/v1/sessions" else { return (404, "{}") }
+            return (403, #"{"ok":false,"error":{"code":"EMAIL_VERIFICATION_REQUIRED","message":"Verify your email","retryable":false,"details":{"challengeId":"chal-login","expiresAt":"\#(expires)","delivery":{"channel":"email","recipient":"p•••@example.com"}}},"meta":{"requestId":"r","serverTime":"\#(expires)"}}"#)
+        }
+        let ok = await store.signIn(email: "Pending@Example.com", password: password)
+        XCTAssertFalse(ok)
+        XCTAssertNil(store.account, "403 carries no tokens")
+        XCTAssertTrue(store.resumeVerificationRequested)
+        let pending = try XCTUnwrap(store.pendingSignup)
+        XCTAssertEqual(pending.email, "pending@example.com")
+        XCTAssertEqual(pending.challengeID, "chal-login")
+        XCTAssertEqual(pending.recipient, "p•••@example.com")
+        XCTAssertEqual(pending.expiresAt.timeIntervalSince1970, clock.now.addingTimeInterval(3_600).timeIntervalSince1970, accuracy: 1)
+        XCTAssertEqual(PendingSignupStore(namespace: namespace).load(), pending)
+        XCTAssertEqual(store.error, "Your email isn’t verified yet. We sent a fresh code to p•••@example.com.")
+        XCTAssertNil(PendingSignupRouter.log.first?.authorization, "sign-in sends no bearer")
+        let raw = String(decoding: try XCTUnwrap(PendingSignupStore(namespace: namespace).storedData()), as: UTF8.self)
+        XCTAssertFalse(raw.contains(password))
+
+        // The fresh challenge is what verify uses.
+        PendingSignupRouter.handler = { _, path, body in
+            path == "/v1/accounts/verify-email" && body["challengeId"] == "chal-login" && body["code"] == "654321"
+                ? (200, #"{"ok":true,"data":{"verified":true}}"#) : (401, #"{"ok":false,"error":{"code":"CHALLENGE_INVALID"}}"#)
+        }
+        let verified = await store.verifyPendingCode("654321")
+        XCTAssertTrue(verified)
+    }
+
+    func testPerRouteRateLimitCountsDownRetryAfterThenReenables() async throws {
+        let store = makeStore()
+        PendingSignupRouter.handler = { _, _, _ in
+            (429, #"{"ok":false,"error":{"code":"RATE_LIMITED","message":"Rate limit exceeded; retry after 37 seconds","retryable":true,"details":{"retryAfter":"37 seconds","limit":10}},"meta":{"requestId":"r"}}"#)
+        }
+        let ok = await store.signIn(email: "someone@example.com", password: "whatever-pw")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.error, "Too many attempts. Try again in 37 seconds.")
+        XCTAssertEqual(store.rateLimitWait(), 37, accuracy: 0.5)
+        clock.now = clock.now.addingTimeInterval(20)
+        XCTAssertEqual(store.rateLimitWait(), 17, accuracy: 0.5)
+        clock.now = clock.now.addingTimeInterval(18)
+        XCTAssertEqual(store.rateLimitWait(), 0, "re-enabled after retryAfter")
+
+        // Create Account on the per-route limit too.
+        do {
+            _ = try await store.register(payload: payload())
+            XCTFail("expected 429")
+        } catch {
+            XCTAssertEqual(store.rateLimitNotice, "Too many attempts. Try again in 37 seconds.")
+        }
+    }
+
+    func testDecodesWithAndWithoutPR190Fields() async throws {
+        // Failure details.
+        XCTAssertNil(GreenfieldFailureDetails.parse(Data(#"{"ok":true,"data":{}}"#.utf8)))
+        let legacy = try XCTUnwrap(GreenfieldFailureDetails.parse(Data(#"{"ok":false,"error":{"code":"RATE_LIMITED"}}"#.utf8)))
+        XCTAssertEqual(legacy, GreenfieldFailureDetails())
+        XCTAssertEqual(AuthenticationStore.rateLimitWait(legacy), PendingSignupStore.rateLimitedCooldown)
+        let route = try XCTUnwrap(GreenfieldFailureDetails.parse(Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","retryable":true,"details":{"retryAfter":"12 seconds"}}}"#.utf8)))
+        XCTAssertEqual(route.retryAfterSeconds, 12)
+        XCTAssertEqual(AuthenticationStore.rateLimitWait(route), 12)
+        let numeric = try XCTUnwrap(GreenfieldFailureDetails.parse(Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","retryable":true,"details":{"retryAfter":5}}}"#.utf8)))
+        XCTAssertEqual(numeric.retryAfterSeconds, 5)
+
+        // Resend success, before and after #190.
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PendingSignupRouter.self]
+        let client = GreenfieldClient(baseURL: URL(string: namespace)!, transport: URLSession(configuration: config))
+        responses.resend = #"{"ok":true,"data":{"resent":true}}"#
+        let r = responses
+        PendingSignupRouter.handler = { _, _, _ in (200, r.resend) }
+        let before = try await client.resendVerification(email: "a@example.com")
+        XCTAssertEqual(before, ResendVerificationResult(challengeID: nil, expiresAt: nil, recipient: nil))
+        let expires = clock.now.addingTimeInterval(900)
+        responses.resend = #"{"ok":true,"data":{"resent":true,"challengeId":"c-190","expiresAt":"\#(iso(expires))","delivery":{"channel":"email","recipient":"a•••@example.com"}},"meta":{"requestId":"r","serverTime":"\#(iso(clock.now))"}}"#
+        let after = try await client.resendVerification(email: "a@example.com")
+        XCTAssertEqual(after.challengeID, "c-190")
+        XCTAssertEqual(after.recipient, "a•••@example.com")
+        XCTAssertEqual(after.expiresAt?.timeIntervalSince1970 ?? 0, expires.timeIntervalSince1970, accuracy: 1)
+
+        // Register: masked recipient from verificationDelivery.
+        responses.register = registerResponse()
+        PendingSignupRouter.handler = { _, _, _ in (201, r.register) }
+        let registered = try await client.register(payload: payload())
+        XCTAssertEqual(registered.challengeID, "chal-1")
+        XCTAssertEqual(registered.recipient, "n•••@example.com")
     }
 }

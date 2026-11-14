@@ -28,6 +28,12 @@ final class AuthenticationStore {
     private(set) var resending = false
     /// Email that was just verified, offered to Sign In so it needn't be retyped.
     private(set) var lastVerifiedEmail: String?
+    /// Set when sign-in found the account still unverified and a fresh code was emailed;
+    /// Sign In then continues at the code step and clears it.
+    var resumeVerificationRequested = false
+    /// Greenfield's per-route limit (429, retryable, `details.retryAfter`): sign-in and
+    /// create-account stay disabled with a countdown until this moment.
+    private(set) var rateLimitedUntil: Date?
 
     init(client: GreenfieldClient,
          pendingStore: PendingSignupStore = PendingSignupStore(namespace: "unconfigured"),
@@ -103,6 +109,20 @@ final class AuthenticationStore {
             #endif
             return true
         } catch let api as APIError {
+            let details = await client.lastFailureDetails(path: "/v1/sessions")
+            if api.code == "EMAIL_VERIFICATION_REQUIRED" {
+                // modula-latest #190: right password, unverified account → 403 with a fresh
+                // challenge. Persist it and continue at the code step.
+                resumeVerification(email: email, details: details)
+                #if DEBUG
+                lastDiagnostic = api.diagnosticDescription
+                #endif
+                return false
+            }
+            if Self.isRateLimited(api) {
+                self.error = applyRateLimit(details)
+                return false
+            }
             if let pending = pendingSignup, pending.email == PendingSignup.normalizedEmail(email),
                case .rejected(_, let code) = api,
                code == "INVALID_CREDENTIALS" || code == "EMAIL_NOT_VERIFIED" || code == "VERIFICATION_REQUIRED" {
@@ -161,7 +181,14 @@ final class AuthenticationStore {
     /// Creates the account. When Greenfield requires email verification the pending state is
     /// saved (never the password) so the code step survives the app closing.
     func register(payload: RegistrationPayload) async throws -> RegistrationResult {
-        let result = try await client.register(payload: payload)
+        let result: RegistrationResult
+        do {
+            result = try await client.register(payload: payload)
+        } catch let api as APIError where Self.isRateLimited(api) {
+            let details = await client.lastFailureDetails(path: "/v1/accounts/register")
+            rateLimitNotice = applyRateLimit(details)
+            throw api
+        }
         guard result.verificationRequired else {
             abandonPendingSignup()
             return result
@@ -172,6 +199,7 @@ final class AuthenticationStore {
             handle: result.handle ?? payload.handle,
             accountID: result.accountID,
             challengeID: result.challengeID,
+            recipient: result.recipient,
             createdAt: started,
             expiresAt: PendingSignupStore.expiry(server: result.expiresAt, from: started),
             lastCodeSentAt: started,
@@ -194,12 +222,13 @@ final class AuthenticationStore {
         let started = now()
         do {
             let result = try await client.resendVerification(email: normalized)
-            pendingNotice = result.challengeID == nil ? Self.resendUnconfirmableNotice : nil
+            pendingNotice = Self.resendNotice(result, email: normalized)
             persist(PendingSignup(
                 email: normalized,
                 handle: nil,
                 accountID: nil,
                 challengeID: result.challengeID,
+                recipient: result.recipient,
                 createdAt: started,
                 expiresAt: PendingSignupStore.expiry(server: result.expiresAt, from: started),
                 lastCodeSentAt: started,
@@ -207,7 +236,12 @@ final class AuthenticationStore {
             ))
             return true
         } catch let api as APIError {
-            signupError = Self.verificationMessage(api)
+            if Self.isRateLimited(api) {
+                let details = await client.lastFailureDetails(path: "/v1/accounts/resend-verification")
+                signupError = Self.rateLimitMessage(details)
+            } else {
+                signupError = Self.verificationMessage(api)
+            }
             return false
         } catch {
             signupError = Self.offlineMessage
@@ -231,19 +265,22 @@ final class AuthenticationStore {
             // Greenfield supersedes the previous code on resend. At ab0efa4f it does not return
             // the replacement challenge, so the old id is dropped rather than kept as if valid.
             pending.challengeID = result.challengeID
+            pending.recipient = result.recipient ?? pending.recipient
             pending.lastCodeSentAt = started
             pending.resendAvailableAt = started.addingTimeInterval(PendingSignupStore.resendCooldown)
             pending.expiresAt = PendingSignupStore.expiry(server: result.expiresAt, from: started)
             pending.failedAttempts = 0
             // Don't present a resend as usable when the server didn't name the new code.
-            pendingNotice = result.challengeID == nil ? Self.resendUnconfirmableNotice : nil
+            pendingNotice = Self.resendNotice(result, email: pending.email)
             persist(pending)
             return true
         } catch let api as APIError {
-            if case .rejected(_, let code) = api, code == "RATE_LIMITED" || code == "TOO_MANY_REQUESTS" {
-                pending.resendAvailableAt = started.addingTimeInterval(PendingSignupStore.rateLimitedCooldown)
+            if Self.isRateLimited(api) {
+                let details = await client.lastFailureDetails(path: "/v1/accounts/resend-verification")
+                let wait = Self.rateLimitWait(details)
+                pending.resendAvailableAt = started.addingTimeInterval(wait)
                 persist(pending)
-                signupError = "Too many codes requested. You can ask for another in 10 minutes."
+                signupError = Self.rateLimitMessage(details)
             } else {
                 signupError = Self.verificationMessage(api)
             }
@@ -281,6 +318,9 @@ final class AuthenticationStore {
                 signupError = pending.isLocked
                     ? Self.lockedMessage
                     : Self.verificationMessage(api) + " \(PendingSignupStore.attemptLimit - pending.failedAttempts) tries left."
+            } else if Self.isRateLimited(api) {
+                let details = await client.lastFailureDetails(path: "/v1/accounts/verify-email")
+                signupError = Self.rateLimitMessage(details)
             } else {
                 signupError = Self.verificationMessage(api)
             }
@@ -306,6 +346,74 @@ final class AuthenticationStore {
         pendingNotice = "The code for \(pending.email) expired. Request a new code to finish creating your account, or sign in with another account."
     }
 
+    /// Message shown by Create Account after a 429.
+    private(set) var rateLimitNotice: String?
+
+    /// Seconds left on the per-route limit (0 when sign-in/create may be tried again).
+    func rateLimitWait(at date: Date? = nil) -> TimeInterval {
+        guard let until = rateLimitedUntil else { return 0 }
+        return max(0, until.timeIntervalSince(date ?? now()))
+    }
+
+    /// 403 EMAIL_VERIFICATION_REQUIRED: store the fresh challenge and send the person to the code.
+    private func resumeVerification(email: String, details: GreenfieldFailureDetails?) {
+        let normalized = PendingSignup.normalizedEmail(email)
+        let started = now()
+        let previous = pendingSignup?.email == normalized ? pendingSignup : nil
+        persist(PendingSignup(
+            email: normalized,
+            handle: previous?.handle,
+            accountID: previous?.accountID,
+            challengeID: details?.challengeID,
+            recipient: details?.recipient ?? previous?.recipient,
+            createdAt: previous?.createdAt ?? started,
+            expiresAt: PendingSignupStore.expiry(server: details?.expiresAt, from: started),
+            lastCodeSentAt: started,
+            resendAvailableAt: started.addingTimeInterval(PendingSignupStore.resendCooldown)
+        ))
+        let message = "Your email isn’t verified yet. We sent a fresh code to \(details?.recipient ?? normalized)."
+        pendingNotice = message
+        signupError = nil
+        error = message
+        resumeVerificationRequested = true
+    }
+
+    /// Applies a 429 to sign-in/create-account and returns the message to show.
+    private func applyRateLimit(_ details: GreenfieldFailureDetails?) -> String {
+        rateLimitedUntil = now().addingTimeInterval(Self.rateLimitWait(details))
+        return Self.rateLimitMessage(details)
+    }
+
+    static func isRateLimited(_ api: APIError) -> Bool {
+        if case .rejected(let status, let code) = api {
+            return status == 429 || code == "RATE_LIMITED" || code == "TOO_MANY_REQUESTS"
+        }
+        return false
+    }
+
+    /// Greenfield has two 429s: the per-route limit (retryable, `retryAfter` "<n> seconds")
+    /// and the verification-send limit (5 per 10 min, not retryable, no details).
+    static func rateLimitWait(_ details: GreenfieldFailureDetails?) -> TimeInterval {
+        if details?.retryable == true, let seconds = details?.retryAfterSeconds {
+            return TimeInterval(max(1, seconds))
+        }
+        return PendingSignupStore.rateLimitedCooldown
+    }
+
+    static func rateLimitMessage(_ details: GreenfieldFailureDetails?) -> String {
+        if details?.retryable == true, let seconds = details?.retryAfterSeconds {
+            return "Too many attempts. Try again in \(max(1, seconds)) seconds."
+        }
+        return "Too many codes requested. Try again in about 10 minutes."
+    }
+
+    /// Resend copy that never claims the account exists (unknown emails get a decoy reply).
+    static func resendNotice(_ result: ResendVerificationResult, email: String) -> String {
+        guard result.challengeID != nil else { return resendUnconfirmableNotice }
+        let target = result.recipient ?? email
+        return "If \(target) has a sign-up waiting, a new code is on its way. Codes from earlier emails no longer work."
+    }
+
     private func persist(_ pending: PendingSignup) {
         pendingSignup = pending
         do { try pendingStore.save(pending) } catch {
@@ -319,7 +427,7 @@ final class AuthenticationStore {
     /// Greenfield at ab0efa4f supersedes the old code on resend without returning the new
     /// challenge id, so the app has nothing to confirm the new code against. Said plainly.
     static let resendUnconfirmableNotice = "A new code was sent, but this version of Modula can’t confirm resent codes yet, and your earlier code no longer works. Contact support to finish verifying, or sign in with another account."
-    static let rateLimitedRegisterMessage = "Too many attempts from this network. Wait 10 minutes, then try again."
+    static let rateLimitedRegisterMessage = "Too many attempts. Try again in about 10 minutes."
 
     /// Plain-language copy for Greenfield's sign-up errors.
     static func signupMessage(_ api: APIError) -> String {

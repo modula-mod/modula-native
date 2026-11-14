@@ -541,8 +541,12 @@ struct RegisterView: View {
                     }
                     #endif
                 }
-                AuthPrimaryButton(title: "Create Account", busy: busy, enabled: canSubmit) {
-                    Task { await submit() }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let wait = Int(app.auth.rateLimitWait(at: context.date).rounded(.up))
+                    AuthPrimaryButton(title: wait > 0 ? "Try again in \(VerifyEmailView.clock(wait))" : "Create Account",
+                                      busy: busy, enabled: canSubmit && wait == 0) {
+                        Task { await submit() }
+                    }
                 }
                 HStack(spacing: ModulaSpacing.xxs) {
                     Text("Already have an account?").foregroundStyle(.secondary)
@@ -597,7 +601,7 @@ struct RegisterView: View {
     }
 
     private func submit() async {
-        guard !busy else { return }
+        guard !busy, app.auth.rateLimitWait() == 0 else { return }
         guard canSubmit else {
             attempted = true
             shake += 1
@@ -630,7 +634,9 @@ struct RegisterView: View {
             }
         } catch let api as APIError {
             alreadyRegistered = api.code == "CONFLICT"
-            error = AuthenticationStore.signupMessage(api)
+            error = AuthenticationStore.isRateLimited(api)
+                ? (app.auth.rateLimitNotice ?? AuthenticationStore.signupMessage(api))
+                : AuthenticationStore.signupMessage(api)
             #if DEBUG
             diagnostic = api.diagnosticDescription
             #endif
@@ -665,7 +671,7 @@ struct VerifyEmailView: View {
 
     private var subtitle: String {
         if verified { return "Your email is confirmed." }
-        if let pending { return "Enter the \(Self.codeLength)-digit code we sent to \(pending.email). It can take a minute to arrive; check spam too." }
+        if let pending { return "Enter the \(Self.codeLength)-digit code we sent to \(pending.recipient ?? pending.email). It can take a minute to arrive; check spam too." }
         return "Enter the email you signed up with and we’ll send a new code."
     }
 
@@ -727,6 +733,7 @@ struct VerifyEmailView: View {
             Button("Use a different account") {
                 app.auth.abandonPendingSignup()
                 app.auth.pendingNotice = nil
+                app.auth.error = nil
                 HapticEngine.shared.play(.navigation)
                 app.navigation.open(.auth(.login))
             }

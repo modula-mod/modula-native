@@ -16,6 +16,8 @@ struct RegistrationResult: Sendable, Equatable {
     var challengeID: String?
     var verificationRequired: Bool
     var handle: String? = nil
+    /// Masked address the code went to (`verificationDelivery.recipient`).
+    var recipient: String? = nil
     /// When the emailed code stops working (`verificationExpiresAt`).
     var expiresAt: Date? = nil
 }
@@ -25,6 +27,40 @@ struct RegistrationResult: Sendable, Equatable {
 struct ResendVerificationResult: Sendable, Equatable {
     var challengeID: String?
     var expiresAt: Date?
+    /// Masked address (`a•••@example.com`). Unknown emails get an identical-looking decoy,
+    /// so this never proves an account exists.
+    var recipient: String? = nil
+}
+
+/// Structured details from a Greenfield failure envelope (`error.retryable`, `error.details`).
+/// All optional: servers before modula-latest #190 send none of them.
+struct GreenfieldFailureDetails: Sendable, Equatable {
+    var retryable: Bool?
+    /// `details.retryAfter` ("<n> seconds", or a number) from the per-route 429.
+    var retryAfterSeconds: Int?
+    /// `details.challengeId` / `expiresAt` / `delivery.recipient` from 403 EMAIL_VERIFICATION_REQUIRED.
+    var challengeID: String?
+    var expiresAt: Date?
+    var recipient: String?
+
+    static func parse(_ data: Data) -> GreenfieldFailureDetails? {
+        guard let root = try? JSONDecoder().decode(JSONValue.self, from: data), let error = root["error"] else { return nil }
+        let details = error["details"]
+        var retryAfter: Int?
+        if let text = details?["retryAfter"]?.string {
+            retryAfter = Int(text.split(separator: " ").first ?? "")
+        } else if let number = details?["retryAfter"]?.number {
+            retryAfter = Int(number)
+        }
+        let parsed = GreenfieldFailureDetails(
+            retryable: error["retryable"]?.bool,
+            retryAfterSeconds: retryAfter.flatMap { $0 >= 0 ? $0 : nil },
+            challengeID: details?["challengeId"]?.string,
+            expiresAt: GreenfieldTimestamp.parse(details?["expiresAt"]?.string),
+            recipient: details?["delivery"]?["recipient"]?.string
+        )
+        return parsed
+    }
 }
 
 enum GreenfieldTimestamp {
@@ -73,6 +109,7 @@ extension GreenfieldClient {
             verificationRequired: value["verificationRequired"]?.bool
                 ?? (value["status"]?.string != "active"),
             handle: value["primaryHandle"]?.string,
+            recipient: value["verificationDelivery"]?["recipient"]?.string,
             expiresAt: GreenfieldTimestamp.parse(value["verificationExpiresAt"]?.string)
         )
     }
@@ -92,7 +129,8 @@ extension GreenfieldClient {
         ]))
         return ResendVerificationResult(
             challengeID: value["verificationChallengeId"]?.string ?? value["challengeId"]?.string,
-            expiresAt: GreenfieldTimestamp.parse(value["verificationExpiresAt"]?.string ?? value["expiresAt"]?.string)
+            expiresAt: GreenfieldTimestamp.parse(value["verificationExpiresAt"]?.string ?? value["expiresAt"]?.string),
+            recipient: value["delivery"]?["recipient"]?.string
         )
     }
 

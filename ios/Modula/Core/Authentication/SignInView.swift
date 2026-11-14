@@ -162,8 +162,13 @@ struct SignInView: View {
 
             pendingSignupBanner
 
-            AuthPrimaryButton(title: "Sign In", busy: app.auth.busy, enabled: canSubmit) {
-                Task { await submit() }
+            // Per-route 429: count down `retryAfter`, then re-enable.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let wait = Int(app.auth.rateLimitWait(at: context.date).rounded(.up))
+                AuthPrimaryButton(title: wait > 0 ? "Try again in \(VerifyEmailView.clock(wait))" : "Sign In",
+                                  busy: app.auth.busy, enabled: canSubmit && wait == 0) {
+                    Task { await submit() }
+                }
             }
             .accessibilityIdentifier("auth.sign-in")
             .padding(.top, ModulaSpacing.xxs)
@@ -314,6 +319,7 @@ struct SignInView: View {
     }
 
     private func submit() async {
+        guard app.auth.rateLimitWait() == 0 else { return }
         guard canSubmit, Self.looksLikeEmail(trimmedEmail) else {
             attemptedSubmit = true
             focused = (trimmedEmail.isEmpty || !Self.looksLikeEmail(trimmedEmail)) ? .email : .password
@@ -330,6 +336,11 @@ struct SignInView: View {
         if ok {
             HapticEngine.shared.play(.success)
             app.refreshLaunchState()
+        } else if app.auth.resumeVerificationRequested {
+            // Unverified account, fresh code emailed (403 EMAIL_VERIFICATION_REQUIRED).
+            app.auth.resumeVerificationRequested = false
+            HapticEngine.shared.play(.navigation)
+            app.navigation.open(.auth(.verify))
         } else {
             shake += 1
             HapticEngine.shared.play(.failure)

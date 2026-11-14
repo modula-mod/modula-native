@@ -14,6 +14,8 @@ struct PendingSignup: Codable, Sendable, Equatable {
     /// Greenfield `verificationChallengeId` for the emailed code. It names the challenge; it
     /// does not authenticate anything on its own.
     var challengeID: String?
+    /// Masked address the latest code went to (`a•••@example.com`), when the server says.
+    var recipient: String? = nil
     var createdAt: Date
     var expiresAt: Date
     var lastCodeSentAt: Date
