@@ -397,9 +397,14 @@ extension View {
 
     /// Draws the mascot (if enabled for `placement`) above everything in this composer, perched on the
     /// `modulaMascotPerch()` bar (or this view's own bounds), `trailingInset` in from its right edge.
-    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26, slotted: Bool = false, hidden: Bool = false) -> some View {
-        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset, slotted: slotted, hidden: hidden))
+    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26, lift: CGFloat = 0, slotted: Bool = false, hidden: Bool = false) -> some View {
+        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset, slotted: slotted, hidden: hidden, lift: lift))
     }
+}
+
+final class MascotTypingBox {
+    var last = Date.distantPast
+    var settle: Task<Void, Never>?
 }
 
 struct ModulaComposerMascotModifier: ViewModifier {
@@ -413,12 +418,15 @@ struct ModulaComposerMascotModifier: ViewModifier {
     var slotted: Bool = false
     /// Fades the mascot out (keeping view identity, so the composer never loses focus).
     var hidden: Bool = false
+    /// Extra rise above the perch (e.g. while a formatting bar fills the card's top edge).
+    var lift: CGFloat = 0
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @AppStorage private var shown: Bool
     @State private var touch: CGPoint?
     private let size: CGFloat = 48
 
-    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat, slotted: Bool = false, hidden: Bool = false) {
+    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat, slotted: Bool = false, hidden: Bool = false, lift: CGFloat = 0) {
+        self.lift = lift
         self.slotted = slotted
         self.hidden = hidden
         self.placement = placement
@@ -445,7 +453,11 @@ struct ModulaComposerMascotModifier: ViewModifier {
             content
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                        .onChanged { touch = $0.location }
+                        // Coarse updates only: a re-render per pixel of finger travel was wasted work.
+                        .onChanged { value in
+                            if let t = touch, abs(t.x - value.location.x) + abs(t.y - value.location.y) < 12 { return }
+                            touch = value.location
+                        }
                         .onEnded { _ in touch = nil }
                 )
                 .overlayPreferenceValue(MascotPerchKey.self) { anchor in
@@ -454,7 +466,7 @@ struct ModulaComposerMascotModifier: ViewModifier {
                         let s: CGFloat = slotted ? min(bar.height, bar.width) * 0.95 : size
                         let x = slotted ? bar.midX : bar.maxX - trailingInset - size * kind.bodySize.width / 2
                         // Slotted: feet rest on the slot floor. Perched: feet sink ~6pt into the bar's top edge.
-                        let y = slotted ? bar.maxY - 2 - kind.footFraction * s : bar.minY + 6 - kind.footFraction * size
+                        let y = slotted ? bar.maxY - 2 - kind.footFraction * s : bar.minY + 6 - lift - kind.footFraction * size
                         ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: s, custom: custom) { kindRaw = $0.rawValue }
                             .position(x: x, y: y)
                             .opacity(hidden ? 0 : 1)
@@ -496,7 +508,8 @@ struct ModulaComposerMascot: View {
     @State private var holdTask: Task<Void, Never>?
     @State private var lastTap: Date = .distantPast
     @State private var moved = false
-    @State private var typingSettle: Task<Void, Never>?
+    /// Non-observed typing scratch: throttles reactions without a state write per keystroke.
+    @State private var typing = MascotTypingBox()
     /// Global top of the mascot: the picker grows upward from here, so its grid is capped to the room above.
     @State private var mascotTop: CGFloat = 800
     private let context = MascotContext.shared
@@ -619,13 +632,20 @@ struct ModulaComposerMascot: View {
         } else if !old.isEmpty && new.isEmpty && !busy {
             sent()
         } else if !new.isEmpty {
-            if brain.poke() { MascotSound.shared.play(.wake) }
-            brain.keystroke()
-            let line = new.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? new
-            brain.caret = CGFloat(min(Double(line.count % 36) / 36, 1))
-            if new.count > old.count, let last = new.last { emojiReaction(last) }
-            typingSettle?.cancel()
-            typingSettle = Task { @MainActor in
+            if new.count > old.count, let last = new.last, last.unicodeScalars.contains(where: { $0.properties.isEmoji && $0.value > 0xFF }) {
+                emojiReaction(last)
+            }
+            // At most ~6 typing reactions a second, not one per key.
+            let now = Date()
+            if now.timeIntervalSince(typing.last) >= 0.16 {
+                typing.last = now
+                if brain.poke() { MascotSound.shared.play(.wake) }
+                brain.keystroke()
+                let line = new.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? new
+                brain.caret = CGFloat(min(Double(line.count % 36) / 36, 1))
+            }
+            typing.settle?.cancel()
+            typing.settle = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(1500))
                 guard !Task.isCancelled else { return }
                 brain.react(.pleased)

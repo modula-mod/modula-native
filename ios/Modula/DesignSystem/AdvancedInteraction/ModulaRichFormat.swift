@@ -169,7 +169,21 @@ enum ModulaMarkup {
     // MARK: Render (posted comments)
 
     /// Rendered comment text: styles applied, markers removed or replaced, @mentions/#tags/URLs linked.
+    private final class RenderBox { let value: AttributedString; init(_ v: AttributedString) { value = v } }
+    nonisolated(unsafe) private static let renderCache: NSCache<NSString, RenderBox> = {
+        let c = NSCache<NSString, RenderBox>(); c.countLimit = 400; return c
+    }()
+
+    /// Memoised: comment and post bodies are re-rendered on every list body evaluation.
     static func render(_ text: String, revealSpoilers: Bool) -> AttributedString {
+        let key = ((revealSpoilers ? "1" : "0") + text) as NSString
+        if let hit = renderCache.object(forKey: key) { return hit.value }
+        let value = renderUncached(text, revealSpoilers: revealSpoilers)
+        renderCache.setObject(RenderBox(value), forKey: key)
+        return value
+    }
+
+    private static func renderUncached(_ text: String, revealSpoilers: Bool) -> AttributedString {
         let runs = parse(text)
         var result = PostTextLinks.attributed(text)
         guard !runs.isEmpty else { return result }
@@ -368,7 +382,12 @@ final class ModulaRichEditorController {
     private(set) var active: Set<ModulaFormatTool> = []
 
     func refreshActive() {
-        guard let tv = textView else { active = []; return }
+        guard let tv = textView else { if !active.isEmpty { active = [] }; return }
+        // No markup characters: nothing can be active, skip the parse.
+        if !tv.text.contains(where: { "*_~=|`<>[]^$#-".contains($0) }) {
+            if !active.isEmpty { active = [] }
+            return
+        }
         let sel = tv.selectedRange
         let runs = ModulaMarkup.parse(tv.text)
         var set = Set<ModulaFormatTool>()
@@ -576,12 +595,16 @@ struct ModulaRichTextEditor: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
         let width = proposal.width ?? 240
+        // Layout passes re-ask often; only re-measure text when the text or width changed.
+        if let cached = context.coordinator.cachedSize(width: width, text: uiView.text) { return cached }
         let fitting = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         let lineHeight = (uiView.font ?? .preferredFont(forTextStyle: .body)).lineHeight
         let maxHeight = lineHeight * maxLines + 22
         let shouldScroll = fitting.height > maxHeight
         if uiView.isScrollEnabled != shouldScroll { DispatchQueue.main.async { uiView.isScrollEnabled = shouldScroll } }
-        return CGSize(width: width, height: max(min(fitting.height, maxHeight), 44))
+        let size = CGSize(width: width, height: max(min(fitting.height, maxHeight), 44))
+        context.coordinator.storeSize(size, width: width, text: uiView.text)
+        return size
     }
 
     @MainActor
@@ -594,7 +617,21 @@ struct ModulaRichTextEditor: UIViewRepresentable {
             if parent.text != value { parent.text = value }
         }
 
+        /// Plain text (no markup characters) skips the full re-parse + attribute reset per keystroke.
+        private var hadMarkup = true
+        private static let markupChars = CharacterSet(charactersIn: "*_~=|`<>[]^$#-:")
+        private var sizeCache: (width: CGFloat, text: String, size: CGSize)?
+
+        func cachedSize(width: CGFloat, text: String) -> CGSize? {
+            guard let c = sizeCache, c.width == width, c.text == text else { return nil }
+            return c.size
+        }
+        func storeSize(_ size: CGSize, width: CGFloat, text: String) { sizeCache = (width, text, size) }
+
         func rehighlight(_ tv: UITextView) {
+            let hasMarkup = tv.text.unicodeScalars.contains { Self.markupChars.contains($0) }
+            defer { hadMarkup = hasMarkup }
+            guard hasMarkup || hadMarkup else { return }
             let sel = tv.selectedRange
             let base = UIFont.preferredFont(forTextStyle: .body)
             ModulaMarkup.highlight(tv.textStorage, baseFont: base)
@@ -605,8 +642,7 @@ struct ModulaRichTextEditor: UIViewRepresentable {
         func textViewDidChange(_ tv: UITextView) {
             rehighlight(tv)
             if parent.text != tv.text { parent.text = tv.text }
-            parent.controller.refreshActive()
-            tv.invalidateIntrinsicContentSize()
+            // refreshActive runs from textViewDidChangeSelection, which follows every edit.
         }
 
         func textViewDidChangeSelection(_ tv: UITextView) { parent.controller.refreshActive() }
@@ -648,13 +684,16 @@ struct ModulaRichFormattingBar: View {
     var onTranslate: (() -> Void)?
     /// Drawn inside another glass surface (the composer card): no own capsule, edge fades on overflow.
     var embedded = false
+    /// Called after a tool is used, so the host can keep the editor focused.
+    var onToolUsed: (() -> Void)? = nil
 
     var body: some View {
         if embedded {
-            bar.frame(height: 40)
+            bar.frame(height: 32)
         } else {
             bar
                 .frame(height: 42)
+                .clipShape(Capsule())
                 .modulaGlass(in: Capsule(), interactive: false, specular: true)
         }
     }
@@ -675,14 +714,11 @@ struct ModulaRichFormattingBar: View {
                 }
                 .padding(.horizontal, embedded ? 10 : 6)
             }
+            .frame(maxWidth: .infinity)
+            .clipped()
             .scrollClipDisabled(false)
-            // Soft edge fades so overflowing tools read as scrollable instead of cut off.
-            .mask {
-                LinearGradient(stops: [
-                    .init(color: .clear, location: 0), .init(color: .black, location: 0.04),
-                    .init(color: .black, location: 0.94), .init(color: .clear, location: 1)
-                ], startPoint: .leading, endPoint: .trailing)
-            }
+            // System soft edges (no per-frame gradient mask / offscreen pass while scrolling).
+            .modulaSoftHorizontalScrollEdge()
             if let onTranslate {
                 Button(action: onTranslate) {
                     Image(systemName: "translate").font(.subheadline.weight(.semibold)).frame(width: 36, height: 34)
@@ -704,14 +740,14 @@ struct ModulaRichFormattingBar: View {
         let label = Image(systemName: tool.systemImage)
             .font(.system(size: 15, weight: on ? .bold : .semibold))
             .foregroundStyle(on ? Color.accentColor : Color.primary)
-            .frame(width: 36, height: 32)
+            .frame(width: embedded ? 32 : 36, height: embedded ? 28 : 32)
             .background { if on { Capsule().fill(Color.accentColor.opacity(0.16)) } }
             .contentShape(Capsule())
         Group {
             if tool == .color {
                 Menu {
                     ForEach(["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink", "gray"], id: \.self) { name in
-                        Button { controller.apply(.color, value: name) } label: {
+                        Button { controller.apply(.color, value: name); onToolUsed?() } label: {
                             Label(name.capitalized, systemImage: "circle.fill")
                         }
                         .tint(ModulaMarkup.colors[name])
@@ -724,6 +760,7 @@ struct ModulaRichFormattingBar: View {
                     case .abbr: onAbbr()
                     default: controller.apply(tool)
                     }
+                    onToolUsed?()
                 } label: { label }
             }
         }
@@ -732,6 +769,17 @@ struct ModulaRichFormattingBar: View {
         .accessibilityLabel(tool.title)
         .accessibilityAddTraits(on ? .isSelected : [])
         .accessibilityIdentifier("composer.format.\(tool.rawValue)")
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func modulaSoftHorizontalScrollEdge() -> some View {
+        if #available(iOS 26.0, *) {
+            self.scrollEdgeEffectStyle(.soft, for: [.leading, .trailing])
+        } else {
+            self
+        }
     }
 }
 
