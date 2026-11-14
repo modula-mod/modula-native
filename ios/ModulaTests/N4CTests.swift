@@ -793,6 +793,77 @@ final class MessagingDomainTests: XCTestCase {
         XCTAssertEqual(store.visibleConversations.map(\.id), ["convo-sophia"])
         #endif
     }
+
+    func testArchiveHideAndFoldersLeaveTheOpenInbox() async {
+        let store = MessagingStore(
+            client: GreenfieldClient(baseURL: URL(string: "https://api.modula.digital"))
+        )
+        #if DEBUG
+        store.resetInboxOrganisationForTesting()
+        store.installDebugInbox([MessagingFixtures.unreadConversation, MessagingFixtures.readConversation])
+        let sophia = MessagingFixtures.unreadConversation.id
+        let marcus = MessagingFixtures.readConversation.id
+        store.archiveLocallyForTesting(sophia)
+        XCTAssertFalse(store.visibleConversations.contains(where: { $0.id == sophia }))
+        XCTAssertTrue(store.visibleConversations.contains(where: { $0.id == marcus }))
+        XCTAssertTrue(store.archivedConversations.contains(where: { $0.id == sophia }))
+        store.hide(marcus)
+        XCTAssertFalse(store.visibleConversations.contains(where: { $0.id == marcus }))
+        XCTAssertTrue(store.hiddenConversations.contains(where: { $0.id == marcus }))
+        store.unhide(marcus)
+        store.setFolder("Work", for: marcus)
+        XCTAssertEqual(store.folder(for: marcus), "Work")
+        XCTAssertEqual(store.conversations(inFolder: "Work").map(\.id), [marcus])
+        store.setMuteUntilForTesting(marcus, date: Date().addingTimeInterval(-30))
+        await store.expireTimedMutesIfNeeded()
+        XCTAssertNil(store.muteUntilDate(for: marcus))
+        store.resetInboxOrganisationForTesting()
+        #endif
+    }
+
+    func testThreadSearchScopesAndReplyGrouping() {
+        let sophia = MessagingFixtures.sophia
+        let me = MessagingFixtures.me
+        let now = MessagingFixtures.now
+        let original = Message(
+            id: "m-origin", conversationID: "c1", sender: sophia,
+            body: .text("Look at https://modula.digital/photo.jpg and the docs"),
+            sentAt: now, delivery: .sent, isOwn: false
+        )
+        let reply = Message(
+            id: "m-reply", conversationID: "c1", sender: me,
+            body: .text("Nice catch"),
+            sentAt: now.addingTimeInterval(60), delivery: .sent, isOwn: true,
+            replyTo: MessageReplyPreview(id: "m-origin", senderName: sophia.displayName, body: "Look at", deleted: false)
+        )
+        let link = Message(
+            id: "m-link", conversationID: "c1", sender: sophia,
+            body: .text("Read https://modula.digital/blog"),
+            sentAt: now.addingTimeInterval(90), delivery: .sent, isOwn: false
+        )
+        let items = [original, reply, link]
+        XCTAssertTrue(MessageThreadSearchScope.links.matches(link, query: "", starredIDs: [], senderNeedle: nil))
+        XCTAssertTrue(MessageThreadSearchScope.from.matches(original, query: "sophia", starredIDs: [], senderNeedle: nil))
+        XCTAssertFalse(MessageThreadSearchScope.from.matches(reply, query: "sophia", starredIDs: [], senderNeedle: nil))
+        XCTAssertTrue(MessageThreadSearchScope.starred.matches(reply, query: "", starredIDs: ["m-reply"], senderNeedle: nil))
+        XCTAssertFalse(MessageThreadSearchScope.starred.matches(original, query: "", starredIDs: ["m-reply"], senderNeedle: nil))
+        XCTAssertEqual(MessageReplyGrouping.counts(in: items)["m-origin"], 1)
+        XCTAssertEqual(MessageReplyGrouping.replies(to: "m-origin", in: items).map(\.id), ["m-reply"])
+    }
+
+    func testRecentTokensRememberOrderAndLastReaction() {
+        let suite = "messages.recentTokens.tests"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        MessageRecentTokenStore.remember("🔥", defaults)
+        MessageRecentTokenStore.remember("👍", defaults)
+        MessageRecentTokenStore.remember("🔥", defaults)
+        XCTAssertEqual(MessageRecentTokenStore.load(defaults), ["🔥", "👍"])
+        MessageRecentTokenStore.rememberReaction("😂", defaults)
+        XCTAssertEqual(MessageRecentTokenStore.lastReaction(defaults), "😂")
+        XCTAssertEqual(MessageRecentTokenStore.load(defaults).first, "😂")
+        defaults.removePersistentDomain(forName: suite)
+    }
 }
 
 @MainActor
