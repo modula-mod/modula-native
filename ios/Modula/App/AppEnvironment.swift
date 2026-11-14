@@ -296,7 +296,18 @@ final class AppEnvironment {
         #endif
         if auth.isSignedIn {
             appLock.refreshColdLaunchLock()
-            await catalogue.load()
+            if gate.pendingDestination != nil {
+                // A queued deep link may target a module: resolve the catalogue first, as before.
+                await catalogue.load()
+            } else {
+                // The catalogue (network + installation lookups) used to run before the gate
+                // opened, holding the boot screen. Open the shell now; it fills in behind.
+                refreshLaunchState()
+                refreshQuickActions()
+                Task { [catalogue] in await catalogue.load() }
+                await push.attach(environment: self)
+                return
+            }
         }
         refreshLaunchState()
         refreshQuickActions()

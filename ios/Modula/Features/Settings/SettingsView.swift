@@ -12,6 +12,7 @@ struct SettingsGroup<Content: View>: View {
                     .textCase(.uppercase).padding(.leading, 14)
             }
             SettingsGlassCard { content }
+                .environment(\.settingsInsideCard, true)
             // iOS-style footer, only when a page supplies one.
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.7)).padding(.horizontal, 14)
@@ -26,16 +27,36 @@ struct SettingsGroup<Content: View>: View {
 struct SettingsToggleCard<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.settingsInsideCard) private var insideCard
 
     var body: some View {
-        SettingsGlassCard {
-            VStack(alignment: .leading, spacing: 0) {
-                content
-                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        Group {
+            if insideCard {
+                // Already inside a SettingsGroup card: plain rows, not a second bordered card.
+                rows
+            } else {
+                SettingsGlassCard { rows }
             }
         }
         .toggleStyle(.switch)
         .tint(app.appearance.liveAccent)
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        }
+    }
+}
+
+private struct SettingsInsideCardKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// True inside a `SettingsGroup` card, so nested cards render flat.
+    var settingsInsideCard: Bool {
+        get { self[SettingsInsideCardKey.self] }
+        set { self[SettingsInsideCardKey.self] = newValue }
     }
 }
 

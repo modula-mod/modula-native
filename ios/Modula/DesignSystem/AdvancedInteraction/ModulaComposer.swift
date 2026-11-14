@@ -332,18 +332,8 @@ struct ModulaComposer: View {
         VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                 if !mentionSuggestions.isEmpty { mentionList }
                 if !hashtagSuggestions.isEmpty { hashtagList }
-                // Formatting bar and reply chip sit directly on the field as one stack, not
-                // floating over the content behind the composer.
-                if showsFormatting && focused && !recorder.isRecording {
-                    ModulaRichFormattingBar(
-                        controller: rich,
-                        onLink: { linkSheet = .link },
-                        onAbbr: { linkSheet = .abbr },
-                        onTranslate: state.trimmed.isEmpty ? nil : { showTranslate = true }
-                    )
-                    .modulaGlassID("composer.formatting", in: glass)
-                    .transition(.opacity)
-                }
+                // The formatting bar lives inside the field card (see `fieldPill`), so the
+                // composer is one compact stack with no separate glass strip.
                 if let reply { replyPreview(reply) }
                 if !attachments.isEmpty { attachmentStrip }
                 if let status = dictation.status {
@@ -454,6 +444,27 @@ struct ModulaComposer: View {
     }
 
     private var fieldPill: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if showsFormatting && focused && !recorder.isRecording {
+                ModulaRichFormattingBar(
+                    controller: rich,
+                    onLink: { linkSheet = .link },
+                    onAbbr: { linkSheet = .abbr },
+                    onTranslate: state.trimmed.isEmpty ? nil : { showTranslate = true },
+                    embedded: true
+                )
+                .padding(.top, 4)
+                .transition(.opacity)
+                Divider().opacity(0.6).padding(.horizontal, 10)
+            }
+            fieldRow
+        }
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+        .modulaGlassID("composer.field", in: glass)
+        .accessibilityIdentifier("composer.field")
+    }
+
+    private var fieldRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if let avatar {
                 ModulaAvatar(initials: avatar.initials, url: avatar.url, size: 30)
@@ -505,9 +516,6 @@ struct ModulaComposer: View {
         }
         .padding(.leading, avatar == nil ? 14 : 6)
         .padding(.trailing, mediaPanelActive == nil ? 14 : 4)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
-        .modulaGlassID("composer.field", in: glass)
-        .accessibilityIdentifier("composer.field")
     }
 
     /// Tap = dictation, hold = voice note (slide left to cancel).
