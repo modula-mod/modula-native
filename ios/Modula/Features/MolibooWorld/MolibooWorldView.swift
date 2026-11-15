@@ -467,7 +467,9 @@ struct MolibooWorldView: View {
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 14).frame(height: 52)
-        .background(.regularMaterial, in: Capsule())
+        .modulaGlass(in: Capsule(), interactive: false)
+        .contentTransition(.numericText())
+        .animation(.snappy, value: careState.mood)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .top)
         .accessibilityIdentifier("world.compactHeader")
@@ -813,7 +815,7 @@ struct MolibooWorldView: View {
                         if let img = MolibooPortrait.image(for: id) { Image(uiImage: img).resizable().scaledToFit().frame(width: 40, height: 40) }
                         Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id)
                         Spacer()
-                        if id == characterID { Image(systemName: "checkmark").foregroundStyle(.cyan) }
+                        if id == characterID { Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.primary) }
                     }
                 }
                 .accessibilityIdentifier("world.switcher.\(id)")
@@ -828,7 +830,7 @@ struct MolibooWorldView: View {
 
     private func toastView(_ s: String) -> some View {
         Text(s).font(.footnote.weight(.semibold)).padding(.horizontal, 14).padding(.vertical, 10)
-            .background(.regularMaterial, in: Capsule())
+            .modulaGlass(in: Capsule(), interactive: false)
             .frame(maxWidth: .infinity).padding(.top, 54)
             .accessibilityIdentifier("world.toast")
             .allowsHitTesting(false)

@@ -149,8 +149,12 @@ struct MolibooMarketplaceView: View {
                     }
                 }
                 .padding(.vertical, 12)
+                .id(tab)
+                .transition(.opacity.combined(with: .offset(y: 8)))
             }
             .scrollDismissesKeyboard(.immediately)
+            .animation(.smooth(duration: 0.25), value: tab)
+            .sensoryFeedback(.selection, trigger: tab)
         }
         .transaction { if reduceMotion { $0.disablesAnimations = true } }
     }
@@ -179,7 +183,7 @@ struct MolibooMarketplaceView: View {
                     ForEach(families) { fam in
                         let members = drafts.filter { $0.familyId == fam.id }
                         Button { path.append(fam.id) } label: { familyTile(fam, members: members) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(MolibooSpringPressStyle())
                             .accessibilityIdentifier("moliboo.marketplace.family.\(fam.id)")
                     }
                 }
@@ -221,7 +225,7 @@ struct MolibooMarketplaceView: View {
                                       subtitle: fam.artDirection ?? "\(members.count) characters",
                                       colors: MolibooFamilyStyle.gradient(fam), kind: members.first?.kind, action: nil, compact: true)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MolibooSpringPressStyle())
                 .accessibilityIdentifier("moliboo.marketplace.familybanner.\(fam.id)")
             }
         }
@@ -248,12 +252,21 @@ struct MolibooMarketplaceView: View {
             familyChips(families, onPick: nil)
             HStack {
                 Text("\(shown.count) Moliboos").font(.subheadline.weight(.semibold))
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: shown.count)
                 Spacer()
                 Label("Preview only", systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             if shown.isEmpty {
-                ContentUnavailableView.search(text: search)
+                ContentUnavailableView {
+                    Label(search.isEmpty ? "No Moliboos here yet" : "No matches for “\(search)”", systemImage: "magnifyingglass")
+                } description: {
+                    Text("Try another name or family.")
+                } actions: {
+                    Button("Show all Moliboos") { search = ""; family = nil }
+                        .buttonStyle(.modulaSecondary)
+                }
             } else {
                 grid(shown, families: families)
             }
@@ -268,7 +281,8 @@ struct MolibooMarketplaceView: View {
                 Button { detail = character } label: {
                     MolibooMarketCard(character: character, family: families.first { $0.id == character.familyId })
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MolibooSpringPressStyle())
+                .sensoryFeedback(.selection, trigger: detail?.id == character.id)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(character.name), number \(character.number), draft, preview only")
                 .accessibilityIdentifier("moliboo.marketplace.\(character.key)")
@@ -280,7 +294,7 @@ struct MolibooMarketplaceView: View {
     private func familyChips(_ families: [MolibooRegistryFamily], onPick: (() -> Void)?) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chip("All", color: .pink, selected: family == nil) { family = nil; onPick?() }
+                chip("All", color: .primary, selected: family == nil) { family = nil; onPick?() }
                 ForEach(families) { item in
                     chip(item.label, color: MolibooFamilyStyle.color(item), selected: family == item.id) { family = item.id; onPick?() }
                 }
@@ -297,10 +311,14 @@ struct MolibooMarketplaceView: View {
                 Text(title).font(.subheadline.weight(.semibold))
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(color.opacity(selected ? 0.3 : 0.1), in: Capsule())
-            .overlay(Capsule().stroke(color.opacity(selected ? 0.9 : 0.3), lineWidth: selected ? 1.5 : 1))
+            // Selected = solid black/white (unified with the segmented control); others tinted by family.
+            .foregroundStyle(selected ? Color(uiColor: .systemBackground) : Color.primary)
+            .background(selected ? AnyShapeStyle(Color.primary) : AnyShapeStyle(color.opacity(0.12)), in: Capsule())
+            .overlay(Capsule().stroke(selected ? Color.clear : color.opacity(0.35), lineWidth: 1))
+            .animation(.snappy(duration: 0.2), value: selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MolibooSpringPressStyle())
+        .sensoryFeedback(.selection, trigger: selected)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -308,7 +326,7 @@ struct MolibooMarketplaceView: View {
         HStack(alignment: .firstTextBaseline) {
             Text(title).font(.title3.weight(.bold))
             Spacer()
-            Text(trailing).font(.caption.weight(.semibold)).foregroundStyle(.pink)
+            Text(trailing).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
     }
@@ -358,6 +376,7 @@ struct MolibooHeroBanner: View {
                 Text(eyebrow).font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.85))
                 Text(title).font(compact ? .title2.weight(.bold) : .largeTitle.weight(.bold)).foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
+                    .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
                 Text(subtitle).font(.subheadline).foregroundStyle(.white.opacity(0.9)).lineLimit(3)
                 if let action {
                     Button(action: action.1) {
@@ -378,8 +397,14 @@ struct MolibooHeroBanner: View {
         }
         .padding(compact ? 16 : 20)
         .frame(minHeight: compact ? 130 : 190)
-        .background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background {
+            // Light family gradients + white text: a soft bottom-leading scrim keeps it readable.
+            ZStack {
+                LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [.black.opacity(0.22), .clear], startPoint: .bottomLeading, endPoint: .center)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        }
         .overlay(alignment: .topTrailing) {
             ZStack {
                 Circle().fill(.white.opacity(0.18)).frame(width: 14).offset(x: -40, y: 24)
@@ -416,10 +441,11 @@ struct MolibooMarketCard: View {
                 .padding(.top, 4)
             Text(character.name).font(.headline).lineLimit(1)
             Text(character.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Label("Draft · preview only", systemImage: "eye").font(.caption2.weight(.semibold)).foregroundStyle(c)
+            Label("Draft · preview only", systemImage: "eye").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
         }
         .padding(10)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }

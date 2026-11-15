@@ -291,7 +291,9 @@ struct MascotStudioView: View {
             sceneBackdrop
             livePreview
                 .scaleEffect(zoom, anchor: .bottom)
-                .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+                // 2D only: dragging leans the figure and slides it a little, no 3D spin.
+                .rotationEffect(.degrees(rotation / 8), anchor: .bottom)
+                .offset(x: rotation * 0.6)
                 // Feet on the scene's ground, clear of the bottom fade and of the nav bar above.
                 .padding(.bottom, 64)
                 .padding(.top, topBand)

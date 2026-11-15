@@ -2342,7 +2342,7 @@ extension ModulaMascotFigure {
                     case .ring:
                         Circle().stroke(LinearGradient(colors: [pal.accent, gold], startPoint: .top, endPoint: .bottom), lineWidth: s * 0.05)
                             .frame(width: s * 0.26)
-                            .rotation3DEffect(.degrees(30 * sin(t * 2) * da), axis: (x: 0, y: 1, z: 0))
+                            .scaleEffect(x: CGFloat(cos(30 * sin(t * 2) * da * .pi / 180)), y: 1)
                     }
                 }
                 .rotationEffect(.degrees(side * (style == .round || style == .mouse ? 0 : 18) + side * twitch), anchor: .bottom)

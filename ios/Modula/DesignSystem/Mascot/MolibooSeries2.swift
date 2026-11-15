@@ -285,7 +285,8 @@ extension ModulaMascotFigure {
                     s2Gloss(Ellipse(), c, pal, line).frame(width: s * 0.13, height: s * 0.15)
                 }
             }
-            .rotation3DEffect(.degrees(t * 60 * da), axis: (x: 1, y: 0, z: 0))
+            // 2D spin: vertical squash (no 3D).
+            .scaleEffect(x: 1, y: CGFloat(cos(t * 60 * da * .pi / 180)))
             .offset(x: bw * 0.56, y: cy - s * 0.02)
         case (.prop(.kite, let c, let tail), .back):
             ZStack {
@@ -554,7 +555,8 @@ extension ModulaMascotFigure {
                     s2Gloss(MascotLeaf(), c, pal, line).frame(width: s * 0.22, height: s * 0.09).scaleEffect(x: -1, y: 1)
                     s2Gloss(MascotLeaf(), c, pal, line).frame(width: s * 0.22, height: s * 0.09)
                 }
-                .rotation3DEffect(.degrees(t * 220 * da), axis: (x: 0, y: 1, z: 0))
+                // 2D spin: horizontal squash (no 3D).
+                .scaleEffect(x: CGFloat(cos(t * 220 * da * .pi / 180)), y: 1)
                 Capsule().fill(pal.dark).frame(width: s * 0.03, height: s * 0.1)
             }
             .offset(y: top - s * 0.08)

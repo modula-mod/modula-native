@@ -261,8 +261,9 @@ struct MolibooTradingCardView: View {
         .frame(width: Self.base.width, height: Self.base.height)
         .scaleEffect(width / Self.base.width)
         .frame(width: width, height: width * Self.base.height / Self.base.width)
-        .rotation3DEffect(.degrees(Double(tilt.width) * 12), axis: (0, 1, 0), perspective: 0.6)
-        .rotation3DEffect(.degrees(Double(-tilt.height) * 10), axis: (1, 0, 0), perspective: 0.6)
+        // Moliboos are strictly 2D: tilt is a flat lean + parallax drift, no perspective.
+        .rotationEffect(.degrees(Double(tilt.width) * 2.5))
+        .offset(x: tilt.width * 6, y: tilt.height * 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(faceDown ? "Face-down card" : "\(card.name), \(card.rarity.title), level \(card.level), \(card.element.title)")
     }
@@ -742,13 +743,12 @@ struct MolibooFlipCard: View {
             MolibooTradingCardView(card: card, width: 150, animating: animating, faceDown: true)
                 .opacity(faceUp ? 0 : 1)
             MolibooTradingCardView(card: card, width: 150, animating: animating)
-                .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (0, 1, 0))
                 .opacity(faceUp ? 1 : 0)
         }
-        // rotation3DEffect renders into a layer the size of the view, which cut the rarity glow
-        // into hard vertical edges. Give the glow room inside the layer, then take it back out.
+        // Give the rarity glow room inside the effect layer, then take it back out.
         .padding(40)
-        .rotation3DEffect(.degrees(faceUp && !reduceMotion ? 180 : 0), axis: (0, 1, 0), perspective: 0.5)
+        // 2D flip: a horizontal squash through the middle while the faces cross-fade (no 3D).
+        .modifier(MolibooFlatFlip(faceUp: faceUp, enabled: !reduceMotion))
         .padding(-40)
     }
 }
@@ -787,7 +787,8 @@ struct MolibooLegendaryReveal: View {
                         }
                     }
                     .frame(width: 340, height: 340)
-                    .rotation3DEffect(.degrees(68), axis: (1, 0, 0))
+                    // Flat ellipse (2D) instead of a perspective-tilted orbit.
+                    .scaleEffect(x: 1, y: 0.37)
                     MolibooTradingCardView(card: card, width: 230, tilt: CGSize(width: sin(t * 0.8) * 0.5, height: cos(t * 0.6) * 0.3), animating: animating)
                         .scaleEffect(crown ? 1 : 0.6)
                 }
@@ -829,5 +830,19 @@ private struct MolibooLegendaryShimmer: ViewModifier {
     let animated: Bool
     func body(content: Content) -> some View {
         if on { content.molibooShimmer(strength, animated: animated) } else { content }
+    }
+}
+
+
+/// Flat (2D) card flip: squashes horizontally to a sliver and back while the faces swap.
+struct MolibooFlatFlip: ViewModifier, Animatable {
+    var progress: Double
+    var enabled: Bool
+    init(faceUp: Bool, enabled: Bool) { progress = faceUp ? 1 : 0; self.enabled = enabled }
+    var animatableData: Double { get { progress } set { progress = newValue } }
+    func body(content: Content) -> some View {
+        let squash = enabled ? max(0.02, abs(cos(progress * .pi))) : 1
+        content
+            .scaleEffect(x: squash, y: enabled ? 1 - 0.04 * sin(progress * .pi) : 1)
     }
 }
