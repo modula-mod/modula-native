@@ -116,6 +116,8 @@ struct ModulaMediaViewer: View {
     var onDismiss: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Optional: covers presented without the app environment (labs, previews) just skip prefetch.
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
     @State private var selection: String
     @State private var zoomedPageID: String?
     @State private var controlsVisible = true
@@ -191,7 +193,9 @@ struct ModulaMediaViewer: View {
         .onChange(of: selection) { _, _ in
             zoomedPageID = nil
             HapticEngine.shared.play(.selectionChanged)
+            prefetchNeighbours()
         }
+        .onAppear { prefetchNeighbours() }
         .accessibilityIdentifier("media.viewer")
     }
 
@@ -201,6 +205,16 @@ struct ModulaMediaViewer: View {
     private func dismiss() {
         HapticEngine.shared.play(.selectionChanged)
         onDismiss()
+    }
+
+    /// Speed: the previous/next photo is fetched and decoded before the swipe lands on it.
+    private func prefetchNeighbours() {
+        guard let client = app?.client else { return }
+        let index = currentIndex
+        for neighbour in [index + 1, index - 1] {
+            guard let item = items[safe: neighbour], case .remote(let url) = item.source else { continue }
+            ModulaImagePrefetcher.prefetch(url: url, cacheKey: "viewer:\(item.id)", maximumPixelSize: 4_096, client: client)
+        }
     }
 }
 
@@ -218,6 +232,7 @@ struct ModulaMediaViewerPage: View {
     @State private var settledScale: CGFloat = 1
     @State private var settledOffset: CGSize = .zero
     @State private var retryID = 0
+    @State private var pageSize: CGSize = .zero
     /// Snaps back without bounce when a pull is released short of closing.
     @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.26, bounce: 0)))
     private var gestureOffset: CGSize = .zero
@@ -232,10 +247,11 @@ struct ModulaMediaViewerPage: View {
             .scaleEffect(scale * (1 - pullProgress * 0.22))
             .offset(x: settledOffset.width + gestureOffset.width, y: settledOffset.height + gestureOffset.height)
             .contentShape(Rectangle())
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
             .gesture(magnifyGesture)
             .simultaneousGesture(panGesture)
             // Enhancements-50: double-tap registered first so it isn't swallowed by the single tap.
-            .onTapGesture(count: 2, perform: toggleZoom)
+            .onTapGesture(count: 2) { location in toggleZoom(at: location) }
             .onTapGesture { onToggleControls() }
             .onChange(of: isSelected) { _, selected in if !selected { reset() } }
             .onChange(of: pullProgress) { _, progress in onPullChanged(progress) }
@@ -324,17 +340,45 @@ struct ModulaMediaViewerPage: View {
                 if scale <= 1.05, vertical, value.translation.height > 0, value.translation.height > 120 || flung {
                     onDismiss()
                 } else if scale > 1.05 {
-                    settledOffset = CGSize(
-                        width: settledOffset.width + value.translation.width,
-                        height: settledOffset.height + value.translation.height
+                    // Zoomed pan keeps its momentum a little and settles inside the image's edges
+                    // (no panning off into black).
+                    let target = CGSize(
+                        width: settledOffset.width + value.translation.width + (value.predictedEndTranslation.width - value.translation.width) * 0.25,
+                        height: settledOffset.height + value.translation.height + (value.predictedEndTranslation.height - value.translation.height) * 0.25
                     )
+                    let clamped = clampedOffset(target, scale: scale)
+                    if reduceMotion { settledOffset = clamped } else {
+                        withAnimation(.spring(duration: 0.32, bounce: 0.12)) { settledOffset = clamped }
+                    }
                 }
             }
     }
 
-    private func toggleZoom() {
-        setZoom(scale > 1.2 ? 1 : 2.2)
+    /// Double tap zooms *into the tapped point* (Photos-style), or back out.
+    private func toggleZoom(at location: CGPoint? = nil) {
+        if scale > 1.2 {
+            setZoom(1)
+        } else {
+            let target: CGFloat = 2.2
+            var offset = CGSize.zero
+            if let location, pageSize.width > 0 {
+                let dx = location.x - pageSize.width / 2, dy = location.y - pageSize.height / 2
+                offset = clampedOffset(CGSize(width: -dx * (target - 1), height: -dy * (target - 1)), scale: target)
+            }
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.1)) {
+                scale = target
+                settledScale = target
+                settledOffset = offset
+            }
+            onZoomChanged(true)
+        }
         HapticEngine.shared.play(.lightImpact)
+    }
+
+    private func clampedOffset(_ offset: CGSize, scale: CGFloat) -> CGSize {
+        guard pageSize.width > 0 else { return offset }
+        let maxX = pageSize.width * (scale - 1) / 2, maxY = pageSize.height * (scale - 1) / 2
+        return CGSize(width: min(max(offset.width, -maxX), maxX), height: min(max(offset.height, -maxY), maxY))
     }
 
     private func setZoom(_ value: CGFloat) {

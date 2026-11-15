@@ -229,7 +229,13 @@ struct ReelFeedView: View {
         for offset in [1, -1, 2] {
             let i = index + offset
             guard app.reels.items.indices.contains(i), let attachment = app.reels.items[i].attachment else { continue }
-            Task.detached(priority: .utility) { _ = try? await manager.download(attachment) }
+            if let local = attachment.localFileURL { ModulaPlayerPool.shared.prepare(local) }
+            Task.detached(priority: .utility) {
+                // Downloaded neighbours are pre-rolled so the swipe lands on a ready item.
+                if let url = try? await manager.download(attachment) {
+                    await MainActor.run { ModulaPlayerPool.shared.prepare(url) }
+                }
+            }
         }
     }
 

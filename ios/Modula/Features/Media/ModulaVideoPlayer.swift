@@ -33,10 +33,13 @@ final class ModulaVideoPlaybackController {
                 (player?.currentItem?.asset as? AVURLAsset)?.url != url else { return }
         release()
         ModulaSignpost.event("VideoAttach", url.isFileURL ? "file" : "stream")
-        let item = AVPlayerItem(url: url)
-        // Speed: start on a short buffer (remote streams) instead of AVFoundation's large default.
-        item.preferredForwardBufferDuration = url.isFileURL ? 0 : 2.5
-        let next = AVPlayer(playerItem: item)
+        // Speed: a pre-rolled item (Reels neighbours) and a recycled AVPlayer from the shared pool, so
+        // swiping to the next reel doesn't pay for player + asset setup on the main thread.
+        let item = ModulaPlayerPool.shared.takeItem(for: url)
+        let next = ModulaPlayerPool.shared.borrow()
+        next.replaceCurrentItem(with: item)
+        // Local files start immediately; streams keep stall protection.
+        next.automaticallyWaitsToMinimizeStalling = !url.isFileURL
         next.actionAtItemEnd = .pause
         next.isMuted = isMuted
         // Bug fix: assigning `rate` here *started* playback on attach (AVPlayer.rate > 0 == playing), so
@@ -121,7 +124,7 @@ final class ModulaVideoPlaybackController {
     func release() {
         if let timeObserver, let player { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
-        player?.pause()
+        if let player { ModulaPlayerPool.shared.recycle(player) }
         player = nil
         state = .idle
         progress = 0
@@ -330,5 +333,73 @@ struct ModulaPlayerLayerView: UIViewRepresentable {
             readyObservation = nil
             playerLayer.player = nil
         }
+    }
+}
+
+
+/// Recycles a few AVPlayers and pre-rolls the next/previous reel's item.
+/// AVPlayer creation + first item setup is the visible cost when a reel page becomes active; with
+/// the pool the active page reuses a warm player and (for neighbours) an item whose asset keys
+/// are already loaded.
+@MainActor
+final class ModulaPlayerPool {
+    static let shared = ModulaPlayerPool()
+    private var idle: [AVPlayer] = []
+    private var prepared: [URL: AVPlayerItem] = [:]
+    private var preparedOrder: [URL] = []
+    static let maxIdlePlayers = 3
+    static let maxPreparedItems = 3
+
+    private init() {}
+
+    var idleCount: Int { idle.count }
+    var preparedCount: Int { prepared.count }
+
+    func borrow() -> AVPlayer {
+        if let player = idle.popLast() { return player }
+        return AVPlayer()
+    }
+
+    func recycle(_ player: AVPlayer) {
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        guard idle.count < Self.maxIdlePlayers, !idle.contains(where: { $0 === player }) else { return }
+        idle.append(player)
+    }
+
+    /// Starts loading `url`'s asset so a later `takeItem(for:)` is ready to play.
+    func prepare(_ url: URL) {
+        guard prepared[url] == nil else { return }
+        let item = Self.makeItem(url)
+        prepared[url] = item
+        preparedOrder.append(url)
+        while preparedOrder.count > Self.maxPreparedItems {
+            let evicted = preparedOrder.removeFirst()
+            prepared[evicted] = nil
+        }
+        ModulaSignpost.event("VideoPrepare", url.isFileURL ? "file" : "stream")
+    }
+
+    func takeItem(for url: URL) -> AVPlayerItem {
+        if let item = prepared.removeValue(forKey: url) {
+            preparedOrder.removeAll { $0 == url }
+            // An item can be attached to one player only; a used/failed one is rebuilt.
+            if item.status != .failed { return item }
+        }
+        return Self.makeItem(url)
+    }
+
+    func drain() {
+        idle.removeAll()
+        prepared.removeAll()
+        preparedOrder.removeAll()
+    }
+
+    private static func makeItem(_ url: URL) -> AVPlayerItem {
+        let asset = AVURLAsset(url: url)
+        let item = AVPlayerItem(asset: asset, automaticallyLoadedAssetKeys: [.isPlayable, .duration, .tracks])
+        // Speed: start on a short buffer (remote streams) instead of AVFoundation's large default.
+        item.preferredForwardBufferDuration = url.isFileURL ? 0 : 2.5
+        return item
     }
 }

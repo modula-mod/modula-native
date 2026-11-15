@@ -655,45 +655,50 @@ struct HomeView: View {
                 }
                 ForEach(visiblePosts) { post in
                     let resolved = app.posts.resolved(post)
-                    PostCard(
-                        post: resolved,
-                        showsActionRail: ModulaPostMapper.map(resolved).isMediaFirst,
-                        isOwnPost: resolved.author?.id == app.auth.account?.accountId,
-                        onOpenPost: { openPost(resolved) },
-                        onOpenAuthor: { openAuthor(resolved) },
-                        onLike: {
-                            if !resolved.liked { ModulaMascotEvent.post(.like) }
-                            Task { await app.home.toggleLike(resolved, mode: mode) }
-                        },
-                        onComment: {
-                            openComments(resolved)
-                        },
-                        onRepost: {
-                            ModulaMascotEvent.post(.repost)
-                            Task { await app.home.toggleRepost(resolved, mode: mode) }
-                        },
-                        onSave: {
-                            if !resolved.saved { ModulaMascotEvent.post(.save) }
-                            Task { await app.home.toggleSave(resolved, mode: mode) }
-                        },
-                        onShare: {
-                            // Settings → Sharing decides copy / iOS sheet / Modula sheet.
-                            ModulaMascotEvent.post(.share)
-                            PostSharing.share(resolved, app: app)
-                        },
-                        onContextAction: { action in
-                            handlePostContext(action, post: resolved)
-                        },
-                        onOpenMedia: { _ in
-                            app.navigation.open(.post(resolved.id, .root))
-                        },
-                        onOpenModule: { module in
-                            app.navigation.push(.productHub(.module(module.id, .overview)))
-                            HapticEngine.shared.play(.navigation)
-                        },
-                        videoCoordinator: videoCoordinator,
-                        style: .immersive
-                    )
+                    // Speed: the card's body only re-runs when this row's inputs change (post state,
+                    // ownership, mode) — not on every unrelated feed body pass (ambient, chips, pills).
+                    ModulaEquatableRow(key: HomeFeedRowKey(post: resolved, mode: mode, ownID: app.auth.account?.accountId)) {
+                        PostCard(
+                            post: resolved,
+                            showsActionRail: ModulaPostMapper.map(resolved).isMediaFirst,
+                            isOwnPost: resolved.author?.id == app.auth.account?.accountId,
+                            onOpenPost: { openPost(resolved) },
+                            onOpenAuthor: { openAuthor(resolved) },
+                            onLike: {
+                                if !resolved.liked { ModulaMascotEvent.post(.like) }
+                                Task { await app.home.toggleLike(resolved, mode: mode) }
+                            },
+                            onComment: {
+                                openComments(resolved)
+                            },
+                            onRepost: {
+                                ModulaMascotEvent.post(.repost)
+                                Task { await app.home.toggleRepost(resolved, mode: mode) }
+                            },
+                            onSave: {
+                                if !resolved.saved { ModulaMascotEvent.post(.save) }
+                                Task { await app.home.toggleSave(resolved, mode: mode) }
+                            },
+                            onShare: {
+                                // Settings → Sharing decides copy / iOS sheet / Modula sheet.
+                                ModulaMascotEvent.post(.share)
+                                PostSharing.share(resolved, app: app)
+                            },
+                            onContextAction: { action in
+                                handlePostContext(action, post: resolved)
+                            },
+                            onOpenMedia: { _ in
+                                app.navigation.open(.post(resolved.id, .root))
+                            },
+                            onOpenModule: { module in
+                                app.navigation.push(.productHub(.module(module.id, .overview)))
+                                HapticEngine.shared.play(.navigation)
+                            },
+                            videoCoordinator: videoCoordinator,
+                            style: .immersive
+                        )
+                    }
+                    .equatable()
                     // Swipe left = share, right = save. Nested PDF/media carousels keep paging.
                     .modifier(PostSwipeActions(
                         enabled: resolved.media.count <= 1,
@@ -1956,4 +1961,12 @@ struct HomeSectionEditor: View {
         .modulaSheetStyle()
         .accessibilityIdentifier("home.edit.sheet")
     }
+}
+
+
+/// Identity of one feed row's rendered state.
+struct HomeFeedRowKey: Equatable, Sendable {
+    let post: SocialPost
+    let mode: HomeMode
+    let ownID: String?
 }

@@ -405,3 +405,15 @@ extension View {
         }
     }
 }
+
+
+/// Skips body re-evaluation while `key` is unchanged (`.equatable()`); closures in `content` are
+/// treated as equivalent when the key is equal, so put everything they depend on into the key.
+struct ModulaEquatableRow<Key: Equatable & Sendable, Content: View>: View, Equatable {
+    let key: Key
+    @ViewBuilder let content: () -> Content
+
+    var body: some View { content() }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
+}

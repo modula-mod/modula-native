@@ -119,6 +119,7 @@ final class ModulaAppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
+        ModulaPlayerPool.shared.drain()
         guard let environment else { return }
         Task { await environment.intelligence.unloadNodus() }
     }

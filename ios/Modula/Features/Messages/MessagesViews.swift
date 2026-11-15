@@ -535,9 +535,15 @@ struct ConversationListView: View {
                                     .foregroundStyle(selectedIDs.contains(conversation.id) ? app.appearance.liveAccent : Color.secondary)
                                     .accessibilityHidden(true)
                             }
-                            ConversationRow(conversation: conversation, viewerID: app.auth.account?.accountId,
-                                            pinned: app.messaging.isPinned(conversation.id),
-                                            draft: app.messaging.draftPreview(for: conversation.id))
+                            // Speed: a new message in one chat re-renders that row only — the others
+                            // compare equal (same conversation value, pin and draft) and skip their body.
+                            let viewerID = app.auth.account?.accountId
+                            let pinned = app.messaging.isPinned(conversation.id)
+                            let draft = app.messaging.draftPreview(for: conversation.id)
+                            ModulaEquatableRow(key: InboxRowKey(conversation: conversation, viewerID: viewerID, pinned: pinned, draft: draft)) {
+                                ConversationRow(conversation: conversation, viewerID: viewerID, pinned: pinned, draft: draft)
+                            }
+                            .equatable()
                                 // Long-press lifts exactly this row (not a detached slab below it).
                                 .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
@@ -5532,4 +5538,13 @@ struct SavedMessagesView: View {
         }
         .accessibilityIdentifier("messages.saved")
     }
+}
+
+
+/// Inputs that change a conversation row's rendering (nicknames / search query are observed inside).
+struct InboxRowKey: Equatable, Sendable {
+    let conversation: Conversation
+    let viewerID: String?
+    let pinned: Bool
+    let draft: String?
 }
