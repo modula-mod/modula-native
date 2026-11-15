@@ -3,6 +3,7 @@ import SwiftUI
 struct SavedView: View {
     var section: SavedSection = .root
     @Environment(AppEnvironment.self) private var app
+    @State private var query = ""
 
     var body: some View {
         Group {
@@ -59,6 +60,18 @@ struct SavedView: View {
         }
         .listStyle(.insetGrouped)
         .modulaSoftScrollEdge()
+        // Local filter over the loaded saved posts (text and author), no extra requests.
+        .searchable(text: $query, prompt: "Search saved posts")
+    }
+
+    private var filteredPosts: [SocialPost] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return app.saved.posts }
+        return app.saved.posts.filter { post in
+            let p = app.posts.resolved(post)
+            return (p.text ?? "").localizedCaseInsensitiveContains(q)
+                || (p.author?.displayName ?? "").localizedCaseInsensitiveContains(q)
+        }
     }
 
     private var postsSection: some View {
@@ -67,12 +80,16 @@ struct SavedView: View {
                 Text("Bookmark a post and it will show up here.")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(app.saved.posts) { post in
+                let shown = filteredPosts
+                if shown.isEmpty {
+                    Text("No saved posts match “\(query)”.").foregroundStyle(.secondary)
+                }
+                ForEach(shown) { post in
                     SavedPostRow(post: app.posts.resolved(post)) {
                         Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }
                     }
                 }
-                if app.saved.hasMore {
+                if app.saved.hasMore, query.isEmpty {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .task { await app.saved.loadMore() }
