@@ -178,13 +178,24 @@ private struct LinkPreviewRepresentable: UIViewRepresentable {
 /// chat and again inside Chat info (a sheet can only present from its own level).
 private struct MessageLinkInspectorModifier: ViewModifier {
     @State private var target: MessageLinkTarget?
+    @Environment(\.modulaChatLinkContext) private var chatContext
     func body(content: Content) -> some View {
         content
             .environment(\.openURL, OpenURLAction { url in
-                target = MessageLinkTarget(url: url)
+                var context = chatContext ?? ModulaChatLinkContext()
+                context.senderName = ModulaChatLinkContext.lastSender ?? context.senderName
+                ModulaChatLinkContext.lastSender = nil
+                // t177u speed: a plain https link (or a Modula link) opens straight in the Modula
+                // browser; only links worth a second look (http, punycode, user@host, other apps)
+                // stop at the inspector first.
+                if !MessageLinkInspectorSheet.needsInspection(url) {
+                    ModulaLinkRouter.open(url, source: nil, chat: context)
+                    return .handled
+                }
+                target = MessageLinkTarget(url: url, chat: context)
                 return .handled
             })
-            .sheet(item: $target) { MessageLinkInspectorSheet(url: $0.url).modulaSheetStyle() }
+            .sheet(item: $target) { MessageLinkInspectorSheet(url: $0.url, chat: $0.chat).modulaSheetStyle() }
     }
 }
 
@@ -194,6 +205,7 @@ extension View {
 
 struct MessageLinkTarget: Identifiable, Hashable {
     let url: URL
+    var chat: ModulaChatLinkContext? = nil
     var id: String { url.absoluteString }
 }
 
@@ -201,7 +213,16 @@ struct MessageLinkTarget: Identifiable, Hashable {
 /// URL in the message: no remote preview fetch, no reputation score, and no claim it is safe.
 struct MessageLinkInspectorSheet: View {
     let url: URL
+    var chat: ModulaChatLinkContext? = nil
     @Environment(\.dismiss) private var dismiss
+
+    /// Links that skip straight to the browser: https with a normal host, or Modula's own.
+    static func needsInspection(_ url: URL) -> Bool {
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme == "modula" { return false }
+        guard scheme == "https", let host = url.host(percentEncoded: false)?.lowercased() else { return true }
+        return host.contains("xn--") || url.user != nil
+    }
     @State private var copied = false
 
     private var host: String { url.host(percentEncoded: false) ?? url.absoluteString }
@@ -244,8 +265,14 @@ struct MessageLinkInspectorSheet: View {
                     VStack(spacing: 10) {
                         Button {
                             HapticEngine.shared.play(.navigation)
-                            UIApplication.shared.open(url)
+                            let target = url
+                            let context = chat
                             dismiss()
+                            // Web links open in the Modula browser (with the chat context) once
+                            // this sheet is gone; other schemes hand off to their app.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                ModulaLinkRouter.open(target, source: nil, chat: context)
+                            }
                         } label: {
                             Text("Open link").font(.headline).frame(maxWidth: .infinity, minHeight: 50)
                         }

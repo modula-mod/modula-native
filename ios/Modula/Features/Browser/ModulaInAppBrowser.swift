@@ -27,16 +27,64 @@ extension EnvironmentValues {
     }
 }
 
+/// Where a link was tapped in a chat: the browser shows this instead of a post card.
+struct ModulaChatLinkContext: Hashable, Sendable {
+    var senderName: String?
+    var chatTitle: String?
+    var conversationID: String?
+
+    /// Set by the bubble's openURL wrapper just before the chat's link inspector runs, so the
+    /// inspector (attached above the bubbles) knows who sent the link.
+    @MainActor static var lastSender: String?
+}
+
+private struct ModulaChatLinkContextKey: EnvironmentKey {
+    static var defaultValue: ModulaChatLinkContext? { nil }
+}
+
+extension EnvironmentValues {
+    var modulaChatLinkContext: ModulaChatLinkContext? {
+        get { self[ModulaChatLinkContextKey.self] }
+        set { self[ModulaChatLinkContextKey.self] = newValue }
+    }
+}
+
+/// Bubble-level wrapper: records the sender, then hands the URL to the chat's handler.
+struct ModulaChatLinkSenderModifier: ViewModifier {
+    let sender: String?
+    @Environment(\.openURL) private var parent
+
+    func body(content: Content) -> some View {
+        content.environment(\.openURL, OpenURLAction { url in
+            ModulaChatLinkContext.lastSender = sender
+            parent(url)
+            return .handled
+        })
+    }
+}
+
 @MainActor
 enum ModulaLinkRouter {
     /// OpenURLAction body: web links open in the Modula browser (or hand off to their app).
-    static func handle(_ url: URL, source: ModulaBrowserSource?) -> OpenURLAction.Result {
-        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return .systemAction }
-        open(url, source: source)
+    static func handle(_ url: URL, source: ModulaBrowserSource?, chat: ModulaChatLinkContext? = nil) -> OpenURLAction.Result {
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" || scheme == "modula" else { return .systemAction }
+        open(url, source: source, chat: chat)
         return .handled
     }
 
-    static func open(_ url: URL, source: ModulaBrowserSource?) {
+    /// The one entry point for web links (posts, chats, bios, comments, notifications, Discover).
+    static func open(_ url: URL, source: ModulaBrowserSource?, chat: ModulaChatLinkContext? = nil) {
+        // Links to Modula itself open natively.
+        if let navigation = ModulaBrowserPresenter.shared.environment?.navigation,
+           navigation.open(path: url.absoluteString) {
+            HapticEngine.shared.play(.navigation)
+            return
+        }
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+            UIApplication.shared.open(url)
+            return
+        }
+        // Settings → Links → "Open links in Modula" (default on).
         guard ModulaPreferences.openLinksInApp else {
             UIApplication.shared.open(url)
             return
@@ -45,7 +93,7 @@ enum ModulaLinkRouter {
         // everything else stays in the Modula browser.
         UIApplication.shared.open(url, options: [.universalLinksOnly: true]) { opened in
             guard !opened else { return }
-            Task { @MainActor in ModulaBrowserPresenter.shared.present(url, source: source) }
+            Task { @MainActor in ModulaBrowserPresenter.shared.present(url, source: source, chat: chat) }
         }
     }
 }
@@ -55,13 +103,13 @@ final class ModulaBrowserPresenter {
     static let shared = ModulaBrowserPresenter()
     weak var environment: AppEnvironment?
 
-    func present(_ url: URL, source: ModulaBrowserSource?) {
+    func present(_ url: URL, source: ModulaBrowserSource?, chat: ModulaChatLinkContext? = nil) {
         guard let environment, let top = Self.topViewController() else {
             UIApplication.shared.open(url)
             return
         }
         var host: UIViewController?
-        let root = ModulaInAppBrowserView(initialURL: url, source: source) {
+        let root = ModulaInAppBrowserView(initialURL: url, source: source, chat: chat) {
             // The view animates its own post→drawer transition; UIKit just hosts it.
             host?.dismiss(animated: false)
         }
@@ -71,6 +119,8 @@ final class ModulaBrowserPresenter {
         let controller = UIHostingController(rootView: root)
         controller.modalPresentationStyle = .overFullScreen
         controller.view.backgroundColor = .clear
+        // Menus are UIKit: without this they pick up the coral AccentColor (black/white rule).
+        controller.view.tintColor = .label
         host = controller
         top.present(controller, animated: false)
         HapticEngine.shared.play(.navigation)
@@ -100,12 +150,47 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
     var failure: String?
     var zoom: CGFloat = 1
     var desktopSite = false
+    /// Scrolling down hides the bottom controls; scrolling up (or reaching the top) shows them.
+    var barsHidden = false
     @ObservationIgnored private var observations: [NSKeyValueObservation] = []
+    @ObservationIgnored private var lastOffsetY: CGFloat = 0
 
     func adjustZoom(_ delta: CGFloat?) {
         zoom = delta.map { min(max(zoom + $0, 0.5), 2.0) } ?? 1
         webView.pageZoom = zoom
+        ModulaBrowserSiteZoom.set(zoom, for: url.host)
         HapticEngine.shared.play(.selection)
+    }
+
+    func setTrackerBlocking(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "settings.links.blockTrackers")
+        let controller = webView.configuration.userContentController
+        controller.removeAllContentRuleLists()
+        if on, let rules = ModulaBrowserWarmup.trackerRules { controller.add(rules) }
+        reload()
+    }
+
+    /// Text size is remembered per domain.
+    private func applySiteZoom() {
+        let stored = ModulaBrowserSiteZoom.zoom(for: url.host)
+        if abs(stored - zoom) > 0.01 || abs(webView.pageZoom - stored) > 0.01 {
+            zoom = stored
+            webView.pageZoom = stored
+        }
+    }
+
+    @objc private func pullToRefresh(_ control: UIRefreshControl) {
+        HapticEngine.shared.play(.lightImpact)
+        failure = nil
+        if webView.url == nil { webView.load(URLRequest(url: url)) } else { webView.reload() }
+        control.endRefreshing()
+    }
+
+    private func trackScroll(_ y: CGFloat, atTop: Bool) {
+        let delta = y - lastOffsetY
+        lastOffsetY = y
+        if atTop { if barsHidden { barsHidden = false }; return }
+        if delta > 12, !barsHidden { barsHidden = true } else if delta < -12, barsHidden { barsHidden = false }
     }
 
     func setDesktopSite(_ enabled: Bool) {
@@ -184,7 +269,13 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
         // Reader-safe defaults: a private, non-persistent data store (no cookies or
         // site data shared with the app or kept after closing), no script-opened
         // windows, mobile content, fraudulent-site warnings on.
-        configuration.websiteDataStore = .nonPersistent()
+        // Speed: one shared non-persistent store for every browser opened this session, so a second
+        // visit reuses the web process' caches. Still nothing is written to disk or shared with the app.
+        configuration.websiteDataStore = ModulaBrowserWarmup.sharedStore
+        if let rules = ModulaBrowserWarmup.trackerRules, ModulaPreferences.bool("settings.links.blockTrackers", true) {
+            configuration.userContentController.add(rules)
+        }
+        configuration.allowsPictureInPictureMediaPlayback = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.preferences.isFraudulentWebsiteWarningEnabled = true
         configuration.defaultWebpagePreferences.preferredContentMode = .mobile
@@ -194,10 +285,15 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsLinkPreview = true
+        webView.isFindInteractionEnabled = true
         webView.scrollView.contentInsetAdjustmentBehavior = .always
+        webView.isOpaque = false
         super.init()
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        let refresh = UIRefreshControl()
+        refresh.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
+        webView.scrollView.refreshControl = refresh
         observations = [
             webView.observe(\.estimatedProgress, options: [.new]) { [weak self] view, _ in
                 Task { @MainActor in self?.progress = view.estimatedProgress }
@@ -209,7 +305,19 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
                 Task { @MainActor in self?.title = view.title }
             },
             webView.observe(\.url, options: [.new]) { [weak self] view, _ in
-                Task { @MainActor in if let url = view.url { self?.url = url } }
+                Task { @MainActor in
+                    guard let self, let url = view.url else { return }
+                    let hostChanged = url.host != self.url.host
+                    self.url = url
+                    if hostChanged { self.applySiteZoom() }
+                }
+            },
+            // Scroll KVO fires on the main thread; read it synchronously (no Task per frame).
+            webView.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scroll, _ in
+                MainActor.assumeIsolated {
+                    let y = scroll.contentOffset.y
+                    self?.trackScroll(y, atTop: y <= -scroll.adjustedContentInset.top + 4)
+                }
             },
             webView.observe(\.canGoBack, options: [.new]) { [weak self] view, _ in
                 Task { @MainActor in self?.canGoBack = view.canGoBack }
@@ -218,6 +326,7 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
                 Task { @MainActor in self?.canGoForward = view.canGoForward }
             }
         ]
+        applySiteZoom()
         webView.load(URLRequest(url: url))
     }
 
@@ -294,6 +403,8 @@ private struct BrowserDrawerLayout {
 struct ModulaInAppBrowserView: View {
     let initialURL: URL
     var source: ModulaBrowserSource?
+    /// Opened from a chat: a slim context card instead of the post card.
+    var chat: ModulaChatLinkContext? = nil
     var onClose: () -> Void
 
     @State private var page: ModulaWebPage
@@ -316,13 +427,19 @@ struct ModulaInAppBrowserView: View {
     @State private var toast: String?
     @State private var fade: Double = 0
     @State private var opened = false
+    /// Swipe-down-to-dismiss follows the finger.
+    @State private var pullOffset: CGFloat = 0
+    @State private var showAddress = false
+    /// Post card minimised to a slim bar (swipe down on its handle / tap the chevron).
+    @State private var drawerCollapsed = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    init(initialURL: URL, source: ModulaBrowserSource?, onClose: @escaping () -> Void) {
+    init(initialURL: URL, source: ModulaBrowserSource?, chat: ModulaChatLinkContext? = nil, onClose: @escaping () -> Void) {
         self.initialURL = initialURL
         self.source = source
+        self.chat = chat
         self.onClose = onClose
         _page = State(initialValue: ModulaWebPage(url: initialURL))
         _post = State(initialValue: source?.post)
@@ -369,11 +486,19 @@ struct ModulaInAppBrowserView: View {
                     compactTop: layout.compactTop,
                     enabled: warpActive && !reduceMotion
                 ))
+                // Opened from a chat: who shared it, and a way back. No post card.
+                if !hasDrawer, let chat, clamped > 0.5, !page.barsHidden {
+                    chatContextCard(chat)
+                        .padding(.horizontal, 12)
+                        .offset(y: height - safe.bottom - 62 - 52)
+                        .transition(.opacity)
+                }
                 bottomBar
                     .padding(.horizontal, 12)
-                    .offset(y: hasDrawer ? top - 60 : height - safe.bottom - 62)
+                    .offset(y: (hasDrawer ? top - 60 : height - safe.bottom - 62) + (page.barsHidden && !hasDrawer ? 120 : 0))
                     .opacity(hasDrawer ? Double(smooth(clamped, from: 0.55, to: 1)) : Double(clamped))
                     .allowsHitTesting(clamped > 0.9)
+                    .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: page.barsHidden)
                 if let toast {
                     Text(toast)
                         .font(.footnote.weight(.semibold))
@@ -385,8 +510,11 @@ struct ModulaInAppBrowserView: View {
                 }
             }
             .frame(width: proxy.size.width, height: height, alignment: .top)
+            // Pull-down-to-dismiss tracks the finger: the whole browser slides and shrinks a little.
+            .offset(y: pullOffset)
+            .scaleEffect(1 - min(pullOffset / 3000, 0.06), anchor: .top)
             .ignoresSafeArea()
-            .onAppear { open() }
+            .onAppear { open(); ModulaBrowserWarmup.warm() }
             .onChange(of: Int(layout.compactTop)) { _, value in
                 page.setBottomInset(hasDrawer ? max(0, height - CGFloat(value) - safe.bottom + 8) : 64)
             }
@@ -400,6 +528,14 @@ struct ModulaInAppBrowserView: View {
                 await toggleReader()
             }
             #endif
+        }
+        .sheet(isPresented: $showAddress) {
+            ModulaBrowserAddressSheet(url: page.url, title: page.title) { url in
+                reader = nil
+                page.webView.load(URLRequest(url: url))
+            }
+            .presentationDetents([.medium])
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showHistory) {
             ModulaBrowserHistoryView { url in
@@ -573,7 +709,7 @@ struct ModulaInAppBrowserView: View {
     private var progressBar: some View {
         GeometryReader { proxy in
             Capsule()
-                .fill(Color.accentColor)
+                .fill(Color.primary)
                 .frame(width: proxy.size.width * page.progress, height: 2.5)
                 .opacity(page.isLoading && page.progress < 1 ? 1 : 0)
                 .animation(.easeOut(duration: 0.2), value: page.progress)
@@ -590,10 +726,21 @@ struct ModulaInAppBrowserView: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 8)
+                    .onChanged { value in
+                        guard !reduceMotion else { return }
+                        var t = Transaction(); t.disablesAnimations = true
+                        withTransaction(t) { pullOffset = max(0, value.translation.height) }
+                    }
                     .onEnded { value in
                         if value.translation.height > 120 || value.predictedEndTranslation.height > 300 {
                             HapticEngine.shared.play(.navigation)
-                            close()
+                            if reduceMotion {
+                                close()
+                            } else {
+                                withAnimation(.easeIn(duration: 0.2)) { pullOffset = 1400 } completion: { onClose() }
+                            }
+                        } else {
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) { pullOffset = 0 }
                         }
                     }
             )
@@ -629,6 +776,18 @@ struct ModulaInAppBrowserView: View {
             Capsule().fill(Color.secondary.opacity(0.45)).frame(width: 36, height: 5)
                 .frame(maxWidth: .infinity)
                 .opacity(Double(p))
+                // Once docked under the page: swipe down to a slim bar, up to expand.
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 10).onEnded { value in
+                        guard p > 0.9 else { return }
+                        let collapse = value.translation.height > 24
+                        let expand = value.translation.height < -24
+                        guard collapse != drawerCollapsed, collapse || expand else { return }
+                        HapticEngine.shared.play(.selection)
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { drawerCollapsed = collapse }
+                    },
+                    including: p > 0.9 ? .all : .none
+                )
             HStack(spacing: 10) {
                 ModulaAvatar(initials: post.author?.initials ?? "?", url: post.author?.avatarURL, size: 38)
                 VStack(alignment: .leading, spacing: 0) {
@@ -638,8 +797,24 @@ struct ModulaInAppBrowserView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                ModulaWordmark(height: 16).accessibilityHidden(true)
+                if p > 0.9 {
+                    Button {
+                        HapticEngine.shared.play(.selection)
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { drawerCollapsed.toggle() }
+                    } label: {
+                        Image(systemName: drawerCollapsed ? "chevron.up" : "chevron.down")
+                            .font(.footnote.weight(.semibold))
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(drawerCollapsed ? "Expand post" : "Minimise post")
+                } else {
+                    ModulaWordmark(height: 16).accessibilityHidden(true)
+                }
             }
+            if !(drawerCollapsed && p > 0.9) {
             if let text = post.text, !text.isEmpty {
                 Text(text).font(.subheadline).lineLimit(4).frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -673,6 +848,7 @@ struct ModulaInAppBrowserView: View {
                 },
                 onShare: source.onShare
             )
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -680,7 +856,8 @@ struct ModulaInAppBrowserView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { drawerHeight = $0 }
         .background(alignment: .top) {
             UnevenRoundedRectangle(topLeadingRadius: 24 * p, topTrailingRadius: 24 * p, style: .continuous)
-                .fill(Color(uiColor: .systemBackground))
+                // Glass like the app's sheets once docked; solid with Reduce Transparency.
+                .fill(reduceTransparency || p < 0.5 ? AnyShapeStyle(Color(uiColor: .systemBackground)) : AnyShapeStyle(.regularMaterial))
                 .shadow(color: .black.opacity(0.2 * Double(p)), radius: 18, y: -4)
                 // Below the post the drawer fills to the bottom edge as it opens (plus rubber-band room).
                 .frame(height: drawerHeight + max(0, layout.height - top - drawerHeight + 120) * p)
@@ -734,12 +911,29 @@ struct ModulaInAppBrowserView: View {
                 .font(.caption2)
                 .foregroundStyle(lockColor)
                 .accessibilityLabel(page.isSecure ? "Secure connection" : "Not secure")
-            Text(reader != nil ? "Reader · \(page.domain)" : page.domain)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .truncationMode(.middle)
+            Button {
+                HapticEngine.shared.play(.selection)
+                showAddress = true
+            } label: {
+                VStack(spacing: 0) {
+                    Text(reader != nil ? "Reader · \(page.domain)" : page.domain)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if let title = page.title, !title.isEmpty, reader == nil {
+                        Text(title)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
                 .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
                 .contentTransition(.opacity)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Address, \(page.domain)")
+            .accessibilityHint("Shows the full address")
             if page.canGoForward {
                 Button { page.webView.goForward() } label: {
                     Image(systemName: "chevron.forward").frame(width: 30, height: 46)
@@ -779,7 +973,14 @@ struct ModulaInAppBrowserView: View {
                 Button { copyLink() } label: { Label("Copy link", systemImage: "link") }
                 ShareLink(item: page.url) { Label("Share", systemImage: "square.and.arrow.up") }
                 Button { showModulaShare = true } label: { Label("Share to Modula…", systemImage: "paperplane") }
-                Button { UIApplication.shared.open(page.url) } label: { Label("Open in browser", systemImage: "safari") }
+                Button { UIApplication.shared.open(page.url) } label: { Label("Open in Safari", systemImage: "safari") }
+                if let app = ModulaKnownApps.appName(for: page.url) {
+                    Button {
+                        UIApplication.shared.open(page.url, options: [.universalLinksOnly: true]) { opened in
+                            if !opened { Task { @MainActor in HapticEngine.shared.play(.failure) } }
+                        }
+                    } label: { Label("Open in \(app)", systemImage: "arrow.up.forward.app") }
+                }
             }
             Section {
                 Button { Task { await toggleReader() } } label: {
@@ -793,6 +994,12 @@ struct ModulaInAppBrowserView: View {
                 } label: { Label("Text size", systemImage: "textformat.size") }
                 Toggle(isOn: Binding(get: { page.desktopSite }, set: { page.setDesktopSite($0) })) {
                     Label("Desktop site", systemImage: "desktopcomputer")
+                }
+                Toggle(isOn: Binding(
+                    get: { ModulaPreferences.bool("settings.links.blockTrackers", true) },
+                    set: { page.setTrackerBlocking($0); HapticEngine.shared.play(.selection) }
+                )) {
+                    Label("Block trackers", systemImage: "hand.raised")
                 }
             }
             Section {
@@ -812,8 +1019,40 @@ struct ModulaInAppBrowserView: View {
                 .frame(width: 36, height: 46)
                 .contentShape(Rectangle())
         }
+        // Neutral icons (black/white); only "Report link" keeps the destructive red.
+        .tint(.primary)
         .accessibilityLabel("More")
         .accessibilityIdentifier("browser.menu")
+    }
+
+    /// Chat-opened links: who shared it and in which chat. Tap closes back to the chat.
+    private func chatContextCard(_ chat: ModulaChatLinkContext) -> some View {
+        Button {
+            HapticEngine.shared.play(.navigation)
+            close()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(chat.senderName.map { "Shared by \($0)" } ?? "Shared in a chat")
+                        .font(.footnote.weight(.semibold))
+                        .lineLimit(1)
+                    if let title = chat.chatTitle, !title.isEmpty, title != chat.senderName {
+                        Text(title).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+                Text("Back to chat").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 42)
+            .modulaGlass(in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .accessibilityIdentifier("browser.chatContext")
     }
 
     // MARK: Actions
@@ -1056,16 +1295,23 @@ struct ModulaRichLinkCard: View {
     @State private var loaded = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.openURL) private var openURL
+    @Environment(\.modulaChatLinkContext) private var chatContext
+
+    /// In a chat the preview card goes straight to the browser (with the chat context);
+    /// elsewhere it follows the surrounding openURL (post source etc.).
+    private func openCard() {
+        if let chatContext { ModulaLinkRouter.open(url, source: nil, chat: chatContext) } else { openURL(url) }
+    }
 
     var body: some View {
         Group {
             if let preview {
-                Button { openURL(url) } label: { card(preview) }
+                Button { openCard() } label: { card(preview) }
                     .buttonStyle(.plain)
                     // Long-press peek with link actions.
                     .contextMenu {
-                        Button { openURL(url) } label: { Label("Open", systemImage: "arrow.up.forward.app") }
-                        Button { UIApplication.shared.open(url) } label: { Label("Open in browser", systemImage: "safari") }
+                        Button { openCard() } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+                        Button { UIApplication.shared.open(url) } label: { Label("Open in Safari", systemImage: "safari") }
                         Button { UIPasteboard.general.url = url } label: { Label("Copy link", systemImage: "link") }
                         ShareLink(item: url) { Label("Share", systemImage: "square.and.arrow.up") }
                     } preview: {
@@ -1078,6 +1324,8 @@ struct ModulaRichLinkCard: View {
             }
         }
         .task(id: url) {
+            // Speed: a link on screen spins up the web processes so the tap opens instantly.
+            if ModulaPreferences.openLinksInApp { ModulaBrowserWarmup.warm() }
             guard !loaded, !ModulaPreferences.dataSaver else { return }
             loaded = true
             preview = await ModulaLinkPreviewStore.shared.preview(for: url, client: app.client)
@@ -1153,5 +1401,151 @@ private struct ModulaLinkPeek: View {
         }
         .frame(width: 320)
         .background(Color(uiColor: .systemBackground))
+    }
+}
+
+
+// MARK: - Warm-up, tracker blocking, per-site text size
+
+/// Speed: the first WKWebView in a process pays for spinning up the WebContent/Networking
+/// processes. `warm()` (called when a link card or browser entry appears) does that early with a
+/// throwaway view on the shared store; the tracker rule list compiles once in the background.
+@MainActor
+enum ModulaBrowserWarmup {
+    static let sharedStore: WKWebsiteDataStore = .nonPersistent()
+    private(set) static var trackerRules: WKContentRuleList?
+    private static var warmView: WKWebView?
+    private static var warmed = false
+
+    static func warm() {
+        guard !warmed else { return }
+        warmed = true
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = sharedStore
+        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: configuration)
+        view.loadHTMLString("<html></html>", baseURL: nil)
+        warmView = view
+        compileTrackerRules()
+        // Drop the throwaway view once its processes are up.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            warmView = nil
+        }
+    }
+
+    /// A small, cheap block list of well-known ad/tracker hosts (third-party loads only).
+    private static func compileTrackerRules() {
+        let hosts = [
+            "doubleclick.net", "googlesyndication.com", "googleadservices.com", "google-analytics.com",
+            "googletagmanager.com", "adservice.google.com", "facebook.net", "connect.facebook.net",
+            "scorecardresearch.com", "quantserve.com", "taboola.com", "outbrain.com", "criteo.com",
+            "adnxs.com", "amazon-adsystem.com", "moatads.com", "hotjar.com", "chartbeat.com",
+            "pubmatic.com", "rubiconproject.com", "openx.net", "casalemedia.com", "adsrvr.org"
+        ]
+        let rules = hosts.map { host -> [String: Any] in
+            ["trigger": ["url-filter": "^https?://([a-z0-9-]+\\.)*\(NSRegularExpression.escapedPattern(for: host))", "load-type": ["third-party"]],
+             "action": ["type": "block"]]
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: rules), let json = String(data: data, encoding: .utf8) else { return }
+        WKContentRuleListStore.default()?.compileContentRuleList(forIdentifier: "modula.trackers.v1", encodedContentRuleList: json) { list, _ in
+            Task { @MainActor in trackerRules = list }
+        }
+    }
+}
+
+enum ModulaBrowserSiteZoom {
+    private static let key = "browser.siteZoom.v1"
+    static func zoom(for host: String?) -> CGFloat {
+        guard let host else { return 1 }
+        let all = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        return CGFloat(all[host.replacingOccurrences(of: "www.", with: "")] ?? 1)
+    }
+    static func set(_ zoom: CGFloat, for host: String?) {
+        guard let host else { return }
+        var all = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        let id = host.replacingOccurrences(of: "www.", with: "")
+        if abs(zoom - 1) < 0.01 { all[id] = nil } else { all[id] = Double(zoom) }
+        if all.count > 200, let drop = all.keys.first(where: { $0 != id }) { all[drop] = nil }
+        UserDefaults.standard.set(all, forKey: key)
+    }
+}
+
+/// Full address: see, copy, edit and go.
+private struct ModulaBrowserAddressSheet: View {
+    let url: URL
+    let title: String?
+    var onGo: (URL) -> Void
+    @State private var text: String
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: Bool
+
+    init(url: URL, title: String?, onGo: @escaping (URL) -> Void) {
+        self.url = url
+        self.title = title
+        self.onGo = onGo
+        _text = State(initialValue: url.absoluteString)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                if let title, !title.isEmpty {
+                    Text(title).font(.headline).lineLimit(2)
+                }
+                TextField("Address", text: $text, axis: .vertical)
+                    .font(.callout.monospaced())
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.go)
+                    .focused($focused)
+                    .onSubmit(go)
+                    .padding(12)
+                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                HStack {
+                    Button("Copy", systemImage: "doc.on.doc") {
+                        UIPasteboard.general.string = text
+                        HapticEngine.shared.play(.success)
+                    }
+                    .buttonStyle(.modulaSecondary)
+                    Button("Go", systemImage: "arrow.right", action: go)
+                        .buttonStyle(.modulaPrimary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .navigationTitle("Address")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }
+        .tint(.primary)
+    }
+
+    private func go() {
+        var value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !value.contains("://") { value = "https://" + value }
+        guard let target = URL(string: value), let scheme = target.scheme?.lowercased(), scheme == "http" || scheme == "https", target.host != nil else {
+            HapticEngine.shared.play(.failure)
+            return
+        }
+        onGo(target)
+        dismiss()
+    }
+}
+
+
+/// Hosts whose links usually have an installed app (offered as "Open in …"; universal links only,
+/// so nothing happens if the app isn't installed).
+enum ModulaKnownApps {
+    static func appName(for url: URL) -> String? {
+        guard let host = url.host?.lowercased().replacingOccurrences(of: "www.", with: "") else { return nil }
+        let table: [(String, String)] = [
+            ("youtube.com", "YouTube"), ("youtu.be", "YouTube"), ("m.youtube.com", "YouTube"),
+            ("open.spotify.com", "Spotify"), ("music.apple.com", "Music"), ("podcasts.apple.com", "Podcasts"),
+            ("maps.apple.com", "Maps"), ("apps.apple.com", "App Store"), ("x.com", "X"), ("twitter.com", "X"),
+            ("instagram.com", "Instagram"), ("tiktok.com", "TikTok"), ("reddit.com", "Reddit"),
+            ("github.com", "GitHub"), ("linkedin.com", "LinkedIn"), ("amazon.com", "Amazon"), ("amazon.co.uk", "Amazon")
+        ]
+        return table.first(where: { host == $0.0 || host.hasSuffix("." + $0.0) })?.1
     }
 }

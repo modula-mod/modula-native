@@ -508,6 +508,7 @@ struct ChatsSettingsHost: View {
     @AppStorage("settings.chats.previewMedia") private var previewMedia = true
     @AppStorage("settings.chats.linkPreviews") private var linkPreviews = true
     @AppStorage("settings.links.openInApp") private var openLinksInApp = true
+    @AppStorage("settings.links.blockTrackers") private var blockTrackers = true
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @AppStorage("settings.chats.readReceiptsDisplay") private var readReceiptsDisplay = true
     @State private var showsQuickReplies = false
@@ -570,12 +571,16 @@ struct ChatsSettingsHost: View {
                     Text("Image links in messages show as images. Other links show a preview card. Post and comment previews are fetched through Modula’s link preview service. Data saver turns link previews off.")
                 }
                 Section {
-                    Toggle("Open links in app", isOn: $openLinksInApp)
+                    Toggle("Open links in Modula", isOn: $openLinksInApp)
                         .accessibilityIdentifier("settings.links.openInApp")
+                    if openLinksInApp {
+                        Toggle("Block trackers", isOn: $blockTrackers)
+                            .accessibilityIdentifier("settings.links.blockTrackers")
+                    }
                 } header: {
                     Text("Links")
                 } footer: {
-                    Text("Web links open in Modula’s browser with the post kept at hand. Links that belong to an installed app, like YouTube or Maps, still open in that app. Turn off to use your default browser.")
+                    Text("Web links from posts, chats, bios, comments and notifications open in Modula’s browser, with the post or chat kept at hand. Modula links open right in the app, and links that belong to an installed app, like YouTube or Maps, still open in that app. Block trackers stops a short list of well-known ad and tracking services from loading. Turn off Open links in Modula to use Safari.")
                 }
             }
             .modulaSoftScrollEdge()

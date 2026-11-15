@@ -1453,6 +1453,8 @@ struct ConversationView: View {
             // Roadmap #14: links in this chat (bubbles and Chat info) open an inspector first,
             // so the real destination is visible before leaving the conversation.
             .messageLinkInspector()
+            // t177u: the in-app browser shows which chat a link came from (no post card).
+            .environment(\.modulaChatLinkContext, ModulaChatLinkContext(chatTitle: conversation?.title))
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
@@ -1677,6 +1679,12 @@ struct ConversationView: View {
                             ) { action in
                                 handle(action, message: message)
                             }
+                            // Links in this bubble: the browser shows who shared it.
+                            .modifier(ModulaChatLinkSenderModifier(sender: message.isOwn ? "you" : message.sender.displayName))
+                            .environment(\.modulaChatLinkContext, ModulaChatLinkContext(
+                                senderName: message.isOwn ? "you" : message.sender.displayName,
+                                chatTitle: conversation?.title
+                            ))
                             // The held bubble is lifted into the overlay; leave its slot empty meanwhile.
                             .opacity(focusRequest?.id == message.id ? 0 : 1)
                             .overlay {
