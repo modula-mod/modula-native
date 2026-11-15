@@ -198,7 +198,9 @@ struct ShellSidebarContainer<Content: View>: View {
                     }
                     .overlay(alignment: .leading) {
                         // Mutually exclusive with the navigation back swipe: only on a stack root.
-                        if !presented, app.appearance.edgePicker.side != .left,
+                        // No Edge Picker side gate: the rail is removed, so its stale side setting
+                        // must not disable the left-edge open (it disabled the Profile swipe on the right).
+                        if !presented,
                            !app.navigation.selectedStackHasPushedViews, app.navigation.presented == nil {
                             Color.clear
                                 .frame(width: 22)

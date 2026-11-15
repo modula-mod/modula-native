@@ -184,7 +184,9 @@ struct SpatialSurfaceContainer<Content: View>: View {
     private var canOpenFromEdge: Bool {
         let navigation = app.navigation
         guard navigation.spatialEnabled, spatial.isHome, navigation.presented == nil,
-              navigation.isAtTabRoot, app.appearance.edgePicker.side != .right else { return false }
+              navigation.isAtTabRoot else { return false }
+        // The Edge Picker rail is gone, but its persisted side still defaults to `.right`; gating
+        // on it disabled this edge (the Profile swipe) for every default install.
         // Profile tab root already is the profile.
         return navigation.selectedTab != .profile
     }
