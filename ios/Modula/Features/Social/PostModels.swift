@@ -376,9 +376,9 @@ struct FeedSummary: Hashable, Sendable {
         var highlights: [String] = []
         if !posts.isEmpty { highlights.append(posts.count == 1 ? "1 post loaded" : "\(posts.count) posts loaded") }
         if likes > 0 { highlights.append(String(localized: "\(likes) likes")) }
-        if replies > 0 { highlights.append(String(localized: "\(replies) replies")) }
+        if replies > 0 { highlights.append(replies == 1 ? String(localized: "1 reply") : String(localized: "\(replies) replies")) }
         if media > 0 { highlights.append(media == 1 ? "1 post with media" : "\(media) posts with media") }
-        if modules > 0 { highlights.append(String(localized: "\(modules) module updates")) }
+        if modules > 0 { highlights.append(modules == 1 ? String(localized: "1 module update") : String(localized: "\(modules) module updates")) }
         return FeedSummary(
             source: .aggregate,
             postCount: posts.count,

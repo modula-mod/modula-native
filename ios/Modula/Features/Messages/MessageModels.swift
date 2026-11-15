@@ -964,7 +964,9 @@ struct MessagingFeatures4: Hashable, Sendable {
         case 7776000: return "90 days"
         default:
             let days = seconds / 86400
-            return days > 0 ? "\(days) days" : "\(max(seconds / 3600, 1)) hours"
+            let hours = max(seconds / 3600, 1)
+            if days > 0 { return days == 1 ? "1 day" : "\(days) days" }
+            return hours == 1 ? "1 hour" : "\(hours) hours"
         }
     }
 }

@@ -203,7 +203,7 @@ struct CommunityPollView: View {
                 HStack {
                     Text(poll.closed ? "Closed" : "Closes \(poll.closesAt.formatted(date: .abbreviated, time: .shortened))")
                     Spacer()
-                    if let total = poll.totalVotes { Text("\(total) votes") }
+                    if let total = poll.totalVotes { Text(total == 1 ? "1 vote" : "\(total) votes") }
                 }
                 .font(.caption).foregroundStyle(.secondary)
             }
