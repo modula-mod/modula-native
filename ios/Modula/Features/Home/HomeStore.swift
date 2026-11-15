@@ -251,6 +251,15 @@ final class HomeStore {
         actionError = postActions.lastError
     }
 
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    func resetForAccountChange() {
+        for mode in Array(modes.keys) { generations[mode, default: 0] += 1 }
+        modes = modes.mapValues { _ in HomeModeState() }
+        actionError = nil
+        isOfflineHint = false
+    }
+
     func clearActionError() {
         actionError = nil
         postActions.clearError()

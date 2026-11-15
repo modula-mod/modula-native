@@ -151,7 +151,24 @@ final class AppEnvironment {
             catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
             self?.collections.setAccountID(account?.accountId)
-            self?.communities.resetForAccountChange()
+            // Fires on every account write (incl. a same-account revalidation refresh); only a
+            // real sign-out / switch drops the previous account's in-memory stores. (Communities
+            // used to be wiped on every write, e.g. when the cached launch account was refreshed.)
+            if let self, self.accountScopeID != account?.accountId {
+                let hadAccount = self.accountScopeID != nil
+                self.accountScopeID = account?.accountId
+                self.communities.resetForAccountChange()
+                if hadAccount {
+                    self.resetAccountScopedStores()
+                    self.accountScopeWasReset = true
+                }
+                if account != nil, self.accountScopeWasReset {
+                    // Sign-in after a sign-out/switch this launch: the boot-path probe already ran
+                    // for the previous account, so re-probe (restarts the messaging socket).
+                    let messagingStore = self.messaging
+                    Task(priority: .utility) { await messagingStore.probeCapabilities() }
+                }
+            }
             Task {
                 await catalogueStore?.load()
                 await MainActor.run { self?.refreshLaunchState() }
@@ -416,6 +433,19 @@ final class AppEnvironment {
         let configured = UserDefaults.standard.string(forKey: "modula.developerStudioURL")
         let url = URL(string: configured ?? "http://127.0.0.1:8787")
         if let url { UIApplication.shared.open(url) }
+    }
+
+    /// Account the in-memory stores currently hold data for (see `auth.onAccountChange`).
+    @ObservationIgnored private var accountScopeID: String?
+    @ObservationIgnored private var accountScopeWasReset = false
+
+    private func resetAccountScopedStores() {
+        home.resetForAccountChange()
+        activity.resetForAccountChange()
+        discover.resetForAccountChange()
+        profile.resetForAccountChange()
+        saved.resetForAccountChange()
+        messaging.resetForAccountChange()
     }
 
     func performSignOut(resetAppLock: Bool = true) async {

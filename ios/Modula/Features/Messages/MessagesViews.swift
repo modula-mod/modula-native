@@ -2844,6 +2844,7 @@ struct MessageRequestsView: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("Requests")
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             #if DEBUG
             if MessagingDebugFixture.isEnabled {

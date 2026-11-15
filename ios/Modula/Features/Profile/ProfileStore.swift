@@ -549,6 +549,14 @@ final class ProfileStore {
         sessions[key] = state
     }
 
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    func resetForAccountChange() {
+        sessions = [:]
+        actionError = nil
+        visitorPreviewActive = false
+    }
+
     func clearActionError() { actionError = nil }
 
     func setVisitorPreview(_ active: Bool) {

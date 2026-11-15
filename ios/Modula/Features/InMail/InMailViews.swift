@@ -23,6 +23,7 @@ struct InMailInboxView: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("In-Mail")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

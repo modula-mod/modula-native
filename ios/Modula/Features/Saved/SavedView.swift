@@ -36,6 +36,7 @@ struct SavedView: View {
         }
         .modulaCanvas()
         .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("saved.root")
         .task { await app.saved.load() }
         .modulaRefreshable { await app.saved.load(force: true) }

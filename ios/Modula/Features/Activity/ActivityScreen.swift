@@ -304,6 +304,7 @@ struct ActivitySummarySheet: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("Activity Summary")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close") { dismiss() }

@@ -40,7 +40,17 @@ final class AuthenticationStore {
 
     /// Called when the background check after an instant (cached) restore finds the
     /// session is no longer valid.
-    var onRevalidationFailed: (@MainActor () async -> Void)?
+    /// Set late in boot (after `restoreFast()` already launched the check): a failure that
+    /// lands first is parked in `revalidationFailurePending` and replayed here, instead of
+    /// leaving a revoked session's cached shell on screen for the whole launch.
+    var onRevalidationFailed: (@MainActor () async -> Void)? {
+        didSet {
+            guard revalidationFailurePending, let handler = onRevalidationFailed else { return }
+            revalidationFailurePending = false
+            Task { await handler() }
+        }
+    }
+    @ObservationIgnored private var revalidationFailurePending = false
 
     /// Cold launch: adopt the account saved with this session immediately and verify
     /// `/v1/accounts/me` in the background, instead of holding the boot gate on a
@@ -54,14 +64,21 @@ final class AuthenticationStore {
         account = cached
         error = nil
         let client = self.client
+        let cachedID = cached.accountId
         Task { [weak self] in
             do {
                 let fresh = try await client.revalidateAccount()
-                guard let self else { return }
+                // Signed out / switched while the check was in flight: not ours to touch.
+                guard let self, self.account?.accountId == cachedID else { return }
                 if fresh != self.account { self.account = fresh }
             } catch {
-                guard let self, !GreenfieldClient.isConnectivityFailure(error) else { return }
-                await self.onRevalidationFailed?()
+                guard let self, !GreenfieldClient.isConnectivityFailure(error),
+                      self.account?.accountId == cachedID else { return }
+                if let handler = self.onRevalidationFailed {
+                    await handler()
+                } else {
+                    self.revalidationFailurePending = true
+                }
             }
         }
     }

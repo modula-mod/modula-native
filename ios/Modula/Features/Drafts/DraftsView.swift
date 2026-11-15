@@ -112,6 +112,8 @@ struct DraftsView: View {
         .task { await app.drafts.refresh() }
         .modulaCanvas()
         .navigationTitle("Drafts")
+        // Inline like the rest of the app: an inherited large title stuck over the first row.
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("drafts.root")
         .confirmationDialog(
             "Discard draft?",

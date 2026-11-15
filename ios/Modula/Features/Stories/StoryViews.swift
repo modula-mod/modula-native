@@ -376,6 +376,7 @@ struct StoryRootPlaceholder: View {
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Stories")
+        .navigationBarTitleDisplayMode(.inline)
         .task { await app.stories.loadIfNeeded() }
     }
 

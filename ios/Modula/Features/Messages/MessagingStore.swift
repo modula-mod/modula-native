@@ -759,6 +759,38 @@ final class MessagingStore {
         MessagingOrdering.messagesChronological(threads[id] ?? [])
     }
 
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    /// Also closes the realtime socket / presence heartbeat, which nothing stopped before
+    /// (it kept reconnecting with the revoked session after sign-out).
+    func resetForAccountChange() {
+        stopRealtime()
+        // Next account re-probes (and restarts realtime) on its first Messages visit.
+        probedV2 = false
+        conversations = []
+        conversationCursor = nil
+        conversationHasMore = false
+        conversationState = .idle
+        threads = [:]
+        threadCursors = [:]
+        threadHasMore = [:]
+        threadState = [:]
+        typingPeople = [:]
+        requests = []
+        requestState = .idle
+        accountUnreadCount = nil
+        presenceByActor = [:]
+        groups = [:]
+        historyHits = []
+        historyHasMore = false
+        historyCursor = nil
+        historyState = .idle
+        reactionDetails = [:]
+        receiptsByMessage = [:]
+        hiddenUnlockedThisSession = false
+        actionError = nil
+    }
+
     func clearActionError() { actionError = nil }
 
     #if DEBUG

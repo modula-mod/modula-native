@@ -192,6 +192,14 @@ final class ActivityStore {
         }
     }
 
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    func resetForAccountChange() {
+        modes = modes.mapValues { _ in ActivityModeState() }
+        actionError = nil
+        isOfflineHint = false
+    }
+
     func clearActionError() { actionError = nil }
 
     func dismiss(_ events: [ActivityEvent], mode: ActivityMode) {

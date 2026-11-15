@@ -45,6 +45,8 @@ struct CollectionsView: View {
             await app.saved.load()
         }
         .navigationTitle("Collections")
+        // Inline like the rest of the app: an inherited large title stuck over the first row.
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -170,6 +172,7 @@ struct CollectionDetailView: View {
                 .modulaSoftScrollEdge()
                 .modulaCanvas()
                 .navigationTitle(collection.name)
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     if !collection.isDefault {
                         ToolbarItem(placement: .primaryAction) {

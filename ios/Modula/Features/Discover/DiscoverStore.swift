@@ -258,6 +258,20 @@ final class DiscoverStore {
         }
     }
 
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    func resetForAccountChange() {
+        trending = DiscoverTrendingState()
+        people = DiscoverPeopleState()
+        topics = DiscoverTopicsState()
+        posts = DiscoverPostsState()
+        modules = DiscoverModulesState()
+        search = DiscoverSearchState()
+        visitedScopes = [.trending]
+        followBusyID = nil
+        actionError = nil
+    }
+
     func clearActionError() { actionError = nil }
 
     static func isFirstParty(_ product: CatalogueProduct) -> Bool {
