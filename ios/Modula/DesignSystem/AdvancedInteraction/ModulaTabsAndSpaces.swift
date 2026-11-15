@@ -28,18 +28,6 @@ enum ModulaTabLayout: String, CaseIterable, Sendable {
     case scrollable
 }
 
-struct ModulaTabIndicator: View {
-    var selected = true
-
-    @Environment(AppEnvironment.self) private var app
-
-    var body: some View {
-        Capsule()
-            .fill(app.appearance.liveAccent.opacity(selected ? 0.15 : 0))
-            .accessibilityHidden(true)
-    }
-}
-
 struct ModulaTabBadge: View {
     var count: Int?
     var showsNotificationDot = false
@@ -58,83 +46,161 @@ struct ModulaTabBadge: View {
     }
 }
 
-struct ModulaTabStrip<ID: Hashable & Sendable>: View {
-    let items: [ModulaTabItem<ID>]
+/// THE segmented control. Every tab row, scope picker, filter strip and `Picker(.segmented)` in the app
+/// renders through this (enforced by `scripts/verify-boundaries.py` and `ModulaComponentUnificationTests`).
+/// - Apple-like: neutral glass track, raised neutral thumb that slides between segments (no accent).
+/// - Up to 5 segments share the width; more scroll horizontally and the selection auto-scrolls into view.
+/// - Selection haptic, VoiceOver traits/values, Reduce Motion (no slide) and Reduce Transparency (opaque track).
+struct ModulaSegmentedControl<ID: Hashable>: View {
+    struct Segment: Identifiable {
+        let id: ID
+        var title: String
+        var systemImage: String? = nil
+        var badgeCount: Int? = nil
+        var showsNotificationDot = false
+        var isEnabled = true
+    }
+
+    let segments: [Segment]
     @Binding var selection: ID
-    var layout: ModulaTabLayout = .intrinsic
+    var forceScroll = false
     var compact = false
     var accessibilityLabel = "Tabs"
+    /// Per-segment UI-test identifier (keeps existing ids such as `discover.scope.people`).
+    var identifier: ((ID) -> String)? = nil
     var onSelection: ((ID) -> Void)?
 
-    @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var indicatorNamespace
+    @Environment(\.colorScheme) private var scheme
+    @Namespace private var thumb
+
+    static var maxFixedSegments: Int { 5 }
+
+    init(segments: [Segment], selection: Binding<ID>, forceScroll: Bool = false, compact: Bool = false,
+         accessibilityLabel: String = "Tabs", identifier: ((ID) -> String)? = nil, onSelection: ((ID) -> Void)? = nil) {
+        self.segments = segments
+        self.identifier = identifier
+        self._selection = selection
+        self.forceScroll = forceScroll
+        self.compact = compact
+        self.accessibilityLabel = accessibilityLabel
+        self.onSelection = onSelection
+    }
+
+    /// Fixed list of (value, title) pairs — the replacement for `Picker { Text(..).tag(..) }.pickerStyle(.segmented)`.
+    init(_ accessibilityLabel: String, selection: Binding<ID>, segments: [(ID, String)], compact: Bool = false,
+         identifier: ((ID) -> String)? = nil, onSelection: ((ID) -> Void)? = nil) {
+        self.init(segments: segments.map { Segment(id: $0.0, title: $0.1) }, selection: selection, compact: compact,
+                  accessibilityLabel: accessibilityLabel, identifier: identifier, onSelection: onSelection)
+    }
+
+    /// Options + title (and optional symbol) closures, e.g. `options: Tab.allCases`.
+    init<C: Sequence>(_ accessibilityLabel: String, selection: Binding<ID>, options: C, compact: Bool = false,
+                      symbol: ((ID) -> String?)? = nil, identifier: ((ID) -> String)? = nil, onSelection: ((ID) -> Void)? = nil,
+                      title: (ID) -> String) where C.Element == ID {
+        self.init(segments: options.map { Segment(id: $0, title: title($0), systemImage: symbol?($0)) }, selection: selection,
+                  compact: compact, accessibilityLabel: accessibilityLabel, identifier: identifier, onSelection: onSelection)
+    }
+
+    private var scrolls: Bool { forceScroll || segments.count > Self.maxFixedSegments }
 
     var body: some View {
         Group {
-            if layout == .scrollable {
-                ScrollView(.horizontal, showsIndicators: false) { tabRow }
+            if scrolls {
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        row.padding(.horizontal, 2)
+                    }
+                    .modulaHorizontalRail()
+                    .scrollClipDisabled()
+                    .onAppear { proxy.scrollTo(selection, anchor: .center) }
+                    .onChange(of: selection) { _, value in
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { proxy.scrollTo(value, anchor: .center) }
+                    }
+                }
             } else {
-                tabRow
+                row
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("modula.segmented")
     }
 
-    private var tabRow: some View {
-        HStack(spacing: compact ? ModulaSpacing.xs : ModulaSpacing.sm) {
-            ForEach(items) { item in
-                tabButton(item)
-                    .frame(maxWidth: layout == .equalWidth ? .infinity : nil)
+    private var row: some View {
+        HStack(spacing: 2) {
+            ForEach(segments) { segment in
+                button(segment)
+                    .frame(maxWidth: scrolls ? nil : .infinity)
+                    .id(segment.id)
             }
         }
-        .padding(.horizontal, compact ? ModulaSpacing.xs : ModulaSpacing.sm)
-        .padding(.vertical, ModulaSpacing.xxs)
-        .modulaMaterial(.control, in: Capsule())
+        .padding(3)
+        .modulaGlass(in: Capsule(), interactive: false)
     }
 
-    private func tabButton(_ item: ModulaTabItem<ID>) -> some View {
-        let selected = selection == item.id
+    private func button(_ segment: Segment) -> some View {
+        let selected = selection == segment.id
         return Button {
-            guard item.isEnabled, !selected else { return }
-            withAnimation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
-                selection = item.id
-            }
-            HapticEngine.shared.play(.selectionChanged)
-            onSelection?(item.id)
+            guard segment.isEnabled, !selected else { return }
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.32, bounce: 0.12)) { selection = segment.id }
+            HapticEngine.shared.play(.selection)
+            onSelection?(segment.id)
         } label: {
             HStack(spacing: 6) {
-                if let image = item.systemImage {
+                if let image = segment.systemImage {
                     Image(systemName: image)
                         .symbolVariant(selected ? .fill : .none)
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityHidden(true)
                 }
-                if !compact || item.systemImage == nil {
-                    Text(item.title).lineLimit(1)
+                if !compact || segment.systemImage == nil {
+                    Text(segment.title).lineLimit(1).fixedSize(horizontal: scrolls, vertical: false).minimumScaleFactor(0.8)
                 }
-                ModulaTabBadge(
-                    count: item.badgeCount,
-                    showsNotificationDot: item.showsNotificationDot,
-                    selected: selected
-                )
+                ModulaTabBadge(count: segment.badgeCount, showsNotificationDot: segment.showsNotificationDot, selected: selected)
             }
             .font(.subheadline.weight(selected ? .semibold : .medium))
-            .foregroundStyle(selected ? app.appearance.liveAccent : .primary)
-            .padding(.horizontal, compact ? 10 : 12)
-            .frame(minHeight: ModulaLayout.minimumTouch)
+            .foregroundStyle(segment.isEnabled ? Color.primary : Color.secondary)
+            .padding(.horizontal, compact ? 10 : 14)
+            .frame(maxWidth: scrolls ? nil : .infinity, minHeight: compact ? 32 : 36)
             .background {
                 if selected {
-                    ModulaTabIndicator()
-                        .matchedGeometryEffect(id: "modula.tab.indicator", in: indicatorNamespace)
+                    ModulaSegmentThumb(dark: scheme == .dark)
+                        .matchedGeometryEffect(id: "modula.segmented.thumb", in: thumb)
                 }
             }
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(!item.isEnabled)
-        .accessibilityLabel(item.title)
-        .accessibilityValue(item.badgeCount.map { "\($0)" } ?? "")
+        .disabled(!segment.isEnabled)
+        .accessibilityLabel(segment.title)
+        .accessibilityValue(segment.badgeCount.map { "\($0) new" } ?? "")
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
+        .accessibilityIdentifier(identifier?(segment.id) ?? "modula.segmented.\(segment.title)")
+    }
+}
+
+extension ModulaSegmentedControl where ID: Sendable {
+    /// Bridge for `ModulaTabItem` (badges, dots, disabled) — the former `ModulaTabStrip` signature.
+    init(items: [ModulaTabItem<ID>], selection: Binding<ID>, layout: ModulaTabLayout = .intrinsic, compact: Bool = false,
+         accessibilityLabel: String = "Tabs", onSelection: ((ID) -> Void)? = nil) {
+        self.init(segments: items.map {
+            Segment(id: $0.id, title: $0.title, systemImage: $0.systemImage, badgeCount: $0.badgeCount,
+                    showsNotificationDot: $0.showsNotificationDot, isEnabled: $0.isEnabled)
+        }, selection: selection, forceScroll: layout == .scrollable, compact: compact,
+           accessibilityLabel: accessibilityLabel, onSelection: onSelection)
+    }
+}
+
+/// Neutral raised thumb (white on light, graphite on dark) — never the accent.
+private struct ModulaSegmentThumb: View {
+    var dark: Bool
+
+    var body: some View {
+        Capsule()
+            .fill(dark ? Color(white: 0.36) : Color.white)
+            .shadow(color: .black.opacity(dark ? 0.3 : 0.12), radius: 3, y: 1)
+            .accessibilityHidden(true)
     }
 }
 
@@ -177,7 +243,7 @@ struct ModulaSpaceSwitcher<ID: Hashable & Sendable>: View {
     var onSelection: ((ID) -> Void)?
 
     var body: some View {
-        ModulaTabStrip(
+        ModulaSegmentedControl(
             items: spaces.map {
                 ModulaTabItem(
                     id: $0.id,
@@ -218,7 +284,7 @@ struct ModulaSpaceItem<ID: Hashable & Sendable>: View {
                     showsNotificationDot: space.showsNotificationDot,
                     selected: selected
                 )
-                if selected { Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent) }
+                if selected { Image(systemName: "checkmark").foregroundStyle(.primary) }
             }
             .frame(minHeight: ModulaLayout.minimumTouch)
             .contentShape(Rectangle())

@@ -226,46 +226,139 @@ struct ModulaGlassSearchField: View {
 // the same (Von Restorff). On iOS 26 the fill stays fully opaque with a thin specular glass rim
 // (tinted Liquid Glass over the fill read as a washed-out, disabled-looking pastel on device);
 // with Reduce Transparency or on iOS 18–25 it is a plain solid capsule.
-private struct ModulaAccentCTAModifier<S: InsettableShape>: ViewModifier {
-    let shape: S
-    @Environment(AppEnvironment.self) private var app
+// MARK: - Shared button styles (t169u)
+//
+// Primary   = solid black (light) / solid white (dark), inverted label. Never the accent.
+// Secondary = neutral Liquid Glass, primary-colour label.
+// Coral is reserved for notification badges. `scripts/verify-boundaries.py` and
+// `ModulaComponentUnificationTests` fail on accent-tinted buttons and bespoke segmented controls.
+
+extension Color {
+    /// Primary action fill: black in light mode, white in dark mode.
+    static var modulaPrimaryFill: Color { Color(uiColor: .label) }
+    /// Label on a primary fill (inverse of `modulaPrimaryFill`).
+    static var modulaOnPrimary: Color { Color(uiColor: .systemBackground) }
+}
+
+enum ModulaButtonShape: Sendable {
+    case capsule, circle, rounded(CGFloat)
+
+    var shape: AnyShape {
+        switch self {
+        case .capsule: AnyShape(Capsule())
+        case .circle: AnyShape(Circle())
+        case .rounded(let r): AnyShape(RoundedRectangle(cornerRadius: r, style: .continuous))
+        }
+    }
+}
+
+struct ModulaPrimaryButtonStyle: ButtonStyle {
+    var shape: ModulaButtonShape = .capsule
+    var fullWidth = false
+    var haptic: HapticSemantic? = .lightImpact
+
+    func makeBody(configuration: Configuration) -> some View {
+        ModulaPrimaryLabel(configuration: configuration, shape: shape, fullWidth: fullWidth, haptic: haptic)
+    }
+}
+
+private struct ModulaPrimaryLabel: View {
+    let configuration: ButtonStyleConfiguration
+    let shape: ModulaButtonShape
+    let fullWidth: Bool
+    let haptic: HapticSemantic?
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .padding(.horizontal, 18)
+            .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: 44)
+            .modulaPrimaryCTA(in: shape.shape)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed, isEnabled, let haptic { HapticEngine.shared.play(haptic) }
+            }
+    }
+}
+
+struct ModulaSecondaryButtonStyle: ButtonStyle {
+    var shape: ModulaButtonShape = .capsule
+    var fullWidth = false
+    var haptic: HapticSemantic? = .selection
+
+    func makeBody(configuration: Configuration) -> some View {
+        ModulaSecondaryLabel(configuration: configuration, shape: shape, fullWidth: fullWidth, haptic: haptic)
+    }
+}
+
+private struct ModulaSecondaryLabel: View {
+    let configuration: ButtonStyleConfiguration
+    let shape: ModulaButtonShape
+    let fullWidth: Bool
+    let haptic: HapticSemantic?
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .tint(.primary)
+            .padding(.horizontal, { if case .circle = shape { return 0 } else { return 16 } }())
+            .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: 36)
+            .contentShape(shape.shape)
+            .modulaGlass(in: shape.shape, interactive: true)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                if pressed, isEnabled, let haptic { HapticEngine.shared.play(haptic) }
+            }
+    }
+}
+
+extension ButtonStyle where Self == ModulaPrimaryButtonStyle {
+    static var modulaPrimary: ModulaPrimaryButtonStyle { ModulaPrimaryButtonStyle() }
+    static var modulaPrimaryWide: ModulaPrimaryButtonStyle { ModulaPrimaryButtonStyle(fullWidth: true) }
+}
+
+extension ButtonStyle where Self == ModulaSecondaryButtonStyle {
+    static var modulaSecondary: ModulaSecondaryButtonStyle { ModulaSecondaryButtonStyle() }
+    static var modulaSecondaryWide: ModulaSecondaryButtonStyle { ModulaSecondaryButtonStyle(fullWidth: true) }
+}
+
+/// Surface for a primary action drawn by hand (custom label layouts): solid label-colour fill,
+/// inverted foreground. Disabled = neutral outline (never washed-out, never accent).
+private struct ModulaPrimaryCTAModifier<S: Shape>: ViewModifier {
+    let shape: S
+    @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        let accent = app.appearance.liveAccent
-        let styled = content
-            .foregroundStyle(isEnabled ? Color.white : accent)
-            .tint(isEnabled ? .white : accent)
         if !isEnabled {
-            // Inactive (e.g. "You're on Horizon"): accent outline, never a washed-out fill.
-            styled
-                .background(accent.opacity(0.10), in: shape)
-                .overlay(shape.strokeBorder(accent.opacity(contrast == .increased ? 1 : 0.6), lineWidth: 1.2))
-        } else if !reduceTransparency {
-            styled
-                .background(shape.fill(accent))
-                .overlay(
-                    shape.strokeBorder(
-                        LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom),
-                        lineWidth: 0.8
-                    )
-                    .allowsHitTesting(false)
-                )
-                .shadow(color: accent.opacity(0.28), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
+            content
+                .foregroundStyle(Color.secondary)
+                .tint(Color.secondary)
+                .background(Color.primary.opacity(0.06), in: shape)
+                .overlay(shape.stroke(Color.primary.opacity(contrast == .increased ? 0.6 : 0.25), lineWidth: 1))
         } else {
-            styled
-                .background(shape.fill(accent))
-                .shadow(color: accent.opacity(0.28), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
+            content
+                .foregroundStyle(Color.modulaOnPrimary)
+                .tint(Color.modulaOnPrimary)
+                .background(shape.fill(Color.modulaPrimaryFill))
+                .shadow(color: .black.opacity(0.12), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
         }
     }
 }
 
 extension View {
-    /// The one filled accent CTA used app-wide.
-    func modulaAccentCTA() -> some View { modifier(ModulaAccentCTAModifier(shape: Capsule())) }
-    func modulaAccentCTA<S: InsettableShape>(in shape: S) -> some View { modifier(ModulaAccentCTAModifier(shape: shape)) }
+    /// The one filled primary CTA (black / white). Replaces the retired accent CTA.
+    func modulaPrimaryCTA() -> some View { modifier(ModulaPrimaryCTAModifier(shape: Capsule())) }
+    func modulaPrimaryCTA<S: Shape>(in shape: S) -> some View { modifier(ModulaPrimaryCTAModifier(shape: shape)) }
 }
 
 
@@ -314,6 +407,28 @@ private struct ModulaGlassPresentation: ViewModifier {
         } else {
             content.presentationBackground(fallback)
         }
+    }
+}
+
+/// t169u — the ONE drawer/sheet style. Every bottom sheet uses the system (concentric) corner radius,
+/// a visible grabber, scroll-first content interaction and the shared Liquid Glass background
+/// (opaque under Reduce Transparency). Do not set `presentationCornerRadius` / `presentationBackground`
+/// / `presentationDragIndicator` at call sites; `verify-boundaries.py` flags them.
+struct ModulaSheetChrome: ViewModifier {
+    var dragIndicator: Visibility = .visible
+
+    func body(content: Content) -> some View {
+        content
+            .presentationDragIndicator(dragIndicator)
+            .presentationContentInteraction(.scrolls)
+            .modulaGlassPresentation()
+    }
+}
+
+extension View {
+    /// Apply after `.presentationDetents(...)` on any sheet root.
+    func modulaSheetStyle(dragIndicator: Visibility = .visible) -> some View {
+        modifier(ModulaSheetChrome(dragIndicator: dragIndicator))
     }
 }
 

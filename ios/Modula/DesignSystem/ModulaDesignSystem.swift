@@ -1025,7 +1025,6 @@ struct ModulaListRow: View { var title: String; var subtitle: String?; var symbo
 struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { VStack(alignment: .leading, spacing: ModulaSpacing.sm) { ModulaText(text: title, role: .headline).accessibilityAddTraits(.isHeader); content }.frame(maxWidth: .infinity, alignment: .leading) } }
 struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, ModulaLayout.fieldHorizontalPadding).frame(minHeight: ModulaLayout.minimumTouch).modulaGlass(in: Capsule(), interactive: true).accessibilityLabel(prompt) } }
 struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: ModulaSpacing.hairline) { ModulaText(text: value, role: .metric); ModulaText(text: label, role: .caption, color: .secondary) }.accessibilityElement(children: .combine) } }
-struct ModulaMetricPicker<Value: Hashable, Content: View>: View { var title: String = "Selection"; @Binding var selection: Value; var values: [Value]; @ViewBuilder var label: (Value) -> Content; var body: some View { Picker(title, selection: $selection) { ForEach(values, id: \.self) { label($0).tag($0) } }.pickerStyle(.segmented) } }
 struct ModulaChip: View {
     var title: String; var selected = false; var action: () -> Void
     @Environment(AppEnvironment.self) private var app
@@ -1060,7 +1059,7 @@ struct ModulaEmptyState: View {
                         .overlay(alignment: .bottomTrailing) {
                             Image(systemName: symbol)
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .frame(width: 30, height: 30)
                                 .modulaGlass(in: Circle(), interactive: false)
                                 .offset(x: -6, y: -4)

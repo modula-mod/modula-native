@@ -346,57 +346,6 @@ struct ModulaCountUpText: View {
     }
 }
 
-// MARK: Segmented tabs with matched-geometry indicator
-
-struct ModulaEffectTabs<Tab: Hashable & Identifiable>: View {
-    let tabs: [Tab]
-    @Binding var selection: Tab
-    var title: (Tab) -> String
-    var symbol: (Tab) -> String
-    var tint: Color
-    @Namespace private var indicator
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var bounce = 0
-
-    var body: some View {
-        let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
-        HStack(spacing: 4) {
-            ForEach(tabs) { tab in
-                let selected = tab == selection
-                Button {
-                    guard tab != selection else { return }
-                    withAnimation(reduce ? nil : .spring(response: 0.36, dampingFraction: 0.78)) { selection = tab }
-                    bounce += 1
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Label(title(tab), systemImage: symbol(tab))
-                        .font(.subheadline.weight(selected ? .semibold : .medium))
-                        .symbolEffect(.bounce, value: selected && !reduce ? bounce : 0)
-                        .foregroundStyle(selected ? Color.white : Color.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background {
-                            if selected {
-                                Capsule()
-                                    .fill(tint.gradient)
-                                    .shadow(color: reduceTransparency ? .clear : tint.opacity(0.45), radius: 10, y: 4)
-                                    .matchedGeometryEffect(id: "modula.tab.indicator", in: indicator)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        // Shared segmented control: native Liquid Glass track (opaque under Reduce Transparency via modulaGlass).
-        .modulaGlass(in: Capsule(), interactive: false)
-    }
-}
-
 // MARK: Empty state with a living symbol
 
 struct ModulaEffectSymbol: View {
