@@ -758,6 +758,7 @@ struct ProfileView: View {
             .padding(.trailing, 14)
             }
             .modulaHorizontalRail()
+            .spatialGesturePriority()
             // Edge fade so a clipped tab ("Mod…") reads as scrollable instead of cut off.
             .mask {
                 LinearGradient(stops: [

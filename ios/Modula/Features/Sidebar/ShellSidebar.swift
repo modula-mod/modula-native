@@ -112,6 +112,7 @@ struct ShellSidebarContainer<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
     @Environment(\.colorScheme) private var scheme
     /// Live finger translation; resets on end *or cancel*, so the card can't park half-open.
     @GestureState(resetTransaction: Transaction(animation: ShellSidebarContainer.settleSpring))
@@ -140,22 +141,42 @@ struct ShellSidebarContainer<Content: View>: View {
         max(displayCornerRadius(safeTop: safeTop) - cardInset, ModulaRadius.large)
     }
 
+    /// Gesture Navigation System: the sidebar is the mirrored twin of the profile sheet —
+    /// flush with the left edge, a narrow strip of Home on the right, rounded trailing corners.
+    private var spatialSheet: Bool { app.navigation.spatialEnabled }
+    private var reduceTransparency: Bool {
+        systemReduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+    }
+
     var body: some View {
         let presented = app.navigation.sidebarPresented
+        let sheetStyle = spatialSheet
         GeometryReader { geometry in
             let insets = geometry.safeAreaInsets
             let fullWidth = geometry.size.width + insets.leading + insets.trailing
-            let width = Self.sidebarWidth(for: fullWidth)
+            let width = sheetStyle ? Self.sheetWidth(for: fullWidth) : Self.sidebarWidth(for: fullWidth)
             let base: CGFloat = presented ? width : 0
             let offset = min(max(base + drag, 0), width)
             let progress = width > 0 ? offset / width : 0
             let visible = presented || dragging || progress > 0.001
             let radius = Self.cardRadius(safeTop: insets.top)
-            let travel = width + Self.cardInset + 24 // fully off-screen including shadow
+            let inset = sheetStyle ? 0 : Self.cardInset
+            let travel = width + inset + 24 // fully off-screen including shadow
+            let shape = sheetStyle
+                ? AnyShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0,
+                                                  bottomTrailingRadius: SpatialSheetMetrics.cornerRadius,
+                                                  topTrailingRadius: SpatialSheetMetrics.cornerRadius,
+                                                  style: .continuous))
+                : AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            let dimBase: Double = sheetStyle
+                ? (reduceTransparency ? 0.5 : (scheme == .dark ? 0.42 : 0.26))
+                : (scheme == .dark ? 0.32 : 0.18)
 
             ZStack(alignment: .topLeading) {
                 content
                     .coordinateSpace(.named(ShellChromeFreeze.cardSpace))
+                    // Sheet style: Home lightly blurred behind (opaque dim only under Reduce Transparency).
+                    .blur(radius: sheetStyle && !reduceTransparency && !reduceMotion ? 3 * progress : 0)
                     .accessibilityHidden(presented)
                     .onChange(of: dragging) { _, isDragging in
                         ShellChromeFreeze.isSidebarDragging = isDragging
@@ -180,7 +201,7 @@ struct ShellSidebarContainer<Content: View>: View {
                 if visible {
                     // Light dim over the untouched main screen; tap or drag it to close.
                     Color.black
-                        .opacity((scheme == .dark ? 0.32 : 0.18) * progress)
+                        .opacity(dimBase * progress)
                         .contentShape(Rectangle())
                         .ignoresSafeArea()
                         .highPriorityGesture(closeDrag(width: width))
@@ -192,14 +213,25 @@ struct ShellSidebarContainer<Content: View>: View {
 
                     ShellSidebarView(width: width, onSelect: open, onClose: { close(haptic: true) })
                         // Content respects the safe areas; the card itself floats concentric to the display.
-                        .padding(.top, max(insets.top - Self.cardInset, ModulaSpacing.sm))
-                        .padding(.bottom, max(insets.bottom - Self.cardInset, ModulaSpacing.sm))
+                        .padding(.top, max(insets.top - inset, ModulaSpacing.sm))
+                        .padding(.bottom, max(insets.bottom - inset, ModulaSpacing.sm))
+                        .padding(.leading, sheetStyle ? insets.leading : 0)
                         .frame(width: width)
                         .frame(maxHeight: .infinity)
-                        .background { ShellSidebarCardBackground(radius: radius) }
-                        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+                        .background { ShellSidebarCardBackground(shape: shape) }
+                        .clipShape(shape)
+                        .overlay(alignment: .trailing) {
+                            if sheetStyle {
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.18))
+                                    .frame(width: 4, height: 44)
+                                    .padding(.trailing, 4)
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                            }
+                        }
                         .shadow(color: .black.opacity(0.18 * progress), radius: 28, x: 6, y: 0)
-                        .padding(Self.cardInset)
+                        .padding(inset)
                         .ignoresSafeArea()
                         .offset(x: reduceMotion ? 0 : (progress - 1) * travel)
                         .opacity(reduceMotion ? progress : 1)
@@ -219,6 +251,11 @@ struct ShellSidebarContainer<Content: View>: View {
 
     static func sidebarWidth(for total: CGFloat) -> CGFloat {
         min(total * 0.82, 380)
+    }
+
+    /// Mirrored profile-sheet geometry on iPhone (10 pt Home strip); a comfortable column on iPad.
+    static func sheetWidth(for total: CGFloat) -> CGFloat {
+        total > 700 ? 420 : SpatialSheetMetrics.sheetWidth(for: total)
     }
 
     /// Velocity-aware decision used by both gestures: projected end beats raw distance.
@@ -305,21 +342,20 @@ struct ShellSidebarContainer<Content: View>: View {
 
 /// Floating card surface: modulaGlass, or an opaque design-token canvas under Reduce Transparency.
 private struct ShellSidebarCardBackground: View {
-    let radius: CGFloat
+    let shape: AnyShape
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         Group {
-            if reduceTransparency {
+            if reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency {
                 shape.fill(ModulaPalette.resolve(app.appearance, scheme: scheme).canvas)
             } else {
                 shape.fill(.clear).modulaGlass(in: shape, interactive: false)
             }
         }
-        .overlay(shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
         .accessibilityHidden(true)
     }
 }
@@ -386,9 +422,19 @@ struct ShellSidebarView: View {
                     } else {
                         section(nil) { ForEach(primaryItems) { row($0) } }
                         section("Library") { ForEach(libraryItems) { row($0) } }
+                        section("Tools") { ForEach(toolItems) { row($0) } }
+                        let modules = recentModuleItems
+                        if !modules.isEmpty {
+                            section("Recent modules") { ForEach(modules) { row($0) } }
+                        }
+                        let destinations = recentDestinationItems
+                        if !destinations.isEmpty {
+                            section("Recent") { ForEach(destinations) { row($0) } }
+                        }
                         if !chats.pinned.isEmpty {
                             section("Pinned") { ForEach(chats.pinned) { chatRow($0) } }
                         }
+                        section("Workspaces") { comingSoonRow(title: "Pinned workspaces", symbol: "square.stack.3d.up") }
                         if !chats.recent.isEmpty {
                             section("Recents") { ForEach(chats.recent) { chatRow($0) } }
                         }
@@ -521,15 +567,13 @@ struct ShellSidebarView: View {
             .init(id: "messages", title: "Messages", symbol: "bubble.left.and.bubble.right",
                   route: .messages(.inbox), requiresSignIn: true, badge: app.messaging.accountUnreadCount ?? 0,
                   keywords: "chat dm inbox"),
-            .init(id: "notifications", title: "Alerts", symbol: "bell",
+            .init(id: "notifications", title: "Activity", symbol: "bell",
                   route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0,
-                  keywords: "notifications activity"),
+                  keywords: "notifications alerts activity history"),
             .init(id: "reels", title: "Reels", symbol: "play.rectangle.on.rectangle",
                   route: .reels(.feed), requiresSignIn: false, keywords: "videos clips watch"),
             .init(id: "story", title: "New story", symbol: "circle.dashed.inset.filled",
                   route: .stories(.create), requiresSignIn: true, keywords: "stories camera add"),
-            .init(id: "vault", title: "Vault", symbol: "lock.doc",
-                  route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "notes"),
         ]
         if GubicFeature.enabled() {
             items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
@@ -543,17 +587,88 @@ struct ShellSidebarView: View {
     }
 
     private var libraryItems: [ShellSidebarItem] {
-        var items = ShellSidebarDestination.allCases
+        let items = ShellSidebarDestination.allCases
             .filter { $0.section == .library }
             .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
                                     requiresSignIn: $0.requiresSignIn,
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.
                                     badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
                                     keywords: $0.subtitle ?? "") }
+        return items
+    }
+
+    /// Shortcuts into personal tools. Links only: their interfaces never render in the sidebar.
+    private var toolItems: [ShellSidebarItem] {
+        var items: [ShellSidebarItem] = [
+            .init(id: "vault", title: "Vault Notes", symbol: "lock.doc",
+                  route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "vault notes"),
+        ]
         #if DEBUG
-        items.append(.init(id: "developer", title: "Module Studio", symbol: "wrench.and.screwdriver", route: .developer(.studio), requiresSignIn: false))
+        items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
+                           requiresSignIn: false, keywords: "intelligence ai assistant"))
+        items.append(.init(id: "developer", title: "Builder", symbol: "hammer", route: .developer(.studio),
+                           requiresSignIn: false, keywords: "module studio create build"))
         #endif
         return items
+    }
+
+    /// Modules opened on this iPhone (Product Hub recents), installed ones only.
+    private var recentModuleItems: [ShellSidebarItem] {
+        guard app.auth.isSignedIn else { return [] }
+        let installed = app.catalogue.installedIDs
+        return ProductHubRecents.load()
+            .filter { installed.contains($0) && $0 != "digital.modula.vault-notes" }
+            .compactMap { id in app.catalogue.product(id) }
+            .prefix(4)
+            .map { product in
+                ShellSidebarItem(id: "module.\(product.moduleId)", title: product.name, symbol: "shippingbox",
+                                 route: .module(product.moduleId, localPath: nil), requiresSignIn: true,
+                                 keywords: product.publisherName)
+            }
+    }
+
+    /// Destinations visited recently (on-device), excluding what the rows above already show.
+    private var recentDestinationItems: [ShellSidebarItem] {
+        let shown: Set<String> = ["/saved", "/collections", "/drafts", "/messages/inbox", "/settings"]
+        var seen = Set<String>()
+        var items: [ShellSidebarItem] = []
+        for route in SpatialRecents.load() {
+            let path = RouteSerializer.serialize(route)
+            guard !shown.contains(path), seen.insert(path).inserted else { continue }
+            if case .module = route { continue } // listed under Recent modules
+            guard let label = SpatialRecents.label(for: route) else { continue }
+            items.append(ShellSidebarItem(id: "recent.\(path)", title: label.title, symbol: label.symbol,
+                                          route: route, requiresSignIn: false, keywords: "recent"))
+            if items.count == 4 { break }
+        }
+        return items
+    }
+
+    /// A row for something with no screen or backend yet: visible, labelled, not tappable.
+    private func comingSoonRow(title: String, symbol: String) -> some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            Image(systemName: symbol)
+                .font(.body)
+                .foregroundStyle(.tertiary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Text("Coming soon")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Color.primary.opacity(0.06), in: Capsule())
+        }
+        .padding(.horizontal, rowInset)
+        .frame(minHeight: rowHeight)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), coming soon")
+        .accessibilityIdentifier("shell.sidebar.soon.\(title.lowercased().replacingOccurrences(of: " ", with: "-"))")
     }
 
     /// Debug-build tools, collapsed by default.
@@ -658,7 +773,7 @@ struct ShellSidebarView: View {
     private var filteredItems: [ShellSidebarItem] {
         let q = trimmedQuery
         guard !q.isEmpty else { return [] }
-        return (primaryItems + libraryItems + manageItems + developerItems).filter {
+        return (primaryItems + libraryItems + toolItems + recentModuleItems + manageItems + developerItems).filter {
             $0.title.localizedCaseInsensitiveContains(q) || $0.keywords.localizedCaseInsensitiveContains(q)
         }
     }
@@ -985,10 +1100,23 @@ struct ShellSidebarTrigger: View {
 
 struct ShellSidebarTriggerModifier: ViewModifier {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.spatialSheetContext) private var sheet
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if app.navigation.isAtTabRoot {
+            if let sheet {
+                // Inside a spatial sheet: Close at its root; pushed screens keep the system Back.
+                if sheet.isRoot {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close", systemImage: "xmark") {
+                            app.navigation.spatial.close(.profile)
+                            HapticEngine.shared.play(.navigation)
+                        }
+                            .accessibilityLabel("Close profile")
+                            .accessibilityIdentifier("spatial.profile.close")
+                    }
+                }
+            } else if app.navigation.isAtTabRoot {
                 ToolbarItem(placement: .topBarLeading) {
                     ShellSidebarTrigger()
                 }

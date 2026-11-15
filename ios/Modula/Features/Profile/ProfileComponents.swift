@@ -1252,6 +1252,7 @@ struct ProfileHighlightsRow: View {
                 .padding(.vertical, 2)
             }
             .modulaHorizontalRail()
+            .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
         .accessibilityElement(children: .contain)
@@ -1327,6 +1328,7 @@ struct ProfileFeaturedModulesRow: View {
                 .padding(.vertical, 4)
             }
             .modulaHorizontalRail()
+            .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
         .accessibilityElement(children: .contain)
@@ -2434,6 +2436,7 @@ struct ProfileAvatarOverlayEditor: View {
                 .padding(.horizontal, 2)
             }
             .modulaHorizontalRail()
+            .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
     }
@@ -2642,6 +2645,7 @@ struct ProfileAvatarOverlayEditor: View {
                 }
             }
             .modulaHorizontalRail()
+            .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
     }

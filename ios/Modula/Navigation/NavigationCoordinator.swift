@@ -8,13 +8,28 @@ final class NavigationCoordinator {
     private(set) var paths: [AppTab: [AppRoute]] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, []) })
     var presented: AppPresentation?
     var banner: ModulaBanner?
-    /// Leading global sidebar. Not a sixth tab and not Edge Picker.
-    var sidebarPresented = false {
-        didSet {
-            guard oldValue != sidebarPresented else { return }
+    /// Gesture Navigation System: the one owner of Sidebar / Profile sheet / Modules Dock.
+    let spatial = SpatialNavigationCoordinator()
+    /// Tests pin this; otherwise follows `SpatialNavigationFeature` (Debug on, Release off).
+    @ObservationIgnored var spatialEnabledOverride: Bool?
+    var spatialEnabled: Bool { spatialEnabledOverride ?? SpatialNavigationFeature.enabled() }
+    /// Leading global sidebar. Not a sixth tab and not Edge Picker. Backed by `spatial`, so
+    /// opening it closes the profile sheet or dock (one primary sheet at a time).
+    var sidebarPresented: Bool {
+        get { spatial.isSidebarOpen }
+        set {
+            if newValue { spatial.openSidebar() } else { spatial.close(.sidebar) }
+        }
+    }
+
+    init() {
+        spatial.onTransition = { old, new in
+            let was = old == .sidebar
+            let isOpen = new == .sidebar
+            guard was != isOpen else { return }
             // Button / programmatic open+close take the same freeze-through-settle path as the swipe,
             // so feed geometry writers never feed back into layout while the card animates.
-            ShellChromeFreeze.sidebarPresented = sidebarPresented
+            ShellChromeFreeze.sidebarPresented = isOpen
             ShellChromeFreeze.holdForSettle()
         }
     }
@@ -31,8 +46,14 @@ final class NavigationCoordinator {
         Binding(get: { self.paths[tab] ?? [] }, set: { self.paths[tab] = $0 })
     }
     func select(_ tab: AppTab) {
+        // Profile is a sheet from the right, not a tab root swap, when spatial navigation is on.
+        if tab == .profile, spatialEnabled {
+            spatial.openProfile(.me)
+            return
+        }
         selectedTab = tab
-        sidebarPresented = false
+        // Tapping a bottom tab is direct navigation: whatever layer was up goes away.
+        spatial.close()
     }
 
     /// Short visible + VoiceOver confirmation (e.g. "Link copied").
@@ -53,6 +74,8 @@ final class NavigationCoordinator {
         open(route); return true
     }
     func open(_ route: AppRoute) {
+        SpatialRecents.note(route)
+        if routeSpatially(route) { return }
         // Edit Profile is a task on top of wherever you are, never a tab root swap.
         switch route {
         case .me(.edit), .profile(_, .edit):
@@ -147,12 +170,61 @@ final class NavigationCoordinator {
     }
     /// Push onto the selected tab without stealing another tab’s root. Discover/Search use this for profile, post, and module detail so Back restores the current scope.
     func push(_ route: AppRoute) {
+        // Pushes stay pushes (Discover / Search / modules keep their Back); only while the
+        // profile sheet is open do they land inside the sheet's own stack.
+        if spatialEnabled, spatial.isProfileOpen {
+            if Self.staysInProfileSheet(route) {
+                spatial.pushInSheet(route)
+                return
+            }
+            spatial.close()
+        }
         appendDeduplicatingSearch(route)
     }
     func close() {
+        if spatial.isProfileOpen, !spatial.sheetPath.isEmpty {
+            spatial.sheetPath.removeLast()
+            return
+        }
         if !paths[selectedTab, default: []].isEmpty { paths[selectedTab]?.removeLast() }
     }
-    func home() { selectedTab = .home; paths[.home] = []; roots[.home] = .home(.following) }
+
+    /// Spatial routing. Returns true when the route was handled by a layer:
+    /// - profile routes open the right-hand sheet (nothing else up);
+    /// - while the profile sheet is open, detail routes push inside it (own back stack) and
+    ///   full-screen / root destinations close it first and continue normally;
+    /// - any other open layer (sidebar, dock) closes before navigating.
+    private func routeSpatially(_ route: AppRoute) -> Bool {
+        guard spatialEnabled else { return false }
+        if spatial.isProfileOpen {
+            if Self.staysInProfileSheet(route) {
+                spatial.pushInSheet(route)
+                return true
+            }
+            spatial.close()
+            return false
+        }
+        if let target = SpatialProfileTarget.from(route) {
+            spatial.openProfile(target)
+            return true
+        }
+        if spatial.isDockOpen { spatial.close() }
+        return false
+    }
+
+    /// Detail screens that make sense inside the profile sheet. Tab roots, modules, composer,
+    /// auth, stories and reels are full-screen experiences and close the sheet instead.
+    static func staysInProfileSheet(_ route: AppRoute) -> Bool {
+        switch route {
+        case .profile, .me, .post, .saved, .collections, .drafts, .messages, .settings:
+            true
+        case .productHub(.module), .productHub(.publisher):
+            true
+        default:
+            false
+        }
+    }
+    func home() { spatial.close(); selectedTab = .home; paths[.home] = []; roots[.home] = .home(.following) }
 
     /// Authenticated destinations call this instead of opening login ad-hoc.
     func requestAuthentication(returningTo route: AppRoute) {

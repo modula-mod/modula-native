@@ -250,6 +250,7 @@ final class DiscoverRoutingAndChromeTests: XCTestCase {
 
     func testSignedOutFollowRequestsAuthReturn() {
         let coordinator = NavigationCoordinator()
+        coordinator.spatialEnabledOverride = false
         coordinator.select(.discover)
         coordinator.requestAuthentication(returningTo: .profile("andrei.modula", .overview))
         XCTAssertEqual(coordinator.currentRoute, .auth(.login))
