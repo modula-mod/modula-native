@@ -234,7 +234,7 @@ struct ModulaPostImage: View {
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Button("Retry", systemImage: "arrow.clockwise") { retryID += 1 }
                     .font(.caption.weight(.semibold))
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
             }
         }
     }
@@ -340,7 +340,7 @@ struct ModulaVideoSurface: View {
                     Button("Retry", systemImage: "arrow.clockwise") {
                         download.retry(attachment, manager: app.attachmentDownloads)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                 }
                 .font(.caption.weight(.semibold))
                 .padding(12)

@@ -830,7 +830,7 @@ struct StoryViewer: View {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle).accessibilityHidden(true)
                     Text("Couldn’t load this story")
-                    Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.bordered)
+                    Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.modulaSecondary)
                 }
                 .foregroundStyle(.white)
                 .accessibilityElement(children: .contain)

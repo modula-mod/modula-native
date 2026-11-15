@@ -323,7 +323,7 @@ struct MolibooGalleryInspectView: View {
 
                 HStack(spacing: 12) {
                     Button(faceDown ? "Show front" : "Show back") { flip() }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.modulaSecondary)
                     if let exportImage {
                         ShareLink(
                             item: exportImage,

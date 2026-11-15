@@ -408,7 +408,7 @@ struct ModulaAudioViewer: View {
                 if case .failed(let message) = download.state {
                     ContentUnavailableView("Audio unavailable", systemImage: "waveform.badge.exclamationmark", description: Text(message))
                     Button("Retry", systemImage: "arrow.clockwise") { download.retry(attachment, manager: app.attachmentDownloads) }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.modulaSecondary)
                 } else {
                     Button(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill") { audio.toggle() }
                     .buttonStyle(.modulaPrimary)

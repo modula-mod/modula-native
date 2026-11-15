@@ -203,7 +203,7 @@ struct MolibooWardrobeSheet: View {
         HStack(spacing: 10) {
             Button("Apply") { session.apply() }.buttonStyle(.modulaPrimary).disabled(!session.canApply)
                 .accessibilityIdentifier("wardrobe.apply")
-            Button("Revert") { session.revert() }.buttonStyle(.bordered).disabled(!session.isPreviewing)
+            Button("Revert") { session.revert() }.buttonStyle(.modulaSecondary).disabled(!session.isPreviewing)
                 .accessibilityIdentifier("wardrobe.revert")
             Spacer()
             Menu {
@@ -399,7 +399,7 @@ struct MolibooWardrobeSheet2D: View {
                 Button("Save") { saving = true }.disabled(session.isPreviewing && !session.canApply)
             }
             .font(.subheadline.weight(.semibold))
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(results, id: \.id) { item in

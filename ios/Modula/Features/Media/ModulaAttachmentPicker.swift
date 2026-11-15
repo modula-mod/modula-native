@@ -18,11 +18,11 @@ struct ModulaAttachmentPicker: View {
                 Label("Photos", systemImage: "photo.on.rectangle")
                     .frame(minHeight: ModulaLayout.minimumTouch)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             .accessibilityHint("Selects a photo or video for a local draft preview")
 
             Button("Files", systemImage: "folder") { showsFileImporter = true }
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .frame(minHeight: ModulaLayout.minimumTouch)
         }
         .onChange(of: photoSelection) { _, item in

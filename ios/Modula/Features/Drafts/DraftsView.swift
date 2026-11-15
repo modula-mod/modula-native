@@ -88,11 +88,13 @@ struct DraftsView: View {
                                 Text("This draft changed on another device. Both versions are preserved until you choose.")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
+                                // Unified black/white actions (was system bordered).
                                 HStack {
                                     Button("Use Server") { app.drafts.resolveConflictUsingServer(id: item.id) }
+                                        .buttonStyle(.modulaPrimary)
                                     Button("Keep Both") { app.drafts.resolveConflictKeepingLocal(id: item.id) }
+                                        .buttonStyle(.modulaSecondary)
                                 }
-                                .buttonStyle(.bordered)
                             }
                         }
                     }
@@ -278,7 +280,7 @@ struct DraftRestorePrompt: View {
                     onStartNew()
                     dismiss()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 Spacer()
                 Button {
                     HapticEngine.shared.play(.navigation)
