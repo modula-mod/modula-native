@@ -1142,6 +1142,18 @@ struct InstalledModulesPanel: View {
     @State private var filter: InstalledModulesFilter = .all
     @AppStorage(ModulesDockPrefs.sortKey) private var sortRaw = ModulesDockSort.standard.rawValue
     @AppStorage(ModulesDockPrefs.pinnedKey) private var pinnedRaw = ""
+    @AppStorage(ModulesDockPrefs.orderKey) private var orderRaw = ""
+    @AppStorage(ModulesDockPrefs.foldersKey) private var foldersRaw = ""
+    @State private var newFolderFor: String?
+    @State private var newFolderName = ""
+    private var folders: [ModulesDockFolder] { ModulesDockPrefs.decodeFolders(foldersRaw) }
+    /// Drag-to-arrange only where the order on screen is the custom order.
+    private var canArrange: Bool {
+        !isHalfDock && sort == .standard && query.isEmpty && {
+            if case .folder = filter { return true }
+            return filter == .all
+        }()
+    }
     @FocusState private var searchFocused: Bool
 
     private var isHalfDock: Bool { dockState == .half }
@@ -1167,6 +1179,10 @@ struct InstalledModulesPanel: View {
         }
         let kinds = Array(Set(all.map(\.productKind))).sorted()
         if kinds.count > 1 { chips.append(contentsOf: kinds.map { .kind($0) }) }
+        // Folders that hold at least one installed module.
+        for folder in folders where folder.moduleIDs.contains(where: ids.contains) {
+            chips.append(.folder(id: folder.id, name: folder.name))
+        }
         return chips
     }
 
@@ -1182,10 +1198,15 @@ struct InstalledModulesPanel: View {
             list = list.filter { app.catalogue.installations[$0.moduleId]?.status == "updateAvailable" }
         case .kind(let kind):
             list = list.filter { $0.productKind == kind }
+        case .folder(let id, _):
+            let members = folders.first { $0.id == id }?.moduleIDs ?? []
+            list = list.filter { members.contains($0.moduleId) }
         }
         if filter != .recent {
             switch sort {
-            case .standard: break
+            case .standard:
+                let order = ModulesDockPrefs.decode(orderRaw)
+                if !order.isEmpty { list = ModulesDockPrefs.pinnedFirst(list, pins: order, id: \.moduleId) }
             case .name: list.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             case .recent:
                 let order = ProductHubRecents.load()
@@ -1215,6 +1236,52 @@ struct InstalledModulesPanel: View {
         if let index = pins.firstIndex(of: id) { pins.remove(at: index) } else { pins.append(id) }
         pinnedRaw = ModulesDockPrefs.encode(pins)
         HapticEngine.shared.play(.selection)
+    }
+
+    /// Drop `dragged` onto `target`: it takes the target's place in the custom order.
+    private func arrange(_ dragged: String, onto target: String) {
+        guard dragged != target else { return }
+        let visible = shown.map(\.moduleId)
+        var order = ModulesDockPrefs.decode(orderRaw).filter { !visible.contains($0) }
+        var ids = visible
+        guard let from = ids.firstIndex(of: dragged), let to = ids.firstIndex(of: target) else { return }
+        ids.remove(at: from)
+        ids.insert(dragged, at: to)
+        order = ids + order
+        orderRaw = ModulesDockPrefs.encode(order)
+        // Pins keep their own order but follow a drag between pinned modules.
+        let pins = pinned
+        if pins.contains(dragged), pins.contains(target) {
+            pinnedRaw = ModulesDockPrefs.encode(ids.filter(pins.contains))
+        }
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func addToFolder(_ moduleID: String, folderID: String) {
+        var all = folders
+        guard let index = all.firstIndex(where: { $0.id == folderID }) else { return }
+        if !all[index].moduleIDs.contains(moduleID) { all[index].moduleIDs.append(moduleID) }
+        foldersRaw = ModulesDockPrefs.encodeFolders(all)
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func removeFromFolder(_ moduleID: String, folderID: String) {
+        var all = folders
+        guard let index = all.firstIndex(where: { $0.id == folderID }) else { return }
+        all[index].moduleIDs.removeAll { $0 == moduleID }
+        if all[index].moduleIDs.isEmpty { all.remove(at: index) }
+        foldersRaw = ModulesDockPrefs.encodeFolders(all)
+    }
+
+    private func createFolder() {
+        let name = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let moduleID = newFolderFor, !name.isEmpty else { return }
+        var all = folders
+        all.append(ModulesDockFolder(id: UUID().uuidString, name: String(name.prefix(30)), moduleIDs: [moduleID]))
+        foldersRaw = ModulesDockPrefs.encodeFolders(all)
+        newFolderFor = nil
+        newFolderName = ""
+        HapticEngine.shared.play(.success)
     }
 
     private func movePin(_ id: String, by delta: Int) {
@@ -1268,6 +1335,11 @@ struct InstalledModulesPanel: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(reduceMotion ? .regularMaterial : .ultraThinMaterial)
+        .alert("New Folder", isPresented: Binding(get: { newFolderFor != nil }, set: { if !$0 { newFolderFor = nil } })) {
+            TextField("Name", text: $newFolderName)
+            Button("Create", action: createFolder)
+            Button("Cancel", role: .cancel) { newFolderFor = nil; newFolderName = "" }
+        }
         .accessibilityIdentifier("accessory.modules.panel")
     }
 
@@ -1434,6 +1506,17 @@ struct InstalledModulesPanel: View {
                             Button("Move Earlier", systemImage: "arrow.left") { movePin(product.moduleId, by: -1) }
                             Button("Move Later", systemImage: "arrow.right") { movePin(product.moduleId, by: 1) }
                         }
+                        Menu("Add to Folder", systemImage: "folder.badge.plus") {
+                            ForEach(folders) { folder in
+                                Button(folder.name) { addToFolder(product.moduleId, folderID: folder.id) }
+                            }
+                            Button("New Folder…", systemImage: "plus") { newFolderFor = product.moduleId }
+                        }
+                        if case .folder(let id, let name) = filter {
+                            Button("Remove from \(name)", systemImage: "folder.badge.minus") {
+                                removeFromFolder(product.moduleId, folderID: id)
+                            }
+                        }
                         Button("Open", systemImage: "arrow.up.forward.app") {
                             closePanel()
                             app.navigation.open(.module(product.moduleId, localPath: nil))
@@ -1448,6 +1531,15 @@ struct InstalledModulesPanel: View {
                         }
                         .padding(16)
                         .frame(width: 280, alignment: .leading)
+                    }
+                    // Expanded launcher: drag a module onto another to arrange (persisted order).
+                    .draggable(product.moduleId) {
+                        ProductArtwork(product: product, size: 58)
+                    }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard canArrange, let dragged = items.first else { return false }
+                        withAnimation(.snappy(duration: 0.22)) { arrange(dragged, onto: product.moduleId) }
+                        return true
                     }
                 }
             }
@@ -1493,6 +1585,13 @@ struct InstalledModulesPanel: View {
     }
 }
 
+/// A user folder in the Modules Dock: a name and registry module IDs (no module special cases).
+struct ModulesDockFolder: Codable, Hashable, Identifiable {
+    let id: String
+    var name: String
+    var moduleIDs: [String]
+}
+
 /// Modules Dock sort order (expanded detent).
 enum ModulesDockSort: String, CaseIterable {
     case standard, name, recent
@@ -1509,6 +1608,19 @@ enum ModulesDockSort: String, CaseIterable {
 enum ModulesDockPrefs {
     static let pinnedKey = "modules.dock.pinned.v1"
     static let sortKey = "modules.dock.sort.v1"
+    static let orderKey = "modules.dock.order.v1"
+    static let foldersKey = "modules.dock.folders.v1"
+
+    static func decodeFolders(_ raw: String) -> [ModulesDockFolder] {
+        guard !raw.isEmpty, let data = raw.data(using: .utf8),
+              let folders = try? JSONDecoder().decode([ModulesDockFolder].self, from: data) else { return [] }
+        return folders
+    }
+
+    static func encodeFolders(_ folders: [ModulesDockFolder]) -> String {
+        guard let data = try? JSONEncoder().encode(folders) else { return "" }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
 
     static func decode(_ raw: String) -> [String] {
         raw.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
@@ -1539,12 +1651,15 @@ enum ModulesDockPrefs {
 
 enum InstalledModulesFilter: Hashable {
     case all, recent, updates, kind(String)
+    case folder(id: String, name: String)
 
     var title: String {
         switch self {
         case .all: return "All"
         case .recent: return "Recent"
         case .updates: return "Updates"
+        case .folder(_, let name):
+            return name
         case .kind(let kind):
             if kind == "module" { return "Modules" }
             if kind == "game" { return "Games" }

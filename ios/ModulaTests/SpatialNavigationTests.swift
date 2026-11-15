@@ -445,3 +445,16 @@ final class HomeSectionLayoutTests: XCTestCase {
         XCTAssertFalse(HomeSectionLayout.isVisible(.stories, in: "modules,bogus,modules,-stories"))
     }
 }
+
+final class ModulesDockFolderTests: XCTestCase {
+    func testFoldersRoundTripAndBadInputIsEmpty() {
+        let folders = [ModulesDockFolder(id: "f1", name: "Work", moduleIDs: ["a", "b"])]
+        XCTAssertEqual(ModulesDockPrefs.decodeFolders(ModulesDockPrefs.encodeFolders(folders)), folders)
+        XCTAssertEqual(ModulesDockPrefs.decodeFolders(""), [])
+        XCTAssertEqual(ModulesDockPrefs.decodeFolders("not json"), [])
+    }
+
+    func testFolderFilterTitleIsTheFolderName() {
+        XCTAssertEqual(InstalledModulesFilter.folder(id: "f1", name: "Work").title, "Work")
+    }
+}
