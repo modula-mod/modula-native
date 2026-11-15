@@ -955,6 +955,17 @@ struct StoryViewer: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("story.viewer")
+        // Hardware keyboard: ←/→ previous/next, space pause, Esc close (not while typing a reply).
+        .focusable(!replyFocused)
+        .focusEffectDisabled()
+        .onKeyPress(.leftArrow) { guard !replyFocused else { return .ignored }; goPrevious(); return .handled }
+        .onKeyPress(.rightArrow) { guard !replyFocused else { return .ignored }; goNext(); return .handled }
+        .onKeyPress(.space) {
+            guard !replyFocused else { return .ignored }
+            if engine.isPaused { engine.resume() } else { engine.pause() }
+            return .handled
+        }
+        .onKeyPress(.escape) { guard !replyFocused else { return .ignored }; app.navigation.close(); return .handled }
         .accessibilityActions {
             Button("Previous") { goPrevious() }
             Button("Next") { goNext() }
