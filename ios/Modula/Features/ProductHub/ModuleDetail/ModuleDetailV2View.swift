@@ -194,7 +194,9 @@ struct ModuleDetailV2View: View {
             .ignoresSafeArea(edges: .top)
             .modulaSoftScrollEdge()
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
-                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 140)
+                // Saturates at 140 pt: no per-frame body passes once the header is collapsed.
+                let progress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 140)
+                if progress != headerProgress { headerProgress = progress }
             }
             .refreshable {
                 await app.catalogue.load()

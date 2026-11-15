@@ -349,7 +349,9 @@ struct SettingsView: View {
             .padding(.bottom, SettingsInsets.bottom)
         }
         .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, y in
-            scrollY = y
+            // Only -280…150 drives anything (stretch / collapse); past that, stop re-rendering.
+            let clamped = min(max(y, -281), 151)
+            if abs(clamped - scrollY) >= 0.5 { scrollY = clamped }
         }
         .modulaSoftScrollEdge()
         .background(SettingsAmbientBackdrop().ignoresSafeArea())

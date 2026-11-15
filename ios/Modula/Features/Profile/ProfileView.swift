@@ -245,8 +245,14 @@ struct ProfileView: View {
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
             } action: { _, newOffset in
-                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 96)
-                let clamped = max(0, newOffset.rounded())
+                // Speed: both values saturate (header at 96 pt, nav title past the name band), so
+                // stop writing state once saturated — scrolling the post grid used to re-run this
+                // whole body every frame.
+                let progress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 96)
+                if abs(progress - headerProgress) >= 0.01 || (progress != headerProgress && (progress == 0 || progress == 1)) {
+                    headerProgress = progress
+                }
+                let clamped = min(max(0, newOffset.rounded()), navBarBandEnd + 1)
                 if abs(clamped - scrollOffset) >= 1 { scrollOffset = clamped }
             }
             // Save the scroll position once scrolling settles rather than on
@@ -359,6 +365,14 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    /// Offset past which `navBarProgress` is fully 1 (nothing above it changes the header).
+    private var navBarBandEnd: CGFloat {
+        let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
+        let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
+        let avatar = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
+        return cover + avatar * 0.5 + 24 - (safeTop + 44) + 36
     }
 
     /// 0 → 1 as the name moves into the nav bar (eased so the bar fades in with the title).
