@@ -1176,48 +1176,207 @@ struct ModulaReaderArticle: Equatable {
     var blocks: [Block]
 }
 
+/// Reader: native typography, persisted theme / font / size, reading time, neutral colours.
 private struct ModulaReaderView: View {
     let article: ModulaReaderArticle
     let scale: CGFloat
     let bottomInset: CGFloat
     var onClose: () -> Void
     @ScaledMetric private var bodySize: CGFloat = 19
+    @AppStorage("browser.reader.theme") private var themeRaw = ReaderTheme.auto.rawValue
+    @AppStorage("browser.reader.font") private var fontRaw = ReaderFont.serif.rawValue
+    @AppStorage("browser.reader.size") private var sizeStep = 0.0
+    @Environment(\.colorScheme) private var systemScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: Double = 0
+
+    enum ReaderTheme: String, CaseIterable, Identifiable {
+        case auto, paper, gray, night
+        var id: String { rawValue }
+        var title: String {
+            switch self { case .auto: "Auto"; case .paper: "Paper"; case .gray: "Gray"; case .night: "Night" }
+        }
+        /// Neutral backgrounds only (no tinted sepia): off-white, light gray, near-black.
+        func background(_ scheme: ColorScheme) -> Color {
+            switch self {
+            case .auto: Color(uiColor: .systemBackground)
+            case .paper: Color(white: 0.975)
+            case .gray: Color(white: 0.90)
+            case .night: Color(white: 0.07)
+            }
+        }
+        var scheme: ColorScheme? {
+            switch self { case .auto: nil; case .paper, .gray: .light; case .night: .dark }
+        }
+    }
+
+    enum ReaderFont: String, CaseIterable, Identifiable {
+        case serif, sans, rounded
+        var id: String { rawValue }
+        var title: String { switch self { case .serif: "Serif"; case .sans: "Sans"; case .rounded: "Rounded" } }
+        var design: Font.Design { switch self { case .serif: .serif; case .sans: .default; case .rounded: .rounded } }
+    }
+
+    private var theme: ReaderTheme { ReaderTheme(rawValue: themeRaw) ?? .auto }
+    private var design: Font.Design { (ReaderFont(rawValue: fontRaw) ?? .serif).design }
+    /// Reader size: its own steps (−3…+5, ~8% each) on top of Dynamic Type and the site's text size.
+    private var size: CGFloat { bodySize * scale * (1 + CGFloat(sizeStep) * 0.08) }
+
+    private var wordCount: Int {
+        article.blocks.reduce(0) { total, block in
+            switch block {
+            case .heading(let t), .paragraph(let t), .quote(let t), .listItem(let t):
+                total + t.split(whereSeparator: { $0.isWhitespace }).count
+            case .image: total
+            }
+        }
+    }
+    private var readingMinutes: Int { max(1, Int((Double(wordCount) / 230).rounded())) }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16 * scale) {
-                if let site = article.siteName { Text(site.uppercased()).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
-                Text(article.title).font(.system(size: 28 * scale, weight: .bold, design: .serif))
-                if let byline = article.byline { Text(byline).font(.subheadline).foregroundStyle(.secondary) }
-                Divider()
+            VStack(alignment: .leading, spacing: size * 0.85) {
+                header
                 ForEach(Array(article.blocks.enumerated()), id: \.offset) { _, block in
-                    switch block {
-                    case .heading(let text): Text(text).font(.system(size: bodySize * scale * 1.2, weight: .semibold, design: .serif))
-                    case .paragraph(let text): Text(text).font(.system(size: bodySize * scale, design: .serif)).lineSpacing(5 * scale)
-                    case .quote(let text):
-                        Text(text).font(.system(size: bodySize * scale, design: .serif)).italic()
-                            .padding(.leading, 12)
-                            .overlay(alignment: .leading) { Capsule().fill(Color.accentColor).frame(width: 3) }
-                    case .listItem(let text):
-                        HStack(alignment: .firstTextBaseline, spacing: 8) { Text("•"); Text(text) }
-                            .font(.system(size: bodySize * scale, design: .serif))
-                    case .image(let url):
-                        ModulaRemoteImage(url: url, cacheKey: "reader:\(url.absoluteString)", maximumPixelSize: 1200) { phase in
-                            if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFit() } else { Color.primary.opacity(0.05).frame(height: 180) }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
+                    blockView(block)
                 }
+                Text("End of article")
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 24)
             }
             .textSelection(.enabled)
-            .padding(.horizontal, 22)
-            .padding(.top, 64)
+            .padding(.horizontal, 24)
+            .padding(.top, 72)
             .padding(.bottom, bottomInset + 40)
-            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: 660, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(uiColor: .systemBackground))
+        .onScrollGeometryChange(for: Double.self) { geo in
+            let range = max(geo.contentSize.height - geo.containerSize.height, 1)
+            let fraction = Double(min(max((geo.contentOffset.y + geo.contentInsets.top) / range, 0), 1))
+            return (fraction * 50).rounded() / 50
+        } action: { _, value in
+            progress = value
+        }
+        .overlay(alignment: .top) { readerChrome }
+        .background(theme.background(systemScheme).ignoresSafeArea())
+        .foregroundStyle(.primary)
+        .tint(.primary)
+        .environment(\.colorScheme, theme.scheme ?? systemScheme)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: themeRaw)
         .accessibilityIdentifier("browser.reader")
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let site = article.siteName, !site.isEmpty {
+                Text(site.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .tracking(0.8)
+                    .foregroundStyle(.secondary)
+            }
+            Text(article.title)
+                .font(.system(size: size * 1.55, weight: .bold, design: design))
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 6) {
+                if let byline = article.byline, !byline.isEmpty {
+                    Text(byline).lineLimit(1)
+                    Text("·")
+                }
+                Text("\(readingMinutes) min read")
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            Rectangle().fill(Color.primary.opacity(0.12)).frame(height: 1).padding(.top, 6)
+        }
+    }
+
+    @ViewBuilder
+    private func blockView(_ block: ModulaReaderArticle.Block) -> some View {
+        switch block {
+        case .heading(let text):
+            Text(text)
+                .font(.system(size: size * 1.2, weight: .semibold, design: design))
+                .padding(.top, size * 0.5)
+                .accessibilityAddTraits(.isHeader)
+        case .paragraph(let text):
+            Text(text)
+                .font(.system(size: size, design: design))
+                .lineSpacing(size * 0.42)
+                .foregroundStyle(Color.primary.opacity(0.9))
+        case .quote(let text):
+            Text(text)
+                .font(.system(size: size * 1.05, design: design))
+                .italic()
+                .lineSpacing(size * 0.35)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 14)
+                .overlay(alignment: .leading) { Capsule().fill(Color.primary.opacity(0.25)).frame(width: 3) }
+        case .listItem(let text):
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("•").foregroundStyle(.secondary)
+                Text(text).lineSpacing(size * 0.35)
+            }
+            .font(.system(size: size, design: design))
+        case .image(let url):
+            ModulaRemoteImage(url: url, cacheKey: "reader:\(url.absoluteString)", maximumPixelSize: 1200) { phase in
+                if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFit() } else { Color.primary.opacity(0.05).frame(height: 180) }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.vertical, 4)
+        }
+    }
+
+    /// Thin reading-progress line + an "Aa" menu (theme, font, size) and exit.
+    private var readerChrome: some View {
+        VStack(spacing: 0) {
+            GeometryReader { proxy in
+                Rectangle()
+                    .fill(Color.primary.opacity(0.55))
+                    .frame(width: proxy.size.width * progress, height: 2)
+            }
+            .frame(height: 2)
+            HStack {
+                Spacer()
+                Menu {
+                    Section("Text size") {
+                        Button { step(-1) } label: { Label("Smaller", systemImage: "textformat.size.smaller") }
+                            .disabled(sizeStep <= -3)
+                        Button { step(+1) } label: { Label("Larger", systemImage: "textformat.size.larger") }
+                            .disabled(sizeStep >= 5)
+                        if sizeStep != 0 { Button { sizeStep = 0; HapticEngine.shared.play(.selection) } label: { Label("Default size", systemImage: "arrow.counterclockwise") } }
+                    }
+                    Picker("Font", selection: $fontRaw) {
+                        ForEach(ReaderFont.allCases) { Text($0.title).tag($0.rawValue) }
+                    }
+                    Picker("Theme", selection: $themeRaw) {
+                        ForEach(ReaderTheme.allCases) { Text($0.title).tag($0.rawValue) }
+                    }
+                    Divider()
+                    Button { onClose() } label: { Label("Exit reader", systemImage: "doc.richtext") }
+                } label: {
+                    Image(systemName: "textformat.size")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(width: 40, height: 40)
+                        .modulaGlass(in: Circle())
+                }
+                .tint(.primary)
+                .accessibilityLabel("Reader settings")
+                .accessibilityIdentifier("browser.reader.settings")
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+        }
+        .padding(.top, 56)
+    }
+
+    private func step(_ delta: Double) {
+        sizeStep = min(max(sizeStep + delta, -3), 5)
+        HapticEngine.shared.play(.selection)
     }
 }
 
