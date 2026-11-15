@@ -377,7 +377,7 @@ struct ReelPageView: View {
                     HapticEngine.shared.play(.selection)
                     app.navigation.flash("Speed 1×", symbol: "gauge.with.needle")
                 } label: {
-                    Text(String(format: "%.2g×", savedRate))
+                    Text(String(format: "%g×", savedRate))
                         .font(.caption.weight(.bold))
                         .monospacedDigit()
                         .foregroundStyle(.white)

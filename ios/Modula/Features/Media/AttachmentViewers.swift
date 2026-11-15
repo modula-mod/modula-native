@@ -512,7 +512,7 @@ struct ModulaFullscreenVideoControls: View {
                 }
                 .accessibilityLabel(controller.state == .playing ? "Pause" : "Play")
                 Button { _ = controller.cycleRate() } label: {
-                    Text(String(format: "%.2g×", controller.rate)).font(.subheadline.weight(.bold).monospacedDigit()).frame(minWidth: 44, minHeight: 44)
+                    Text(String(format: "%g×", controller.rate)).font(.subheadline.weight(.bold).monospacedDigit()).frame(minWidth: 44, minHeight: 44)
                 }
                 .accessibilityLabel("Playback speed \(String(format: "%.2g", controller.rate))")
                 Button { controller.toggleMute() } label: {
