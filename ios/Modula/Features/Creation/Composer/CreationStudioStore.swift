@@ -657,9 +657,8 @@ final class CreationStudioStore {
             draft.state = .publishing
             uploadFraction = nil
             persist(debounce: false)
-            let post = try await publisher.publish(draft)
+            let post = try await drafts.publish(draft, fallback: publisher)
             draft.state = .published
-            drafts.markPublished(id: draft.id)
             publishError = nil
             HapticEngine.shared.play(.success)
             // Only fires if the account had no posts when first seen (see CelebrationCenter).
@@ -688,6 +687,20 @@ final class CreationStudioStore {
             draft.state = .failed
             persist(debounce: false)
             publishError = "Sign in to publish. Your draft is safe."
+            HapticEngine.shared.play(.failure)
+            return nil
+        } catch let sync as DraftSyncError {
+            resetActiveUploads(to: .failed, message: "Sync required")
+            draft.state = .failed
+            persist(debounce: false)
+            publishError = sync.localizedDescription
+            HapticEngine.shared.play(.failure)
+            return nil
+        } catch let api as APIError {
+            resetActiveUploads(to: .failed, message: "Sync required")
+            draft.state = .failed
+            persist(debounce: false)
+            publishError = api.userFacingMessage
             HapticEngine.shared.play(.failure)
             return nil
         } catch {

@@ -7,6 +7,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     case saved
     case drafts
     case collections
+    case community
     case settings
     case appearance
     case developer
@@ -18,6 +19,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "Saved"
         case .drafts: "Drafts"
         case .collections: "Collections"
+        case .community: "Community"
         case .settings: "Settings"
         case .appearance: "Appearance"
         case .developer: "Module Studio"
@@ -29,6 +31,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "Bookmarks and later"
         case .drafts: "Unpublished work"
         case .collections: "Private groupings"
+        case .community: "Groups, builders and events"
         case .settings: "Account and device"
         case .appearance: "Theme, type and motion"
         case .developer: "Create and edit modules"
@@ -40,6 +43,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "bookmark"
         case .drafts: "doc.text"
         case .collections: "rectangle.stack"
+        case .community: "person.3"
         case .settings: "gearshape"
         case .appearance: "paintpalette"
         case .developer: "wrench.and.screwdriver"
@@ -51,6 +55,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: .orange
         case .drafts: .blue
         case .collections: .purple
+        case .community: .accentColor
         case .settings: .gray
         case .appearance: .pink
         case .developer: .indigo
@@ -62,6 +67,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: .saved(.root)
         case .drafts: .drafts(.root)
         case .collections: .collections(.root)
+        case .community: .community(.hub)
         case .settings: .settings(.root)
         case .appearance: .settings(.appearance(.root))
         case .developer: .developer(.studio)
@@ -71,13 +77,13 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     var requiresSignIn: Bool {
         switch self {
         case .saved, .drafts, .collections: true
-        case .settings, .appearance, .developer: false
+        case .community, .settings, .appearance, .developer: false
         }
     }
 
     var section: Section {
         switch self {
-        case .saved, .drafts, .collections: .library
+        case .saved, .drafts, .collections, .community: .library
         case .settings, .appearance: .manage
         case .developer: .developer
         }

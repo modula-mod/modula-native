@@ -15,6 +15,7 @@ final class AppEnvironment {
     let auth: AuthenticationStore
     let activity: ActivityStore
     let discover: DiscoverStore
+    let communities: CommunityStore
     let posts: PostStateStore
     let postActions: PostActionController
     let home: HomeStore
@@ -95,6 +96,7 @@ final class AppEnvironment {
         }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
+        communities = CommunityStore(client: client)
         posts = PostStateStore()
         postActions = PostActionController(client: client, state: posts)
         home = HomeStore(client: client, posts: posts, postActions: postActions)
@@ -105,9 +107,9 @@ final class AppEnvironment {
         reels = ReelStore(client: client)
         commandRecents = CommandRecentsStore()
         saved = SavedStore(client: client, state: posts)
-        collections = CollectionStore()
+        collections = CollectionStore(client: client)
         draftMedia = DraftMediaStore()
-        drafts = DraftStore(mediaStore: draftMedia)
+        drafts = DraftStore(client: client, mediaStore: draftMedia)
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = GreenfieldMediaUploader(client: client)
         attachmentDownloads = AttachmentDownloadManager(downloader: GreenfieldAttachmentDownloader(client: client))
@@ -148,6 +150,8 @@ final class AppEnvironment {
             CallManager.shared.accountChanged(signedIn: account != nil)
             catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
+            self?.collections.setAccountID(account?.accountId)
+            self?.communities.resetForAccountChange()
             Task {
                 await catalogueStore?.load()
                 await MainActor.run { self?.refreshLaunchState() }

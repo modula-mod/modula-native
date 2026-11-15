@@ -6,6 +6,54 @@ enum DraftKind: String, Codable, Sendable, Hashable, CaseIterable {
     case story
 }
 
+enum DraftSyncState: String, Codable, Sendable, Hashable {
+    case localOnly
+    case pending
+    case synced
+    case conflict
+    case failed
+}
+
+enum DraftSyncError: Error, LocalizedError, Sendable {
+    case localSave(String)
+    case conflict
+    case waiting(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .localSave(let message), .waiting(let message): message
+        case .conflict: "This draft changed on another device. Resolve the conflict before publishing."
+        }
+    }
+}
+
+struct GreenfieldDraftContent: Codable, Equatable, Hashable, Sendable {
+    var type: String
+    var attachmentID: String
+    var caption: String?
+}
+
+struct GreenfieldPostDraft: Codable, Equatable, Hashable, Sendable, Identifiable {
+    var id: String
+    var idempotencyKey: String?
+    var text: String
+    var feed: String
+    var audience: String
+    var replyPermission: String
+    var content: [GreenfieldDraftContent]
+    var publishToATProto: Bool
+    var state: String
+    var publishedPostID: String?
+    var version: Int
+    var createdAt: Date
+    var updatedAt: Date
+}
+
+struct DraftSyncConflict: Codable, Equatable, Hashable, Sendable {
+    var server: GreenfieldPostDraft
+    var detectedAt: Date
+}
+
 protocol DraftRecord: Identifiable, Sendable {
     var id: String { get }
     var kind: DraftKind { get }
@@ -33,6 +81,15 @@ struct PostDraft: Codable, Equatable, Hashable, DraftRecord {
     var state: String
     var idempotencyKey: String
     var originPath: String?
+    var feed: String
+    var replyPermission: String
+    var publishToATProto: Bool
+    var serverID: String?
+    var serverVersion: Int?
+    var serverUpdatedAt: Date?
+    var publishedPostID: String?
+    var syncState: DraftSyncState
+    var syncConflict: DraftSyncConflict?
 
     init(
         id: String,
@@ -52,7 +109,16 @@ struct PostDraft: Codable, Equatable, Hashable, DraftRecord {
         lastEdited: Date,
         state: String = CreationState.editing.rawValue,
         idempotencyKey: String = UUID().uuidString,
-        originPath: String? = nil
+        originPath: String? = nil,
+        feed: String = "following",
+        replyPermission: String = "everyone",
+        publishToATProto: Bool = false,
+        serverID: String? = nil,
+        serverVersion: Int? = nil,
+        serverUpdatedAt: Date? = nil,
+        publishedPostID: String? = nil,
+        syncState: DraftSyncState = .localOnly,
+        syncConflict: DraftSyncConflict? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -72,6 +138,15 @@ struct PostDraft: Codable, Equatable, Hashable, DraftRecord {
         self.state = state
         self.idempotencyKey = idempotencyKey
         self.originPath = originPath
+        self.feed = feed
+        self.replyPermission = replyPermission
+        self.publishToATProto = publishToATProto
+        self.serverID = serverID
+        self.serverVersion = serverVersion
+        self.serverUpdatedAt = serverUpdatedAt
+        self.publishedPostID = publishedPostID
+        self.syncState = syncState
+        self.syncConflict = syncConflict
     }
 
     init(from decoder: Decoder) throws {
@@ -94,6 +169,15 @@ struct PostDraft: Codable, Equatable, Hashable, DraftRecord {
         state = try c.decodeIfPresent(String.self, forKey: .state) ?? CreationState.editing.rawValue
         idempotencyKey = try c.decodeIfPresent(String.self, forKey: .idempotencyKey) ?? UUID().uuidString
         originPath = try c.decodeIfPresent(String.self, forKey: .originPath)
+        feed = try c.decodeIfPresent(String.self, forKey: .feed) ?? "following"
+        replyPermission = try c.decodeIfPresent(String.self, forKey: .replyPermission) ?? "everyone"
+        publishToATProto = try c.decodeIfPresent(Bool.self, forKey: .publishToATProto) ?? false
+        serverID = try c.decodeIfPresent(String.self, forKey: .serverID)
+        serverVersion = try c.decodeIfPresent(Int.self, forKey: .serverVersion)
+        serverUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .serverUpdatedAt)
+        publishedPostID = try c.decodeIfPresent(String.self, forKey: .publishedPostID)
+        syncState = try c.decodeIfPresent(DraftSyncState.self, forKey: .syncState) ?? .localOnly
+        syncConflict = try c.decodeIfPresent(DraftSyncConflict.self, forKey: .syncConflict)
     }
 
     var preview: String {
@@ -225,11 +309,15 @@ struct DraftIndex: Codable, Sendable, Equatable {
     var stories: [StoryDraft]
 }
 
-enum DraftBackendCapabilities: Sendable, Equatable {
-    // Server drafts remain OPEN; local persistence is the N4D/N4F path.
+struct DraftBackendCapabilities: Sendable, Equatable {
+    var serverPostDrafts = true
+    var localCache = true
+    var offlineReplay = true
+
+    static let production = DraftBackendCapabilities()
 }
 
-/// One row in the Drafts library. Counts and audience come from the on-device draft, not a server.
+/// One row in the Drafts library. Post drafts merge the account server revision with the private local cache.
 struct DraftLibraryItem: Identifiable, Equatable, Sendable {
     var id: String
     var kind: DraftKind
@@ -237,6 +325,7 @@ struct DraftLibraryItem: Identifiable, Equatable, Sendable {
     var lastEdited: Date
     var mediaCount: Int
     var audienceTitle: String?
+    var syncState: DraftSyncState = .localOnly
 
     /// Known audience values only. An empty or unknown string is not shown as "Everyone".
     static func audienceTitle(for raw: String?) -> String? {

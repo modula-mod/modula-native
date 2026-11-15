@@ -44,6 +44,13 @@ struct DraftsView: View {
                     .modulaAccentCTA()
                 }
             }
+            if let error = app.drafts.syncError {
+                Section {
+                    Label(error, systemImage: "arrow.triangle.2.circlepath.icloud")
+                        .foregroundStyle(.secondary)
+                    Button("Retry Sync") { Task { await app.drafts.refresh() } }
+                }
+            }
             Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -70,10 +77,22 @@ struct DraftsView: View {
             } else {
                 Section {
                     ForEach(items) { item in
-                        DraftRow(item: item) {
-                            continueDraft(kind: item.kind, id: item.id)
-                        } onDelete: {
-                            pendingDiscard = (item.kind, item.id)
+                        VStack(alignment: .leading, spacing: 8) {
+                            DraftRow(item: item) {
+                                continueDraft(kind: item.kind, id: item.id)
+                            } onDelete: {
+                                pendingDiscard = (item.kind, item.id)
+                            }
+                            if item.kind == .post, item.syncState == .conflict {
+                                Text("This draft changed on another device. Both versions are preserved until you choose.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Button("Use Server") { app.drafts.resolveConflictUsingServer(id: item.id) }
+                                    Button("Keep Both") { app.drafts.resolveConflictKeepingLocal(id: item.id) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
                         }
                     }
                 }
@@ -82,12 +101,14 @@ struct DraftsView: View {
                 if let saved = app.drafts.lastSavedAt {
                     ModulaAutosaveIndicator(savedAt: saved)
                 }
-                Text("Drafts are saved automatically. They’re stored on this device. There isn’t a drafts API.")
+                Text("Post drafts sync with your account and keep a private offline cache. Story and In-Mail drafts remain device-only because their server contracts are separate.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
         .modulaSoftScrollEdge()
+        .refreshable { await app.drafts.refresh() }
+        .task { await app.drafts.refresh() }
         .modulaCanvas()
         .navigationTitle("Drafts")
         .accessibilityIdentifier("drafts.root")
@@ -170,6 +191,11 @@ struct DraftRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
+                    if item.kind == .post {
+                        Label(syncLabel, systemImage: syncSymbol)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -208,6 +234,26 @@ struct DraftRow: View {
         case .post: "square.and.pencil"
         case .inMail: "envelope"
         case .story: "circle.dashed"
+        }
+    }
+
+    private var syncLabel: String {
+        switch item.syncState {
+        case .synced: "Synced"
+        case .pending: "Waiting to sync"
+        case .conflict: "Needs review"
+        case .failed: "Sync failed"
+        case .localOnly: "On this device"
+        }
+    }
+
+    private var syncSymbol: String {
+        switch item.syncState {
+        case .synced: "checkmark.icloud"
+        case .pending: "arrow.triangle.2.circlepath.icloud"
+        case .conflict: "exclamationmark.arrow.triangle.2.circlepath"
+        case .failed: "icloud.slash"
+        case .localOnly: "iphone"
         }
     }
 }
