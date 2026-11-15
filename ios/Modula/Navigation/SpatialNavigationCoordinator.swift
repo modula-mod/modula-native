@@ -272,13 +272,15 @@ final class SpatialNavigationCoordinator {
 enum SpatialSheetMetrics {
     static let gutter: CGFloat = 10
     static let cornerRadius: CGFloat = 32
-    static let edgeActivationWidth: CGFloat = 20
+    /// Wide enough to catch a casual thumb swipe from the right bezel (20 pt missed often).
+    static let edgeActivationWidth: CGFloat = 28
     static let travelPadding: CGFloat = 36
 
     nonisolated static func sheetWidth(for total: CGFloat) -> CGFloat {
         max(total - gutter, 0)
     }
 
-    static var settleSpring: Animation { .interactiveSpring(response: 0.36, dampingFraction: 0.86, blendDuration: 0.12) }
+    /// Quick and crisp, no bounce at rest; same curve as the sidebar so both sheets feel alike.
+    static var settleSpring: Animation { .spring(duration: 0.3, bounce: 0) }
     static var reduceMotionFade: Animation { .easeInOut(duration: 0.2) }
 }
