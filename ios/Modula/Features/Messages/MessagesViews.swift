@@ -2623,6 +2623,7 @@ struct MessageBubble: View {
     var onFocus: ((MessageFocusRequest) -> Void)? = nil
     var onAction: (ModulaContextAction) -> Void
     @State private var showsTime = false
+    @State private var textExpanded = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @Environment(\.chatThemeAccent) private var themeAccent
@@ -2689,14 +2690,28 @@ struct MessageBubble: View {
                 }
                 let parsed = ModulaLocalSticker.extract(split.body)
                 if !parsed.text.isEmpty && message.kind != .voice {
-                    Text(MessageLinkText.attributed(parsed.text))
-                        .font(.body)
-                        .tint(message.isOwn ? Color.white : app.appearance.liveAccent)
-                        .textSelection(.disabled)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background { bubbleBackground }
-                        .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                    // Very long messages fold to 14 lines with Read more / Show less.
+                    let long = !isPreview && parsed.text.count > 700
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(MessageLinkText.attributed(parsed.text))
+                            .font(.body)
+                            .lineLimit(long && !textExpanded ? 14 : nil)
+                            .textSelection(.disabled)
+                        if long {
+                            Button(textExpanded ? "Show less" : "Read more") {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy(duration: 0.25)) { textExpanded.toggle() }
+                            }
+                            .font(.footnote.weight(.semibold))
+                            .buttonStyle(.plain)
+                            .opacity(0.85)
+                        }
+                    }
+                    .tint(message.isOwn ? Color.white : app.appearance.liveAccent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background { bubbleBackground }
+                    .foregroundStyle(message.isOwn ? Color.white : Color.primary)
                 }
                 if !parsed.stickers.isEmpty {
                     ModulaLocalStickerRow(stickers: parsed.stickers)
