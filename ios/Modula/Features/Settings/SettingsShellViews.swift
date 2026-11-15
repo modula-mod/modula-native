@@ -584,6 +584,14 @@ struct ChatsSettingsHost: View {
                             }
                         }
                         .accessibilityIdentifier("settings.links.clearData")
+                        Button("Reset reader settings") {
+                            for key in ["browser.reader.theme", "browser.reader.font", "browser.reader.size"] {
+                                UserDefaults.standard.removeObject(forKey: key)
+                            }
+                            HapticEngine.shared.play(.success)
+                            ModulaToastCenter.shared.show("Reader settings reset", symbol: "checkmark.circle")
+                        }
+                        .accessibilityIdentifier("settings.links.resetReader")
                     }
                 } header: {
                     Text("Links")

@@ -532,6 +532,11 @@ struct ModulaInAppBrowserView: View {
             #endif
         }
         .background { browserShortcuts }
+        // VoiceOver: rotor actions for the browser controls from anywhere on screen.
+        .accessibilityAction(named: "Back") { if page.canGoBack { page.webView.goBack() } }
+        .accessibilityAction(named: "Forward") { if page.canGoForward { page.webView.goForward() } }
+        .accessibilityAction(named: "Reload") { page.reload() }
+        .accessibilityAction(named: "Show address") { showAddress = true }
         .sheet(isPresented: $showAddress) {
             ModulaBrowserAddressSheet(url: page.url, title: page.title) { url in
                 reader = nil
@@ -1753,6 +1758,15 @@ private struct ModulaBrowserAddressSheet: View {
     @State private var text: String
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: Bool
+    @State private var history = ModulaBrowserHistory.load()
+
+    private var suggestions: [ModulaBrowserHistory.Entry] {
+        let q = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2, q != url.absoluteString else { return [] }
+        return Array(history.lazy.filter {
+            $0.url != url && (($0.title ?? "").localizedCaseInsensitiveContains(q) || $0.url.absoluteString.localizedCaseInsensitiveContains(q))
+        }.prefix(5))
+    }
 
     init(url: URL, title: String?, onGo: @escaping (URL) -> Void) {
         self.url = url
@@ -1783,8 +1797,41 @@ private struct ModulaBrowserAddressSheet: View {
                         HapticEngine.shared.play(.success)
                     }
                     .buttonStyle(.modulaSecondary)
+                    if UIPasteboard.general.hasURLs || UIPasteboard.general.hasStrings {
+                        Button("Paste and go", systemImage: "doc.on.clipboard") {
+                            if let pasted = UIPasteboard.general.url?.absoluteString ?? UIPasteboard.general.string {
+                                text = pasted
+                                go()
+                            }
+                        }
+                        .buttonStyle(.modulaSecondary)
+                    }
                     Button("Go", systemImage: "arrow.right", action: go)
                         .buttonStyle(.modulaPrimary)
+                }
+                // Local history matches as you type (this device only).
+                if !suggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("History").font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.bottom, 6)
+                        ForEach(suggestions) { entry in
+                            Button {
+                                onGo(entry.url)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "clock").font(.footnote).foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(entry.title?.isEmpty == false ? entry.title! : (entry.url.host ?? entry.url.absoluteString)).lineLimit(1)
+                                        Text(entry.url.absoluteString).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
                 Spacer(minLength: 0)
             }
