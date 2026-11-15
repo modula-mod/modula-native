@@ -14,6 +14,7 @@
 		CA1200000000000000000005 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000005 /* CallManager.swift */; };
 		CA1200000000000000000006 /* CallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000006 /* CallViews.swift */; };
 		CA1200000000000000000100 /* CallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000100 /* CallTests.swift */; };
+		9DFB48370A3A6936732A8E3C /* MessagingExtrasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20E1931541112AEACE8E5BD /* MessagingExtrasTests.swift */; };
 		CA1400000000000000000001 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = CA1500000000000000000001 /* WebRTC */; };
 		96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */; };
 		F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */; };
@@ -458,6 +459,8 @@
 		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
 		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
 		B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */; };
+		86AE9CE3D8D48FA20E66AA9A /* MessagingExtrasViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1CF86DFEFFA5065D46300A /* MessagingExtrasViews.swift */; };
+		E631A3A3426EFE9607694B52 /* MessagingExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D369D2D195241ABABFDED8 /* MessagingExtras.swift */; };
 		C0MSGV3100000000000011 /* MessagingRealtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MSGV3100000000000001 /* MessagingRealtime.swift */; };
 		C0MSGV3100000000000012 /* MessagingV3Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MSGV3100000000000002 /* MessagingV3Views.swift */; };
 		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
@@ -548,6 +551,7 @@
 		CA1100000000000000000005 /* CallManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallManager.swift; path = Features/Calls/CallManager.swift; sourceTree = "<group>"; };
 		CA1100000000000000000006 /* CallViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallViews.swift; path = Features/Calls/CallViews.swift; sourceTree = "<group>"; };
 		CA1100000000000000000100 /* CallTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallTests.swift; sourceTree = "<group>"; };
+		F20E1931541112AEACE8E5BD /* MessagingExtrasTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessagingExtrasTests.swift; sourceTree = "<group>"; };
 		871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooItems.xcassets; path = Resources/MolibooGame/MolibooItems.xcassets; sourceTree = "<group>"; };
 		EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameViews.swift; path = Features/MolibooGame/MolibooGameViews.swift; sourceTree = "<group>"; };
 		2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameAPI.swift; path = Features/MolibooGame/MolibooGameAPI.swift; sourceTree = "<group>"; };
@@ -995,6 +999,8 @@
 		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
 		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
 		0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingInboxTools.swift; path = Features/Messages/MessagingInboxTools.swift; sourceTree = "<group>"; };
+		1E1CF86DFEFFA5065D46300A /* MessagingExtrasViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingExtrasViews.swift; path = Features/Messages/MessagingExtrasViews.swift; sourceTree = "<group>"; };
+		D7D369D2D195241ABABFDED8 /* MessagingExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingExtras.swift; path = Features/Messages/MessagingExtras.swift; sourceTree = "<group>"; };
 		C0MSGV3100000000000001 /* MessagingRealtime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingRealtime.swift; path = Features/Messages/MessagingRealtime.swift; sourceTree = "<group>"; };
 		C0MSGV3100000000000002 /* MessagingV3Views.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingV3Views.swift; path = Features/Messages/MessagingV3Views.swift; sourceTree = "<group>"; };
 		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
@@ -1149,6 +1155,7 @@
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
 				CA1100000000000000000100 /* CallTests.swift */,
+				F20E1931541112AEACE8E5BD /* MessagingExtrasTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
@@ -1280,6 +1287,8 @@
 				N40100000000000000000006 /* MessageContextActions.swift */,
 				N40100000000000000000007 /* MessagesViews.swift */,
 				0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */,
+				1E1CF86DFEFFA5065D46300A /* MessagingExtrasViews.swift */,
+				D7D369D2D195241ABABFDED8 /* MessagingExtras.swift */,
 				C0MSGV3100000000000001 /* MessagingRealtime.swift */,
 				CA1100000000000000000001 /* CallModels.swift */,
 				CA1100000000000000000002 /* CallRepository.swift */,
@@ -2024,6 +2033,7 @@
 				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
 				CA1200000000000000000100 /* CallTests.swift in Sources */,
+				9DFB48370A3A6936732A8E3C /* MessagingExtrasTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
 				876A4A792369DBEA180D421D /* PremiumTests.swift in Sources */,
@@ -2113,6 +2123,8 @@
 				N50100000000000000000006 /* MessageContextActions.swift in Sources */,
 				N50100000000000000000007 /* MessagesViews.swift in Sources */,
 				B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */,
+				86AE9CE3D8D48FA20E66AA9A /* MessagingExtrasViews.swift in Sources */,
+				E631A3A3426EFE9607694B52 /* MessagingExtras.swift in Sources */,
 				C0MSGV3100000000000011 /* MessagingRealtime.swift in Sources */,
 				CA1200000000000000000001 /* CallModels.swift in Sources */,
 				CA1200000000000000000002 /* CallRepository.swift in Sources */,
