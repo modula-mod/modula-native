@@ -144,7 +144,7 @@ struct ModulaSheet<Content: View>: View {
             .presentationDragIndicator(dragEnabled ? .visible : .hidden)
             .presentationContentInteraction(contentScrolls ? .scrolls : .automatic)
             .interactiveDismissDisabled(!dismissible)
-            .presentationBackground(backgroundStyle)
+            .modifier(ModulaSheetPresentationBackground(style: background == .material ? nil : backgroundStyle))
             .presentationBackgroundInteraction(backgroundInteractionEnabled ? .enabled : .disabled)
             .transaction { transaction in
                 if reduceMotion || transition == .reducedMotion { transaction.animation = nil }
@@ -238,5 +238,19 @@ struct ModulaMorphSheetHost<Content: View, Source: View, SheetContent: View>: Vi
 
     private func dismiss() {
         withAnimation(animation) { isPresented = false }
+    }
+}
+
+/// `.material` sheets become the system Liquid Glass sheet on iOS 26 (opaque under Reduce Transparency);
+/// palette-backed sheets keep their explicit canvas/surface for legibility.
+private struct ModulaSheetPresentationBackground: ViewModifier {
+    let style: AnyShapeStyle?
+
+    func body(content: Content) -> some View {
+        if let style {
+            content.presentationBackground(style)
+        } else {
+            content.modulaGlassPresentation()
+        }
     }
 }

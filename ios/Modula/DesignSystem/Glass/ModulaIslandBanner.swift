@@ -1076,7 +1076,7 @@ struct IslandSendLayer: View {
         }
         .padding(.horizontal, 22)
         .frame(height: 64)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
         .opacity(1 - t)
         .position(x: size.width / 2, y: size.height - 150)
     }

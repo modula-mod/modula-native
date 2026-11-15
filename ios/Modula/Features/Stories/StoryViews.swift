@@ -2554,7 +2554,7 @@ struct StoryCreateView: View {
                 .presentationDetents(item == .stickers ? [.medium, .large] : [.height(item == .poll || item == .countdown ? 340 : 240)])
                 .presentationDragIndicator(.visible)
                 .presentationContentInteraction(.resizes)
-                .presentationBackground(.ultraThinMaterial)
+                .modulaGlassPresentation(fallback: .ultraThinMaterial)
         }
         .accessibilityIdentifier("story.create")
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))

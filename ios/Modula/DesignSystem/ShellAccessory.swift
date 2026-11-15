@@ -1334,7 +1334,7 @@ struct InstalledModulesPanel: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(reduceMotion ? .regularMaterial : .ultraThinMaterial)
+        .modulaGlassPresentation()
         .alert("New Folder", isPresented: Binding(get: { newFolderFor != nil }, set: { if !$0 { newFolderFor = nil } })) {
             TextField("Name", text: $newFolderName)
             Button("Create", action: createFolder)

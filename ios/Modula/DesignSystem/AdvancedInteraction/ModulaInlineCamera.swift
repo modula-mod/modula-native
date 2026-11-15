@@ -91,7 +91,7 @@ struct ModulaInlineCamera: View {
                             }
                         }
                         .padding(3)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: true)
                     }
                     .fixedSize(horizontal: true, vertical: false)
                     .padding(.bottom, 8)
@@ -115,7 +115,7 @@ struct ModulaInlineCamera: View {
                             }
                         }
                         .padding(3)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: true)
                         .frame(width: 120, alignment: .leading)
                     } else {
                         Color.clear.frame(width: 120, height: 1)
@@ -258,7 +258,7 @@ struct ModulaInlineCamera: View {
                 .foregroundStyle(.white)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 36)
-                .background(.ultraThinMaterial, in: Circle())
+                .modulaGlass(in: Circle(), interactive: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

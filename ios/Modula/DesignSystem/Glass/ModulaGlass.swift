@@ -296,3 +296,29 @@ final class ModulaGlassSettings {
         if nextBubbles != glassBubbles { glassBubbles = nextBubbles }
     }
 }
+
+
+// MARK: - Sheets
+
+/// Sheet background: on iOS 26 leave the system Liquid Glass sheet alone (partial detents float as glass,
+/// large detents go opaque on their own). Reduce Transparency or older systems get `fallback`.
+private struct ModulaGlassPresentation: ViewModifier {
+    var fallback: AnyShapeStyle
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), !reduceTransparency, !ModulaGlassSettings.shared.lighter {
+            content
+        } else if reduceTransparency {
+            content.presentationBackground(Color(uiColor: .systemBackground))
+        } else {
+            content.presentationBackground(fallback)
+        }
+    }
+}
+
+extension View {
+    func modulaGlassPresentation(fallback: some ShapeStyle = .regularMaterial) -> some View {
+        modifier(ModulaGlassPresentation(fallback: AnyShapeStyle(fallback)))
+    }
+}

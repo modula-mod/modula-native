@@ -208,7 +208,7 @@ struct ImmersivePostCard: View {
                 apply(.custom(emoji))
             }
             .presentationDetents([.medium])
-            .presentationBackground(.thinMaterial)
+            .modulaGlassPresentation()
         }
         .fullScreenCover(item: $viewer) { item in
             AttachmentViewerRouter(attachment: item.attachment, imageGallery: item.gallery) { viewer = nil }

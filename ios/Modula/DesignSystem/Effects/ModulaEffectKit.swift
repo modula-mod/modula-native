@@ -392,10 +392,8 @@ struct ModulaEffectTabs<Tab: Hashable & Identifiable>: View {
             }
         }
         .padding(4)
-        .background {
-            Capsule().fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
-        }
-        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06)))
+        // Shared segmented control: native Liquid Glass track (opaque under Reduce Transparency via modulaGlass).
+        .modulaGlass(in: Capsule(), interactive: false)
     }
 }
 

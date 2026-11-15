@@ -1026,7 +1026,7 @@ struct MascotPremiumSheet: View {
         }
         .padding(.horizontal, 22)
         .presentationDetents([.medium, .large])
-        .presentationBackground(.thinMaterial)
+        .modulaGlassPresentation()
     }
 }
 

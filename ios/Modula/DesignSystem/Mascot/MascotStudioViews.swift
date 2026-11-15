@@ -1053,7 +1053,7 @@ struct MascotItemDetailSheet: View {
             .padding(.bottom, 20)
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(.thinMaterial)
+        .modulaGlassPresentation()
         .onAppear {
             if wardrobe.outfit.contains(item) { dye = wardrobe.outfit.dye(for: item.slot) }
             brain.react(.curious)

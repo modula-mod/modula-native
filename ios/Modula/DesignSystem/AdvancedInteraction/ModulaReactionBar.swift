@@ -75,9 +75,8 @@ struct ModulaReactionBar<ID: Hashable & Sendable>: View {
         }
         .padding(.horizontal, horizontalInset)
         .padding(.vertical, compact ? 4 : 6)
-        .background(background)
-        .overlay(Capsule().stroke(.primary.opacity(reduceTransparency ? 0.18 : 0.08)))
-        .shadow(color: .black.opacity(reduceTransparency ? 0 : 0.12), radius: 12, y: 4)
+        .modulaGlass(in: Capsule(), interactive: false, specular: true)
+        .overlay { if reduceTransparency { Capsule().stroke(.primary.opacity(0.18)) } }
         .gesture(scrubGesture)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Reactions")

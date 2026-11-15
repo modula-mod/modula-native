@@ -63,7 +63,7 @@ struct ModulaMediaViewerControls: View {
                     Image(systemName: "xmark")
                         .font(.body.weight(.semibold))
                         .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .modulaGlass(in: Circle(), interactive: true)
                 }
                 .accessibilityLabel("Close media")
                 Spacer()
@@ -78,7 +78,7 @@ struct ModulaMediaViewerControls: View {
                     ShareLink(item: shareURL) {
                         Image(systemName: "square.and.arrow.up")
                             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-                            .background(.ultraThinMaterial, in: Circle())
+                            .modulaGlass(in: Circle(), interactive: true)
                     }
                     .accessibilityLabel("Share \(title)")
                 } else {

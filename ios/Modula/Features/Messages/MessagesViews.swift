@@ -3697,11 +3697,8 @@ extension View {
     /// Real Liquid Glass on iOS 26, material fallback on older systems.
     @ViewBuilder
     func messagesGlass<S: Shape>(_ shape: S, tint: Color? = nil) -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffect(tint.map { Glass.regular.tint($0) } ?? .regular, in: shape)
-        } else {
-            self.background(.ultraThinMaterial, in: shape)
-        }
+        // Shared primitive: Liquid Glass on iOS 26, opaque fallback under Reduce Transparency / Lighter effects.
+        self.modulaGlass(in: shape, interactive: false, tint: tint)
     }
 }
 

@@ -363,11 +363,8 @@ struct CreationMoreOptionsSheet: View {
 /// Liquid Glass sheet background on iOS 26; thin material fallback before that.
 private struct MoreSheetBackground: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
-            content.presentationBackground(.clear).background(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 32)).ignoresSafeArea())
-        } else {
-            content.presentationBackground(.ultraThinMaterial)
-        }
+        // System Liquid Glass sheet on iOS 26; respects Reduce Transparency (opaque) via the shared modifier.
+        content.modulaGlassPresentation(fallback: .ultraThinMaterial)
     }
 }
 

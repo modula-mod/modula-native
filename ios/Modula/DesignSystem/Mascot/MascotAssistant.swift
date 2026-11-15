@@ -258,7 +258,7 @@ struct MascotAssistantDraftSheet: View {
             brain.burst(.sparkle)
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(.thinMaterial)
+        .modulaGlassPresentation()
     }
 
     @ViewBuilder private var mascotFace: some View {
