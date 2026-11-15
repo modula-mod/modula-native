@@ -32,6 +32,17 @@ struct CollectionsView: View {
                     .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items")
                 }
                 .onDelete(perform: delete)
+                // First-run nudge instead of an empty section.
+                if app.collections.userCollections.isEmpty {
+                    Button {
+                        showCreate = true
+                        HapticEngine.shared.play(.contextOpen)
+                    } label: {
+                        Label("Create your first collection", systemImage: "folder.badge.plus")
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityIdentifier("collections.createFirst")
+                }
             } footer: {
                 Text(app.collections.capabilities.serverCollections
                      ? "Collections sync with your account."
