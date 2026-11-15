@@ -180,6 +180,15 @@ struct ReelFeedView: View {
         .onKeyPress(characters: CharacterSet(charactersIn: "mM"), phases: .down) { _ in
             NotificationCenter.default.post(name: .modulaReelKey, object: "m"); return .handled
         }
+        // L like, S speed, ←/→ ±5 s.
+        .onKeyPress(characters: CharacterSet(charactersIn: "lL"), phases: .down) { _ in
+            NotificationCenter.default.post(name: .modulaReelKey, object: "l"); return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "sS"), phases: .down) { _ in
+            NotificationCenter.default.post(name: .modulaReelKey, object: "s"); return .handled
+        }
+        .onKeyPress(.leftArrow) { NotificationCenter.default.post(name: .modulaReelKey, object: "back"); return .handled }
+        .onKeyPress(.rightArrow) { NotificationCenter.default.post(name: .modulaReelKey, object: "forward"); return .handled }
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
     }
@@ -469,7 +478,18 @@ struct ReelPageView: View {
         .animation(.easeOut(duration: 0.18), value: holdPaused)
         .onReceive(NotificationCenter.default.publisher(for: .modulaReelKey)) { note in
             guard isActive, reel.attachment != nil else { return }
-            if (note.object as? String) == "m" { playback.toggleMute() } else { playback.toggle() }
+            switch note.object as? String {
+            case "m": playback.toggleMute()
+            case "l":
+                let post = resolved
+                Task { await app.postActions.toggleLike(post) }
+                HapticEngine.shared.play(.reactionSelect)
+                if !post.liked { heartBurst += 1 }
+            case "s": savedRate = Double(playback.cycleRate())
+            case "back": playback.skip(by: -5)
+            case "forward": playback.skip(by: 5)
+            default: playback.toggle()
+            }
         }
         .accessibilityAction(named: "Skip forward 10 seconds") { playback.skip(by: 10) }
         .accessibilityAction(named: "Skip back 10 seconds") { playback.skip(by: -10) }
