@@ -934,7 +934,7 @@ struct ImmersivePostCard: View {
     }
 
     private func openReactors() {
-        if app.postActions.capabilities.reactionsList {
+        if app.postActions.capabilities.reactionsList || app.postActions.capabilities.reactionsSummary {
             app.navigation.push(.post(post.id, .reactions))
             HapticEngine.shared.play(.navigation)
         } else if app.postActions.capabilities.likesList {

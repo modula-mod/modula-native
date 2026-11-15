@@ -31,7 +31,8 @@ struct PostDetailView: View {
             case .likes, .shares:
                 PostPeopleListView(postID: postID, section: section)
             case .reactions:
-                ReactionPeopleView(postID: postID)
+                // Bug fix: the summary was never passed, so the breakdown never showed.
+                ReactionPeopleView(postID: postID, summary: app.postActions.cachedPost(id: postID)?.engagement.reactionSummary)
             case .edit:
                 editDestination
             case .root:
@@ -493,7 +494,7 @@ struct PostPeopleListView: View {
                 ? "People who liked this post."
                 : "Who liked this isn’t available yet."
         case .reactions:
-            return app.postActions.capabilities.reactionsList
+            return (app.postActions.capabilities.reactionsList || app.postActions.capabilities.reactionsSummary)
                 ? "People grouped by reaction."
                 : "A breakdown of reactions isn’t available yet."
         case .shares:

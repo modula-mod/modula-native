@@ -32,6 +32,20 @@ final class PostActionController {
         state.resolved(post)
     }
 
+    func cachedPost(id: SocialPostID) -> SocialPost? { state.post(id: id) }
+
+    /// Fresh breakdown for the reactions summary; also updates the shared engagement.
+    func refreshReactionSummary(postID: SocialPostID) async -> ReactionSummary? {
+        guard ReactionBackendCapabilities.breakdownHTTP else { return nil }
+        guard let value = try? await repository.reactionSummary(postID: postID),
+              let summary = ReactionSummary.decode(from: value) else { return nil }
+        state.applyEngagement(postID: postID) {
+            $0.reactionSummary = summary
+            $0.reactionCount = summary.total
+        }
+        return summary
+    }
+
     func loadPost(id: SocialPostID) async throws -> SocialPost {
         let post = try await repository.post(id: id)
         state.upsert(post)

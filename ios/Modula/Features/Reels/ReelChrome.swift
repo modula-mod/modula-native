@@ -116,6 +116,7 @@ struct ReelTikTokRail: View {
 
 struct ReelCaptionBlock: View {
     let reel: Reel
+    var showsCaption = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded = false
 
@@ -137,31 +138,69 @@ struct ReelCaptionBlock: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
-            if let caption = reel.caption, !caption.isEmpty {
+            if showsCaption, let caption = reel.caption, !caption.isEmpty {
                 Button {
-                    withAnimation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .snappy) { expanded.toggle() }
+                    withAnimation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { expanded.toggle() }
+                    HapticEngine.shared.play(.selection)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(caption)
-                            .font(.subheadline)
-                            .foregroundStyle(.white)
-                            .lineLimit(expanded ? 12 : 2)
-                            .multilineTextAlignment(.leading)
+                        // Expanded: scrolls inside a capped height instead of pushing the rail off.
+                        if expanded {
+                            ScrollView(.vertical) {
+                                Text(caption)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.white)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .scrollIndicators(.hidden)
+                            .scrollBounceBehavior(.basedOnSize)
+                            .frame(maxHeight: 220)
+                        } else {
+                            Text(caption)
+                                .font(.subheadline)
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
                         if caption.count > 80 {
                             Text(expanded ? "less" : "more")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.7))
+                                .contentTransition(.opacity)
                         }
                     }
                     .frame(maxWidth: 280, alignment: .leading)
+                    .padding(expanded ? 10 : 0)
+                    .background {
+                        // Legibility backing only while expanded (cheap: a flat colour, no blur).
+                        if expanded {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.black.opacity(0.38))
+                                .transition(.opacity)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint(expanded ? "Collapses the caption" : "Shows the full caption")
+                .transition(.opacity)
             }
-            if !hashtags.isEmpty {
-                Text(hashtags.prefix(6).joined(separator: " "))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
+            if showsCaption, !hashtags.isEmpty {
+                // Tappable hashtags → Search (was static text).
+                HStack(spacing: 6) {
+                    ForEach(Array(hashtags.prefix(4)), id: \.self) { tag in
+                        Button {
+                            app.navigation.push(.search(.root(tag)))
+                            HapticEngine.shared.play(.navigation)
+                        } label: {
+                            Text(tag)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Search \(tag)")
+                    }
+                }
             }
             musicMarquee
         }

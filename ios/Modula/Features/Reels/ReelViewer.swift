@@ -264,7 +264,8 @@ struct ReelPageView: View {
     @State private var heartPoint: CGPoint? = nil
     @State private var clearDisplay = false
     @State private var showsQuickMenu = false
-    @State private var captionsOn = true
+    /// Quick menu "Captions": was toggled but never read. Persisted and drives the caption text.
+    @AppStorage("reels.captionsOn") private var captionsOn = true
     @State private var edgeBoost = false
     /// Hold-to-pause: pressing pauses after a short delay (so swipes don't flicker) and hides the
     /// overlays; lifting the finger resumes.
@@ -311,7 +312,7 @@ struct ReelPageView: View {
             DoubleTapHeartBurst(trigger: heartBurst, point: heartPoint)
             if !clearDisplay, !holdPaused {
                 HStack(alignment: .bottom, spacing: 0) {
-                    ReelCaptionBlock(reel: reel)
+                    ReelCaptionBlock(reel: reel, showsCaption: captionsOn)
                         .padding(.leading, 14)
                         .padding(.bottom, 56)
                     Spacer(minLength: 8)
@@ -822,6 +823,8 @@ struct ReelsInstallModuleCard: View {
 struct ReelProgressBar: View {
     let playback: ModulaVideoPlaybackController
     @State private var scrubbing: Double?
+    @State private var lastTick = -1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -831,20 +834,49 @@ struct ReelProgressBar: View {
                 Capsule().fill(.white.opacity(0.18))
                 Capsule().fill(.white.opacity(0.36)).frame(width: width * max(playback.buffered, played))
                 Capsule().fill(.white.opacity(0.95)).frame(width: width * played)
+                    // Glide between the 0.25 s time-observer ticks instead of stepping (GPU-cheap).
+                    .animation(scrubbing == nil && !reduceMotion && playback.state == .playing ? .linear(duration: 0.25) : nil, value: played)
+                if scrubbing != nil {
+                    Circle().fill(.white)
+                        .frame(width: 12, height: 12)
+                        .offset(x: width * played - 6)
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
             .frame(height: scrubbing == nil ? 2.5 : 5)
             .frame(maxHeight: .infinity, alignment: .center)
+            .overlay(alignment: .topLeading) {
+                if let scrubbing, playback.duration > 0 {
+                    // Time bubble above the finger while scrubbing.
+                    Text("\(Self.clock(scrubbing * playback.duration)) / \(Self.clock(playback.duration))")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .fixedSize()
+                        .offset(x: min(max(width * scrubbing - 46, 0), max(width - 92, 0)), y: -30)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
+            }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { value in scrubbing = min(max(value.location.x / max(width, 1), 0), 1) }
+                    .onChanged { value in
+                        let fraction = min(max(value.location.x / max(width, 1), 0), 1)
+                        scrubbing = fraction
+                        // Light tick every 10%.
+                        let tick = Int(fraction * 10)
+                        if tick != lastTick { lastTick = tick; HapticEngine.shared.play(.selection) }
+                    }
                     .onEnded { value in
                         playback.seek(to: min(max(value.location.x / max(width, 1), 0), 1))
                         scrubbing = nil
+                        lastTick = -1
                         HapticEngine.shared.play(.selection)
                     }
             )
-            .animation(.easeOut(duration: 0.15), value: scrubbing == nil)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: scrubbing == nil)
         }
         .frame(height: 22)
         .accessibilityElement()
@@ -858,5 +890,9 @@ struct ReelProgressBar: View {
             @unknown default: break
             }
         }
+    }
+    static func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.isFinite ? seconds.rounded() : 0))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
