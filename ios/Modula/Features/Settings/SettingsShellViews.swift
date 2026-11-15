@@ -585,7 +585,7 @@ struct ChatsSettingsHost: View {
                         }
                         .accessibilityIdentifier("settings.links.clearData")
                         Button("Reset reader settings") {
-                            for key in ["browser.reader.theme", "browser.reader.font", "browser.reader.size"] {
+                            for key in ["browser.reader.theme", "browser.reader.font", "browser.reader.size", "browser.reader.autoDomains"] {
                                 UserDefaults.standard.removeObject(forKey: key)
                             }
                             HapticEngine.shared.play(.success)

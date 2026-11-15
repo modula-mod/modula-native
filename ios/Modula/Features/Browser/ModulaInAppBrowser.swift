@@ -533,6 +533,12 @@ struct ModulaInAppBrowserView: View {
             #endif
         }
         .background { browserShortcuts }
+        // "Always use Reader on <site>": open Reader once a page from that site finishes loading.
+        .onChange(of: page.isLoading) { _, loading in
+            guard !loading, reader == nil, !readerLoading, page.failure == nil,
+                  ModulaReaderAutoDomains.contains(page.domain) else { return }
+            Task { await toggleReader() }
+        }
 
         .sheet(isPresented: $showQR) {
             ModulaBrowserQRSheet(url: page.url, title: page.title)
@@ -689,7 +695,7 @@ struct ModulaInAppBrowserView: View {
             Color(uiColor: .systemBackground)
             content()
             if let reader {
-                ModulaReaderView(article: reader, scale: page.zoom, bottomInset: height - top) { self.reader = nil }
+                ModulaReaderView(article: reader, scale: page.zoom, bottomInset: height - top, domain: page.domain) { self.reader = nil }
                     .transition(.opacity)
             }
             if let failure = page.failure {
@@ -1248,7 +1254,9 @@ private struct ModulaReaderView: View {
     let article: ModulaReaderArticle
     let scale: CGFloat
     let bottomInset: CGFloat
+    var domain: String = ""
     var onClose: () -> Void
+    @State private var autoReader = false
     @ScaledMetric private var bodySize: CGFloat = 19
     @AppStorage("browser.reader.theme") private var themeRaw = ReaderTheme.auto.rawValue
     @AppStorage("browser.reader.font") private var fontRaw = ReaderFont.serif.rawValue
@@ -1347,6 +1355,7 @@ private struct ModulaReaderView: View {
         .tint(.primary)
         .environment(\.colorScheme, theme.scheme ?? systemScheme)
         .onDisappear { speaker.stop() }
+        .onAppear { autoReader = ModulaReaderAutoDomains.contains(domain) }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: themeRaw)
         .accessibilityIdentifier("browser.reader")
     }
@@ -1437,6 +1446,15 @@ private struct ModulaReaderView: View {
                     }
                     Picker("Theme", selection: $themeRaw) {
                         ForEach(ReaderTheme.allCases) { Text($0.title).tag($0.rawValue) }
+                    }
+                    if !domain.isEmpty {
+                        Toggle(isOn: Binding(get: { autoReader }, set: { on in
+                            autoReader = on
+                            ModulaReaderAutoDomains.set(on, for: domain)
+                            HapticEngine.shared.play(.selection)
+                        })) {
+                            Label("Always use Reader on \(domain)", systemImage: "doc.plaintext")
+                        }
                     }
                     Section {
                         Button { speaker.toggle(plainText) } label: {
@@ -1961,5 +1979,19 @@ private struct ModulaBrowserQRSheet: View {
         .padding(24)
         .frame(maxWidth: .infinity)
         .task { image = ModulaProfileCodeView.qrImage(for: url.absoluteString) }
+    }
+}
+
+
+/// Sites the user asked to always open in Reader (this device only).
+enum ModulaReaderAutoDomains {
+    private static let key = "browser.reader.autoDomains"
+    static func contains(_ domain: String) -> Bool {
+        !domain.isEmpty && (UserDefaults.standard.stringArray(forKey: key) ?? []).contains(domain)
+    }
+    static func set(_ on: Bool, for domain: String) {
+        var all = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        if on { all.insert(domain) } else { all.remove(domain) }
+        UserDefaults.standard.set(Array(all).sorted(), forKey: key)
     }
 }
