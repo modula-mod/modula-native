@@ -27,7 +27,12 @@ final class MessagingStore {
     private(set) var conversationState: MessagingLoadState = .idle
     var conversationQuery = ""
 
-    private(set) var threads: [ConversationID: [Message]] = [:]
+    private(set) var threads: [ConversationID: [Message]] = [:] {
+        didSet { chronologicalCache = [:] }
+    }
+    /// `messages(for:)` is read many times per chat render (list, header, typing, search);
+    /// sorting the thread each time was measurable on long chats. Cleared on any thread write.
+    @ObservationIgnored private var chronologicalCache: [ConversationID: [Message]] = [:]
     private(set) var threadCursors: [ConversationID: String?] = [:]
     private(set) var threadHasMore: [ConversationID: Bool] = [:]
     private(set) var threadState: [ConversationID: MessagingLoadState] = [:]
@@ -813,7 +818,11 @@ final class MessagingStore {
     }
 
     func messages(for id: ConversationID) -> [Message] {
-        MessagingOrdering.messagesChronological(threads[id] ?? [])
+        let raw = threads[id] ?? []  // read through `threads` so observation still tracks it
+        if let cached = chronologicalCache[id] { return cached }
+        let sorted = MessagingOrdering.messagesChronological(raw)
+        chronologicalCache[id] = sorted
+        return sorted
     }
 
     /// Sign-out / account switch: drop the previous account's in-memory data so the next

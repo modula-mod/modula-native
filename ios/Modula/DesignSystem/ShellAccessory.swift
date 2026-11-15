@@ -1441,6 +1441,10 @@ struct InstalledModulesPanel: View {
 
     @ViewBuilder
     private var content: some View {
+        // Computed once per render (it reads recents from disk and sorts); it was evaluated
+        // three times per body before.
+        let shown = self.shown
+        let installed = self.installed
         if let error = app.catalogue.error, installed.isEmpty {
             ModulaErrorState(message: error) {
                 Task { await app.catalogue.load() }

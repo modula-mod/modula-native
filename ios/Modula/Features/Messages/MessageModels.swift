@@ -610,7 +610,9 @@ enum MessagingOrdering {
     }
 
     static func messagesChronological(_ items: [Message]) -> [Message] {
-        items.sorted { $0.sentAt < $1.sentAt }
+        // Usually already in order (pages arrive sorted): skip the O(n log n) sort then.
+        if zip(items, items.dropFirst()).allSatisfy({ $0.sentAt <= $1.sentAt }) { return items }
+        return items.sorted { $0.sentAt < $1.sentAt }
     }
 }
 
