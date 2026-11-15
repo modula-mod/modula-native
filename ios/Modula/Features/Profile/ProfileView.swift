@@ -21,7 +21,6 @@ struct ProfileView: View {
     @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var navReduceMotion
     @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
-    @State private var dressUpMascot = false
     @State private var confirmsBlock = false
     @State private var confirmsReport = false
     @State private var mediaViewer: ModulaMediaViewerItem?

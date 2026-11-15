@@ -491,8 +491,6 @@ struct NodusChatSettingsSheet: View {
     @Bindable var model: NodusChatViewModel
     @State private var instructions = ""
     @State private var projectInstructions = ""
-    @State private var promptTitle = ""
-    @State private var promptBody = ""
 
     private var conversation: NodusConversation? { model.activeConversation }
     private var placement: NodusChatPlacement? {

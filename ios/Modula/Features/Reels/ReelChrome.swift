@@ -12,7 +12,6 @@ struct ReelTikTokRail: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var following = false
     @State private var followBusy = false
-    @State private var spin = false
 
     var body: some View {
         VStack(spacing: 16) {

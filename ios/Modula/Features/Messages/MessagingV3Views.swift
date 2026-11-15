@@ -349,7 +349,6 @@ struct GroupInfoView: View {
     @State private var description: String = ""
     @State private var addQuery = ""
     @State private var confirmLeave = false
-    @State private var removing: String?
 
     private var group: GroupDetail? { app.messaging.groups[conversationID] }
 

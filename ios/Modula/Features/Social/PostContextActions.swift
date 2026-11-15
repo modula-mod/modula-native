@@ -950,20 +950,24 @@ struct PostMenuButton<Label: View>: View {
     var makeRequest: (CGRect) -> PostMenuRequest
     @ViewBuilder var label: () -> Label
     @Environment(AppEnvironment.self) private var app
-    @State private var frame: CGRect = .zero
+    /// Speed: a plain reference box, not @State. Writing @State here on every scroll frame
+    /// re-rendered every visible row's menu button while scrolling.
+    @State private var frameBox = ModulaFrameBox()
 
     var body: some View {
-        let request = makeRequest(frame == .zero ? CGRect(x: 0, y: 0, width: 44, height: 44) : frame)
+        let request = makeRequest(CGRect(x: 0, y: 0, width: 44, height: 44))
         PostOptionsMenuButton(
             post: request.post,
             isOwn: request.isOwn,
             capabilities: app.postActions.capabilities,
             onSelect: { id in
-                PostMenuExecutor.run(id, request: request, app: app)
+                // Anchor from the latest frame at selection time.
+                let anchor = frameBox.frame == .zero ? CGRect(x: 0, y: 0, width: 44, height: 44) : frameBox.frame
+                PostMenuExecutor.run(id, request: makeRequest(anchor), app: app)
             },
             label: label
         )
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frameBox.frame = $0 }
     }
 }
 

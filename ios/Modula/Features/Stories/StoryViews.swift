@@ -2445,7 +2445,6 @@ struct StoryCreateView: View {
     @State private var exporting = false
 
     // sticker sheet + forms
-    @State private var stickerTab: StickerTab = .emoji
     @State private var gifQuery = ""
     @State private var gifs: [ModulaGif] = []
     @State private var gifStatus: String?

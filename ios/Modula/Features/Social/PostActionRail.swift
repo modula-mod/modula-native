@@ -17,7 +17,6 @@ struct PostActionRail: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var moreFrame: CGRect = .zero
     @State private var showsReactions = false
 
     private var contextActions: [ModulaContextAction] {
@@ -33,7 +32,6 @@ struct PostActionRail: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
                 .accessibilityLabel("More actions")
                 railButton(
                     title: post.viewerReaction?.accessibilityName ?? "Like",

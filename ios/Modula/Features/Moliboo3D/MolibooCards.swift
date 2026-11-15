@@ -590,7 +590,6 @@ struct MolibooPackOpeningView: View {
     @State private var legendaryCard: MolibooCard?
     @State private var burst = false
     @State private var flash = false
-    @State private var ambient = MolibooTiltSource()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     private var motionOn: Bool { !reduceMotion && scenePhase == .active }

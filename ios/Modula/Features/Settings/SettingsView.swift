@@ -151,12 +151,10 @@ struct SettingsView: View {
     #if DEBUG
     @State private var debugScroll = ScrollPosition(edge: .top)
     #endif
-    @State private var headerProgress: CGFloat = 0
     @State private var scrollY: CGFloat = 0
     @State private var avatarFrame: CGRect = .zero
     @State private var showsQR = false
     @State private var intelligenceStatus = "Checking local providers"
-    @State private var quickPane: SettingsQuickPane?
     @State private var showsPrivacyDashboard = false
     @AppStorage("settings.battery.dataSaver") private var dataSaver = false
     @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true

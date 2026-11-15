@@ -355,7 +355,6 @@ struct PostShareSheet: View {
     let post: SocialPost
     var onDismiss: () -> Void
     @Environment(AppEnvironment.self) private var app
-    @State private var showsSystemShare = false
 
     var body: some View {
         NavigationStack {

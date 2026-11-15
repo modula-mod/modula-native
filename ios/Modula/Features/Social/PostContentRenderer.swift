@@ -383,12 +383,12 @@ struct ModulaVideoSurface: View {
                 ImmersiveVideoProgress(controller: controller)
             }
         }
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear { reportVisibility(geometry.frame(in: .global)) }
-                    .onChange(of: geometry.frame(in: .global)) { _, frame in reportVisibility(frame) }
-            }
+        // Speed: visible fraction quantised to 5% steps, so the coordinator is told only when the
+        // bucket changes instead of on every scroll frame for every video cell.
+        .onGeometryChange(for: Int.self) { proxy in
+            ModulaVideoSurface.visibleBucket(proxy.frame(in: .global), viewportHeight: viewportHeight)
+        } action: { bucket in
+            coordinator?.updateVisibility(id: attachment.id, fraction: Double(bucket) / 20)
         }
         .onDisappear {
             coordinator?.remove(id: attachment.id)
@@ -425,12 +425,15 @@ struct ModulaVideoSurface: View {
         }
     }
 
-    private func reportVisibility(_ frame: CGRect) {
-        guard frame.height > 0 else { return }
-        let viewport = UIScreen.main.bounds
-        let visible = frame.intersection(viewport)
-        let fraction = visible.isNull ? 0 : Double(max(0, visible.height / frame.height))
-        coordinator?.updateVisibility(id: attachment.id, fraction: fraction)
+    /// Read once per body on the main actor; the geometry transform only does arithmetic.
+    private var viewportHeight: CGFloat { UIScreen.main.bounds.height }
+
+    nonisolated static func visibleBucket(_ frame: CGRect, viewportHeight: CGFloat) -> Int {
+        guard frame.height > 0 else { return 0 }
+        let top = max(frame.minY, 0)
+        let bottom = min(frame.maxY, viewportHeight)
+        let visible = max(0, bottom - top)
+        return Int((visible / frame.height * 20).rounded())
     }
 }
 
