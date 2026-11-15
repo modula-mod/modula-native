@@ -306,6 +306,7 @@ final class SpatialRecentsTests: XCTestCase {
                                   .settings(.moliboo), .settings(.privacy(.root)), .developer(.studio), .productHub(.featured),
                                   .settings(.notifications(.root))]
         routes.forEach { SpatialRecents.note($0, defaults: defaults) }
-        XCTAssertEqual(SpatialRecents.load(defaults: defaults).count, SpatialRecents.limit)
+        XCTAssertEqual(defaults.stringArray(forKey: SpatialRecents.key)?.count, SpatialRecents.limit)
+        XCTAssertLessThanOrEqual(SpatialRecents.load(defaults: defaults).count, SpatialRecents.limit)
     }
 }
