@@ -1048,6 +1048,9 @@ struct ModulaEmptyState: View {
     /// One character, in place of the symbol. Call sites that omit it keep the symbol.
     var illustration: SproutIllustration? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pokes = 0
+    @State private var hops = 0
     var body: some View {
         ContentUnavailableView {
             VStack(spacing: 10) {
@@ -1064,7 +1067,23 @@ struct ModulaEmptyState: View {
                                 .frame(width: 30, height: 30)
                                 .modulaGlass(in: Circle(), interactive: false)
                                 .offset(x: -6, y: -4)
+                                .symbolEffect(.bounce, value: pokes)
                         }
+                        // Delight: poke the Moliboo and it hops (flat 2D squash-and-stretch).
+                        .keyframeAnimator(initialValue: 0.0, trigger: hops) { content, stretch in
+                            content.scaleEffect(x: 1 - 0.08 * stretch, y: 1 + 0.1 * stretch, anchor: .bottom)
+                        } keyframes: { _ in
+                            SpringKeyframe(-1.0, duration: 0.1)
+                            SpringKeyframe(1.0, duration: 0.16)
+                            SpringKeyframe(0.0, duration: 0.3, spring: .bouncy)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            pokes += 1
+                            if !reduceMotion { hops += 1 }
+                            HapticEngine.shared.play(.lightImpact)
+                        }
+                        .accessibilityHidden(true)
                 }
                 Text(title).font(.title3.weight(.semibold))
             }
