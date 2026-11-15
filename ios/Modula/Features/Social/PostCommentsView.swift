@@ -427,7 +427,13 @@ enum CommentSort: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+private struct CommentPollKey: Hashable {
+    let postID: SocialPostID
+    let active: Bool
+}
+
 struct PostCommentsView: View {
+    @Environment(\.scenePhase) private var scenePhase
     let postID: SocialPostID
     var isSheet: Bool = false
     var onClose: (() -> Void)? = nil
@@ -887,8 +893,11 @@ struct PostCommentsView: View {
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
+                    // Keyed on scene activity too: polling stops in the background / app switcher
+                    // (it kept firing every 25 s there) and resumes on return.
                     Color.clear.frame(height: 0)
-                        .task(id: store.postID) {
+                        .task(id: CommentPollKey(postID: store.postID, active: scenePhase == .active)) {
+                            guard scenePhase == .active else { return }
                             while !Task.isCancelled {
                                 try? await Task.sleep(for: .seconds(25))
                                 guard !Task.isCancelled else { return }
