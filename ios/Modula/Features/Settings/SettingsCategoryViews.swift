@@ -28,6 +28,8 @@ struct SettingsDestinationHost: View {
             .modulaSoftScrollEdge()
             // Forms/Lists: keep the last row (and footers) clear of the tab bar and floating buttons.
             .contentMargins(.bottom, SettingsInsets.bottom, for: .scrollContent)
+            // Every Settings switch gives a light selection tick when flipped.
+            .toggleStyle(SettingsHapticToggleStyle())
             .onAppear { SettingsRecents.record(route) }
     }
 
@@ -1561,5 +1563,15 @@ struct SettingsRecentsCard: View {
             }
         }
         .onAppear { recents = SettingsRecents.load() }
+    }
+}
+
+
+/// System switch plus a selection haptic when the value flips (Settings pages only).
+struct SettingsHapticToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Toggle(configuration)
+            .toggleStyle(.switch)
+            .sensoryFeedback(.selection, trigger: configuration.isOn)
     }
 }
