@@ -251,7 +251,7 @@ struct MolibooMarketplaceView: View {
             .padding(.horizontal, 16)
             familyChips(families, onPick: nil)
             HStack {
-                Text("\(shown.count) Moliboos").font(.subheadline.weight(.semibold))
+                Text("\(shown.count) \(shown.count == 1 ? "Moliboo" : "Moliboos")").font(.subheadline.weight(.semibold))
                     .contentTransition(.numericText())
                     .animation(.snappy, value: shown.count)
                 Spacer()
@@ -466,7 +466,7 @@ struct MolibooFamilyCollection: View {
                 HStack {
                     Text("Meet \(family.name)").font(.title3.weight(.bold))
                     Spacer()
-                    Text("\(characters.count) characters").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("\(characters.count) \(characters.count == 1 ? "character" : "characters")").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(characters) { m in
