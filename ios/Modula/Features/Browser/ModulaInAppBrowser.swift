@@ -172,6 +172,12 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
         reload()
     }
 
+    func scrollToTop() {
+        let scroll = webView.scrollView
+        scroll.setContentOffset(CGPoint(x: 0, y: -scroll.adjustedContentInset.top), animated: true)
+        barsHidden = false
+    }
+
     /// Text size is remembered per domain.
     private func applySiteZoom() {
         let stored = ModulaBrowserSiteZoom.zoom(for: url.host)
@@ -903,6 +909,13 @@ struct ModulaInAppBrowserView: View {
                     HapticEngine.shared.play(.lightImpact)
                 }
                 .symbolEffect(.rotate, value: page.isLoading)
+                // Long-press: scroll to top, or reload bypassing the cache.
+                .contextMenu {
+                    Button { page.scrollToTop() } label: { Label("Scroll to top", systemImage: "arrow.up.to.line") }
+                    Button { page.webView.reloadFromOrigin(); HapticEngine.shared.play(.lightImpact) } label: {
+                        Label("Reload from server", systemImage: "arrow.clockwise.circle")
+                    }
+                }
                 .accessibilityIdentifier("browser.reload")
             }
         }
@@ -973,6 +986,16 @@ struct ModulaInAppBrowserView: View {
         .padding(.trailing, 4)
         .frame(height: 46)
         .modulaGlass(in: Capsule())
+        // Swipe the address pill sideways: back / forward.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24).onEnded { value in
+                guard abs(value.translation.width) > 70, abs(value.translation.height) < 40 else { return }
+                if value.translation.width > 0, page.canGoBack { page.webView.goBack() }
+                else if value.translation.width < 0, page.canGoForward { page.webView.goForward() }
+                else { return }
+                HapticEngine.shared.play(.selection)
+            }
+        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("browser.domain")
     }
