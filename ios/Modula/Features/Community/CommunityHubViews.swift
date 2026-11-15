@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CommunityRootView: View {
     let route: CommunityRoute
@@ -233,7 +234,7 @@ private struct CommunityDirectoryCard: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.98))
         .accessibilityIdentifier("community.open.\(community.id)")
     }
 }
@@ -353,7 +354,7 @@ struct CommunityBuildersView: View {
                 postComposer
             }
             if app.communities.posts.isEmpty {
-                CommunityPanel { Text(CommunityCopy.postsEmpty).font(.subheadline).foregroundStyle(.secondary) }
+                ModulaEmptyState(title: CommunityCopy.postsEmpty, message: "Posts from members show up here.", symbol: "text.bubble")
             } else {
                 ForEach(app.communities.posts) { item in
                     SharedFeedPostCard(post: item.post, identifierPrefix: "community")
@@ -370,7 +371,7 @@ struct CommunityBuildersView: View {
             }
         case .events:
             if app.communities.events.isEmpty {
-                CommunityPanel { Text(CommunityCopy.eventsEmpty).font(.subheadline).foregroundStyle(.secondary) }
+                ModulaEmptyState(title: CommunityCopy.eventsEmpty, message: "Upcoming events will be listed here.", symbol: "calendar")
             } else {
                 ForEach(app.communities.events) { event in
                     CommunityEventCard(event: event) {
@@ -383,7 +384,7 @@ struct CommunityBuildersView: View {
             }
         case .members:
             if app.communities.members.isEmpty {
-                CommunityPanel { Text(CommunityCopy.membersEmpty).font(.subheadline).foregroundStyle(.secondary) }
+                ModulaEmptyState(title: CommunityCopy.membersEmpty, message: "Members appear here once they join.", symbol: "person.2")
             } else {
                 ForEach(app.communities.members) { member in
                     CommunityMemberRow(member: member) {
@@ -546,7 +547,12 @@ private struct CommunityMemberRow: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.98))
+        .contextMenu {
+            Button { UIPasteboard.general.string = "@" + member.profile.handle; HapticEngine.shared.play(.success) } label: {
+                Label("Copy handle", systemImage: "at")
+            }
+        }
     }
 }
 
