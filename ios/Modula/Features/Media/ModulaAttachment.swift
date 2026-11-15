@@ -249,7 +249,7 @@ struct ModulaRemoteImage<Content: View>: View {
         self.retryID = retryID
         self.content = content
         // Seed from the memory cache so re-appearing cells render instantly (no loading flash).
-        let cached = MainActor.assumeIsolated { ModulaRemoteImageCache.shared.image(for: cacheKey) }
+        let cached = MainActor.assumeIsolated { ModulaRemoteImageCache.shared.image(for: cacheKey, atLeast: maximumPixelSize) }
         _phase = State(initialValue: cached.map { .success($0) } ?? .loading)
     }
 
@@ -266,7 +266,7 @@ struct ModulaRemoteImage<Content: View>: View {
             phase = .failure("Media is unavailable.")
             return
         }
-        if let cached = ModulaRemoteImageCache.shared.image(for: cacheKey) {
+        if let cached = ModulaRemoteImageCache.shared.image(for: cacheKey, atLeast: maximumPixelSize) {
             phase = .success(cached)
             return
         }
@@ -279,12 +279,14 @@ struct ModulaRemoteImage<Content: View>: View {
             try Task.checkCancellation()
             let maximumPixelSize = maximumPixelSize
             guard let image = await Task.detached(priority: .userInitiated, operation: {
-                ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
+                ModulaSignpost.measure("ImageDecode", "\(Int(maximumPixelSize))px") {
+                    ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
+                }
             }).value else {
                 phase = .failure("The image could not be decoded.")
                 return
             }
-            ModulaRemoteImageCache.shared.insert(image, for: cacheKey)
+            ModulaRemoteImageCache.shared.insert(image, for: cacheKey, requestedPixelSize: maximumPixelSize)
             phase = .success(image)
         } catch is CancellationError {
             return
@@ -305,7 +307,8 @@ enum ModulaImagePrefetcher {
     @MainActor private static var requested = Set<String>()
 
     @MainActor static func prefetch(url: URL?, cacheKey: String, maximumPixelSize: CGFloat, client: GreenfieldClient) {
-        guard let url, !requested.contains(cacheKey), ModulaRemoteImageCache.shared.image(for: cacheKey) == nil else { return }
+        guard let url, !requested.contains(cacheKey),
+              ModulaRemoteImageCache.shared.image(for: cacheKey, atLeast: maximumPixelSize) == nil else { return }
         requested.insert(cacheKey)
         if requested.count > 600 { requested.removeAll(keepingCapacity: true) }
         Task(priority: .utility) { @MainActor in
@@ -313,7 +316,7 @@ enum ModulaImagePrefetcher {
             guard let image = await Task.detached(priority: .utility, operation: {
                 ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
             }).value else { return }
-            ModulaRemoteImageCache.shared.insert(image, for: cacheKey)
+            ModulaRemoteImageCache.shared.insert(image, for: cacheKey, requestedPixelSize: maximumPixelSize)
         }
     }
 }
@@ -362,16 +365,31 @@ private final class ModulaRemoteImageCache {
         return cache
     }()
 
-    func image(for key: String) -> UIImage? {
-        small.object(forKey: key as NSString) ?? storage.object(forKey: key as NSString)
+    /// Keys whose cached decode is the full original (the source was smaller than the request).
+    private var complete = Set<String>()
+
+    /// Bug fix: one cache key can be shown at several sizes (avatar → profile header, feed → viewer).
+    /// A small decode used to be returned for a large request and upscaled (blurry). Now a cached
+    /// image only satisfies requests it can render sharply; otherwise the caller re-decodes from the
+    /// disk cache (no network) and replaces the entry.
+    func image(for key: String, atLeast pixelSize: CGFloat = 0) -> UIImage? {
+        guard let image = small.object(forKey: key as NSString) ?? storage.object(forKey: key as NSString) else { return nil }
+        guard pixelSize > 0, !complete.contains(key) else { return image }
+        let longest = max(image.size.width, image.size.height) * image.scale
+        return longest >= pixelSize * 0.85 ? image : nil
     }
 
-    func insert(_ image: UIImage, for key: String) {
+    func insert(_ image: UIImage, for key: String, requestedPixelSize: CGFloat = 0) {
         let width = image.size.width * image.scale, height = image.size.height * image.scale
+        if requestedPixelSize > 0, max(width, height) < requestedPixelSize - 1 { complete.insert(key) } else { complete.remove(key) }
+        if complete.count > 4_000 { complete.removeAll(keepingCapacity: true) }
         let cost = min(Int(width * height) * 4, Int.max)
+        // One entry per key: a sharper re-decode must not be shadowed by the old one in the other tier.
         if max(width, height) <= 480 {
+            storage.removeObject(forKey: key as NSString)
             small.setObject(image, forKey: key as NSString, cost: cost)
         } else {
+            small.removeObject(forKey: key as NSString)
             storage.setObject(image, forKey: key as NSString, cost: cost)
         }
     }

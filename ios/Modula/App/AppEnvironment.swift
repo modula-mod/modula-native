@@ -54,6 +54,10 @@ final class AppEnvironment {
     let nodusModels: NodusModelManager
 
     init() {
+        ModulaSignpost.begin("Launch")
+        ModulaSignpost.begin("LaunchToFeed")
+        ModulaSignpost.begin("EnvironmentInit")
+        defer { ModulaSignpost.end("EnvironmentInit") }
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
         ModulaPreferences.resetInertLabsTogglesIfNeeded()
@@ -294,6 +298,7 @@ final class AppEnvironment {
     }
 
     func bootstrapLaunch() async {
+        ModulaSignpost.begin("Bootstrap")
         gate.beginBoot()
         #if DEBUG
         // UITest-only: start signed out against the isolated N1 fixture so the real

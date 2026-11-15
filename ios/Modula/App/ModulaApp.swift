@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import CoreSpotlight
+import os
 import UserNotifications
 
 @main
@@ -25,7 +26,8 @@ struct ModulaApp: App {
                     #endif
                     ModulaBrowserPresenter.shared.environment = environment
                     appDelegate.environment = environment
-                    environment.refreshQuickActions()
+                    // Speed: quick actions are refreshed by bootstrapLaunch's deferred utility task;
+                    // doing it here as well ran it on the first-frame path twice.
                 }
                 #if DEBUG
                 .task {
@@ -229,6 +231,13 @@ enum ModulaPerf {
     static func mark(_ name: String) {
         guard !marked.contains(name) else { return }
         marked.insert(name)
+        ModulaSignpost.event("Mark", name)
+        switch name {
+        case "firstFrame": ModulaSignpost.end("Launch")
+        case "gateReady": ModulaSignpost.end("Bootstrap")
+        case "firstFeedRow": ModulaSignpost.end("FeedFirstPaint"); ModulaSignpost.end("LaunchToFeed")
+        default: break
+        }
         let ms = Int((Date().timeIntervalSince1970 - processStart) * 1000)
         print("MODULA_PERF \(name) \(ms)ms")
         // Settings → About → Performance shows the last launch (local only).
@@ -283,5 +292,43 @@ enum ModulaPerf {
                 }
             }
         }
+    }
+}
+
+
+// MARK: - Signposts (Instruments → Points of Interest / os_signpost)
+/// Interval + event markers for the hot paths. Open Instruments → "Points of Interest" (or the
+/// "os_signpost" instrument, subsystem `digital.modula.app.native`) to see before/after timings.
+/// Intervals: Launch (AppEnvironment.init → first frame), LaunchToFeed (→ first feed row),
+/// Bootstrap (bootstrapLaunch → gate ready), FeedFirstPaint (feed load → first row), ChatOpen
+/// (thread appears → first messages on screen), SheetOpen (sheet content built → on screen),
+/// SideSheetOpen, Request (each Greenfield call), ImageDecode. Release builds keep them: signposts
+/// are near-free when no tool is recording.
+enum ModulaSignpost {
+    nonisolated static let signposter = OSSignposter(subsystem: "digital.modula.app.native", category: .pointsOfInterest)
+    private nonisolated static let open = OSAllocatedUnfairLock(initialState: [String: OSSignpostIntervalState]())
+
+    /// Begins `name` for `key` (one open interval per name+key; a second begin restarts it).
+    nonisolated static func begin(_ name: StaticString, _ key: String = "") {
+        let state = signposter.beginInterval(name, id: signposter.makeSignpostID(), "\(key, privacy: .public)")
+        let slot = "\(name)|\(key)"
+        open.withLock { $0[slot] = state }
+    }
+
+    nonisolated static func end(_ name: StaticString, _ key: String = "") {
+        let slot = "\(name)|\(key)"
+        guard let state = open.withLock({ $0.removeValue(forKey: slot) }) else { return }
+        signposter.endInterval(name, state)
+    }
+
+    nonisolated static func event(_ name: StaticString, _ detail: String = "") {
+        signposter.emitEvent(name, "\(detail, privacy: .public)")
+    }
+
+    /// Wraps synchronous work in an interval.
+    nonisolated static func measure<T>(_ name: StaticString, _ key: String = "", _ work: () throws -> T) rethrows -> T {
+        let state = signposter.beginInterval(name, id: signposter.makeSignpostID(), "\(key, privacy: .public)")
+        defer { signposter.endInterval(name, state) }
+        return try work()
     }
 }

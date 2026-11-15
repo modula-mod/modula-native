@@ -175,8 +175,19 @@ struct ShellSidebarContainer<Content: View>: View {
             ZStack(alignment: .topLeading) {
                 content
                     .coordinateSpace(.named(ShellChromeFreeze.cardSpace))
-                    // Sheet style: Home lightly blurred behind (opaque dim only under Reduce Transparency).
-                    .blur(radius: sheetStyle && !reduceTransparency && !reduceMotion ? 3 * progress : 0)
+                    // Sheet style: Home lightly frosted behind (opaque dim only under Reduce Transparency).
+                    // Speed: was `.blur(radius: 3 * progress)` on the whole app — SwiftUI re-rasterised
+                    // the entire Home tree into an offscreen buffer on every drag frame. A system material
+                    // backdrop whose *opacity* tracks the drag is composited by the GPU instead.
+                    .overlay {
+                        if sheetStyle, !reduceTransparency, !reduceMotion, !ModulaGlassSettings.shared.lighter, progress > 0.001 {
+                            Rectangle().fill(.ultraThinMaterial)
+                                .opacity(min(progress * 0.55, 0.55))
+                                .ignoresSafeArea()
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    }
                     .accessibilityHidden(presented)
                     .onChange(of: dragging) { _, isDragging in
                         ShellChromeFreeze.isSidebarDragging = isDragging

@@ -64,8 +64,18 @@ struct SpatialSurfaceContainer<Content: View>: View {
 
             ZStack(alignment: .topTrailing) {
                 content
-                    // Lightly blurred Home behind the sheet; opaque dim instead under Reduce Transparency.
-                    .blur(radius: reduceTransparency || reduceMotion ? 0 : 3 * progress)
+                    // Lightly frosted Home behind the sheet; opaque dim instead under Reduce Transparency.
+                    // Speed: a GPU-composited material whose opacity follows the drag replaces
+                    // `.blur(radius: 3 * progress)`, which re-rasterised all of Home every frame.
+                    .overlay {
+                        if !reduceTransparency, !reduceMotion, !ModulaGlassSettings.shared.lighter, progress > 0.001 {
+                            Rectangle().fill(.ultraThinMaterial)
+                                .opacity(min(progress * 0.55, 0.55))
+                                .ignoresSafeArea()
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    }
                     .accessibilityHidden(presented)
 
                 if canOpenFromEdge {

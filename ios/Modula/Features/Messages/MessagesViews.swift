@@ -1457,19 +1457,32 @@ struct ConversationView: View {
                 return
             }
             #endif
-            await app.messaging.loadThreadIfNeeded(conversationID)
-            await app.messaging.probeCapabilities()
-            await app.messaging.loadMessagePins(conversationID)
-            if app.messaging.capabilities.groups, conversation?.kind == .group {
-                await app.messaging.loadGroup(conversationID)
-            }
-            if app.messaging.capabilities.presence, let actor = conversation?.participants.first?.id {
-                await app.messaging.refreshPresence(for: [actor])
-            }
-            if app.calls.capabilities.enabled, conversation?.kind == .direct {
-                await app.calls.loadHistory(conversationID)
+            // Speed: the thread page and the capability probe run together, then the secondary
+            // fetches (pins, group, presence, call history) run in parallel instead of four
+            // sequential round trips before the header settles.
+            let messaging = app.messaging
+            let calls = app.calls
+            let id = conversationID
+            async let thread: Void = messaging.loadThreadIfNeeded(id)
+            async let probe: Void = messaging.probeCapabilities()
+            _ = await (thread, probe)
+            let kind = conversation?.kind
+            let firstParticipant = conversation?.participants.first?.id
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor in await messaging.loadMessagePins(id) }
+                if messaging.capabilities.groups, kind == .group {
+                    group.addTask { @MainActor in await messaging.loadGroup(id) }
+                }
+                if messaging.capabilities.presence, let actor = firstParticipant {
+                    group.addTask { @MainActor in await messaging.refreshPresence(for: [actor]) }
+                }
+                if calls.capabilities.enabled, kind == .direct {
+                    group.addTask { @MainActor in await calls.loadHistory(id) }
+                }
             }
         }
+        .onAppear { ModulaSignpost.begin("ChatOpen", conversationID) }
+        .onDisappear { ModulaSignpost.end("ChatOpen", conversationID) }
         .task(id: conversationID) { await pollLoop() }
         .onChange(of: searchQuery) { _, _ in
             searchIndex = 0
@@ -1738,6 +1751,7 @@ struct ConversationView: View {
                 .task(id: items.isEmpty) {
                     guard !items.isEmpty, !didInitialScroll, jumpTarget == nil else { return }
                     didInitialScroll = true
+                    ModulaSignpost.end("ChatOpen", conversationID)
                     try? await Task.sleep(for: .milliseconds(30))
                     var t = Transaction(); t.disablesAnimations = true
                     withTransaction(t) { if let last = items.last?.id { proxy.scrollTo(last, anchor: .bottom) } }

@@ -765,7 +765,17 @@ actor GreenfieldClient {
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
         let started = Date()
-        let (data, response) = try await transport.data(for: request)
+        let safeSignpostPath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+        let signpostState = ModulaSignpost.signposter.beginInterval("Request", id: ModulaSignpost.signposter.makeSignpostID(),
+                                                                    "\(method, privacy: .public) \(safeSignpostPath, privacy: .public)")
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await transfer(request, method: method, path: path, bearer: bearer)
+        } catch {
+            ModulaSignpost.signposter.endInterval("Request", signpostState, "failed")
+            throw error
+        }
+        ModulaSignpost.signposter.endInterval("Request", signpostState, "\(data.count, privacy: .public)B")
         if ModulaPreferences.verboseLogging {
             // Settings → Labs → "Verbose local logging": method, path (with the query
             // stripped), status, size and timing only — never headers or bodies.
@@ -776,7 +786,30 @@ actor GreenfieldClient {
                 "verbose \(method, privacy: .public) \(safePath, privacy: .public) → \(status, privacy: .public) \(data.count, privacy: .public)B \(elapsed, privacy: .public)ms"
             )
         }
+        // Speed: large bodies (feeds, threads, catalogue) decode on a background executor so the
+        // client actor stays free for the parallel requests that follow them.
+        if data.count > 32_768 {
+            return try await Task.detached(priority: .userInitiated) {
+                try Self.decodeEnvelope(data, response: response, method: method, path: path) as T
+            }.value
+        }
         return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+    }
+
+    /// Speed: identical concurrent GETs (same path, same session) share one network round trip —
+    /// e.g. Home, the side sheet and a badge refresh all asking for the same page at launch.
+    /// Writes are never coalesced.
+    private var inFlightGETs: [String: Task<(Data, URLResponse), Error>] = [:]
+
+    private func transfer(_ request: URLRequest, method: String, path: String, bearer: String?) async throws -> (Data, URLResponse) {
+        guard method == "GET" else { return try await transport.data(for: request) }
+        let key = "\(path)|\(bearer?.suffix(16) ?? "anon")"
+        if let existing = inFlightGETs[key] { return try await existing.value }
+        let transport = self.transport
+        let task = Task { try await transport.data(for: request) }
+        inFlightGETs[key] = task
+        defer { inFlightGETs[key] = nil }
+        return try await task.value
     }
 
     /// Decodes a Greenfield envelope. Responses that are not envelopes (for example the

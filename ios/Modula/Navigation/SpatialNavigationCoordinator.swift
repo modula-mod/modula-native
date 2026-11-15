@@ -91,6 +91,8 @@ final class SpatialNavigationCoordinator {
     private(set) var activeSheet: SpatialSheet? {
         didSet {
             guard oldValue != activeSheet else { return }
+            // Instruments: one event per layer change (sidebar / profile / dock) to line up with hitches.
+            ModulaSignpost.event("SpatialSheet", "\(String(describing: oldValue)) → \(String(describing: activeSheet))")
             lastTransition = SpatialTransition(from: oldValue, to: activeSheet)
             sheetPath = []
             onTransition?(oldValue, activeSheet)

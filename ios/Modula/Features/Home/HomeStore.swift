@@ -15,6 +15,8 @@ final class HomeStore {
     /// per filter chip), each time filtering + resolving the whole feed.
     @ObservationIgnored private var modesRevision: UInt64 = 0
     @ObservationIgnored private var visibleMemo: [HomeMode: VisibleMemo] = [:]
+    /// Instruments: `FeedFirstPaint` runs from the first feed request to the first rendered row.
+    @ObservationIgnored private var feedPaintSignposted = false
     private struct VisibleMemo {
         let modes: UInt64
         let posts: UInt64
@@ -97,6 +99,10 @@ final class HomeStore {
         generations[mode, default: 0] += 1
         let generation = generations[mode, default: 0]
         var state = self.state(for: mode)
+        if !feedPaintSignposted {
+            feedPaintSignposted = true
+            ModulaSignpost.begin("FeedFirstPaint")
+        }
         // Stale-while-revalidate: paint last launch's first page now, replace it when
         // the network answers (no "New posts" pill for that swap).
         var seededFromWarm = false

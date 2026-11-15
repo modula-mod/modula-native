@@ -32,11 +32,17 @@ final class ModulaVideoPlaybackController {
         guard player?.currentItem?.asset as? AVURLAsset == nil ||
                 (player?.currentItem?.asset as? AVURLAsset)?.url != url else { return }
         release()
+        ModulaSignpost.event("VideoAttach", url.isFileURL ? "file" : "stream")
         let item = AVPlayerItem(url: url)
+        // Speed: start on a short buffer (remote streams) instead of AVFoundation's large default.
+        item.preferredForwardBufferDuration = url.isFileURL ? 0 : 2.5
         let next = AVPlayer(playerItem: item)
         next.actionAtItemEnd = .pause
         next.isMuted = isMuted
-        next.rate = rate
+        // Bug fix: assigning `rate` here *started* playback on attach (AVPlayer.rate > 0 == playing), so
+        // pages that only attached (off-screen neighbours, autoplay disabled) played audio/decoded video
+        // in the background. `defaultRate` is the rate `play()` will use.
+        next.defaultRate = rate
         player = next
         state = .preparing
         timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self, weak next] time in
@@ -108,6 +114,7 @@ final class ModulaVideoPlaybackController {
 
     func setRate(_ value: Float) {
         rate = value
+        player?.defaultRate = value
         if state == .playing { player?.rate = value }
     }
 
@@ -119,6 +126,7 @@ final class ModulaVideoPlaybackController {
         state = .idle
         progress = 0
         duration = 0
+        buffered = 0   // bug fix: the next video showed the previous one's buffer bar
     }
 }
 
@@ -138,8 +146,11 @@ struct ModulaVideoPlayer: View {
         ZStack {
             poster
             if let player = controller.player, isActive, resource.canPlayVideo {
-                VideoPlayer(player: player)
-                    .disabled(true)
+                // Speed: a bare AVPlayerLayer instead of AVKit's VideoPlayer (no hidden transport
+                // controls, gesture recognisers or Now Playing chrome per feed cell). The layer stays
+                // transparent until the first frame is ready, so the poster shows instead of black.
+                ModulaPlayerLayerView(player: player)
+                    .allowsHitTesting(false)
                     .opacity(controller.state == .idle ? 0 : 1)
             }
             if showsChrome, controller.state == .paused || controller.state == .preparing || !isActive {
@@ -266,5 +277,58 @@ struct ModulaVideoPlayer: View {
     private var timeLabel: String {
         let remaining = max(0, Int((controller.duration * (1 - controller.progress)).rounded()))
         return String(format: "-%d:%02d", remaining / 60, remaining % 60)
+    }
+}
+
+
+/// Lightweight AVPlayerLayer host shared by feed, story and reel video.
+struct ModulaPlayerLayerView: UIViewRepresentable {
+    let player: AVPlayer
+    var gravity: AVLayerVideoGravity = .resizeAspect
+
+    func makeUIView(context: Context) -> PlayerLayerUIView {
+        let view = PlayerLayerUIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.playerLayer.videoGravity = gravity
+        view.attach(player)
+        return view
+    }
+
+    func updateUIView(_ view: PlayerLayerUIView, context: Context) {
+        if view.playerLayer.player !== player { view.attach(player) }
+        if view.playerLayer.videoGravity != gravity { view.playerLayer.videoGravity = gravity }
+    }
+
+    static func dismantleUIView(_ view: PlayerLayerUIView, coordinator: ()) {
+        view.detach()
+    }
+
+    final class PlayerLayerUIView: UIView {
+        override static var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+        private var readyObservation: NSKeyValueObservation?
+
+        func attach(_ player: AVPlayer) {
+            playerLayer.player = player
+            playerLayer.opacity = playerLayer.isReadyForDisplay ? 1 : 0
+            readyObservation = playerLayer.observe(\.isReadyForDisplay, options: [.new]) { [weak self] layer, _ in
+                let ready = layer.isReadyForDisplay
+                Task { @MainActor [weak self] in self?.applyReady(ready) }
+            }
+        }
+
+        private func applyReady(_ ready: Bool) {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.18)
+            playerLayer.opacity = ready ? 1 : 0
+            CATransaction.commit()
+            if ready { ModulaSignpost.event("VideoFirstFrame") }
+        }
+
+        func detach() {
+            readyObservation = nil
+            playerLayer.player = nil
+        }
     }
 }

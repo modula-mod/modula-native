@@ -371,19 +371,33 @@ final class ModulaGlassSettings {
     private(set) var glassBubbles = false
     static let glassBubblesKey = "messages.glassBubbles"
     @ObservationIgnored private var observer: NSObjectProtocol?
+    @ObservationIgnored private var systemObservers: [NSObjectProtocol] = []
 
     private init() {
         read()
         observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { ModulaGlassSettings.shared.read() }
         }
+        // Speed: Low Power Mode or a serious/critical thermal state switch glass to the opaque
+        // "lighter" path automatically (live blur is the most expensive thing we draw while scrolling).
+        for name in [Notification.Name.NSProcessInfoPowerStateDidChange, ProcessInfo.thermalStateDidChangeNotification] {
+            systemObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { ModulaGlassSettings.shared.read() }
+            })
+        }
+    }
+
+    /// Glass is thinned by the system, not the user: Low Power Mode or thermal pressure.
+    var systemConstrained: Bool {
+        let info = ProcessInfo.processInfo
+        return info.isLowPowerModeEnabled || info.thermalState == .serious || info.thermalState == .critical
     }
 
     func read() {
         let defaults = UserDefaults.standard
         let nextIntensity = ModulaGlassIntensity(rawValue: defaults.string(forKey: ModulaGlassIntensity.storageKey) ?? "") ?? .standard
         if nextIntensity != intensity { intensity = nextIntensity }
-        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra")
+        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra") || systemConstrained
         if nextLighter != lighter { lighter = nextLighter }
         let nextBubbles = defaults.bool(forKey: Self.glassBubblesKey)
         if nextBubbles != glassBubbles { glassBubbles = nextBubbles }
@@ -422,6 +436,9 @@ struct ModulaSheetChrome: ViewModifier {
             .presentationDragIndicator(dragIndicator)
             .presentationContentInteraction(.scrolls)
             .modulaGlassPresentation()
+            // Instruments: SheetOpen = the presenting tap's "Mark"/hitch → this event; see PERF_PLAN.md.
+            .onAppear { ModulaSignpost.event("SheetOpen") }
+            .onDisappear { ModulaSignpost.event("SheetClose") }
     }
 }
 

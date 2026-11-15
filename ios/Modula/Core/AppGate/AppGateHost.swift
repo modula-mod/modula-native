@@ -15,6 +15,7 @@ struct AppGateHost: View {
         .task {
             await app.bootstrapLaunch()
             ModulaPerf.mark("bootstrapDone")
+            ModulaSignpost.end("Bootstrap")
         }
         .onOpenURL { url in
             app.handleIncomingURL(url)
