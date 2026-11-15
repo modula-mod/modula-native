@@ -119,6 +119,8 @@ struct ModulaMediaViewer: View {
     @State private var selection: String
     @State private var zoomedPageID: String?
     @State private var controlsVisible = true
+    /// 0…1 while the current page is pulled down to close (finger-following dismiss).
+    @State private var pullProgress: CGFloat = 0
 
     init(
         items: [ModulaMediaViewerItem],
@@ -154,7 +156,7 @@ struct ModulaMediaViewer: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.black.opacity(1 - pullProgress * 0.75).ignoresSafeArea()
             TabView(selection: $selection) {
                 ForEach(items) { item in
                     ModulaMediaViewerPage(
@@ -162,7 +164,8 @@ struct ModulaMediaViewer: View {
                         isSelected: selection == item.id,
                         onZoomChanged: { zoomed in zoomedPageID = zoomed ? item.id : nil },
                         onDismiss: dismiss,
-                        onToggleControls: { controlsVisible.toggle() }
+                        onToggleControls: { controlsVisible.toggle() },
+                        onPullChanged: { pullProgress = $0 }
                     )
                     .tag(item.id)
                 }
@@ -179,6 +182,7 @@ struct ModulaMediaViewer: View {
                     allowsShare: currentItem.allowsShare,
                     onDismiss: dismiss
                 )
+                .opacity(1 - min(pullProgress * 3, 1))
                 .transition(.opacity)
             }
         }
@@ -206,17 +210,26 @@ struct ModulaMediaViewerPage: View {
     var onZoomChanged: (Bool) -> Void
     var onDismiss: () -> Void
     var onToggleControls: () -> Void
+    /// Pull-down-to-close progress (0…1) so the viewer can fade its backdrop with the finger.
+    var onPullChanged: (CGFloat) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 1
     @State private var settledScale: CGFloat = 1
     @State private var settledOffset: CGSize = .zero
     @State private var retryID = 0
-    @GestureState private var gestureOffset: CGSize = .zero
+    /// Snaps back without bounce when a pull is released short of closing.
+    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.26, bounce: 0)))
+    private var gestureOffset: CGSize = .zero
+
+    private var pullProgress: CGFloat {
+        guard scale <= 1.05 else { return 0 }
+        return min(max(gestureOffset.height / 320, 0), 1)
+    }
 
     var body: some View {
         mediaContent
-            .scaleEffect(scale)
+            .scaleEffect(scale * (1 - pullProgress * 0.22))
             .offset(x: settledOffset.width + gestureOffset.width, y: settledOffset.height + gestureOffset.height)
             .contentShape(Rectangle())
             .gesture(magnifyGesture)
@@ -225,6 +238,7 @@ struct ModulaMediaViewerPage: View {
             .onTapGesture(count: 2, perform: toggleZoom)
             .onTapGesture { onToggleControls() }
             .onChange(of: isSelected) { _, selected in if !selected { reset() } }
+            .onChange(of: pullProgress) { _, progress in onPullChanged(progress) }
             .accessibilityLabel(item.accessibilityDescription)
             .accessibilityAddTraits(.isImage)
             .accessibilityAction(named: "Zoom in") { setZoom(2.2) }
@@ -296,9 +310,18 @@ struct ModulaMediaViewerPage: View {
 
     private var panGesture: some Gesture {
         DragGesture(minimumDistance: 10)
-            .updating($gestureOffset) { value, state, _ in state = value.translation }
+            .updating($gestureOffset) { value, state, _ in
+                if scale > 1.05 {
+                    state = value.translation
+                } else if value.translation.height > 0, value.translation.height > abs(value.translation.width) {
+                    // Unzoomed: only a downward pull follows the finger (sideways stays the pager's).
+                    state = CGSize(width: value.translation.width * 0.35, height: value.translation.height)
+                }
+            }
             .onEnded { value in
-                if scale <= 1.05, value.translation.height > 120, abs(value.translation.width) < abs(value.translation.height) {
+                let vertical = abs(value.translation.width) < abs(value.translation.height)
+                let flung = value.predictedEndTranslation.height > 420
+                if scale <= 1.05, vertical, value.translation.height > 0, value.translation.height > 120 || flung {
                     onDismiss()
                 } else if scale > 1.05 {
                     settledOffset = CGSize(
@@ -328,4 +351,44 @@ struct ModulaMediaViewerPage: View {
 
 private extension Collection {
     subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
+// MARK: - Pull down to close (full-screen covers without their own pager/scroll)
+
+extension View {
+    /// Finger-following pull-down that closes a full-screen cover (video / audio viewers).
+    /// Only downward, vertical-dominant drags take part, so taps and player scrubbing keep working.
+    func modulaPullDownToDismiss(_ onDismiss: @escaping () -> Void) -> some View {
+        modifier(ModulaPullDownToDismiss(onDismiss: onDismiss))
+    }
+}
+
+private struct ModulaPullDownToDismiss: ViewModifier {
+    let onDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.26, bounce: 0)))
+    private var pull: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        let progress = min(pull / 360, 1)
+        content
+            .offset(y: reduceMotion ? 0 : pull)
+            .scaleEffect(reduceMotion ? 1 : 1 - progress * 0.12, anchor: .top)
+            .opacity(reduceMotion ? 1 - progress * 0.5 : 1)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 18)
+                    .updating($pull) { value, state, _ in
+                        guard value.translation.height > 0,
+                              value.translation.height > abs(value.translation.width) * 1.3 else { return }
+                        state = value.translation.height
+                    }
+                    .onEnded { value in
+                        let vertical = value.translation.height > abs(value.translation.width) * 1.3
+                        guard vertical, value.translation.height > 120 || value.predictedEndTranslation.height > 420 else { return }
+                        HapticEngine.shared.play(.selectionChanged)
+                        onDismiss()
+                    }
+            )
+            .accessibilityAction(.escape) { onDismiss() }
+    }
 }

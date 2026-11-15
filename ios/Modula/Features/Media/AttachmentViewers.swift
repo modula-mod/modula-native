@@ -114,6 +114,7 @@ struct ModulaVideoViewer: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Done", action: onDismiss) }
             }
         }
+        .modulaPullDownToDismiss(onDismiss)
         .task(id: attachment.id) { download.prepare(attachment, downloadsRemote: true, manager: app.attachmentDownloads) }
         .onDisappear { download.cancel(attachment.id) }
     }
