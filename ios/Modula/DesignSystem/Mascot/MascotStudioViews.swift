@@ -1358,6 +1358,7 @@ struct MascotAssistantSettingsSection: View {
                                 store.persistRules()
                             } label: { Image(systemName: "trash") }
                             .buttonStyle(.borderless)
+                            .accessibilityLabel("Delete rule")
                         }
                         .padding(10)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))

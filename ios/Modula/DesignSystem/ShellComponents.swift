@@ -568,11 +568,14 @@ struct Lab30FocusReader: View {
             HStack {
                 Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain)
                     .frame(width: 36, height: 36).modulaGlass(in: Circle())
+                    .accessibilityLabel("Close")
                 Spacer()
                 ProgressView(value: progress).frame(width: 120)
                 Spacer()
-                Button { scale = scale >= 1.6 ? 1 : scale + 0.3 } label: { Image(systemName: "text.line.spacing") }.buttonStyle(.plain)
+                Button { scale = scale >= 1.6 ? 1 : scale + 0.3; HapticEngine.shared.play(.selection) } label: { Image(systemName: "text.line.spacing") }.buttonStyle(.plain)
                     .frame(width: 36, height: 36).modulaGlass(in: Circle())
+                    .accessibilityLabel("Text size")
+                    .accessibilityValue("\(Int((scale * 100).rounded()))%")
             }
             .padding(.horizontal, 16).padding(.vertical, 6)
         }
