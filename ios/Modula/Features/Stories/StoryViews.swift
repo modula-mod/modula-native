@@ -831,6 +831,7 @@ struct StoryViewer: View {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle).accessibilityHidden(true)
                     Text("Couldn’t load this story")
                     Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.modulaSecondary)
+                        .environment(\.colorScheme, .dark)  // story canvas is always dark
                 }
                 .foregroundStyle(.white)
                 .accessibilityElement(children: .contain)
