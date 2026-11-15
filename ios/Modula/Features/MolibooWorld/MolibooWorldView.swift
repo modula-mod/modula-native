@@ -45,6 +45,7 @@ struct MolibooWorldView: View {
     @State private var stage = MolibooStageState()
     @State private var route: Route?
     @State private var showSwitcher = false
+    @State private var switcherQuery = ""
     @State private var showCareSheet = false
     @State private var sheet: Section?
     @State private var scrollY: CGFloat = 0
@@ -808,20 +809,36 @@ struct MolibooWorldView: View {
     }
 
     private var switcher: some View {
-        NavigationStack {
-            List(MolibooRegistry.available3D.map(\.id), id: \.self) { id in
-                Button { kindRaw = id; showSwitcher = false } label: {
-                    HStack {
-                        if let img = MolibooPortrait.image(for: id) { Image(uiImage: img).resizable().scaledToFit().frame(width: 40, height: 40) }
-                        Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id)
+        let ids = MolibooRegistry.available3D.map(\.id)
+        let q = switcherQuery.trimmingCharacters(in: .whitespaces)
+        let shown = q.isEmpty ? ids : ids.filter { (MolibooRegistry.descriptor(for: $0)?.displayName ?? $0).localizedCaseInsensitiveContains(q) }
+        return NavigationStack {
+            List(shown, id: \.self) { id in
+                Button {
+                    HapticEngine.shared.play(.selection)
+                    kindRaw = id; showSwitcher = false
+                } label: {
+                    HStack(spacing: 12) {
+                        // Speed: the small cached thumb (64 pt) instead of rendering a 180 pt portrait per row.
+                        if let img = MolibooPortrait.thumb(for: id) { Image(uiImage: img).resizable().scaledToFit().frame(width: 40, height: 40) }
+                        Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id).foregroundStyle(.primary)
                         Spacer()
                         if id == characterID { Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.primary) }
                     }
+                    .contentShape(Rectangle())
                 }
+                .accessibilityAddTraits(id == characterID ? .isSelected : [])
                 .accessibilityIdentifier("world.switcher.\(id)")
             }
+            .overlay {
+                if shown.isEmpty { ContentUnavailableView.search(text: q) }
+            }
+            .searchable(text: $switcherQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Moliboos")
             .navigationTitle("Switch Moliboo").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSwitcher = false } } }
         }
+        .tint(.primary)
+        .onDisappear { switcherQuery = "" }
     }
 
     private func flash(_ s: String) {
