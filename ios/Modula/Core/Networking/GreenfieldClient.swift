@@ -19,7 +19,7 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "UNAUTHENTICATED"): "Sign in to Modula to continue."
         case .rejected(_, "ACCOUNT_INACTIVE"), .rejected(_, "ACCOUNT_DISABLED"):
             "This account is not active. Verify your email or contact support."
-        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"):
+        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"), .rejected(_, "EMAIL_VERIFICATION_REQUIRED"):
             "Verify your email before signing in."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
@@ -189,6 +189,7 @@ actor GreenfieldClient {
     private var epoch = 0
     private var accountID: String?
     private var sessionInvalidated: (@Sendable () -> Void)?
+    private var authFailureDetails: [String: GreenfieldFailureDetails] = [:]
 
     /// Called (off the main actor) when the server rejects the session and a refresh
     /// can't recover it, so the app can leave the signed-in state instead of silently
@@ -736,6 +737,9 @@ actor GreenfieldClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        // Greenfield authenticates with bearer tokens only (no cookies, CORS credentials off),
+        // so nothing from an earlier request (e.g. a pending sign-up) can ride along.
+        request.httpShouldHandleCookies = false
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
@@ -751,8 +755,28 @@ actor GreenfieldClient {
                 "verbose \(method, privacy: .public) \(safePath, privacy: .public) → \(status, privacy: .public) \(data.count, privacy: .public)B \(elapsed, privacy: .public)ms"
             )
         }
-        return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+        guard Self.recordsFailureDetails(path) else {
+            return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+        }
+        do {
+            let value: T = try Self.decodeEnvelope(data, response: response, method: method, path: path)
+            authFailureDetails[path] = nil
+            return value
+        } catch {
+            authFailureDetails[path] = GreenfieldFailureDetails.parse(data)
+            throw error
+        }
     }
+
+    /// Sign-in and account (register / verify / resend) answers carry structured failure
+    /// details (403 EMAIL_VERIFICATION_REQUIRED challenge, 429 retry hints). Errors stay
+    /// `APIError`; the details are read back with `lastFailureDetails(path:)`.
+    nonisolated static func recordsFailureDetails(_ path: String) -> Bool {
+        path == "/v1/sessions" || path.hasPrefix("/v1/accounts/register")
+            || path.hasPrefix("/v1/accounts/verify-email") || path.hasPrefix("/v1/accounts/resend-verification")
+    }
+
+    func lastFailureDetails(path: String) -> GreenfieldFailureDetails? { authFailureDetails[path] }
 
     /// Decodes a Greenfield envelope. Responses that are not envelopes (for example the
     /// nginx HTML 413 page in front of both hosts, or an HTML 502/503 from the edge) are
