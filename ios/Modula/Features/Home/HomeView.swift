@@ -1789,10 +1789,10 @@ private struct HomeComposerPrompt: View {
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(prominent ? Color.white : app.appearance.liveAccent)
+                .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
                 .frame(width: 36, height: 36)
                 .background {
-                    if prominent { Circle().fill(app.appearance.liveAccent.gradient) }
+                    if prominent { Circle().fill(Color.modulaPrimaryFill) }
                 }
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())

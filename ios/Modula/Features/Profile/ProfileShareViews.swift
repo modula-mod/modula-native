@@ -591,7 +591,8 @@ struct ModulaCodeView: View {
     private func actionLabel(_ title: String, symbol: String, prominent: Bool) -> some View {
         Label(title, systemImage: symbol)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(prominent ? Color.white : Color.primary)
+            // Bug fix: was white, which vanished on the white primary fill in dark mode.
+            .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .frame(maxWidth: .infinity)

@@ -1614,9 +1614,9 @@ struct ProfilePrimaryCTA: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
-            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
             .background(
-                Capsule().fill(prominent ? app.appearance.liveAccent : Color.primary.opacity(0.08))
+                Capsule().fill(prominent ? Color.modulaPrimaryFill : Color.primary.opacity(0.08))
             )
             .overlay(
                 Capsule().stroke(Color.primary.opacity(prominent ? 0 : 0.12), lineWidth: 1)

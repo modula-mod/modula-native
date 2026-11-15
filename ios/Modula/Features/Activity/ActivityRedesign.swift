@@ -272,13 +272,11 @@ struct ActivityPillButton: View {
     let title: String; let symbol: String
     var prominent = false
     let action: () -> Void
-    @Environment(AppEnvironment.self) private var app
     var body: some View {
-        let accent = app.appearance.liveAccent
         Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(prominent ? Color.white : accent)
+                .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
                 .modifier(ActivityPillChrome(prominent: prominent))
