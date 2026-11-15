@@ -18,7 +18,9 @@ enum PostContextActions {
                 items.append(.init(id: "save", title: saved ? "Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"))
                 items.append(.init(id: "save-collection", title: "Collection", systemImage: "rectangle.stack.badge.plus"))
             }
-            items.append(.init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"))
+            if capabilities.likesList || capabilities.reactionsList {
+                items.append(.init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"))
+            }
             if capabilities.editOwnPost { items.append(.init(id: "edit-post", title: "Edit post", systemImage: "pencil")) }
             if capabilities.deleteOwnPost {
                 items.append(.init(id: "delete", title: "Delete post", systemImage: "trash", role: .destructive))
@@ -141,7 +143,9 @@ struct PostOptionsMenuContent: View {
         }
 
         if isOwn {
-            Button("Post interactions", systemImage: "chart.bar") { onSelect("interactions") }
+            if capabilities.likesList || capabilities.reactionsList {
+                Button("Post interactions", systemImage: "chart.bar") { onSelect("interactions") }
+            }
             if capabilities.editOwnPost {
                 Button("Edit post", systemImage: "pencil") { onSelect("edit-post") }
             }
@@ -470,13 +474,13 @@ private struct PostMenuOverlay: View {
             ZStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
                     if request.isOwn {
-                        row("interactions", "View Post Interactions", "chart.bar")
+                        if caps.likesList || caps.reactionsList { row("interactions", "View Post Interactions", "chart.bar") }
                         if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
                         if caps.editOwnPost { row("edit-post", "Edit post", "pencil") }
                         if caps.deleteOwnPost { row("delete", "Delete post", "trash", destructive: true) }
                     } else {
                         row("not-interested", "Not interested in this post", "eye.slash")
-                        row("interactions", "View Post Interactions", "chart.bar")
+                        if caps.likesList || caps.reactionsList { row("interactions", "View Post Interactions", "chart.bar") }
                         row("hide", "Hide post", "rectangle.slash")
                         row("report", "Report post", "flag", destructive: true)
                         row("spam", "Mark as spam", "exclamationmark.circle")

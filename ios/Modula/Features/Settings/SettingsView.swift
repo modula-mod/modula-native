@@ -1528,7 +1528,8 @@ struct AppearancePreviewView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-                if !compact { ModulaButton(title: "Follow", symbol: "person.badge.plus") {} }
+                // Preview only: looks like the real button, not tappable.
+                if !compact { ModulaButton(title: "Follow", symbol: "person.badge.plus") {}.allowsHitTesting(false).accessibilityHidden(true) }
             }
         }
     }

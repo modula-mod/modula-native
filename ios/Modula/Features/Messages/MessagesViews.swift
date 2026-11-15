@@ -419,7 +419,9 @@ struct ConversationListView: View {
         let all = app.messaging.visibleConversations
         let unread = all.filter(\.isUnread).count
         let needsReply = all.filter { InboxFilter.needsReply.matches($0, viewerID: app.auth.account?.accountId) }.count
-        let filters = InboxFilter.allCases + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])
+        // Groups chip only when the server offers groups (or the user is already on it).
+        let filters = InboxFilter.allCases.filter { $0 != .groups || app.messaging.capabilities.groups || filter == .groups }
+            + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])
         let folders = app.messaging.capabilities.features4.chatFolders ? app.messaging.serverFolders : []
         var segments: [ModulaSegmentedControl<String>.Segment] = filters.map { item in
             .init(id: "filter:\(item.rawValue)", title: item.title,

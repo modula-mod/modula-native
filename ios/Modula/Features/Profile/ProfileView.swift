@@ -694,17 +694,14 @@ struct ProfileView: View {
                 action: { openHighlight = StoryHighlightRef(id: highlight.id) }
             ))
         }
-        if isOwnProfile {
+        // "New" only when highlights + archive are advertised (no dead "coming soon" tile).
+        if isOwnProfile, app.stories.capabilities.highlights, app.stories.capabilities.archive {
             items.append(ProfileHighlightItem(
                 id: "new",
                 title: "New",
                 symbol: "plus",
                 action: {
-                    if app.stories.capabilities.highlights, app.stories.capabilities.archive {
-                        editingHighlight = StoryHighlightRef(id: "new:\(UUID().uuidString)")
-                    } else {
-                        app.navigation.flash("Story highlights are coming soon", symbol: "sparkles")
-                    }
+                    editingHighlight = StoryHighlightRef(id: "new:\(UUID().uuidString)")
                 }
             ))
         }

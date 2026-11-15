@@ -240,6 +240,7 @@ struct PremiumMemberSettingsView: View {
                 }
                 TelegramDivider()
                 TelegramRow(title: "Payment method", symbol: "creditcard", tint: .secondary, value: "Coming soon") {}
+                    .disabled(true)
             }
             Text("Payment method is coming soon. Hiding the badge never removes features.")
                 .font(.footnote)

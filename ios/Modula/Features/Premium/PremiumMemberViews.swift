@@ -213,8 +213,10 @@ struct PremiumManageView: View {
 
             TelegramSettingsCard {
                 manageRow("Next billing date", "Coming soon", "calendar") {}
+                    .disabled(true)
                 TelegramDivider()
                 manageRow("Payment method", "Coming soon", "creditcard") {}
+                    .disabled(true)
                 TelegramDivider()
                 manageRow("Change plan", "Compare plans", "arrow.left.arrow.right") {
                     app.navigation.open(.settings(.premium(.compare)))

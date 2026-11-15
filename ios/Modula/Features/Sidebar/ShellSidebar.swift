@@ -445,7 +445,7 @@ struct ShellSidebarView: View {
                         if !chats.pinned.isEmpty {
                             section("Pinned") { ForEach(chats.pinned) { chatRow($0) } }
                         }
-                        section("Workspaces") { comingSoonRow(title: "Pinned workspaces", symbol: "square.stack.3d.up") }
+                        // "Pinned workspaces" has no screen or backend yet: hidden instead of a dead row.
                         if !chats.recent.isEmpty {
                             section("Recents") { ForEach(chats.recent) { chatRow($0) } }
                         }
