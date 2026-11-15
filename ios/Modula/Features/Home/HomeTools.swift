@@ -280,6 +280,17 @@ struct HomeFeedsSheet: View {
                     HapticEngine.shared.play(.navigation)
                 }
                 .accessibilityIdentifier("home.feeds.following")
+                ModulaGlassRowDivider()
+                ModulaGlassActionRow(
+                    title: "Muted words",
+                    detail: app.home.mutedWords.isEmpty ? "Hide posts that mention a word or #tag" : "\(app.home.mutedWords.count) muted",
+                    symbol: "text.badge.xmark"
+                ) {
+                    dismiss()
+                    app.navigation.open(.settings(.safety(.muted)))
+                    HapticEngine.shared.play(.navigation)
+                }
+                .accessibilityIdentifier("home.feeds.muted-words")
             }
         }
     }

@@ -135,6 +135,12 @@ struct ModulaVideoViewer: View {
                     .onKeyPress(.leftArrow) { controller.skip(by: -10); return .handled }
                     .onKeyPress(.rightArrow) { controller.skip(by: 10); return .handled }
                     .onKeyPress(characters: CharacterSet(charactersIn: "mM"), phases: .down) { _ in controller.toggleMute(); return .handled }
+                    // L loop, S speed, J/K ±5 s.
+                    .onKeyPress(characters: CharacterSet(charactersIn: "lL"), phases: .down) { _ in loops.toggle(); return .handled }
+                    .onKeyPress(characters: CharacterSet(charactersIn: "sS"), phases: .down) { _ in _ = controller.cycleRate(); return .handled }
+                    .onKeyPress(characters: CharacterSet(charactersIn: "jJ"), phases: .down) { _ in controller.skip(by: -5); return .handled }
+                    .onKeyPress(characters: CharacterSet(charactersIn: "kK"), phases: .down) { _ in controller.skip(by: 5); return .handled }
+                    .accessibilityAction(named: "Toggle loop") { loops.toggle() }
                     .onDisappear { controller.release() }
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel(attachment.accessibilityLabel)
