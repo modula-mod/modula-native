@@ -8,10 +8,9 @@ import SwiftUI
 // offset / opacity / blur (render properties), so tracking stays at display rate.
 
 /// Context for views rendered inside a spatial sheet.
-struct SpatialSheetContext {
+struct SpatialSheetContext: Equatable, Sendable {
     /// Root of the sheet's own stack (shows Close instead of the sidebar trigger).
     var isRoot: Bool
-    var close: @MainActor () -> Void
 }
 
 private struct SpatialSheetContextKey: EnvironmentKey {
@@ -125,13 +124,12 @@ struct SpatialSurfaceContainer<Content: View>: View {
             topTrailingRadius: 0,
             style: .continuous
         )
-        let closeAction: @MainActor () -> Void = { close(haptic: true) }
         return NavigationStack(path: $spatial.sheetPath) {
             ProfileView(userID: target.userID, section: target.section)
-                .environment(\.spatialSheetContext, SpatialSheetContext(isRoot: true, close: closeAction))
+                .environment(\.spatialSheetContext, SpatialSheetContext(isRoot: true))
                 .navigationDestination(for: AppRoute.self) { route in
                     RouteView(route: route)
-                        .environment(\.spatialSheetContext, SpatialSheetContext(isRoot: false, close: closeAction))
+                        .environment(\.spatialSheetContext, SpatialSheetContext(isRoot: false))
                 }
         }
         .id(target)

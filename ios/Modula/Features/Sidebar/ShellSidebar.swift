@@ -866,7 +866,10 @@ struct ShellSidebarTriggerModifier: ViewModifier {
                 // Inside a spatial sheet: Close at its root; pushed screens keep the system Back.
                 if sheet.isRoot {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Close", systemImage: "xmark") { sheet.close() }
+                        Button("Close", systemImage: "xmark") {
+                            app.navigation.spatial.close(.profile)
+                            HapticEngine.shared.play(.navigation)
+                        }
                             .accessibilityLabel("Close profile")
                             .accessibilityIdentifier("spatial.profile.close")
                     }
