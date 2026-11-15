@@ -229,6 +229,8 @@ struct PostHeader: View {
                 Text(ActivityRelativeTime.string(from: post.createdAt))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .help(post.createdAt.formatted(date: .complete, time: .shortened))
+                    .accessibilityLabel("Posted \(post.createdAt.formatted(date: .long, time: .shortened))")
                 if post.isEdited {
                     Text("· Edited")
                         .font(.caption)

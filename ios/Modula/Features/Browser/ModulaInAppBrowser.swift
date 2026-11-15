@@ -432,6 +432,7 @@ struct ModulaInAppBrowserView: View {
     /// Swipe-down-to-dismiss follows the finger.
     @State private var pullOffset: CGFloat = 0
     @State private var showAddress = false
+    @State private var showQR = false
     /// Post card minimised to a slim bar (swipe down on its handle / tap the chevron).
     @State private var drawerCollapsed = false
     @Environment(AppEnvironment.self) private var app
@@ -533,6 +534,11 @@ struct ModulaInAppBrowserView: View {
         }
         .background { browserShortcuts }
 
+        .sheet(isPresented: $showQR) {
+            ModulaBrowserQRSheet(url: page.url, title: page.title)
+                .presentationDetents([.medium])
+                .modulaSheetStyle()
+        }
         .sheet(isPresented: $showAddress) {
             ModulaBrowserAddressSheet(url: page.url, title: page.title) { url in
                 reader = nil
@@ -985,6 +991,7 @@ struct ModulaInAppBrowserView: View {
                 Button { copyMarkdownLink() } label: { Label("Copy as Markdown", systemImage: "text.badge.plus") }
                 Button { addToReadingList() } label: { Label("Add to Reading List", systemImage: "eyeglasses") }
                 Button { printPage() } label: { Label("Print…", systemImage: "printer") }
+                Button { showQR = true } label: { Label("QR code", systemImage: "qrcode") }
                 if let app = ModulaKnownApps.appName(for: page.url) {
                     Button {
                         UIApplication.shared.open(page.url, options: [.universalLinksOnly: true]) { opened in
@@ -1909,5 +1916,50 @@ final class ModulaReaderSpeaker: NSObject, AVSpeechSynthesizerDelegate {
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor in self.speaking = false }
+    }
+}
+
+
+/// Page address as a QR code (generated on device), e.g. to open it on another phone.
+private struct ModulaBrowserQRSheet: View {
+    let url: URL
+    let title: String?
+    @State private var image: UIImage?
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    ProgressView()
+                }
+            }
+            .frame(width: 220, height: 220)
+            .padding(16)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .accessibilityLabel("QR code for \(url.host ?? url.absoluteString)")
+            Text(title?.isEmpty == false ? title! : (url.host ?? "Page"))
+                .font(.headline)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+            Text(url.absoluteString)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+            if let image {
+                ShareLink(item: Image(uiImage: image), preview: SharePreview("QR code", image: Image(uiImage: image))) {
+                    Label("Share QR code", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.modulaSecondary)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .task { image = ModulaProfileCodeView.qrImage(for: url.absoluteString) }
     }
 }

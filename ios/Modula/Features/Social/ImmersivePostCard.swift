@@ -513,6 +513,9 @@ struct ImmersivePostCard: View {
                 .foregroundStyle(onMedia ? Color.white.opacity(0.9) : Color.primary.opacity(0.62))
                 .lineLimit(1)
                 .layoutPriority(-1)
+                // Pointer hover (iPad) and VoiceOver get the exact date.
+                .help(post.createdAt.formatted(date: .complete, time: .shortened))
+                .accessibilityLabel("Posted \(post.createdAt.formatted(date: .long, time: .shortened))")
         }
     }
 
