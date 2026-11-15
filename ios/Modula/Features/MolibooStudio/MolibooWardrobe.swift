@@ -239,7 +239,7 @@ struct MolibooWardrobeSheet: View {
                             .padding(.horizontal, 10).padding(.vertical, 6)
                             .modulaGlass(in: Capsule(), interactive: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(MolibooSpringPressStyle())
                     .contextMenu { Button("Delete", role: .destructive) { session.delete(p) } }
                     .accessibilityIdentifier("wardrobe.preset.\(p.name)")
                 }
@@ -423,10 +423,18 @@ struct MolibooWardrobeSheet2D: View {
                                 MolibooWardrobePriceLabel(item: item)
                             }
                             .overlay(alignment: .topTrailing) {
-                                if on { Image(systemName: "checkmark.circle.fill").foregroundStyle(.white, Color.accentColor).padding(6) }
+                                // Black/white equipped mark (no coral accent), readable on any item art.
+                                if on {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color(uiColor: .systemBackground), Color.primary)
+                                        .padding(6)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
                             }
+                            .animation(.snappy(duration: 0.2), value: on)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MolibooSpringPressStyle())
+                        .sensoryFeedback(.selection, trigger: on)
                         .accessibilityIdentifier("wardrobe.item.\(item.id)")
                         .accessibilityAddTraits(on ? .isSelected : [])
                     }

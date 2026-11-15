@@ -33,7 +33,7 @@ struct MolibooCardCollectionView: View {
                         Button { inspecting = card } label: {
                             MolibooTradingCardV2(card: card, width: 156, outfit: outfit, interactive: false)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MolibooSpringPressStyle())
                         .accessibilityIdentifier("cards.collection.\(card.catalogueNumber)")
                     }
                 }
