@@ -243,6 +243,7 @@ struct CommunityBuildersView: View {
     @State private var tab: CommunityBuildersTab = .feed
     @State private var postText = ""
     @State private var postIdempotencyKey = "community-post-\(UUID().uuidString.lowercased())"
+    @State private var confirmLeave = false
 
     private var accent: Color { app.appearance.liveAccent }
     private var community: CommunityDetails? { app.communities.selectedCommunity }
@@ -441,26 +442,49 @@ struct CommunityBuildersView: View {
     }
 
     private func membershipButton(_ community: CommunityDetails) -> some View {
-        Button {
-            Task {
-                if community.summary.membership == .active {
-                    await app.communities.leave()
-                } else {
-                    await app.communities.join(signedIn: app.auth.isSignedIn)
+        let isMember = community.summary.membership == .active
+        return Group {
+            if isMember {
+                // Leaving is a secondary action and asks first (members lose posting/voting).
+                Button { confirmLeave = true } label: {
+                    Group {
+                        if app.communities.actionInProgress { ProgressView() }
+                        else { Label("Joined", systemImage: "checkmark") }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                .buttonStyle(.modulaSecondaryWide)
+                .accessibilityHint("Double-tap to leave this community")
+            } else {
+                Button {
+                    Task {
+                        await app.communities.join(signedIn: app.auth.isSignedIn)
+                        HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                    }
+                } label: {
+                    Group {
+                        if app.communities.actionInProgress { ProgressView().tint(Color.modulaOnPrimary) }
+                        else { Text(membershipTitle(community.summary.membership)) }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity).frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.modulaOnPrimary)
+                .modulaPrimaryCTA()
             }
-        } label: {
-            Group {
-                if app.communities.actionInProgress { ProgressView() }
-                else { Text(membershipTitle(community.summary.membership)) }
-            }
-            .font(.subheadline.weight(.semibold))
-            .frame(maxWidth: .infinity).frame(minHeight: 44)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.modulaOnPrimary)
-        .modulaPrimaryCTA()
+        .animation(.snappy, value: isMember)
+        .confirmationDialog("Leave \(community.summary.name)?", isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button("Leave community", role: .destructive) {
+                Task {
+                    await app.communities.leave()
+                    HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                }
+            }
+        } message: {
+            Text("You can join again any time.")
+        }
         .disabled(app.communities.actionInProgress || community.summary.membership == .pending || community.summary.viewerRole == .owner)
         .accessibilityIdentifier("community.builders.membership")
     }

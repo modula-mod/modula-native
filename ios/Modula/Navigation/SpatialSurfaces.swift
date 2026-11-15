@@ -361,6 +361,8 @@ private struct SpatialDockLayer: View {
         .ignoresSafeArea(edges: .bottom)
         .animation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring, value: state)
         .onChange(of: state) { _, new in if new != .collapsed { shownState = new } }
+        // A light tick each time the dock settles on a new detent.
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: state)
     }
 
     /// Grabber strip: the drag zone (the grid below keeps its own scroll and taps).
@@ -370,6 +372,8 @@ private struct SpatialDockLayer: View {
             .frame(width: 40, height: 5)
             .frame(maxWidth: .infinity, minHeight: 28)
             .contentShape(Rectangle())
+            // Tap the grabber to toggle half ↔ full height.
+            .onTapGesture { set(spatial.dockState == .expanded ? .half : .expanded) }
             .gesture(
                 DragGesture(minimumDistance: 4, coordinateSpace: .global)
                     .updating($drag) { value, state, transaction in

@@ -957,11 +957,15 @@ private struct CharacterRing: View {
                     .monospacedDigit()
                     .foregroundStyle(color)
                     .minimumScaleFactor(0.6)
+                    .contentTransition(.numericText(value: Double(remaining)))
             }
         }
         .frame(width: remaining <= 20 ? 28 : 22, height: remaining <= 20 ? 28 : 22)
         .animation(.easeOut(duration: 0.15), value: progress)
-        .accessibilityLabel("\(max(remaining, 0)) characters left")
+        .animation(.snappy(duration: 0.2), value: remaining <= 20)
+        // A tap of feedback when crossing the limit either way.
+        .sensoryFeedback(.warning, trigger: remaining < 0)
+        .accessibilityLabel(remaining < 0 ? "\(-remaining) characters over the limit" : "\(remaining) characters left")
         .opacity(count == 0 ? 0 : 1)
     }
 }
