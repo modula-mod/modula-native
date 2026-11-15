@@ -224,7 +224,7 @@ enum MessagingDebugFixture {
         let lines = ["Morning!", "Did the build go out?", "Yes, TestFlight is processing.", "Nice — the glass sidebar looks great.",
                      "Can you check the reels scrubber?", "On it.", "Buffered bar shows now.", "Love it"]
         var history: [Message] = []
-        for day in stride(from: 5, through: 2, by: -1) {
+        for day in stride(from: 14, through: 2, by: -1) {
             for (i, text) in lines.enumerated() {
                 history.append(m("h\(day)-\(i)", i.isMultiple(of: 2) ? sophia : me, text, minutes: Double(day * 1440 - i * 7), .read))
             }

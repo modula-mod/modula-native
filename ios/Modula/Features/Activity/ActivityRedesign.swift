@@ -695,6 +695,7 @@ struct ActivityClusterFeed: View {
     var busyEventID: ActivityEventID? = nil
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var expanded: Set<String> = []
+    @State private var foldedSections: Set<ActivityTimelineSection> = []
     /// Timeline (default) or grouped by notification type. Persisted; purely a client-side view of the same feed.
     @AppStorage("activity.groupByType") private var groupByType = false
     private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
@@ -779,11 +780,13 @@ struct ActivityClusterFeed: View {
             let firstSection = all.first?.section
             ForEach(all, id: \.section) { group in
                 sectionHeader(group.section, clusters: group.clusters, isFirst: group.section == firstSection)
+                if !foldedSections.contains(group.section) {
                 ForEach(group.clusters) { cluster in
                     row(cluster)
                     if cluster.expandsInline && expanded.contains(cluster.id) {
                         expandedFollowers(cluster)
                     }
+                }
                 }
             }
     }
@@ -803,12 +806,33 @@ struct ActivityClusterFeed: View {
     private func sectionHeader(_ section: ActivityTimelineSection, clusters: [ActivityCluster], isFirst: Bool) -> some View {
         let unread = clusters.reduce(0) { $0 + $1.events.filter { !$0.isRead }.count }
         return HStack(alignment: .center, spacing: 8) {
-            Label(section.title, systemImage: section.glassSymbol)
+            let folded = foldedSections.contains(section)
+            Button {
+                withAnimation(.snappy(duration: 0.28)) {
+                    if folded { foldedSections.remove(section) } else { foldedSections.insert(section) }
+                }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                HStack(spacing: 6) {
+                    Label(section.title, systemImage: section.glassSymbol)
+                        .labelStyle(.titleAndIcon)
+                    if folded {
+                        Text("\(clusters.count)").monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(folded ? -90 : 0))
+                        .foregroundStyle(.secondary)
+                }
                 .font(.subheadline.weight(.semibold))
-                .labelStyle(.titleAndIcon)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 12)
                 .frame(minHeight: 30)
-                .modulaGlass(in: Capsule(), interactive: false)
+                .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(folded ? "\(section.title), folded. Show" : "\(section.title). Fold")
+            .accessibilityIdentifier("activity.section.\(section.rawValue)")
             if section == .new, unread > 0 {
                 Text("\(unread)")
                     .font(.caption.weight(.bold)).monospacedDigit().foregroundStyle(.white)

@@ -51,6 +51,14 @@ final class PostCommentsStore {
     private static var firstPageCache: [SocialPostID: (items: [SocialComment], author: String?)] = [:]
 
     func load() async {
+        #if DEBUG
+        if CommentsDebugFixture.isEnabled {
+            items = CommentsDebugFixture.items(postID: postID)
+            postAuthorHandle = "modules"
+            isLoading = false
+            return
+        }
+        #endif
         if items.isEmpty, let cached = Self.firstPageCache[postID] {
             items = cached.items
             if postAuthorHandle == nil { postAuthorHandle = cached.author }
@@ -1927,3 +1935,42 @@ private struct CommentRowSwipeModifier: ViewModifier {
             }
     }
 }
+
+
+#if DEBUG
+/// DEBUG-only screenshot seed (`--debug-comments-fixture`). Never compiled into Release, never sent.
+enum CommentsDebugFixture {
+    static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("--debug-comments-fixture") }
+
+    static func items(postID: SocialPostID, now: Date = Date()) -> [SocialComment] {
+        func a(_ id: String, _ name: String) -> SocialAuthor { SocialAuthor(id: "fx-\(id)", handle: id, displayName: name, avatarURL: nil) }
+        func c(_ id: String, _ who: SocialAuthor, _ text: String, minutes: Double, replies: Int = 0, likes: Int = 0, liked: Bool = false, pinned: Bool = false) -> SocialComment {
+            var comment = SocialComment(id: id, postID: postID, author: who, createdAt: now.addingTimeInterval(-minutes * 60), editedAt: nil,
+                                        text: text, parentID: nil, replyCount: replies, liked: liked, likeCount: likes, isPending: false)
+            comment.pinned = pinned
+            return comment
+        }
+        return [
+            c("fx-c1", a("modules", "Modula"), "Thanks for all the feedback on the glass sidebar — more coming tonight ✨", minutes: 50, replies: 3, likes: 42, pinned: true),
+            c("fx-c2", a("sophia.chen", "Sophia Chen"), "The new reels scrubber is so smooth. Love the buffered bar.", minutes: 12, replies: 1, likes: 18, liked: true),
+            c("fx-c3", a("marcus", "Marcus Lee"), "Can we get the day chip in group chats too?", minutes: 9, likes: 5),
+            c("fx-c4", a("noor", "Noor Haddad"), "Settings looks like a real iOS 26 app now 🙌", minutes: 6, likes: 11),
+            c("fx-c5", a("kaij", "Kai Jensen"), "Half-height comments while the reel keeps playing = perfect.", minutes: 2, likes: 3),
+        ]
+    }
+}
+
+/// `--debug-comments-sheet`: presents the comments sheet over the app for screenshots.
+struct DebugCommentsSheetPresenter: ViewModifier {
+    @State private var shows = false
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $shows) { PostCommentsSheet(postID: "fx-post", commentCount: 5) }
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--debug-comments-sheet") else { return }
+                try? await Task.sleep(for: .milliseconds(1400))
+                shows = true
+            }
+    }
+}
+#endif

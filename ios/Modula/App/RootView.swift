@@ -61,6 +61,9 @@ struct RootView: View {
         // Ideas30 #18: offline banner. #27: one-time "What's new" sheet (opens the 30-ideas gallery).
         .overlay(alignment: .top) { Lab30OfflineBanner() }
         .modifier(Lab30WhatsNewPresenter())
+        #if DEBUG
+        .modifier(DebugCommentsSheetPresenter())
+        #endif
         .modulaConsumesIntentRoutes()
         .background(palette.canvas.ignoresSafeArea())
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
@@ -259,7 +262,7 @@ struct RootView: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
-                .badge(tab == .activity ? activityBadge : 0)
+                .badge(tab == .activity ? activityBadge : (tab == .profile ? draftsBadge : 0))
                 .tag(tab)
             }
         }
@@ -286,6 +289,9 @@ struct RootView: View {
         return false
     }
 
+    /// Unsent drafts (posts + stories) on the Profile tab, so a half-written post isn't forgotten.
+    private var draftsBadge: Int { app.drafts.posts.count + app.drafts.stories.count }
+
     /// Unread Activity, quietened by an iOS Focus filter per Settings → Focus.
     private var activityBadge: Int {
         _ = (focusFilterActive, focusHideBadges, focusAllowMentions)
@@ -303,12 +309,20 @@ struct RootView: View {
         guard let index = arguments.firstIndex(of: "--uitest-open"), arguments.indices.contains(index + 1) else { return }
         let target = arguments[index + 1]
         let navigation = app.navigation
+        if MessagingDebugFixture.isEnabled, app.messaging.conversations.isEmpty {
+            app.messaging.installDebugInbox(MessagingDebugFixture.inbox())
+            for id in ["fx-crew", "fx-sophia"] where !app.messaging.isPinned(id) { app.messaging.togglePin(id) }
+        }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(900))
             switch target {
             case "sidebar": navigation.presentSidebar()
             case "settings": navigation.open(.settings(.root))
             case "inbox": navigation.open(.messages(.inbox))
+            case "activity": navigation.open(.activity(.all))
+            case "reels": navigation.open(.reels(.feed))
+            case "home": break
+            case "comments": navigation.push(.post("fx-post", .comments))
             case "chat": navigation.open(.messages(.inbox)); try? await Task.sleep(for: .milliseconds(500)); navigation.push(.messages(.conversation("fx-sophia")))
             default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
             }

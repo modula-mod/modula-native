@@ -789,6 +789,8 @@ struct StoryViewer: View {
     @State private var confirmDelete = false
     @State private var showsInsights = false
     @State private var showsViewers = false
+    /// Downward drag while dismissing: the story shrinks into a rounded card that follows the finger.
+    @State private var dismissDrag: CGFloat = 0
 
     private let teal = Color(hex: "#369CAA")
 
@@ -839,6 +841,9 @@ struct StoryViewer: View {
             }
             chrome(item)
         }
+        .scaleEffect(1 - min(dismissDrag, 500) / 500 * 0.2)
+        .offset(y: dismissDrag * 0.5)
+        .clipShape(RoundedRectangle(cornerRadius: min(dismissDrag / 3, 40), style: .continuous))
         .statusBarHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)

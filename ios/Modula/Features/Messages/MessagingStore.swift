@@ -1235,6 +1235,7 @@ final class MessagingStore {
     #if DEBUG
     func installDebugInbox(_ items: [Conversation]) {
         conversations = items
+        accountUnreadCount = items.reduce(0) { $0 + $1.unreadCount }
         conversationState = .loaded
     }
 

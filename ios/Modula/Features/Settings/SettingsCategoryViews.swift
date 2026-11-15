@@ -1517,6 +1517,19 @@ enum SettingsRecents {
         list.removeAll { $0 == path }
         list.insert(path, at: 0)
         UserDefaults.standard.set(Array(list.prefix(3)), forKey: key)
+        var times = UserDefaults.standard.dictionary(forKey: key + ".times") as? [String: Double] ?? [:]
+        times[path] = Date().timeIntervalSince1970
+        times = times.filter { list.prefix(3).contains($0.key) }
+        UserDefaults.standard.set(times, forKey: key + ".times")
+    }
+
+    static func openedLabel(_ route: SettingsRoute) -> String? {
+        let path = RouteSerializer.serialize(.settings(route))
+        guard let times = UserDefaults.standard.dictionary(forKey: key + ".times") as? [String: Double],
+              let t = times[path] else { return nil }
+        let date = Date(timeIntervalSince1970: t)
+        if Date().timeIntervalSince(date) < 60 { return "Just now" }
+        return date.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
     }
 
     static func load() -> [SettingsDestination] {
@@ -1526,7 +1539,10 @@ enum SettingsRecents {
         }
     }
 
-    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.removeObject(forKey: key + ".times")
+    }
 }
 
 struct SettingsRecentsCard: View {
@@ -1553,7 +1569,7 @@ struct SettingsRecentsCard: View {
                     TelegramSettingsCard {
                         ForEach(Array(recents.enumerated()), id: \.element.id) { index, item in
                             if index > 0 { TelegramDivider() }
-                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent) {
+                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent, value: SettingsRecents.openedLabel(item.route)) {
                                 app.navigation.open(.settings(item.route))
                             }
                         }

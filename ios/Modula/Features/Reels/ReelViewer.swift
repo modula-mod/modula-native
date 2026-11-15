@@ -189,6 +189,14 @@ struct ReelFeedView: View {
         }
         .onKeyPress(.leftArrow) { NotificationCenter.default.post(name: .modulaReelKey, object: "back"); return .handled }
         .onKeyPress(.rightArrow) { NotificationCenter.default.post(name: .modulaReelKey, object: "forward"); return .handled }
+        #if DEBUG
+        .task {
+            // `--debug-open-comments`: open the comments sheet on the first reel for screenshots.
+            guard ProcessInfo.processInfo.arguments.contains("--debug-open-comments") else { return }
+            try? await Task.sleep(for: .milliseconds(1500))
+            if current?.postID != nil { commentsDetent = .medium; showsComments = true }
+        }
+        #endif
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
     }
