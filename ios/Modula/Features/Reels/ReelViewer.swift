@@ -186,7 +186,7 @@ struct ReelFeedView: View {
                 ForEach(app.reels.items) { reel in
                     ReelPageView(
                         reel: reel,
-                        isActive: app.reels.activeID == reel.id && expandedVideo == nil && scenePhase == .active,
+                        isActive: app.reels.activeID == reel.id && expandedVideo == nil && (scenePhase == .active || ModulaPiP.shared.activePlayer != nil || (scenePhase == .inactive && ModulaPiP.autoStartEnabled)),
                         coordinator: videoCoordinator,
                         reduceMotion: reduceMotion,
                         controlsTopInset: topBarBottom,
@@ -409,6 +409,13 @@ struct ReelPageView: View {
                         UIPasteboard.general.url = ModulaShareLink.post(resolved.id)
                         HapticEngine.shared.play(.success)
                         app.navigation.flash("Link copied", symbol: "link")
+                    },
+                    onMiniPlayer: playback.player == nil ? nil : {
+                        ModulaVideoDock.shared.dock(from: playback, title: reel.caption ?? "Reel by \(reel.creator.displayName)",
+                                                    aspect: 9.0 / 16.0, route: .reels(.reel(reel.id)))
+                    },
+                    onPictureInPicture: (playback.player == nil || !ModulaPiP.isSupported) ? nil : {
+                        ModulaPiP.shared.start(playback.player)
                     },
                     onDismiss: { showsQuickMenu = false }
                 )

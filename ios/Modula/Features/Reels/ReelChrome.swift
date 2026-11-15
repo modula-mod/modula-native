@@ -199,6 +199,9 @@ struct ReelQuickMenu: View {
     var autoScroll = false
     var onToggleAutoScroll: () -> Void = {}
     var onCopyLink: (() -> Void)? = nil
+    /// Keep watching in the floating dock / system Picture in Picture (nil hides the row).
+    var onMiniPlayer: (() -> Void)? = nil
+    var onPictureInPicture: (() -> Void)? = nil
     var onDismiss: () -> Void
 
     var body: some View {
@@ -230,6 +233,20 @@ struct ReelQuickMenu: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("reels.menu.copylink")
+            }
+            if let onMiniPlayer {
+                Button { onMiniPlayer(); onDismiss() } label: {
+                    Label("Mini player", systemImage: "rectangle.inset.bottomright.filled").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("reels.menu.miniplayer")
+            }
+            if let onPictureInPicture {
+                Button { onPictureInPicture(); onDismiss() } label: {
+                    Label("Picture in Picture", systemImage: "pip.enter").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("reels.menu.pip")
             }
             Button { onSave(); onDismiss() } label: {
                 Label("Save video", systemImage: "bookmark").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

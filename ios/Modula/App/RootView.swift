@@ -42,6 +42,8 @@ struct RootView: View {
         .overlay { PostMenuHost() }
         .overlay { CommandPaletteHost() }
         .overlay { CelebrationHost() }
+        // Persistent mini player (video dock): above every screen, below sheets.
+        .overlay { ModulaVideoDockHost() }
         .sheet(item: $navigation.presented) { presentation in
             Group {
                 ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }

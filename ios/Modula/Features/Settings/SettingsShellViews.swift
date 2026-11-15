@@ -156,6 +156,7 @@ struct MediaSettingsHost: View {
     @Environment(AppEnvironment.self) private var app
     @AppStorage("settings.media.videoQuality") private var videoQuality = "auto"
     @AppStorage("settings.media.muteStart") private var muteStart = true
+    @AppStorage("modula.video.autoPiP") private var autoPiP = true
     @AppStorage("settings.media.highResUploads") private var highResUploads = true
     @AppStorage("settings.media.saveOriginals") private var saveOriginals = false
 
@@ -211,6 +212,13 @@ struct MediaSettingsHost: View {
                     Toggle("Start muted", isOn: $muteStart)
                 } footer: {
                     Text("Auto downloads feed videos ahead of time on Wi‑Fi only. Data saver waits until you tap Load video. High always downloads ahead.")
+                }
+                if ModulaPiP.isSupported {
+                    Section {
+                        Toggle("Picture in Picture when leaving the app", isOn: $autoPiP)
+                    } footer: {
+                        Text("A video playing with sound keeps playing in a floating window when you go to another app. Long-press a reel or use a video's Keep watching menu for the in-app mini player.")
+                    }
                 }
             }
             .modulaSoftScrollEdge()
