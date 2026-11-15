@@ -101,6 +101,21 @@ struct HomeView: View {
                             .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                             .padding(.bottom, ModulaSpacing.xxs)
 
+                        // Quick actions sit on the page (not on the photo): primary text on glass
+                        // reads in light mode, where white-on-light-glass tiles were unreadable.
+                        greetingActions
+                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+
+                        if app.auth.isSignedIn {
+                            HomeComposerPrompt()
+                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                            HomeModulesBanner()
+                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                        }
+
                         if HomeTodayFlags.isEnabled {
                             HomeTodayCard()
                                 .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
@@ -187,13 +202,29 @@ struct HomeView: View {
                     .accessibilityAddTraits(.isHeader)
                 }
             }
-            // Create + Messages share one glass capsule instead of two mismatched pills.
+            // Search + Activity + Messages share one glass capsule (Create moved to the
+            // "What's on your mind?" composer card on the page).
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Create", systemImage: "plus") {
-                    app.navigation.open(.compose(.post))
+                Button("Search", systemImage: "magnifyingglass") {
+                    app.navigation.open(.search(.root(nil)))
                     HapticEngine.shared.play(.navigation)
                 }
-                .accessibilityIdentifier("home.create")
+                .accessibilityIdentifier("home.search")
+                Button {
+                    app.navigation.select(.activity)
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Image(systemName: "bell")
+                        .overlay(alignment: .topTrailing) {
+                            if let count = app.activity.state(for: .all).unreadCount, count > 0 {
+                                UnreadBadge(count: count)
+                                    .scaleEffect(0.7)
+                                    .offset(x: 6, y: -6)
+                            }
+                        }
+                }
+                .accessibilityLabel("Activity")
+                .accessibilityIdentifier("home.activity")
                 Button {
                     app.navigation.push(.messages(.inbox))
                     HapticEngine.shared.play(.navigation)
@@ -322,9 +353,6 @@ struct HomeView: View {
                         .accessibilityIdentifier("home.greeting.streak")
                 }
                 HomeGlanceChips()
-                Text("Your space. Your people. Your modules.")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.85))
                 Button {
                     app.navigation.open(.settings(.whatsNew(.root)))
                     HapticEngine.shared.play(.navigation)
@@ -348,14 +376,10 @@ struct HomeView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, ModulaLayout.contentInset)
+            .padding(.bottom, ModulaLayout.contentInset)
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 14)
-            greetingActions
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .topLeading)
         .background {
             ZStack {
                 LinearGradient(colors: [app.appearance.liveAccent, Color(hex: "#1B3A4B")], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -387,16 +411,17 @@ struct HomeView: View {
     }
 
     private var greetingActions: some View {
-        ModulaGlassGroup(spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach(HomeQuickAction.decode(quickActionsRaw)) { item in
-                    greetingAction(item.title, item.symbol, "home.greeting.\(item.rawValue)") { run(item) }
-                        .contextMenu {
-                            Button("Customise quick actions", systemImage: "slider.horizontal.3") { editingQuickActions = true }
-                        }
-                }
+        HStack(spacing: 4) {
+            ForEach(HomeQuickAction.decode(quickActionsRaw)) { item in
+                greetingAction(item.title, item.symbol, "home.greeting.\(item.rawValue)") { run(item) }
+                    .contextMenu {
+                        Button("Customise quick actions", systemImage: "slider.horizontal.3") { editingQuickActions = true }
+                    }
             }
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 8)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
         .sheet(isPresented: $editingQuickActions) {
             HomeQuickActionEditor(raw: $quickActionsRaw)
                 .presentationDetents([.medium, .large])
@@ -430,18 +455,20 @@ struct HomeView: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: symbol)
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .frame(width: 44, height: 44)
+                    .background(app.appearance.liveAccent.opacity(colorScheme == .dark ? 0.22 : 0.13), in: Circle())
                 Text(title)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.75)
             }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 64)
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 72)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true, tint: .white.opacity(0.08), specular: true)
+        .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
     }
@@ -1675,5 +1702,123 @@ struct HomeGlanceChips: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.glance.\(id)")
+    }
+}
+
+
+/// "What's on your mind?" entry: one tap to the composer, or straight to photo / video.
+private struct HomeComposerPrompt: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        HStack(spacing: 10) {
+            avatar
+            Button {
+                open(.post)
+            } label: {
+                Text("What’s on your mind?")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.composer.prompt")
+            icon("photo.on.rectangle", "Photo", .photo)
+            icon("video", "Video", .video)
+            icon("plus", "More ways to post", .post, prominent: true)
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.composer")
+    }
+
+    @ViewBuilder
+    private var avatar: some View {
+        if let image = app.profile.tabBarAvatar {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 36, height: 36)
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "person.crop.circle.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, height: 36)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func icon(_ symbol: String, _ label: String, _ route: ComposeRoute, prominent: Bool = false) -> some View {
+        Button {
+            open(route)
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(prominent ? Color.white : app.appearance.liveAccent)
+                .frame(width: 36, height: 36)
+                .background {
+                    if prominent { Circle().fill(app.appearance.liveAccent.gradient) }
+                }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+        .accessibilityLabel(label)
+    }
+
+    private func open(_ route: ComposeRoute) {
+        app.navigation.open(.compose(route))
+        HapticEngine.shared.play(.navigation)
+    }
+}
+
+/// Modules hero banner: installed count + one tap to the Modules sheet (same as swipe-up).
+private struct HomeModulesBanner: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let accent = app.appearance.liveAccent
+        let count = app.catalogue.installedIDs.count
+        Button {
+            HapticEngine.shared.play(.contextOpen)
+            PresentationCoordinator.present(.installedModules, in: app.navigation)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your modules")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(count == 0 ? "Explore what you can add to Modula" : (count == 1 ? "1 installed · swipe up on the bar anytime" : "\(count) installed · swipe up on the bar anytime"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(colors: [accent.opacity(0.14), accent.opacity(0.03)], startPoint: .leading, endPoint: .trailing),
+                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+        .accessibilityIdentifier("home.modules.banner")
     }
 }
