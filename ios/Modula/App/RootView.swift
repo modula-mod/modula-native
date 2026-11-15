@@ -409,6 +409,7 @@ struct PresentationView: View {
             ModulaActivityShareView(items: [shareURL(for: route)]) { app.navigation.presented = nil }
                 .ignoresSafeArea()
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
                 .accessibilityIdentifier("share.sheet")
         case .filters: DevelopmentRouteView(title: "Filters", symbol: "line.3.horizontal.decrease.circle")
         case .modulePermissions: DevelopmentRouteView(title: "Module Permissions", symbol: "hand.raised")

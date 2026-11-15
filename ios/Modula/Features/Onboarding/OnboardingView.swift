@@ -225,7 +225,7 @@ struct OnboardingView: View {
                 .accessibilityIdentifier("onboarding.create-account")
                 Button("I already have an account") { finishOnboarding(openLogin: true) }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
                     .accessibilityIdentifier("onboarding.sign-in")
             default:
@@ -297,7 +297,7 @@ struct OnboardingChip: View {
         .padding(.horizontal, ModulaSpacing.md)
         .frame(minHeight: 48)
         if selected {
-            content.modulaAccentCTA().scaleEffect(reduceMotion ? 1 : 1.03)
+            content.modulaPrimaryCTA().scaleEffect(reduceMotion ? 1 : 1.03)
         } else if reduceTransparency {
             content.background(Capsule().fill(Color(uiColor: .secondarySystemBackground)))
         } else if #available(iOS 26.0, *) {

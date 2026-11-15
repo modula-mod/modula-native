@@ -252,7 +252,7 @@ struct ModulaMediaViewerPage: View {
             ModulaRemoteImage(url: url, cacheKey: "viewer:\(item.id)", maximumPixelSize: 4_096, retryID: retryID) { phase in
                 switch phase {
                 case .success(let image): Image(uiImage: image).resizable().scaledToFit()
-                case .loading: ProgressView().tint(.white)
+                case .loading: ProgressView().tint(Color.modulaOnPrimary)
                 case .failure: fallback.overlay(alignment: .bottom) {
                     Button {
                         HapticEngine.shared.play(.lightImpact)
@@ -263,7 +263,7 @@ struct ModulaMediaViewerPage: View {
                             .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.bottom, 44)
                 }
                 }

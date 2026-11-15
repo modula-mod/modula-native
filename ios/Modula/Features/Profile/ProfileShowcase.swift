@@ -34,13 +34,10 @@ struct ProfileShowcaseShelf: View {
             HStack(alignment: .firstTextBaseline) {
                 ModulaSectionHeader(title: "Showcase", subtitle: "Your favourite Moliboos")
                 Button(picks.isEmpty ? "Add" : "Edit") {
-                    HapticEngine.shared.play(.selection)
                     editing = true
                 }
+                .buttonStyle(.modulaSecondary)
                 .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 34)
-                .modulaAccentCTA()
                 .accessibilityIdentifier("profile.showcase.edit")
             }
             HStack(spacing: 10) {
@@ -58,6 +55,7 @@ struct ProfileShowcaseShelf: View {
                 set: { raw = ProfileShowcaseStore.encode($0) }
             ))
             .presentationDetents([.medium, .large])
+            .modulaSheetStyle()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.showcase")
@@ -74,7 +72,7 @@ struct ProfileShowcaseShelf: View {
                 } else {
                     Image(systemName: "plus")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .frame(height: 52)
                     Text("Empty slot").font(.caption).foregroundStyle(.secondary)
                 }
@@ -114,7 +112,7 @@ struct ProfileShowcasePicker: View {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                         .padding(.horizontal, 12)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
             }
         }

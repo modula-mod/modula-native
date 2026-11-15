@@ -96,7 +96,7 @@ struct PostReactionPicker: View {
             }
             .padding(.top, 12)
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .accessibilityIdentifier("post.reaction.picker")
     }

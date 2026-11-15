@@ -668,7 +668,7 @@ struct StoryInsightsView: View {
                             .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityIdentifier("story.insights.view")
                     }
                     .padding(.top, 6)
@@ -2535,7 +2535,7 @@ struct StoryCreateView: View {
                 openDraft(id)
             }
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .onDisappear {
             bakeTask?.cancel()
@@ -2552,7 +2552,7 @@ struct StoryCreateView: View {
         .sheet(item: $sheet) { item in
             sheetContent(item)
                 .presentationDetents(item == .stickers ? [.medium, .large] : [.height(item == .poll || item == .countdown ? 340 : 240)])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
                 .presentationContentInteraction(.resizes)
                 .modulaGlassPresentation(fallback: .ultraThinMaterial)
         }
@@ -3070,15 +3070,15 @@ struct StoryCreateView: View {
                     if textSpec.animation != .none {
                         Text(textSpec.animation.title)
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.modulaOnPrimary)
                     }
                     Spacer()
                     Button("Done") { commitText() }
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.modulaOnPrimary)
                         .padding(.horizontal, 16)
                         .frame(height: 40)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -3516,7 +3516,7 @@ struct StoryCreateView: View {
                 Text("Add to story").font(.headline).frame(maxWidth: .infinity).frame(height: 48)
             }
             .buttonStyle(.plain)
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .disabled(![.question, .countdown, .poll, .slider, .quiz, .addYours, .reply].contains(item) && formA.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .padding(20)
@@ -3791,7 +3791,7 @@ struct StoryCreateView: View {
                 } label: {
                     Group {
                         if busy {
-                            ProgressView().tint(.white)
+                            ProgressView().tint(Color.modulaOnPrimary)
                         } else {
                             Label("Share", systemImage: "arrow.up.circle.fill")
                                 .font(.headline)
@@ -3802,7 +3802,7 @@ struct StoryCreateView: View {
                     .padding(.horizontal, 10)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .disabled(!canShare || busy || showsCamera)
                 .opacity(!canShare || showsCamera ? 0.45 : 1)
                 .accessibilityIdentifier("story.create.share")
@@ -4536,7 +4536,7 @@ struct StoryViewersSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .accessibilityIdentifier("story.viewers")
     }
 
@@ -4657,7 +4657,6 @@ struct StoryHighlightSheet: View {
             }
         }
         .preferredColorScheme(.dark)
-        .presentationDragIndicator(.visible)
         .accessibilityIdentifier("story.highlight")
     }
 }
@@ -4752,7 +4751,6 @@ struct StoryHighlightEditor: View {
             }
             .task { await loadFirst() }
         }
-        .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(saving)
         .accessibilityIdentifier("story.highlight.editor")
     }

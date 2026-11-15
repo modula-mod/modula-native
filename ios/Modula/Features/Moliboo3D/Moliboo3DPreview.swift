@@ -80,7 +80,7 @@ struct Moliboo3DPreview: View {
                             if hatOn { controller.unequip(wardrobeItemID: hatID) } else { await controller.equip(wardrobeItemID: hatID) }
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.modulaPrimary)
                     .accessibilityIdentifier("moliboo3d.hatToggle")
                     Button("Save outfit") { save(controller) }
                         .buttonStyle(.bordered)

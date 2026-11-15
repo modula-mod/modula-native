@@ -287,7 +287,7 @@ struct FeedSettingsHost: View {
                 }
                 Spacer()
                 if defaultMode == tag {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
                 }
             }
             .padding(.vertical, 8)

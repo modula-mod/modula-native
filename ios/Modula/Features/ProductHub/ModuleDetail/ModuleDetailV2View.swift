@@ -140,7 +140,6 @@ struct ModuleDetailV2View: View {
         .sheet(item: $zoomedShot) { shot in
             ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
                 .padding()
-                .presentationDragIndicator(.visible)
                 .accessibilityLabel(shot.alt)
         }
         .accessibilityIdentifier("module-detail.\(moduleID)")
@@ -289,7 +288,7 @@ struct ModuleDetailV2View: View {
             perform(action)
         } label: {
             HStack(spacing: 8) {
-                if action.isBusy { ProgressView().controlSize(.small).tint(.white) }
+                if action.isBusy { ProgressView().controlSize(.small).tint(Color.modulaOnPrimary) }
                 Text(action.title)
                     .font(.subheadline.weight(.bold))
             }
@@ -298,7 +297,7 @@ struct ModuleDetailV2View: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(!action.isEnabled)
         .animation(.snappy, value: action)
         .accessibilityLabel(action.title)
@@ -554,7 +553,7 @@ struct ModuleDetailV2View: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .disabled(allowingPermissions)
                 .accessibilityIdentifier("module.permissions.allow-remaining")
             } else if installationGrants != nil, !declared.isEmpty {
@@ -969,7 +968,7 @@ private struct ModulePermissionReviewSheet: View {
                         .contentShape(Capsule())
                 }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.vertical, ModulaSpacing.xs)
                     .background(.bar)
@@ -987,7 +986,7 @@ private struct ModulePermissionReviewSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .accessibilityIdentifier("module.permission-review")
     }
 

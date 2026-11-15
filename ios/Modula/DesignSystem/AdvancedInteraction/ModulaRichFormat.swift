@@ -841,6 +841,7 @@ struct ModulaLinkInsertSheet: View {
         }
         .padding(20)
         .presentationDetents([.height(250)])
+        .modulaSheetStyle()
         .presentationBackground(.clear)
         .onAppear {
             label = initialText

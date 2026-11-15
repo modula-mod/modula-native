@@ -101,7 +101,7 @@ struct ModulaVideoViewer: View {
                             Button("Retry", systemImage: "arrow.clockwise") {
                                 download.retry(attachment, manager: app.attachmentDownloads)
                             }
-                            .buttonStyle(.borderedProminent).padding(.bottom, 32)
+                            .buttonStyle(.modulaPrimary).padding(.bottom, 32)
                         }
                 } else {
                     ProgressView("Preparing video…").tint(.white).foregroundStyle(.white)
@@ -143,7 +143,7 @@ struct ModulaPDFViewer: View {
                         Text(message)
                     } actions: {
                         Button("Retry", systemImage: "arrow.clockwise") { download.retry(attachment, manager: app.attachmentDownloads) }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.modulaPrimary)
                     }
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", action: onDismiss) } }
                 }
@@ -246,7 +246,7 @@ struct ModulaDocumentPreview: View {
                         Button("Retry", systemImage: "arrow.clockwise") {
                             download.retry(attachment, manager: app.attachmentDownloads)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     }
                 }
             }
@@ -358,7 +358,7 @@ struct ModulaAudioViewer: View {
                         .buttonStyle(.bordered)
                 } else {
                     Button(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill") { audio.toggle() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.modulaPrimary)
                     .tint(ModulaColor.accent)
                     .disabled(playableURL == nil)
                 }

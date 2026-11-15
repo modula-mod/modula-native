@@ -338,7 +338,7 @@ struct MolibooLivingStudioView: View {
                 .accessibilityIdentifier("studio.photo.close")
                 Spacer()
                 Button("Done") { photoMode = false }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.modulaPrimary)
                     .tint(teal)
                     .accessibilityIdentifier("studio.photo.done")
             }
@@ -406,8 +406,8 @@ struct MolibooLivingStudioView: View {
             Spacer(minLength: 0)
         }
         .presentationDetents(Self.sheetDetents)
+        .modulaSheetStyle()
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-        .presentationDragIndicator(.visible)
         .presentationBackground {
             ZStack {
                 Rectangle().fill(.regularMaterial)

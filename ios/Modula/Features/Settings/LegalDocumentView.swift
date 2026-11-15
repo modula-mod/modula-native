@@ -43,7 +43,7 @@ struct LegalDocumentView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "pencil.and.outline")
                     .font(.title3)
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Draft")

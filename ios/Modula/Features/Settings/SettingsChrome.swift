@@ -204,7 +204,7 @@ struct SettingsDesignedUnavailableCanvas: View {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: "circle.dashed")
                             .font(.title2)
-                            .foregroundStyle(app.appearance.liveAccent)
+                            .foregroundStyle(.primary)
                             .symbolEffect(.rotate, options: .nonRepeating)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Not available in this version")
@@ -516,7 +516,7 @@ struct SettingsStatChip: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 28, height: 28)
                 .background(app.appearance.liveAccent.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 1) {
@@ -612,7 +612,7 @@ struct SettingsBadgesGraphic: View {
                         .fill(app.appearance.liveAccent.opacity(0.16 + Double(index) * 0.06))
                         .frame(width: 44, height: 44)
                     Image(systemName: symbol)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                 }
                 .offset(y: index.isMultiple(of: 2) ? -8 : 10)
             }

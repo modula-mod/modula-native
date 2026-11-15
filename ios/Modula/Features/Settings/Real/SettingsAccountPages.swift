@@ -273,6 +273,7 @@ struct PasswordStepUpSheet: View {
             .onAppear { focused = true }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
     }
 
     private func confirm() async {
@@ -363,7 +364,7 @@ struct DeleteAccountView: View {
                     Text("Schedule Deletion").frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .tint(.red)
             .controlSize(.large)
             .disabled(!canSubmit || working)
@@ -391,7 +392,7 @@ struct DeleteAccountView: View {
                     Text("Keep My Account").frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .controlSize(.large)
             .disabled(working)
             SettingsAPIFootnote(text: "Deletion runs after the grace period ends. Until it does, you can keep using Modula and cancel here.")

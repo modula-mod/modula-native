@@ -236,7 +236,7 @@ private struct ContentPostCatalogPage: View {
             }
         case .comments:
             Button("Open comments sheet", systemImage: "bubble.right") { commentsPresented = true }
-                .buttonStyle(.borderedProminent).tint(app.appearance.liveAccent)
+                .buttonStyle(.modulaPrimary).tint(.primary)
         case .postDetail:
             ModulaPostContentRenderer(
                 post: PostCatalogFixtures.mixedPost,
@@ -390,7 +390,7 @@ private struct ContentPostCatalogPage: View {
         HStack(spacing: ModulaSpacing.sm) {
             ModulaAvatar(initials: "AR", size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) { Text("Alex Rivers").font(.subheadline.bold()); Image(systemName: "checkmark.seal.fill").foregroundStyle(app.appearance.liveAccent) }
+                HStack(spacing: 4) { Text("Alex Rivers").font(.subheadline.bold()); Image(systemName: "checkmark.seal.fill").foregroundStyle(.primary) }
                 Text("Bali, Indonesia · 2h").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -527,7 +527,7 @@ private struct DraftAttachmentCatalogCard: View {
                 if state == .uploading { ProgressView(value: progress) }
             }
             Spacer(minLength: 0)
-            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent) }
+            if state == .ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary) }
         }
         .padding(ModulaSpacing.sm)
         .background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: ModulaRadius.medium))

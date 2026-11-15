@@ -138,11 +138,7 @@ struct PremiumCompareView: View {
                 title: "Compare plans",
                 subtitle: "More ways to connect, create and be seen. Find the plan that’s right for you."
             )
-            Picker("Billing", selection: $store.selectedBilling) {
-                Text("Monthly").tag(PremiumBilling.monthly)
-                Text(yearlyTitle).tag(PremiumBilling.annual)
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Billing", selection: $store.selectedBilling, segments: [(PremiumBilling.monthly, "Monthly"), (PremiumBilling.annual, yearlyTitle)])
             .accessibilityIdentifier("premium.comparePicker")
 
             // Sticky first column: the feature names stay put while the plan columns scroll
@@ -308,11 +304,11 @@ struct PremiumIntroView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("premium.intro.explore")
             Button("Maybe later") { app.navigation.close() }
                 .font(.body.weight(.semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
                 .accessibilityIdentifier("premium.intro.later")
             PremiumDisclaimerText()
@@ -344,7 +340,7 @@ private struct PremiumIntroRow: View {
             HStack(spacing: ModulaSpacing.sm) {
                 Image(systemName: symbol)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(width: ModulaLayout.listRowIconWidth + ModulaSpacing.xxs, height: ModulaLayout.listRowIconWidth + ModulaSpacing.xxs)
                     .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
                 VStack(alignment: .leading, spacing: ModulaSpacing.hairline) {

@@ -134,7 +134,7 @@ struct ArchivedChatsView: View {
                         Button {
                             Task { await app.messaging.unarchive(conversation.id) }
                         } label: { Label("Unarchive", systemImage: "arrow.uturn.backward") }
-                        .tint(app.appearance.liveAccent)
+                        .tint(.primary)
                     }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
@@ -251,6 +251,7 @@ struct MoveToFolderSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.folder.sheet")
     }
 
@@ -283,6 +284,7 @@ struct TimedMuteSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.mute.sheet")
     }
 }
@@ -322,25 +324,9 @@ struct ConversationSearchBar: View {
                     .frame(width: 36, height: 36)
                     .accessibilityLabel("Close search")
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(MessageThreadSearchScope.allCases) { item in
-                        let on = item == scope
-                        Button {
-                            scope = item
-                        } label: {
-                            Text(item.title)
-                                .font(.caption.weight(on ? .semibold : .regular))
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 32)
-                                .background(on ? app.appearance.liveAccent.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                    }
-                }
-            }
-            .modulaHorizontalRail()
+            ModulaSegmentedControl(segments: MessageThreadSearchScope.allCases.map { .init(id: $0, title: $0.title) },
+                                   selection: $scope, compact: true, accessibilityLabel: "Search in",
+                                   identifier: { "messages.thread-search.scope.\($0.title)" })
             Text("Search covers the messages loaded on this device.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -413,6 +399,7 @@ struct MessageGifPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.gif.picker")
     }
 }
@@ -463,6 +450,7 @@ struct MessageReactionPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.reaction.picker")
     }
 

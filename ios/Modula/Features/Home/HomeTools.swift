@@ -89,7 +89,7 @@ struct ModulaGlassToggleRow: View {
                 }
             }
         }
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
         .padding(.horizontal, 16).padding(.vertical, 12)
     }
 }
@@ -125,7 +125,7 @@ struct ModulaGlassSheetIcon: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(app.appearance.liveAccent)
+            .foregroundStyle(.primary)
             .frame(width: 32, height: 32)
             .background(Circle().fill(app.appearance.liveAccent.opacity(0.12)))
             .accessibilityHidden(true)
@@ -308,7 +308,7 @@ struct HomeFeedsSheet: View {
             .padding(12)
             .overlay(alignment: .topTrailing) {
                 if selected {
-                    Image(systemName: "checkmark.circle.fill").font(.subheadline).foregroundStyle(accent).padding(10)
+                    Image(systemName: "checkmark.circle.fill").font(.subheadline).foregroundStyle(.primary).padding(10)
                 }
             }
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

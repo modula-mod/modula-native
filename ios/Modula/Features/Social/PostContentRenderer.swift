@@ -553,14 +553,14 @@ struct ModulaDocumentCard: View {
         if let previewURL = attachment.bestPreviewURL {
             ModulaRemoteImage(url: previewURL, cacheKey: "attachment:\(attachment.id):document-preview", maximumPixelSize: 320) { phase in
                 if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() }
-                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.liveAccent) }
+                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(.primary) }
             }
             .frame(width: 48, height: 52).clipped()
             .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
         } else {
             Image(systemName: attachment.kind.defaultSystemImage)
-                .font(.title2).foregroundStyle(app.appearance.liveAccent)
+                .font(.title2).foregroundStyle(.primary)
                 .frame(width: 48, height: 52)
                 .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
         }

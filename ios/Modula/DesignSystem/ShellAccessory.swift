@@ -166,7 +166,7 @@ struct ShellIntelligenceChatButton: View {
         } label: {
             Image(systemName: Self.symbolName)
                 .font(.system(size: compact ? 15 : 17, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .symbolEffect(.bounce, value: pulse)
                 .frame(width: size, height: size)
                 .modifier(ShellIntelligenceChatChrome(compact: compact, opaque: opaque))
@@ -648,39 +648,10 @@ struct ShellAccessoryHost: View {
     /// Quick tabs: one tap between the main feeds without reaching for the tab bar.
     private var quickTabsRow: some View {
         let current = ShellQuickTab.current(route)
-        let accent = app.appearance.liveAccent
-        return HStack(spacing: 4) {
-            ForEach(ShellQuickTab.allCases) { tab in
-                let selected = tab == current
-                Button {
-                    guard !selected else { return }
-                    HapticEngine.shared.play(.selection)
-                    tab.open(in: app.navigation)
-                } label: {
-                    Text(tab.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        // Primary on glass (readable in light mode), white only on the solid accent pill.
-                        .foregroundStyle(selected ? Color.white : Color.primary)
-                        .padding(.horizontal, 8)
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                        .background {
-                            if selected {
-                                Capsule()
-                                    .fill(accent.gradient)
-                                    .matchedGeometryEffect(id: "quick.tab.selection", in: quickTabSpace)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.title)
-                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-                .accessibilityIdentifier("accessory.quick.\(tab.rawValue)")
-            }
-        }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.26), value: current)
+        // Optional ID: off-feed routes show no thumb instead of a wrong one.
+        return ModulaSegmentedControl("Feeds", selection: Binding<ShellQuickTab?>(get: { current }, set: { $0?.open(in: app.navigation) }),
+                                      options: ShellQuickTab.allCases.map { Optional($0) }, compact: true,
+                                      identifier: { "accessory.quick.\($0?.rawValue ?? "none")" }) { $0?.title ?? "" }
     }
 
     private var pageDots: some View {
@@ -741,7 +712,7 @@ struct ShellAccessoryHost: View {
     private func toolsRow(_ config: ShellAccessoryConfiguration) -> some View {
             Image(systemName: config.symbol)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 24, height: 24)
                 .background(app.appearance.liveAccent.opacity(0.12), in: Circle())
                 .symbolEffect(.bounce, value: config.symbol)
@@ -1333,7 +1304,7 @@ struct InstalledModulesPanel: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .modulaGlassPresentation()
         .alert("New Folder", isPresented: Binding(get: { newFolderFor != nil }, set: { if !$0 { newFolderFor = nil } })) {
             TextField("Name", text: $newFolderName)
@@ -1412,31 +1383,10 @@ struct InstalledModulesPanel: View {
     }
 
     private var chipRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(filters, id: \.self) { chip in
-                    let selected = chip == filter
-                    Button {
-                        filter = chip
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        Text(chip.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(selected ? Color.white : Color.primary)
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 34)
-                            .background {
-                                if selected { Capsule().fill(app.appearance.liveAccent.gradient) }
-                            }
-                            .modulaGlass(in: Capsule(), interactive: true)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-        .modulaEdgeToEdgeRail()
+        ModulaSegmentedControl(segments: filters.map { .init(id: $0, title: $0.title) },
+                               selection: $filter, accessibilityLabel: "Installed filter",
+                               identifier: { "accessory.installed.filter.\($0.title)" })
+            .modulaEdgeToEdgeRail()
     }
 
     @ViewBuilder
@@ -1566,7 +1516,7 @@ struct InstalledModulesPanel: View {
                 Spacer(minLength: 0)
                 Image(systemName: "shippingbox.and.arrow.backward.fill")
                     .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(accent)
+                    .foregroundStyle(.primary)
                     .frame(width: 52, height: 52)
                     .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }

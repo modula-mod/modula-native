@@ -107,10 +107,7 @@ struct MolibooCardsHomeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Cards", selection: $tab) {
-                ForEach(MolibooCardsHomeTab.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Cards", selection: $tab, options: MolibooCardsHomeTab.allCases) { $0.title }
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
             .accessibilityIdentifier("cards.home.tab")

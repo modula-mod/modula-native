@@ -51,7 +51,7 @@ struct ContextCatalogPage: View {
                 }
                 CatalogLabSection(title: "Context Menu + Preview") {
                     Button("Open preview") { previewPresented = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     Text("The preview uses the shared overlay host and elevated Modula material.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -209,7 +209,7 @@ struct SheetsCatalogPage: View {
                 }
                 Section("Examples") {
                     Button("Present detented sheet") { sheetPresented = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     Text("Use the floating source button to exercise the connected morph path.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

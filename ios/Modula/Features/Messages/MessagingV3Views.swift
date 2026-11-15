@@ -45,6 +45,7 @@ struct MessageReactorsSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .task { await app.messaging.loadReactionDetails(message) }
         .accessibilityIdentifier("messages.reactors")
     }
@@ -100,6 +101,7 @@ struct MessageReceiptsSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .task { await app.messaging.loadReceipts(message) }
         .accessibilityIdentifier("messages.receipts")
     }
@@ -274,7 +276,7 @@ struct NewGroupView: View {
                             Text(person.displayName)
                             Spacer()
                             if selected.contains(where: { $0.id == person.id }) {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
                             }
                         }
                     }

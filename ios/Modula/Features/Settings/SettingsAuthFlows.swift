@@ -82,7 +82,7 @@ struct TOTPSetupSheet: View {
                         Button { Task { await verify() } } label: {
                             Text(busy ? "Checking…" : "3 · Turn on two-factor").font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.plain).modulaAccentCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .buttonStyle(.plain).modulaPrimaryCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .disabled(busy || code.count < 6)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     }
@@ -92,7 +92,7 @@ struct TOTPSetupSheet: View {
                         Button { Task { await enroll() } } label: {
                             Text(busy ? "Preparing…" : "Set up authenticator app").font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.plain).modulaAccentCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .buttonStyle(.plain).modulaPrimaryCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .disabled(busy)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     } footer: { if let error { Text(error).foregroundStyle(.red) } }

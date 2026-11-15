@@ -260,26 +260,11 @@ struct ReelQuickMenu: View {
 struct ReelFeedTabs: View {
     @Binding var tab: ReelFeedTab
     var body: some View {
-        HStack(spacing: 18) {
-            ForEach(ReelFeedTab.allCases) { item in
-                Button {
-                    withAnimation(.snappy) { tab = item }
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    VStack(spacing: 4) {
-                        Text(item.title)
-                            .font(.subheadline.weight(tab == item ? .bold : .semibold))
-                            .foregroundStyle(.white.opacity(tab == item ? 1 : 0.55))
-                        Capsule()
-                            .fill(.white)
-                            .frame(width: tab == item ? 28 : 0, height: 3)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(tab == item ? .isSelected : [])
-                .accessibilityIdentifier("reels.tab.\(item.rawValue)")
-            }
-        }
+        // Shared segmented control, forced dark so it reads over video.
+        ModulaSegmentedControl("Reels feed", selection: $tab, options: ReelFeedTab.allCases, compact: true,
+                               identifier: { "reels.tab.\($0.rawValue)" }) { $0.title }
+            .fixedSize()
+            .environment(\.colorScheme, .dark)
     }
 }
 

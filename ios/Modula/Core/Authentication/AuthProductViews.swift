@@ -909,7 +909,7 @@ struct AuthTermsRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
         .padding(.leading, ModulaSpacing.md + 2)
         .padding(.trailing, ModulaSpacing.md)
         .frame(minHeight: height)

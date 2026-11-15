@@ -145,7 +145,7 @@ struct SettingsSecurityCenter: View {
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .modulaPrimaryCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .disabled(busy != nil)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             } header: {

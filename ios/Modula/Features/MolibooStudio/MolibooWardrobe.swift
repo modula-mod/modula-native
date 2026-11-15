@@ -178,10 +178,7 @@ struct MolibooWardrobeSheet: View {
     private var filters: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Picker("Ownership", selection: $query.ownership) {
-                    ForEach(MolibooWardrobeOwnership.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented).frame(width: 130)
+                ModulaSegmentedControl("Ownership", selection: $query.ownership, options: MolibooWardrobeOwnership.allCases) { $0.title }.frame(width: 130)
                 .accessibilityIdentifier("wardrobe.ownership")
                 chip("All slots", on: query.slot == nil, id: "wardrobe.slot.all") { query.slot = nil }
                 ForEach(MascotWardrobeSlot.allCases) { s in
@@ -204,7 +201,7 @@ struct MolibooWardrobeSheet: View {
 
     private var actionBar: some View {
         HStack(spacing: 10) {
-            Button("Apply") { session.apply() }.buttonStyle(.borderedProminent).disabled(!session.canApply)
+            Button("Apply") { session.apply() }.buttonStyle(.modulaPrimary).disabled(!session.canApply)
                 .accessibilityIdentifier("wardrobe.apply")
             Button("Revert") { session.revert() }.buttonStyle(.bordered).disabled(!session.isPreviewing)
                 .accessibilityIdentifier("wardrobe.revert")
@@ -348,7 +345,7 @@ struct MolibooPhotoPreview: View {
                 ShareLink(item: picture, preview: SwiftUI.SharePreview(shareTitle, image: picture)) {
                     Label("Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent).padding(.horizontal, 24)
+                .buttonStyle(.modulaPrimary).padding(.horizontal, 24)
                 .accessibilityIdentifier("studio.photo.share")
             }
             .navigationTitle("Photo").navigationBarTitleDisplayMode(.inline)

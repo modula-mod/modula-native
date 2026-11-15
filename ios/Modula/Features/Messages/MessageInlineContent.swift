@@ -250,7 +250,7 @@ struct MessageLinkInspectorSheet: View {
                             Text("Open link").font(.headline).frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityIdentifier("messages.link.open")
 
                         HStack(spacing: 10) {
@@ -288,7 +288,7 @@ struct MessageLinkInspectorSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
     }
 }
 

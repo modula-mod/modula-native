@@ -394,36 +394,11 @@ struct ModulaCodeView: View {
     }
 
     private var modeSwitch: some View {
-        ModulaGlassGroup(spacing: 4) {
-            HStack(spacing: 2) {
-                ForEach(ModulaCodeMode.allCases) { item in
-                    let selected = item == mode
-                    Button {
-                        guard item != mode else { return }
-                        HapticEngine.shared.play(.selection)
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.32)) { mode = item }
-                    } label: {
-                        Label(item == .myCode ? "My Code" : "Scan", systemImage: item.symbol)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(selected ? Color.white : Color.primary)
-                            .padding(.horizontal, 18)
-                            .frame(height: 38)
-                            .background {
-                                if selected {
-                                    Capsule().fill(accent.gradient)
-                                        .matchedGeometryEffect(id: "code.mode", in: switchNamespace)
-                                }
-                            }
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
-                    .accessibilityIdentifier("modulaCode.mode.\(item.rawValue)")
-                }
-            }
-            .padding(4)
-            .modulaGlass(in: Capsule(), interactive: false, specular: true)
-        }
+        ModulaSegmentedControl(segments: ModulaCodeMode.allCases.map {
+            .init(id: $0, title: $0 == .myCode ? "My Code" : "Scan", systemImage: $0.symbol)
+        }, selection: $mode, accessibilityLabel: "Code mode",
+           identifier: { "modulaCode.mode.\($0.rawValue)" })
+        .frame(width: 260)
     }
 
     // MARK: My Code
@@ -558,7 +533,7 @@ struct ModulaCodeView: View {
                         }
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded { HapticEngine.shared.play(.lightImpact) })
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityIdentifier("modulaCode.shareImage")
                     }
                     Button { copyLink(subject) } label: {
@@ -814,20 +789,20 @@ struct ModulaCodeScanner: View {
                 .foregroundStyle(.white.opacity(0.9))
             Text(status == .denied || status == .restricted ? "Camera access is off" : "Camera scanning isn't available here")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .multilineTextAlignment(.center)
             Text(status == .denied || status == .restricted
                  ? "Turn on camera access for Modula in Settings, or pick a photo of a code."
                  : "You can still scan a code from a photo.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Color.modulaOnPrimary.opacity(0.75))
                 .multilineTextAlignment(.center)
             if status == .denied || status == .restricted, let url = URL(string: UIApplication.openSettingsURLString) {
                 Button("Open Settings") { openURL(url) }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .padding(.horizontal, 18).frame(height: 40)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .buttonStyle(.plain)
             }
         }
@@ -902,11 +877,11 @@ struct ModulaCodeScanner: View {
                         onOpen(code)
                         if case .text = code { withAnimation(.snappy) { result = nil } }
                     } label: {
-                        Text(action).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                        Text(action).font(.subheadline.weight(.semibold)).foregroundStyle(Color.modulaOnPrimary)
                             .frame(maxWidth: .infinity).frame(height: 44).contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("modulaCode.result.open")
                 }
             }

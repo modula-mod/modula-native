@@ -869,7 +869,7 @@ struct ProfileAboutGrid: View {
                         if let action = row.2 {
                             Button(row.1, action: action)
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .buttonStyle(.plain)
                                 .lineLimit(2)
                         } else {
@@ -1109,7 +1109,7 @@ struct ProfileHeroActions: View {
                 .labelStyle(.titleAndIcon)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
-                .foregroundStyle(prominent ? Color.white : Color.primary)
+                .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 44)
                 .contentShape(Capsule())
@@ -1128,7 +1128,7 @@ struct ProfileHeroActions: View {
                 if followBusy {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(isFollowing ? Color.primary : Color.white)
+                        .tint(isFollowing ? Color.primary : Color.modulaOnPrimary)
                 } else {
                     Image(systemName: isFollowing ? "checkmark" : "plus")
                         .font(.subheadline.weight(.bold))
@@ -1138,14 +1138,14 @@ struct ProfileHeroActions: View {
                     .font(.subheadline.weight(.semibold))
                     .contentTransition(.interpolate)
             }
-            .foregroundStyle(isFollowing ? Color.primary : Color.white)
+            .foregroundStyle(isFollowing ? Color.primary : Color.modulaOnPrimary)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
         .disabled(followBusy)
-        .modulaGlass(in: Capsule(), interactive: true, tint: isFollowing ? nil : tint, prominent: !isFollowing, specular: true)
+        .modifier(ProfilePillSurface(prominent: !isFollowing, tint: tint))
         .modulaGlassID("follow", in: glass)
         .animation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .spring(response: 0.34, dampingFraction: 0.78), value: isFollowing)
         .accessibilityLabel(followTitle)
@@ -1449,7 +1449,7 @@ struct ProfilePeopleRow: View {
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.caption)
-                                    .foregroundStyle(app.appearance.liveAccent)
+                                    .foregroundStyle(.primary)
                                     .accessibilityLabel("Verified")
                             }
                         }
@@ -2462,7 +2462,7 @@ struct ProfileAvatarOverlayEditor: View {
                 .background {
                     if selected {
                         Circle()
-                            .strokeBorder(accent, lineWidth: 2.5)
+                            .strokeBorder(Color.primary, lineWidth: 2.5)
                             .matchedGeometryEffect(id: "status.selection", in: selection)
                     }
                 }
@@ -2531,37 +2531,10 @@ struct ProfileAvatarOverlayEditor: View {
 
     private var visibilitySection: some View {
         section("Who sees your frame", subtitle: visibility == .onlyMe ? "Shown only on your own profile page." : nil) {
-            HStack(spacing: 4) {
-                ForEach(ProfileFrameVisibility.allCases) { option in
-                    let selected = option == visibility
-                    Button {
-                        withAnimation(selectionSpring) { visibility = option }
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        Label(option.title, systemImage: option.systemImage)
-                            .font(.subheadline.weight(.semibold))
-                            .labelStyle(.titleAndIcon)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundStyle(selected ? Color.white : Color.secondary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 40)
-                            .background {
-                                if selected {
-                                    Capsule()
-                                        .fill(accent)
-                                        .shadow(color: accent.opacity(0.3), radius: 6, y: 2)
-                                        .matchedGeometryEffect(id: "visibility.pill", in: selection)
-                                }
-                            }
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-            .padding(4)
-            .modulaGlass(in: Capsule(), interactive: false)
+            ModulaSegmentedControl(segments: ProfileFrameVisibility.allCases.map {
+                .init(id: $0, title: $0.title, systemImage: $0.systemImage)
+            }, selection: $visibility, accessibilityLabel: "Who sees your frame",
+               identifier: { "profile.frame.visibility.\($0.title)" })
             .disabled(badge == nil)
             .opacity(badge == nil ? 0.5 : 1)
         }
@@ -2600,12 +2573,12 @@ struct ProfileAvatarOverlayEditor: View {
                         .frame(maxWidth: .infinity)
                         .background {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(selected ? accent.opacity(0.14) : Color.primary.opacity(0.04))
+                                .fill(selected ? Color.primary.opacity(0.10) : Color.primary.opacity(0.04))
                         }
                         .overlay {
                             if selected {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(accent.opacity(0.6), lineWidth: 1.5)
+                                    .strokeBorder(Color.primary.opacity(0.6), lineWidth: 1.5)
                                     .matchedGeometryEffect(id: "ring.selection", in: selection)
                             }
                         }
@@ -3065,8 +3038,8 @@ private struct ProfilePillSurface: ViewModifier {
 
     func body(content: Content) -> some View {
         if prominent {
-            // Same filled accent CTA as the rest of the app (was a darkened cover tint).
-            content.modulaAccentCTA()
+            // Primary CTA: solid label-colour fill, inverted label (t169u — no accent).
+            content.modulaPrimaryCTA()
         } else {
             content.modulaGlass(in: Capsule(), interactive: true, specular: true)
         }

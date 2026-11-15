@@ -66,7 +66,7 @@ final class ModulaBrowserPresenter {
             host?.dismiss(animated: false)
         }
         .environment(environment)
-        .tint(environment.appearance.liveAccent)
+        .tint(.primary)
         .preferredColorScheme(environment.appearance.colorScheme)
         let controller = UIHostingController(rootView: root)
         controller.modalPresentationStyle = .overFullScreen
@@ -408,6 +408,7 @@ struct ModulaInAppBrowserView: View {
                 page.webView.load(URLRequest(url: url))
             }
             .presentationDetents([.medium, .large])
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showModulaShare) {
             ModulaShareSheet(payload: .link(url: page.url, title: page.title))
@@ -605,7 +606,7 @@ struct ModulaInAppBrowserView: View {
             Text("This site has been flagged").font(.title3.bold())
             Text("Modula marked \(verdict.domain) as unsafe (\(verdict.reasons.first ?? "unsafe")). It may try to steal your information.")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            Button("Go back") { close() }.buttonStyle(.borderedProminent).tint(.red)
+            Button("Go back") { close() }.buttonStyle(.modulaPrimary).tint(.red)
             Button("Continue anyway") {
                 safetyBypassed = true
                 page.webView.load(URLRequest(url: page.url))

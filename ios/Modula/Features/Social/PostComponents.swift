@@ -354,7 +354,7 @@ struct PostBody: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(text)
-                    .tint(app.appearance.liveAccent)
+                    .tint(.primary)
                     .environment(\.openURL, OpenURLAction { url in
                         if let route = PostTextLinks.route(for: url) {
                             app.navigation.push(route)
@@ -374,7 +374,7 @@ struct PostBody: View {
                         }
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .accessibilityLabel(expanded ? "Show less" : "Show more")
                 }
                 PostTranslationControl(text: text)

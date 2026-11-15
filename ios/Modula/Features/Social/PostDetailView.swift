@@ -412,6 +412,7 @@ struct PostShareSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("post.share.sheet")
     }
 }
@@ -439,7 +440,7 @@ struct PostEditView: View {
         .modulaSoftScrollEdge()
         .safeAreaInset(edge: .bottom) {
             Button("Save", action: onSave)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .frame(maxWidth: .infinity)
                 .padding()
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

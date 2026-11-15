@@ -28,7 +28,7 @@ struct GubicGameDetailView: View {
                             Spacer()
                             Image(systemName: "chevron.right")
                         }
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .padding(ModulaSpacing.md)
                         .contentShape(Rectangle())
                     }

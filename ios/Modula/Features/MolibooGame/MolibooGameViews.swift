@@ -118,11 +118,7 @@ struct MolibooOutfitsPanel: View {
     private func content(_ store: MolibooGameStore) -> some View {
         VStack(spacing: 12) {
             HStack {
-                Picker("Outfits", selection: $segment) {
-                    Text("Full outfits").tag(0)
-                    Text("My outfits").tag(1)
-                }
-                .pickerStyle(.segmented)
+                ModulaSegmentedControl("Outfits", selection: $segment, segments: [(0, "Full outfits"), (1, "My outfits")])
                 Button { showInventory = true } label: { Label("Inventory", systemImage: "square.grid.3x3.fill").labelStyle(.iconOnly) }
                     .frame(width: 44, height: 44)
                     .modulaGlass(in: Circle(), interactive: true)
@@ -138,7 +134,7 @@ struct MolibooOutfitsPanel: View {
                         Button { newName = ""; naming = true } label: {
                             Label("Save what I’m wearing", systemImage: "plus.circle.fill").font(.headline).frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                         .accessibilityIdentifier("moliboo.outfits.save")
                         if store.saved.isEmpty {
                             Text("Mix pieces in the Wardrobe, then save the look here.").font(.callout).foregroundStyle(.secondary).padding(.top, 12)
@@ -156,7 +152,7 @@ struct MolibooOutfitsPanel: View {
             Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showInventory) {
-            NavigationStack { MolibooInventoryView(store: store) }.presentationDetents([.large])
+            NavigationStack { MolibooInventoryView(store: store) }.presentationDetents([.large]).modulaSheetStyle()
         }
     }
 
@@ -170,7 +166,7 @@ struct MolibooOutfitsPanel: View {
                 Text("\(outfit.itemIds.count) pieces").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Wear") { Task { await store.equip(saved: outfit) } }.buttonStyle(.borderedProminent).controlSize(.small)
+            Button("Wear") { Task { await store.equip(saved: outfit) } }.buttonStyle(.modulaPrimary).controlSize(.small)
         }
         .padding(12)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
@@ -220,7 +216,7 @@ private struct OutfitSetCard: View {
                 Text(set.completion?.complete == true ? (worn ? "Wearing" : "Wear full outfit") : "Unlock every piece to wear")
                     .frame(maxWidth: .infinity, minHeight: 36)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .disabled(worn || set.completion?.complete != true)
             .accessibilityIdentifier("moliboo.outfit.wear.\(set.setId)")
         }
@@ -363,7 +359,7 @@ struct MolibooSkillsBuffsCard: View {
                 if !reduceMotion { withAnimation(.spring(duration: 0.35)) { pulse = true } }
                 Task { await store.useSkill(); pulse = false }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .disabled(!skill.ready || store.busy)
             .accessibilityHint("Plays the signature animation and adds a short glow")
             .accessibilityIdentifier("moliboo.skill.use")
@@ -448,7 +444,7 @@ struct MolibooQuestsPanel: View {
             Spacer(minLength: 0)
             if q.claimed { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor).accessibilityLabel("Collected") }
             else if q.completed {
-                Button("Collect") { Task { await store.claim(q) } }.buttonStyle(.borderedProminent).controlSize(.small)
+                Button("Collect") { Task { await store.claim(q) } }.buttonStyle(.modulaPrimary).controlSize(.small)
                     .accessibilityIdentifier("moliboo.quest.claim.\(q.questId)")
             }
         }

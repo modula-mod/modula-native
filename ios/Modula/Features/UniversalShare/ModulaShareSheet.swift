@@ -119,14 +119,14 @@ struct ModulaShareSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .task { await loadPeople() }
         .task(id: query) { await search() }
         .onChange(of: audience.map(\.key)) { _, _ in remember(audience) }
         .sheet(isPresented: $showCode) {
             ModulaCodeView(subject: codeSubject ?? ModulaCodeSubject(payload: payload)) { showCode = false }
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
         }
         .sheet(isPresented: $showCollectionPicker) {
             if case .post(let id, _, _, _) = payload {
@@ -369,7 +369,7 @@ struct ModulaShareSheet: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(!canSend)
         .accessibilityLabel(sendLabel)
         .accessibilityIdentifier(selectedKeys.count >= 2 ? "share.sendSeparately" : "share.send")

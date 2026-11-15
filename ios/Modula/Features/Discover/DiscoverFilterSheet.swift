@@ -81,7 +81,7 @@ struct DiscoverFilterSheet: View {
                         ModulaGlassSheetIcon(symbol: "line.3.horizontal.decrease")
                         Text(kind.title).font(.body.weight(.medium)).foregroundStyle(.primary)
                         Spacer()
-                        if current.kind == kind { Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(accent) }
+                        if current.kind == kind { Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.primary) }
                     }
                     .padding(.horizontal, 16).padding(.vertical, 12)
                     .contentShape(Rectangle())

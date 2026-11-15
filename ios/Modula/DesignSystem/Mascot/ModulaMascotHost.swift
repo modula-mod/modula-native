@@ -1018,7 +1018,7 @@ struct MascotPremiumSheet: View {
                 Text(tapped ? "Premium is coming soon" : "Upgrade to Premium")
                     .font(.headline).frame(maxWidth: .infinity, minHeight: 50)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .buttonBorderShape(.capsule)
             .animation(.snappy, value: tapped)
             Button("Not now") { dismiss() }.font(.subheadline.weight(.semibold))
@@ -1026,6 +1026,7 @@ struct MascotPremiumSheet: View {
         }
         .padding(.horizontal, 22)
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .modulaGlassPresentation()
     }
 }
@@ -1758,7 +1759,7 @@ private struct CelebrationMoment: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 46)
                         .background(Capsule().fill(accent.gradient))
-                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.3))
+                        .modulaGlass(in: Capsule(), interactive: true, tint: nil)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
                 .accessibilityIdentifier("celebration.dismiss")

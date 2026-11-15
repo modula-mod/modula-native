@@ -82,7 +82,7 @@ struct WebGameHost: View {
                     Text("Paused").font(.title.bold())
                         .accessibilityIdentifier("game.host.paused")
                     Button("Resume") { setPaused(false) }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                         .accessibilityIdentifier("game.host.resume")
                     Button("Exit game") { close() }.buttonStyle(.bordered)
                 }

@@ -377,7 +377,7 @@ struct ModuleVersionSwitchSheet: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 50)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .tint(preview.isDowngrade ? .orange : app.appearance.liveAccent)
                 .disabled(!preview.allowed)
                 .accessibilityIdentifier("module.version-switch.confirm")

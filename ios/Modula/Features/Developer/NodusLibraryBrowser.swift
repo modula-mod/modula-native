@@ -135,12 +135,7 @@ struct NodusLibraryBrowser: View {
 
     private var scopePicker: some View {
         Section {
-            Picker("Library", selection: $scope) {
-                ForEach(NodusLibraryScope.allCases) { item in
-                    Text(item.title).tag(item)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Library", selection: $scope, options: NodusLibraryScope.allCases) { $0.title }
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             Text("Swipe sideways to move between Chats, Important, Favorites, and Archive.")
                 .font(.caption2)
@@ -183,7 +178,7 @@ struct NodusLibraryBrowser: View {
                         Label(project.name, systemImage: project.symbol)
                         Spacer()
                         if selectedProjectID == project.id {
-                            Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent)
+                            Image(systemName: "checkmark").foregroundStyle(.primary)
                         }
                     }
                 }
@@ -227,7 +222,7 @@ struct NodusLibraryBrowser: View {
                         Label(folder.name, systemImage: folder.symbol)
                         Spacer()
                         if selectedFolderID == folder.id {
-                            Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent)
+                            Image(systemName: "checkmark").foregroundStyle(.primary)
                         }
                     }
                 }
@@ -544,7 +539,7 @@ struct NodusChatSettingsSheet: View {
                         in: 1...5,
                         step: 1
                     )
-                    .tint(app.appearance.liveAccent)
+                    .tint(.primary)
                     Text("Short, Standard, and Fuller are one draft. Review adds a revision. Deep adds a review and a final pass.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

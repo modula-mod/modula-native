@@ -229,7 +229,7 @@ struct Lab30OfflineState: View {
                 .font(.body.weight(.semibold))
                 .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
         }
         .multilineTextAlignment(.center).padding(32)
     }
@@ -782,7 +782,7 @@ struct Lab30CoachMarksOverlay: View {
                         Text("\(index + 1) of \(marks.count)").font(.caption).foregroundStyle(.secondary)
                         Spacer()
                         Button("Skip") { seen = true }.buttonStyle(.borderless)
-                        Button(index == marks.count - 1 ? "Done" : "Next", action: next).buttonStyle(.borderedProminent)
+                        Button(index == marks.count - 1 ? "Done" : "Next", action: next).buttonStyle(.modulaPrimary)
                     }
                 }
                 .padding(18)
@@ -831,12 +831,13 @@ struct Lab30WhatsNewSheet: View {
             }.padding(.horizontal, 24)
             Spacer(minLength: 0)
             Button { dismiss(); onTry() } label: { Text("Try them").frame(maxWidth: .infinity).padding(.vertical, 12) }
-                .buttonStyle(.plain).foregroundStyle(.white)
-                .modulaAccentCTA()
+                .buttonStyle(.plain).foregroundStyle(Color.modulaOnPrimary)
+                .modulaPrimaryCTA()
                 .padding(.horizontal, 24)
             Button("Not now") { dismiss() }.padding(.bottom, 16)
         }
         .presentationDetents([.large])
+        .modulaSheetStyle()
     }
 }
 
@@ -1176,6 +1177,7 @@ struct Lab30GlassShareSheet: View {
         }
         .frame(maxWidth: .infinity)
         .presentationDetents([.height(260)])
+        .modulaSheetStyle()
         .presentationBackground(.clear)
         .background(Color.clear.modulaGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous), interactive: false).ignoresSafeArea())
         .sensoryFeedback(.success, trigger: copied)

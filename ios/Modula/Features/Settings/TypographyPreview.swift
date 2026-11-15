@@ -54,14 +54,7 @@ struct TypographyPreviewCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Standard segmented control (replaces the retired ContainedLoopPicker / EdgeLoop reel).
-            Picker("Sample", selection: $sample) {
-                ForEach(FontSampleKind.allCases) { kind in
-                    Label(kind.label, systemImage: kind.icon)
-                        .labelStyle(.titleOnly)
-                        .tag(kind)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Sample", selection: $sample, options: FontSampleKind.allCases) { $0.label }
             .accessibilityIdentifier("typography.sample.picker")
         }
         // Grow with the sample instead of clipping the last line at larger text sizes.

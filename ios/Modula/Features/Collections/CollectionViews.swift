@@ -90,14 +90,14 @@ struct CollectionsView: View {
                             showCreate = false
                             HapticEngine.shared.play(.confirmation)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                         .tint(Color(hex: "#D66056"))
                         .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
             .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .confirmationDialog(
             pendingDelete.map { "Delete “\($0.name)”?" } ?? "Delete collection?",

@@ -48,7 +48,7 @@ struct PostTranslationControl: View {
                         .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .accessibilityHint("Translates this post on your iPhone")
                 if failed {
                     Text("Couldn’t translate this post.").font(.caption2).foregroundStyle(.secondary)

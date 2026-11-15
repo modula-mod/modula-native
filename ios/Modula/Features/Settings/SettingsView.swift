@@ -39,7 +39,7 @@ struct SettingsToggleCard<Content: View>: View {
             }
         }
         .toggleStyle(.switch)
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
     }
 
     private var rows: some View {
@@ -93,11 +93,11 @@ private struct AppearanceChoice<Value: Hashable>: View {
             }
             .font(.subheadline.weight(.semibold))
             // Text/checkmark colour picked by the accent's luminance (white on yellow was unreadable).
-            .foregroundStyle(selection == value ? Self.onColor(app.appearance.liveAccent) : Color.primary)
+            .foregroundStyle(selection == value ? Color.modulaOnPrimary : Color.primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: 46)
-            .background(selection == value ? app.appearance.liveAccent : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(selection == value ? Color.modulaPrimaryFill : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == value ? .isSelected : [])
@@ -391,6 +391,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showsPrivacyDashboard) {
             SettingsPrivacyDashboard()
                 .presentationDetents([.large])
+                .modulaSheetStyle()
         }
         .fullScreenCover(isPresented: $showsQR) {
             SettingsQRModal { showsQR = false }
@@ -911,7 +912,7 @@ private struct SettingsQuickSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
     }
 }
 
@@ -1016,7 +1017,7 @@ struct AppearanceSettingsView: View {
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("appearance.preview-full")
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
@@ -1402,7 +1403,7 @@ struct AppearanceLivePreview: View {
                         .font(.caption.weight(.semibold))
                         .lineLimit(2)
                     HStack(spacing: 10) {
-                        Image(systemName: "heart.fill").foregroundStyle(accent)
+                        Image(systemName: "heart.fill").foregroundStyle(.primary)
                         Image(systemName: "bubble.left")
                         Image(systemName: "arrow.2.squarepath")
                     }
@@ -1415,7 +1416,7 @@ struct AppearanceLivePreview: View {
                     .accessibilityHidden(true)
             }
             HStack {
-                Label("Home", systemImage: "house.fill").foregroundStyle(accent).labelStyle(.titleAndIcon)
+                Label("Home", systemImage: "house.fill").foregroundStyle(.primary).labelStyle(.titleAndIcon)
                 Spacer()
                 Image(systemName: "safari")
                 Spacer()
@@ -1457,7 +1458,7 @@ private struct AppearanceThemeCard: View {
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(accent)
+                        .foregroundStyle(.primary)
                         .padding(6)
                         .accessibilityHidden(true)
                 }
@@ -1518,7 +1519,7 @@ struct AppearancePreviewView: View {
                 ModulaText(text: "Trying out a new look for my Modula. What do you think? 🎨", role: compact ? .body : .headline)
                 // A realistic mini post, so accent / theme / density changes are visible live.
                 HStack(spacing: 18) {
-                    Label("24", systemImage: "heart.fill").foregroundStyle(app.appearance.liveAccent)
+                    Label("24", systemImage: "heart.fill").foregroundStyle(.primary)
                     Label("6", systemImage: "bubble.left")
                     Label("2", systemImage: "arrow.2.squarepath")
                     Spacer()
@@ -1624,19 +1625,13 @@ struct ComponentCatalogView: View {
             LazyVStack(alignment: .leading, spacing: 24) {
                 catalog("Live Appearance") {
                     VStack(spacing: 12) {
-                        Picker("Theme", selection: $appearance.theme) {
-                            ForEach(AppearanceStore.Theme.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
-                        }.pickerStyle(.segmented)
-                        Picker("Dark Style", selection: $appearance.darkStyle) {
-                            ForEach(AppearanceStore.DarkStyle.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
-                        }.pickerStyle(.segmented)
+                        ModulaSegmentedControl("Theme", selection: $appearance.theme, options: AppearanceStore.Theme.allCases) { settingsDisplayTitle($0.rawValue) }
+                        ModulaSegmentedControl("Dark Style", selection: $appearance.darkStyle, options: AppearanceStore.DarkStyle.allCases) { settingsDisplayTitle($0.rawValue) }
                         HStack {
                             Picker("Accent", selection: $appearance.accent) { ForEach(AppearanceStore.Accent.allCases) { Text($0.title).tag($0) } }
                             Picker("Font", selection: $appearance.fontFamily) { ForEach(AppearanceStore.FontFamily.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) } }
                         }
-                        Picker("Density", selection: $appearance.density) {
-                            ForEach(AppearanceStore.Density.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
-                        }.pickerStyle(.segmented)
+                        ModulaSegmentedControl("Density", selection: $appearance.density, options: AppearanceStore.Density.allCases) { settingsDisplayTitle($0.rawValue) }
                     }
                 }
                 AppearancePreviewView()
@@ -1959,7 +1954,7 @@ private struct AppearanceLogoChoice: View {
                 case .moliboos:
                     Image(systemName: "sparkle")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .accessibilityHidden(true)
                     MoliboosWordmark(height: 22)
                 }

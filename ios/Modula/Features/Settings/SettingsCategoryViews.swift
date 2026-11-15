@@ -317,7 +317,7 @@ struct AppLockSettingsView: View {
                             Spacer()
                             if lock.settings.interval == interval {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(app.appearance.liveAccent)
+                                    .foregroundStyle(.primary)
                             }
                         }
                     }

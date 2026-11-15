@@ -739,7 +739,7 @@ struct ShellSidebarView: View {
                 Button("Clear") { recentSearchesRaw = "" }
                     .font(.footnote.weight(.semibold))
                     .buttonStyle(.plain)
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .accessibilityIdentifier("shell.sidebar.recent.clear")
             }
             .padding(.horizontal, rowInset)
@@ -1042,7 +1042,7 @@ struct ShellSidebarView: View {
         } label: {
             Label("New post", systemImage: "square.and.pencil")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, ModulaSpacing.md)
@@ -1050,7 +1050,7 @@ struct ShellSidebarView: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
         // Long-press: quick-create straight into a specific composer.
         .contextMenu {

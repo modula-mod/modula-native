@@ -408,12 +408,12 @@ struct ProductUINode: View {
         let button = Button(runtime.boundText(node).isEmpty ? "Continue" : runtime.boundText(node)) {
             if let action = node["action"]?.string { runtime.perform(actionId: action) }
         }
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
         .accessibilityIdentifier("product-ui.button.\(node["action"]?.string ?? "none")")
         if compact {
             button.buttonStyle(.bordered).controlSize(.small)
         } else {
-            button.buttonStyle(.borderedProminent)
+            button.buttonStyle(.modulaPrimary)
         }
     }
 

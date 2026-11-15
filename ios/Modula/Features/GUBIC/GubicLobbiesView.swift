@@ -55,6 +55,7 @@ struct GubicLobbiesView: View {
         .sheet(item: $room) { lobby in
             NavigationStack { GubicLobbyRoomView(lobby: lobby, gameTitle: gameTitle, store: store) }
                 .presentationDetents([.large])
+                .modulaSheetStyle()
         }
     }
 
@@ -201,11 +202,11 @@ struct GubicPremiumNote: View {
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         HStack(alignment: .top, spacing: ModulaSpacing.sm) {
-            Image(systemName: "sparkles").foregroundStyle(app.appearance.liveAccent)
+            Image(systemName: "sparkles").foregroundStyle(.primary)
             VStack(alignment: .leading, spacing: 4) {
                 Text(text).font(.footnote)
                 Button("What's in Modula Premium") { app.navigation.open(.settings(.premium(.compare))) }
-                    .font(.footnote.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.primary)
                     .frame(minHeight: 44)
             }
         }

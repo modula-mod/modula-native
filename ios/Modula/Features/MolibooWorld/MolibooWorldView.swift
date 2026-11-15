@@ -196,14 +196,15 @@ struct MolibooWorldView: View {
         .toolbar(.hidden, for: .tabBar)
         .onAppear { if !onboarded { showWelcome = true } }
         .navigationDestination(item: $route) { r in destination(r) }
-        .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }
-        .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]).modulaSheetStyle() }
+        .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]).modulaSheetStyle() }
         .sheet(isPresented: $showCareSheet) {
             MolibooCareSheet(characterID: characterID, name: displayName, care: care) { a in
                 if a == .photo { showCareSheet = false }
                 performAction(a)
             }
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
         .task {
             #if DEBUG
@@ -369,45 +370,10 @@ struct MolibooWorldView: View {
     /// Native Liquid Glass segmented switcher: icon + short label, one glass capsule track the same 44 pt height as
     /// the header buttons, and a selection capsule that glides between segments (no motion under Reduce Motion).
     private var navBar: some View {
-        ModulaGlassGroup(spacing: 0) {
-            HStack(spacing: 2) {
-                ForEach(Section.allCases) { s in
-                    let selected = navSelection == s
-                    Button { select(s) } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: selected ? s.selectedSymbol : s.symbol)
-                                .font(.footnote.weight(.semibold))
-                                .frame(width: 18)
-                            Text(s.title)
-                                .font(.footnote.weight(.semibold))
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
-                        .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background {
-                            if selected {
-                                Capsule()
-                                    .fill(Color.primary.opacity(0.09))
-                                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
-                                    .matchedGeometryEffect(id: "world.nav.selection", in: navNS)
-                            }
-                        }
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("world.nav.\(s.rawValue)")
-                    .accessibilityLabel(s.title)
-                    .accessibilityHint(s.accessibilityHint)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-            .padding(4)
+        ModulaSegmentedControl("World sections", selection: Binding(get: { navSelection }, set: { select($0) }),
+                               options: Section.allCases, symbol: { $0.symbol },
+                               identifier: { "world.nav.\($0.rawValue)" }) { $0.title }
             .frame(height: 44)
-            .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
-            .modulaGlassID("world.nav", in: glassNS)
-        }
         .frame(maxWidth: 320)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -691,46 +657,9 @@ struct MolibooWorldView: View {
 
     /// Liquid Glass family tab strip, kept in sync with the pager below.
     private var familyTabs: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                // Each family is its own glass chip (the old single capsule read as clipped at the screen edge).
-                ModulaGlassGroup(spacing: 8) {
-                    HStack(spacing: 8) {
-                        ForEach(pickerFamilies) { f in
-                            let selected = f == currentPickerFamily
-                            Button {
-                                withAnimation(navAnimation) { pickerFamily = f }
-                                UISelectionFeedbackGenerator().selectionChanged()
-                            } label: {
-                                Text(f.displayTitle)
-                                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
-                                    .lineLimit(1).fixedSize()
-                                    .foregroundStyle(selected ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
-                                    .padding(.horizontal, 16)
-                                    .frame(height: 38)
-                                    .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .modulaGlass(in: Capsule(), interactive: true,
-                                         tint: selected ? app.appearance.liveAccent : glassTint, prominent: selected, specular: true)
-                            .id(f)
-                            .accessibilityIdentifier("world.family.tab.\(f.rawValue)")
-                            .accessibilityLabel(f.displayTitle)
-                            .accessibilityAddTraits(selected ? .isSelected : [])
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            .modulaHorizontalRail()
-            .scrollIndicators(.hidden)
-            .contentMargins(.horizontal, 24, for: .scrollContent)
-            .modulaHorizontalEdgeFade()
-            .onChange(of: currentPickerFamily) { _, f in
-                withAnimation(navAnimation) { proxy.scrollTo(f, anchor: .center) }
-            }
-            .onAppear { proxy.scrollTo(currentPickerFamily, anchor: .center) }
-        }
+        ModulaSegmentedControl("Families", selection: Binding(get: { currentPickerFamily }, set: { f in withAnimation(navAnimation) { pickerFamily = f } }),
+                               options: pickerFamilies, identifier: { "world.family.tab.\($0.rawValue)" }) { $0.displayTitle }
+            .padding(.horizontal, 24)
     }
 
     /// One page per family, paged horizontally. Height follows the visible page so short families leave no gap.

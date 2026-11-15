@@ -145,10 +145,7 @@ struct MascotStudioView: View {
                     actionBar
                     MolibooCollectionEntry()
                     MolibooMarketplaceEntry()
-                    Picker("Studio", selection: $tab) {
-                        ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
-                    }
-                    .pickerStyle(.segmented)
+                    ModulaSegmentedControl("Studio", selection: $tab, options: StudioTab.allCases) { $0.title }
                     .padding(.horizontal, 2)
 
                     switch tab {
@@ -224,6 +221,7 @@ struct MascotStudioView: View {
         .sheet(item: $shareImage) { img in
             MascotActivitySheet(items: [img.image])
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
         .alert("Save outfit", isPresented: $naming) {
             TextField("Name", text: $presetName)
@@ -765,7 +763,7 @@ struct MascotStudioView: View {
                     MascotSound.shared.play(.send)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .buttonBorderShape(.capsule)
             .disabled(!progress.canOpenChest)
         }
@@ -850,7 +848,7 @@ struct MascotStudioView: View {
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .buttonBorderShape(.capsule)
             .disabled(customs.items.count >= CustomMascotStore.maxCount)
         }
@@ -1053,6 +1051,7 @@ struct MascotItemDetailSheet: View {
             .padding(.bottom, 20)
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .modulaGlassPresentation()
         .onAppear {
             if wardrobe.outfit.contains(item) { dye = wardrobe.outfit.dye(for: item.slot) }
@@ -1084,7 +1083,7 @@ struct MascotItemDetailSheet: View {
                     Text(wardrobe.outfit.contains(item) && wardrobe.outfit.dye(for: item.slot) == dye ? "Take off" : "Wear")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .buttonBorderShape(.capsule)
                 .disabled(!fit.isWearable)
             } else if !item.isAvailable() {
@@ -1106,7 +1105,7 @@ struct MascotItemDetailSheet: View {
                     Label("Buy for \(price)", systemImage: "circle.hexagongrid.fill")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .buttonBorderShape(.capsule)
                 .tint(.orange)
                 Text("Balance: \(progress.coins) coins").font(.caption).foregroundStyle(.secondary)

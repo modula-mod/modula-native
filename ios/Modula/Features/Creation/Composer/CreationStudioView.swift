@@ -118,6 +118,7 @@ struct CreationStudioView: View {
                 }
             }
             .presentationDetents([.medium, .large])
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showMoreOptions) {
             CreationMoreOptionsSheet(
@@ -337,7 +338,7 @@ struct CreationStudioView: View {
                     if let tip = store.composerTip {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "lightbulb.fill")
-                                .foregroundStyle(accent)
+                                .foregroundStyle(.primary)
                             Text(tip)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)

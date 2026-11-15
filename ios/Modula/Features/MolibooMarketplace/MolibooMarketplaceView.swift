@@ -106,7 +106,7 @@ struct MolibooMarketplaceView: View {
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { detail = nil } } }
                 }
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
             }
         }
         .overlay(alignment: .bottom) {
@@ -156,24 +156,9 @@ struct MolibooMarketplaceView: View {
     }
 
     private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(MolibooMarketplaceTab.allCases) { item in
-                        Button { tab = item } label: {
-                            Label(item.title, systemImage: item.symbol).font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14).padding(.vertical, 8)
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: tab == item ? Color.accentColor.opacity(0.35) : nil)
-                        .accessibilityAddTraits(tab == item ? .isSelected : [])
-                        .accessibilityIdentifier("moliboo.marketplace.tab.\(item.rawValue)")
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-        .modulaHorizontalRail()
+        ModulaSegmentedControl("Marketplace", selection: $tab, options: MolibooMarketplaceTab.allCases, symbol: { $0.symbol },
+                               identifier: { "moliboo.marketplace.tab.\($0.rawValue)" }) { $0.title }
+            .padding(.horizontal, 16)
         .padding(.vertical, 8)
     }
 

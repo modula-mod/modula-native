@@ -26,7 +26,7 @@ struct SettingsLiveAppearanceCard: View {
                 Text("Follow")
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 14).frame(height: 32)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityHidden(true)
             }
             .padding(10)
@@ -79,7 +79,7 @@ struct SettingsLiveAppearanceCard: View {
                     .frame(maxWidth: .infinity, minHeight: 40)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("settings.live-appearance.more")
         }
         .padding(14)
@@ -92,7 +92,7 @@ private struct SettingsChoiceChrome: ViewModifier {
     @Environment(AppEnvironment.self) private var app
     func body(content: Content) -> some View {
         if selected {
-            content.modulaAccentCTA()
+            content.modulaPrimaryCTA()
         } else {
             content.foregroundStyle(app.appearance.liveAccent).modulaGlass(in: Capsule(), interactive: true)
         }
@@ -179,7 +179,7 @@ struct SettingsPrivacyDashboard: View {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                         .padding(.horizontal, 12)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
             }
             .onAppear { withAnimation(calm ? nil : .spring(response: 0.8, dampingFraction: 0.9)) { shown = true } }

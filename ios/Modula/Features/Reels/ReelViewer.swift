@@ -123,7 +123,7 @@ struct ReelFeedView: View {
                         .frame(height: 44)
                         .contentShape(Capsule())
                 }
-                .modulaGlass(in: Capsule(), tint: app.appearance.liveAccent.opacity(0.45), specular: true)
+                .modulaGlass(in: Capsule(), tint: nil, specular: true)
                 .accessibilityLabel("Create")
                 .accessibilityIdentifier("reels.create")
             }
@@ -161,7 +161,7 @@ struct ReelFeedView: View {
             if let reel = current, reel.postID != nil {
                 PostCommentsSheet(postID: reel.postID ?? reel.id)
                     .presentationDetents([.medium, .large], selection: $commentsDetent)
-                    .presentationDragIndicator(.visible)
+                    .modulaSheetStyle()
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         }
@@ -564,7 +564,7 @@ struct ReelOverlay: View {
                         if reel.author?.isVerified == true {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.caption)
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .accessibilityLabel("Verified")
                         }
                     }
@@ -753,7 +753,7 @@ struct ReelsInstallModuleCard: View {
         VStack(spacing: 14) {
             Image(systemName: "puzzlepiece.extension.fill")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 76, height: 76)
                 .modulaGlass(in: Circle(), interactive: false)
             Text("Install a module to watch")
@@ -768,7 +768,7 @@ struct ReelsInstallModuleCard: View {
                     .padding(.horizontal, 20).frame(height: 44)
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Capsule(), tint: app.appearance.liveAccent)
+            .modulaGlass(in: Capsule(), tint: nil)
             Button("Try again", action: onRetry)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)

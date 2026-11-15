@@ -330,10 +330,10 @@ struct MolibooGalleryInspectView: View {
                         ) {
                             Label("Share card", systemImage: "square.and.arrow.up")
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     } else {
                         Button("Share card") { exportImage = renderedShareImage() }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.modulaPrimary)
                     }
                 }
                 .font(.subheadline.weight(.semibold))

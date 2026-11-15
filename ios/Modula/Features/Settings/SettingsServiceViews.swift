@@ -487,7 +487,7 @@ struct SupportCaseComposer: View {
             }
             Section {
                 Toggle("Attach diagnostics", isOn: $draft.attachDiagnostics.animation())
-                    .tint(app.appearance.liveAccent)
+                    .tint(.primary)
                 if draft.attachDiagnostics {
                     DisclosureGroup("Review what’s sent (\(diagnostics.count))") {
                         ForEach(diagnostics) { item in
@@ -520,7 +520,7 @@ struct SupportCaseComposer: View {
             Spacer(minLength: 20)
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 64, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .symbolEffect(.bounce, value: opened.reference)
                 .modulaHeroSheen(intensity: 0.8)
             Text("We’ve got it")

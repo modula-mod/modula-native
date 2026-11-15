@@ -59,7 +59,7 @@ struct AppLockView: View {
                 Button("Unlock") {
                     if lock.unlockBySlide() { lock.haptic(.success); app.refreshLaunchState() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
             } else if lock.settings.method == .pattern {
                 PatternPad(hideTrail: lock.settings.hidesPatternTrail, disabled: busy,
                            haptics: lock.settings.hapticsEnabled) { nodes in

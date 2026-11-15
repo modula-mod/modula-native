@@ -233,7 +233,7 @@ struct ModulaPDFImmersiveReader: View {
         .sheet(isPresented: $showsGrid) { PDFPageGridSheet(model: model) { showsGrid = false } }
         .sheet(isPresented: $showsOutline) { PDFOutlineSheet(model: model) { showsOutline = false } }
         .sheet(isPresented: Binding(get: { shareItems != nil }, set: { if !$0 { shareItems = nil } })) {
-            ActivitySheet(items: shareItems ?? []).presentationDetents([.medium, .large])
+            ActivitySheet(items: shareItems ?? []).presentationDetents([.medium, .large]).modulaSheetStyle()
         }
     }
 
@@ -339,7 +339,7 @@ struct ModulaPDFImmersiveReader: View {
                                 }
                                 .overlay(alignment: .topTrailing) {
                                     if model.bookmarks.contains(index) {
-                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(app.appearance.liveAccent).padding(2)
+                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(.primary).padding(2)
                                     }
                                 }
                         }

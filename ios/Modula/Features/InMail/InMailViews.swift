@@ -254,7 +254,7 @@ struct InMailComposer: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .disabled(mail.sendState == .sending || !mail.capabilities.send)
             }
             .padding(.horizontal, ModulaLayout.contentInset)

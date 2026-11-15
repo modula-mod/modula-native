@@ -208,6 +208,7 @@ struct ImmersivePostCard: View {
                 apply(.custom(emoji))
             }
             .presentationDetents([.medium])
+            .modulaSheetStyle()
             .modulaGlassPresentation()
         }
         .fullScreenCover(item: $viewer) { item in
@@ -1716,12 +1717,11 @@ struct ImmersiveMusicPlayer: View {
             } label: {
                 Image(systemName: audio.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Circle(), tint: accent, prominent: true)
+            .modulaPrimaryCTA(in: Circle())
             .disabled(playableURL == nil)
             .accessibilityLabel(audio.isPlaying ? "Pause" : "Play")
             Button(action: onExpand) {

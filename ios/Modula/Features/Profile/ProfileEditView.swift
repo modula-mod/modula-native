@@ -108,7 +108,7 @@ struct ProfileEditView: View {
                         Text("Save").fontWeight(.semibold)
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .tint(accent)
                 .disabled(!canSave && editing.status != .saving)
                 .animation(spring, value: canSave)
@@ -147,7 +147,7 @@ struct ProfileEditView: View {
         .sheet(isPresented: $showsAvatarOverlays) {
             ProfileAvatarOverlayEditor()
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
         }
         .confirmationDialog("Unsaved changes", isPresented: $confirmsDiscard, titleVisibility: .visible) {
             Button("Save Changes") { save() }
@@ -338,12 +338,7 @@ struct ProfileEditView: View {
             Text("Who can see your profile")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Picker("Visibility", selection: visibilityBinding) {
-                ForEach([ProfileVisibility.public, .followers, .teams, .private], id: \.self) { value in
-                    Text(value.displayTitle).tag(value)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Visibility", selection: visibilityBinding, options: [ProfileVisibility.public, .followers, .teams, .private]) { $0.displayTitle }
             .accessibilityIdentifier("profile.edit.visibility")
         }
         .padding(.vertical, 10)

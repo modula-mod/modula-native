@@ -465,6 +465,7 @@ struct HomeView: View {
         .sheet(isPresented: $editingQuickActions) {
             HomeQuickActionEditor(raw: $quickActionsRaw)
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
     }
 
@@ -496,7 +497,7 @@ struct HomeView: View {
             VStack(spacing: 6) {
                 Image(systemName: symbol)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
                     .background(app.appearance.liveAccent.opacity(colorScheme == .dark ? 0.22 : 0.13), in: Circle())
                 Text(title)
@@ -515,58 +516,31 @@ struct HomeView: View {
 
     /// Reference filter chips; each filters the loaded feed by real post fields.
     private var feedFilterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(HomeFeedFilter.allCases) { filter in
-                    let selected = feedFilter == filter
-                    Button {
-                        withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
-                            feedFilter = filter
-                        }
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        Label(filter.title, systemImage: filter.symbol)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(selected ? app.appearance.liveAccent : Color.primary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 36)
-                            .background(selected ? app.appearance.liveAccent.opacity(0.14) : .clear, in: Capsule())
-                            .overlay(Capsule().strokeBorder(selected ? app.appearance.liveAccent.opacity(0.45) : .clear, lineWidth: 1))
-                            .modulaGlass(in: Capsule(), interactive: true)
-                            .frame(minHeight: 44)
-                            .contentShape(Capsule())
+        // Shared segmented control; long-press the row to make the current filter Home's default.
+        ModulaSegmentedControl("Feed filter", selection: Binding(get: { feedFilter }, set: { filter in
+            withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) { feedFilter = filter }
+        }), options: HomeFeedFilter.allCases, symbol: { $0.symbol }, identifier: { "home.filter.\($0.rawValue)" }) { $0.title }
+            .contextMenu {
+                let count = app.home.visiblePosts(for: mode).filter(feedFilter.matches).count
+                Text("\(count) loaded \(count == 1 ? "post" : "posts")")
+                if defaultFeedFilterRaw == feedFilter.rawValue {
+                    Button("Default filter", systemImage: "checkmark") {}
+                        .disabled(true)
+                } else {
+                    Button("Open Home with \(feedFilter.title)", systemImage: "pin") {
+                        defaultFeedFilterRaw = feedFilter.rawValue
+                        app.navigation.flash("Home opens with \(feedFilter.title)", symbol: feedFilter.symbol)
                     }
-                    .buttonStyle(.plain)
-                    // Long-press: make this the filter Home opens with.
-                    .contextMenu {
-                        let count = app.home.visiblePosts(for: mode).filter(filter.matches).count
-                        Text("\(count) loaded \(count == 1 ? "post" : "posts")")
-                        if defaultFeedFilterRaw == filter.rawValue {
-                            Button("Default filter", systemImage: "checkmark") {}
-                                .disabled(true)
-                        } else {
-                            Button("Open Home with \(filter.title)", systemImage: "pin") {
-                                defaultFeedFilterRaw = filter.rawValue
-                                feedFilter = filter
-                                app.navigation.flash("Home opens with \(filter.title)", symbol: filter.symbol)
-                            }
-                        }
-                        if defaultFeedFilterRaw != HomeFeedFilter.all.rawValue {
-                            Button("Reset to All", systemImage: "arrow.uturn.backward") {
-                                defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
-                                feedFilter = .all
-                            }
-                        }
+                }
+                if defaultFeedFilterRaw != HomeFeedFilter.all.rawValue {
+                    Button("Reset to All", systemImage: "arrow.uturn.backward") {
+                        defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
+                        feedFilter = .all
                     }
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityHint("Long-press to make this the default")
-                    .accessibilityIdentifier("home.filter.\(filter.rawValue)")
                 }
             }
+            .accessibilityHint("Long-press to make the selected filter the default")
             .padding(.horizontal, ModulaLayout.contentInset + leadingInteractionInset)
-        }
-        .modulaHorizontalRail()
-        .scrollClipDisabled()
     }
 
     private var modeCaption: some View {
@@ -783,7 +757,7 @@ struct HomeView: View {
                                 .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityLabel("Retry loading more posts")
                         .accessibilityIdentifier("home.load-more-retry")
                     }
@@ -804,8 +778,8 @@ struct HomeView: View {
                 app.navigation.requestAuthentication(returningTo: .home(.following))
                 HapticEngine.shared.play(.navigation)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(app.appearance.liveAccent)
+            .buttonStyle(.modulaPrimary)
+            .tint(.primary)
             .accessibilityIdentifier("home.sign-in")
         }
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -824,8 +798,8 @@ struct HomeView: View {
                         app.navigation.open(.discover(.people))
                         HapticEngine.shared.play(.navigation)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.liveAccent)
+                    .buttonStyle(.modulaPrimary)
+                    .tint(.primary)
                     .accessibilityIdentifier("home.empty.discover")
                 }
             } else {
@@ -1301,7 +1275,7 @@ struct CommentsFloatingBubble: View {
                     .foregroundStyle(.white)
                     .frame(width: 56, height: 56)
                     .background(Circle().fill(accent.gradient))
-                    .modulaGlass(in: Circle(), interactive: true, tint: accent.opacity(0.25))
+                    .modulaGlass(in: Circle(), interactive: true, tint: nil)
                     .shadow(color: accent.opacity(0.45), radius: 14, y: 6)
                 if post.replyCount > 0 {
                     Text(post.replyCount > 99 ? "99+" : "\(post.replyCount)")
@@ -1643,7 +1617,7 @@ struct HomeTodayCard: View {
                 ForEach(snapshot.quests) { quest in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(quest.title).font(.subheadline.weight(.semibold))
-                        ProgressView(value: Double(quest.progress), total: Double(max(quest.goal, 1))).tint(app.appearance.liveAccent)
+                        ProgressView(value: Double(quest.progress), total: Double(max(quest.goal, 1))).tint(.primary)
                     }
                 }
                 ForEach(snapshot.buffs) { buff in
@@ -1675,7 +1649,7 @@ struct HomeCaughtUpMarker: View {
                 Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .accessibilityHidden(true)
                 Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
             }
@@ -1973,7 +1947,7 @@ struct HomeSectionEditor: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .accessibilityIdentifier("home.edit.sheet")
     }
 }

@@ -114,7 +114,6 @@ struct NodusPluginSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { NodusStudioClose() }
             }
-            .presentationDragIndicator(.visible)
         }
         .accessibilityIdentifier("nodus.chat.plugins")
     }
@@ -291,7 +290,7 @@ struct NodusMessageReactions: View {
             ForEach(symbols, id: \.self) { symbol in
                 Image(systemName: symbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
                     .background(app.appearance.liveAccent.opacity(0.12), in: Capsule())
@@ -610,7 +609,7 @@ struct NodusStudioGlyph: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.body.weight(.semibold))
-            .foregroundStyle(app.appearance.liveAccent)
+            .foregroundStyle(.primary)
             .frame(width: size, height: size)
             .background(app.appearance.liveAccent.opacity(0.14), in: Circle())
     }
@@ -654,7 +653,7 @@ struct NodusThinkBudgetPopover: View {
                 in: 1...5,
                 step: 1
             )
-            .tint(app.appearance.liveAccent)
+            .tint(.primary)
             .accessibilityLabel("Reply budget")
             .accessibilityValue(step.detail)
             HStack {
@@ -710,7 +709,7 @@ struct NodusModelSheet: View {
                     }
                     Section {
                         Label("Runs on this iPhone", systemImage: "iphone")
-                            .foregroundStyle(app.appearance.liveAccent)
+                            .foregroundStyle(.primary)
                         Text("Nodus uses this bundle only. If it is missing, the chat does not switch to another model.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -726,7 +725,6 @@ struct NodusModelSheet: View {
             .navigationTitle("Models")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .accessibilityIdentifier("nodus.chat.models")
         }
     }
@@ -769,7 +767,6 @@ struct NodusSystemInfoSheet: View {
             .navigationTitle("System Info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .accessibilityIdentifier("nodus.chat.system-info")
         }
     }
@@ -813,7 +810,6 @@ struct NodusConnectorsSheet: View {
             .navigationTitle("Attached")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .task { await loadCollections() }
             .accessibilityIdentifier("nodus.chat.connectors")
         }
@@ -988,7 +984,6 @@ struct NodusMarketplaceSheet: View {
             .navigationTitle("Marketplace")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .navigationDestination(item: $selected) { prompt in
                 marketDetail(prompt)
             }
@@ -1184,7 +1179,6 @@ struct NodusSkillsSheet: View {
             .navigationTitle("Skills")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .accessibilityIdentifier("nodus.chat.skills")
         }
     }
@@ -1238,7 +1232,6 @@ struct NodusPersonaSheet: View {
             .navigationTitle("Persona")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .onAppear { custom = model.activePersona }
             .animation(.spring(duration: 0.32, bounce: 0.25), value: model.activePersona)
             .accessibilityIdentifier("nodus.chat.persona")
@@ -1294,17 +1287,8 @@ struct NodusCustomiseSheet: View {
                     .animation(.spring(duration: 0.35, bounce: 0.3), value: selectedTint)
                 }
                 Section("Messages") {
-                    Picker("Text", selection: textSizeBinding) {
-                        Text("Small").tag("small")
-                        Text("Regular").tag("regular")
-                        Text("Large").tag("large")
-                    }
-                    .pickerStyle(.segmented)
-                    Picker("Spacing", selection: densityBinding) {
-                        Text("Comfortable").tag("comfortable")
-                        Text("Compact").tag("compact")
-                    }
-                    .pickerStyle(.segmented)
+                    ModulaSegmentedControl("Text", selection: textSizeBinding, segments: [("small", "Small"), ("regular", "Regular"), ("large", "Large")])
+                    ModulaSegmentedControl("Spacing", selection: densityBinding, segments: [("comfortable", "Comfortable"), ("compact", "Compact")])
                     Toggle("Show the time on each message", isOn: timesBinding)
                 }
                 Section {
@@ -1316,7 +1300,6 @@ struct NodusCustomiseSheet: View {
             .navigationTitle("Customise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .accessibilityIdentifier("nodus.chat.customise")
         }
     }
@@ -1368,7 +1351,6 @@ struct NodusRemoteSheet: View {
             .navigationTitle("Remote")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .accessibilityIdentifier("nodus.chat.remote")
         }
     }
@@ -1446,7 +1428,6 @@ struct NodusFunctionsSheet: View {
             .navigationTitle("Reply tools")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { NodusStudioClose() } }
-            .presentationDragIndicator(.visible)
             .accessibilityIdentifier("nodus.chat.functions")
         }
     }

@@ -79,7 +79,7 @@ struct WhatsNewSettingsHost: View {
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
                 .accessibilityHidden(true)
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
@@ -416,7 +416,7 @@ private struct MigrationOverviewPage: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Not yet available", systemImage: "clock.badge.questionmark")
                         .font(.headline)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                     Text("This section explains how migration is intended to work. You can’t start a move here.")
                         .font(.subheadline)
                         .fixedSize(horizontal: false, vertical: true)
@@ -430,7 +430,7 @@ private struct MigrationOverviewPage: View {
                         Text("Learn about migration").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.top, 4)
                     .accessibilityIdentifier("settings.migration.learn")
                 }
@@ -723,7 +723,7 @@ private struct MigrationInfoSheet: View {
                         Text("Read migration help").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.top, 6)
                 }
                 .padding(20)
@@ -735,5 +735,6 @@ private struct MigrationInfoSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
     }
 }

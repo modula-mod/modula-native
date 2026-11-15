@@ -172,8 +172,7 @@ struct ProfileView: View {
                     showsModulaCode = false
                 }
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(32)
+                .modulaSheetStyle()
             }
         }
         .sheet(item: $activityShare) { item in
@@ -184,7 +183,7 @@ struct ProfileView: View {
         .sheet(isPresented: $showsFrames) {
             ProfileAvatarOverlayEditor()
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
         }
         .overlay(alignment: .top) {
             if copiedBanner {
@@ -760,55 +759,11 @@ struct ProfileView: View {
         let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 44
         let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
         return HStack(spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                ForEach(tabs) { tab in
-                    let isSelected = tab == selected
-                    Button {
-                        guard tab != selected else { return }
-                        withAnimation(reduce ? nil : .spring(response: 0.34, dampingFraction: 0.82)) {
-                            shelf = tab
-                        }
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(tab.title)
-                                .font(.footnote.weight(.semibold))
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
-                        .foregroundStyle(isSelected ? heroTint : Color.primary.opacity(0.62))
-                        .padding(.horizontal, isSelected ? 12 : 9)
-                        .frame(height: 38)
-                        .background {
-                            if isSelected {
-                                Capsule()
-                                    .fill(heroTint.opacity(0.16))
-                                    .matchedGeometryEffect(id: "shelf.pill", in: shelfNamespace)
-                            }
-                        }
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(tab.title)
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    .accessibilityIdentifier("profile.tab.\(tab.rawValue)")
-                }
-            }
-            .padding(3)
-            .padding(.trailing, 14)
-            }
-            .modulaHorizontalRail()
-            .spatialGesturePriority()
-            // Edge fade so a clipped tab ("Mod…") reads as scrollable instead of cut off.
-            .mask {
-                LinearGradient(stops: [
-                    .init(color: .black, location: 0),
-                    .init(color: .black, location: 0.86),
-                    .init(color: .black.opacity(0), location: 1)
-                ], startPoint: .leading, endPoint: .trailing)
-            }
-            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+            // Shared segmented control: 6–7 shelves scroll and the selection auto-centres.
+            ModulaSegmentedControl("Profile shelves", selection: Binding(get: { selected }, set: { tab in
+                withAnimation(reduce ? nil : .spring(response: 0.34, dampingFraction: 0.82)) { shelf = tab }
+            }), options: tabs, compact: true, identifier: { "profile.tab.\($0.rawValue)" }) { $0.title }
+                .spatialGesturePriority()
 
             if selected == .posts {
                 ProfilePostLayoutToggle(layout: postLayout, tint: heroTint)
@@ -942,13 +897,13 @@ struct ProfileView: View {
             } label: {
                 Label("Open Saved", systemImage: "bookmark")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .padding(.horizontal, 22)
                     .frame(height: 44)
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .padding(.top, 4)
             .accessibilityIdentifier("profile.saved.open")
         }
@@ -1023,13 +978,8 @@ struct ProfileView: View {
         let tabs = availableTabs(profile)
         let selected = tabs.contains(contentTab) ? contentTab : .posts
         return VStack(alignment: .leading, spacing: 14) {
-            ModulaEffectTabs(
-                tabs: tabs,
-                selection: Binding(get: { selected }, set: { contentTab = $0 }),
-                title: { $0.title },
-                symbol: { $0.symbol },
-                tint: heroTint
-            )
+            ModulaSegmentedControl("Profile sections", selection: Binding(get: { selected }, set: { contentTab = $0 }),
+                                   options: tabs, symbol: { $0.symbol }) { $0.title }
             .accessibilityIdentifier("profile.tabs")
 
             Group {
@@ -1459,7 +1409,7 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "link")
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(link.label)
@@ -1506,7 +1456,7 @@ struct ProfileView: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .accessibilityIdentifier("profile.empty.compose")
             }
             .frame(maxWidth: .infinity)
@@ -1540,7 +1490,7 @@ struct ProfileView: View {
                             .contentShape(Capsule())
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("profile.empty.modules.choose")
                 }
                 .frame(maxWidth: .infinity)

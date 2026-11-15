@@ -55,11 +55,11 @@ struct PremiumPurchaseView: View {
             } label: {
                 Text(store.selectedPlan.isPaid ? "Continue in sandbox" : "Choose a paid plan")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("premium.purchase.confirm")
             if let message {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
@@ -111,11 +111,11 @@ struct PremiumWelcomeView: View {
             } label: {
                 Text("Your Premium profile")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             Button("Premium settings") { app.navigation.open(.settings(.premium(.settings))) }
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -299,11 +299,11 @@ struct PremiumUpsellView: View {
             } label: {
                 Text("Preview \(target.shortTitle) in sandbox")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("premium.upsell.preview")
             Button("Maybe later") { app.navigation.close() }
                 .font(.body.weight(.semibold))

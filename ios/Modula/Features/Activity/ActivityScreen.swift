@@ -77,7 +77,7 @@ struct ActivityScreen: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("activity.sign-in")
         }
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -395,7 +395,7 @@ struct ActivityFilterSheet: View {
                     ProgressView().controlSize(.small)
                 } else if selected {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                 }
             }
             .frame(minHeight: ModulaLayout.minimumTouch)

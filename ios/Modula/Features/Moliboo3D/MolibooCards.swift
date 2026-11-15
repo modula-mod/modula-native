@@ -613,10 +613,10 @@ struct MolibooPackOpeningView: View {
                 Spacer()
                 if phase == .done {
                     Button { onDone() } label: {
-                        Label("Add to binder", systemImage: "books.vertical.fill").font(.headline).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 52)
+                        Label("Add to binder", systemImage: "books.vertical.fill").font(.headline).foregroundStyle(Color.modulaOnPrimary).frame(maxWidth: .infinity, minHeight: 52)
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("pack.done")
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -660,10 +660,10 @@ struct MolibooPackOpeningView: View {
             .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
             .onAppear { if motionOn { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { wobble = true } } }
             Button { tear() } label: {
-                Label("Tear open", systemImage: "hand.draw.fill").font(.headline).foregroundStyle(.white).padding(.horizontal, 28).frame(minHeight: 50)
+                Label("Tear open", systemImage: "hand.draw.fill").font(.headline).foregroundStyle(Color.modulaOnPrimary).padding(.horizontal, 28).frame(minHeight: 50)
             }
             .buttonStyle(.plain)
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .opacity(phase == .sealed ? 1 : 0)
             .accessibilityIdentifier("pack.tear")
         }
@@ -809,10 +809,10 @@ struct MolibooLegendaryReveal: View {
                     .shadow(color: .orange, radius: 10)
                 Spacer()
                 Button(action: onContinue) {
-                    Text("Continue").font(.headline).foregroundStyle(.white).padding(.horizontal, 36).frame(minHeight: 50)
+                    Text("Continue").font(.headline).foregroundStyle(Color.modulaOnPrimary).padding(.horizontal, 36).frame(minHeight: 50)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .accessibilityIdentifier("pack.legendary.continue")
                 .padding(.bottom, 50)
             }

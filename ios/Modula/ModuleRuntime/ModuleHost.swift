@@ -37,7 +37,7 @@ struct ModuleHost: View {
                     } description: {
                         Text(session.error ?? "Module unavailable")
                     } actions: {
-                        Button("Retry") { retry() }.buttonStyle(.borderedProminent).tint(app.appearance.liveAccent)
+                        Button("Retry") { retry() }.buttonStyle(.modulaPrimary).tint(.primary)
                         Button("Close") { app.navigation.close() }
                     }
                     .accessibilityIdentifier("module.host.failed")
@@ -181,8 +181,8 @@ struct ModuleHost: View {
             Text(message)
         } actions: {
             Button(retryTitle) { retry() }
-                .buttonStyle(.borderedProminent)
-                .tint(app.appearance.liveAccent)
+                .buttonStyle(.modulaPrimary)
+                .tint(.primary)
                 .frame(minHeight: ModulaLayout.minimumTouch)
             if showsProductHub {
                 Button("View in Product Hub") {

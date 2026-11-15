@@ -104,7 +104,7 @@ struct ModulaCameraCaptureView: View {
             Text(text).font(.callout).multilineTextAlignment(.center)
             if openSettings, let url = URL(string: UIApplication.openSettingsURLString) {
                 Button("Open iOS Settings") { UIApplication.shared.open(url) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.modulaPrimary)
             }
         }
         .foregroundStyle(.white)

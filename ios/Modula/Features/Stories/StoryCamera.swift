@@ -492,7 +492,7 @@ struct StoryCaptureStage: View {
                 .overlay { if loadingLibrary { ProgressView() } }
             }
             .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: showsEffects)
         .animation(.snappy(duration: 0.2), value: engine.isRecording)
@@ -669,25 +669,11 @@ struct StoryCaptureStage: View {
     }
 
     private var speedRow: some View {
-        HStack(spacing: 4) {
-            ForEach(StoryClipSpeed.allCases) { item in
-                Button {
-                    speed = item
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Text(item.title)
-                        .font(.footnote.weight(.bold).monospacedDigit())
-                        .foregroundStyle(speed == item ? Color.black : Color.white)
-                        .padding(.horizontal, 10).frame(height: 30)
-                        .background { if speed == item { Capsule().fill(.white) } }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Speed \(item.title)\(item.rawValue < 1 ? ", slow motion" : "")")
-                .accessibilityAddTraits(speed == item ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .modulaGlass(in: Capsule())
+        ModulaSegmentedControl(segments: StoryClipSpeed.allCases.map { .init(id: $0, title: $0.title) },
+                               selection: $speed, compact: true, accessibilityLabel: "Clip speed",
+                               identifier: { "story.camera.speed.\($0.title)" })
+            .environment(\.colorScheme, .dark)
+            .fixedSize()
         .disabled(engine.isRecording)
     }
 
@@ -864,9 +850,9 @@ struct StoryCaptureStage: View {
                 if mode == .video, !clips.isEmpty {
                     Button { finishClips() } label: {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+                            .font(.system(size: 17, weight: .bold))
                             .frame(width: 44, height: 44)
-                            .modulaGlass(in: Circle(), interactive: true, tint: accent, prominent: true)
+                            .modulaPrimaryCTA(in: Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(engine.isRecording || merging)
@@ -880,33 +866,15 @@ struct StoryCaptureStage: View {
         }
     }
 
+    /// Capture modes — the shared segmented control (scrolls and auto-centres the active mode), dark camera chrome.
     private var modePicker: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(modes) { item in
-                        Button {
-                            select(item)
-                            withAnimation(.snappy) { proxy.scrollTo(item.id, anchor: .center) }
-                        } label: {
-                            Text(item.rawValue)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(mode == item ? Color.black : Color.white)
-                                .padding(.horizontal, 12).frame(height: 32)
-                                .background { if mode == item { Capsule().fill(.white) } }
-                                .shadow(color: mode == item ? .clear : .black.opacity(0.5), radius: 2)
-                        }
-                        .buttonStyle(.plain)
-                        .id(item.id)
-                        .accessibilityAddTraits(mode == item ? .isSelected : [])
-                        .accessibilityIdentifier("story.camera.mode.\(item.rawValue)")
-                    }
-                }
-                .padding(.horizontal, 8)
-            }
-            .modulaHorizontalRail()
-            .onAppear { proxy.scrollTo(mode.id, anchor: .center) }
-        }
+        ModulaSegmentedControl(
+            segments: modes.map { .init(id: $0, title: $0.rawValue) },
+            selection: Binding(get: { mode }, set: { select($0) }),
+            forceScroll: true, compact: true, accessibilityLabel: "Capture mode",
+            identifier: { "story.camera.mode.\($0.rawValue)" }
+        )
+        .environment(\.colorScheme, .dark)
         .frame(maxWidth: .infinity)
         .disabled(engine.isRecording || countdown != nil || !clips.isEmpty)
     }

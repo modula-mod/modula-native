@@ -595,6 +595,7 @@ struct PostCommentsView: View {
         .sheet(isPresented: $showsPollCreator) {
             CommentPollCreator { question, options, hours in store?.addPoll(question: question, options: options, hours: hours) }
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
         .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.pdf, .plainText, .rtf, .zip, .audio, .data], allowsMultipleSelection: false) { result in
             guard case .success(let urls) = result, let url = urls.first else { return }
@@ -763,7 +764,7 @@ struct PostCommentsView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "bubble.left.and.bubble.right.fill")
                         .font(.footnote.weight(.bold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .accessibilityHidden(true)
                     Text("Comments").font(.headline)
                     if displayedCount > 0 {
@@ -782,33 +783,12 @@ struct PostCommentsView: View {
                 .background {
                     if isSheet { Color.clear.modulaGlass(in: Capsule(), interactive: false, specular: true) }
                 }
-                // Segmented sort (Hick: three visible choices beat a hidden menu).
-                HStack(spacing: 6) {
-                    ForEach(CommentSort.allCases) { option in
-                        let selected = sort == option
-                        Button {
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { sort = option }
-                            HapticEngine.shared.play(.selection)
-                        } label: {
-                            Text(option.title)
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.8))
-                                .padding(.horizontal, 14)
-                                .frame(minHeight: 32)
-                                .background {
-                                    if selected { Capsule().fill(app.appearance.liveAccent) }
-                                }
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .frame(minHeight: 44)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityLabel("Sort by \(option.title)")
-                    }
-                }
-                .padding(.horizontal, 3)
-                .modulaGlass(in: Capsule(), interactive: false)
-                .frame(minHeight: 44)
+                // Segmented sort (Hick: three visible choices beat a hidden menu) — shared control.
+                ModulaSegmentedControl("Sort comments", selection: Binding(get: { sort }, set: { sort = $0 }),
+                                       options: CommentSort.allCases, compact: true,
+                                       identifier: { "comments.sort.\($0.rawValue)" }) { $0.title }
+                    .fixedSize()
+                    .frame(minHeight: 44)
             }
             if let store, store.expandedReplies.count > 1 {
                 Button {
@@ -912,7 +892,7 @@ struct PostCommentsView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.title2)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                     Text("Start the conversation")
                         .font(.subheadline.weight(.semibold))
                     Text("Be the first to leave a comment.")
@@ -963,7 +943,7 @@ struct PostCommentsView: View {
                                 .font(.footnote.weight(.semibold))
                                 .padding(.horizontal, 14)
                                 .frame(height: 34)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.35), specular: true)
+                                .modulaGlass(in: Capsule(), interactive: true, tint: nil, specular: true)
                         }
                         .buttonStyle(.plain)
                         .frame(maxWidth: .infinity)
@@ -1011,7 +991,7 @@ struct PostCommentsView: View {
                                     else { Image(systemName: "chevron.down").font(.caption2.weight(.bold)) }
                                 }
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .padding(.leading, 42)
                                 .frame(minHeight: 44)
                             }

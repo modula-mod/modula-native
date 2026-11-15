@@ -429,11 +429,11 @@ struct ModulaComposer: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: state.canSend ? "arrow.up" : "mic")
                     .font(.body.weight(.bold))
-                    .foregroundStyle(state.canSend ? Color.white : Color.secondary)
+                    .foregroundStyle(state.canSend ? Color.modulaOnPrimary : Color.secondary)
                     .frame(width: 28, height: 28)
                     .background {
                         if state.canSend {
-                            Circle().fill(app.appearance.liveAccent)
+                            Circle().fill(Color.modulaPrimaryFill)
                         }
                     }
                     .accessibilityHidden(true)
@@ -658,9 +658,9 @@ struct ModulaComposer: View {
                 } label: {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.modulaOnPrimary)
                         .frame(width: 34, height: 34)
-                        .background(Circle().fill(accent))
+                        .background(Circle().fill(Color.modulaPrimaryFill))
                         .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
                         .contentShape(Rectangle())
                 }
@@ -689,13 +689,14 @@ struct ModulaComposer: View {
             } else {
                 Button(action: send) {
                     ZStack {
-                        Circle().fill(accent.opacity(state.canSend ? 1 : 0.35))
+                        // Primary action: solid label-colour circle, inverted arrow (t169u, no accent).
+                        Circle().fill(Color.modulaPrimaryFill.opacity(state.canSend ? 1 : 0.25))
                         if sending {
-                            ProgressView().tint(.white).controlSize(.small)
+                            ProgressView().tint(Color.modulaOnPrimary).controlSize(.small)
                         } else {
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.modulaOnPrimary)
                         }
                     }
                     .frame(width: 34, height: 34)

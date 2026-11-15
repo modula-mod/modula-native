@@ -94,32 +94,9 @@ struct CommunityHubView: View {
     }
 
     private var scopes: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(CommunityHubScope.allCases) { item in
-                        let selected = item == scope
-                        Button {
-                            guard item != scope else { return }
-                            HapticEngine.shared.play(.selection)
-                            app.navigation.replaceTop(with: .community(item.route))
-                        } label: {
-                            Label(item.title, systemImage: item.symbol)
-                                .font(.subheadline.weight(.semibold))
-                                .labelStyle(.titleAndIcon)
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 44)
-                                .foregroundStyle(selected ? Color.white : Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: selected ? accent : nil, prominent: selected, specular: true)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("community.scope.\(item.rawValue)")
-                    }
-                }
-            }
-        }
-        .modulaHorizontalRail()
+        ModulaSegmentedControl("Community", selection: Binding(get: { scope }, set: { app.navigation.replaceTop(with: .community($0.route)) }),
+                               options: CommunityHubScope.allCases, symbol: { $0.symbol },
+                               identifier: { "community.scope.\($0.rawValue)" }) { $0.title }
     }
 
     @ViewBuilder
@@ -363,30 +340,8 @@ struct CommunityBuildersView: View {
     }
 
     private var tabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(CommunityBuildersTab.allCases) { item in
-                        let selected = item == tab
-                        Button {
-                            tab = item
-                            HapticEngine.shared.play(.selection)
-                        } label: {
-                            Label(item.title, systemImage: item.symbol)
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 44)
-                                .foregroundStyle(selected ? Color.white : Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: selected ? accent : nil, prominent: selected, specular: true)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("community.builders.tab.\(item.rawValue)")
-                    }
-                }
-            }
-        }
-        .modulaHorizontalRail()
+        ModulaSegmentedControl("Builders", selection: $tab, options: CommunityBuildersTab.allCases, symbol: { $0.symbol },
+                               identifier: { "community.builders.tab.\($0.rawValue)" }) { $0.title }
     }
 
     @ViewBuilder
@@ -477,8 +432,8 @@ struct CommunityBuildersView: View {
                     .frame(maxWidth: .infinity).frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .modulaAccentCTA()
+                .foregroundStyle(Color.modulaOnPrimary)
+                .modulaPrimaryCTA()
                 .disabled(postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.communities.actionInProgress)
                 .accessibilityIdentifier("community.post.send")
             }
@@ -504,8 +459,8 @@ struct CommunityBuildersView: View {
             .frame(maxWidth: .infinity).frame(minHeight: 44)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.white)
-        .modulaAccentCTA()
+        .foregroundStyle(Color.modulaOnPrimary)
+        .modulaPrimaryCTA()
         .disabled(app.communities.actionInProgress || community.summary.membership == .pending || community.summary.viewerRole == .owner)
         .accessibilityIdentifier("community.builders.membership")
     }
@@ -667,7 +622,7 @@ struct CommunityScenicCard: View {
                     .padding(.horizontal, 10).frame(height: 24)
                     .modulaGlass(in: Capsule(), interactive: false)
                 Text(title).font(.system(size: 28, weight: .bold, design: .rounded))
-                Text(message).font(.subheadline).foregroundStyle(.white.opacity(0.88)).fixedSize(horizontal: false, vertical: true)
+                Text(message).font(.subheadline).foregroundStyle(Color.modulaOnPrimary.opacity(0.88)).fixedSize(horizontal: false, vertical: true)
                 Button {
                     action()
                     HapticEngine.shared.play(.navigation)
@@ -675,7 +630,7 @@ struct CommunityScenicCard: View {
                     HStack(spacing: 6) { Text(cta); Image(systemName: "arrow.right") }
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16).frame(height: 44)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)

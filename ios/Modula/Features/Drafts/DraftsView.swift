@@ -41,7 +41,7 @@ struct DraftsView: View {
                             .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                 }
             }
             if let error = app.drafts.syncError {
@@ -289,7 +289,7 @@ struct DraftRestorePrompt: View {
                         .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
             }
         }
         .padding(20)

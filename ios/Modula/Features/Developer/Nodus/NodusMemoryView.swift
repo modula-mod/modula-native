@@ -248,8 +248,8 @@ private struct NodusSuggestionCardStack: View {
                 Spacer()
                 Button("Edit & Add") { onEdit(suggestion) }
                 Button("Add") { fling(suggestion, add: true) }
-                    .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.liveAccent)
+                    .buttonStyle(.modulaPrimary)
+                    .tint(.primary)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)

@@ -281,8 +281,7 @@ struct CreationMoreOptionsSheet: View {
         }
         .modifier(MoreSheetBackground())
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
         .accessibilityIdentifier("compose.more.sheet")
     }
 

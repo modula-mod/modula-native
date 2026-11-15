@@ -191,7 +191,7 @@ struct SearchScreen: View {
                             withAnimation(ModulaSurfaceMotion.animation(reduce: reduceMotion)) { chromeScope = .moliboos }
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                     }
                 }
                 ForEach(matches) { kind in
@@ -306,40 +306,15 @@ struct SearchScreen: View {
     /// Scope chips live in the content (not system search scopes), so they never vanish or
     /// jump when the search field gains focus. Counts come from the last All-scope results.
     private var scopeChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(ChromeScope.allCases, id: \.self) { scope in
-                    let selected = scope == chromeScope
-                    Button {
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) { chromeScope = scope }
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        HStack(spacing: 5) {
-                            Text(scope.title)
-                            if hasQuery, let n = allCounts[scope], n > 0 {
-                                Text("\(n)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(.secondary)
-                            }
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(selected ? Color.primary : .secondary)
-                        .padding(.horizontal, 14).frame(height: 34)
-                        .background {
-                            if selected {
-                                Capsule().fill(app.appearance.liveAccent.opacity(0.18))
-                                    .matchedGeometryEffect(id: "scope", in: scopeNS)
-                            }
-                        }
-                        .modulaGlass(in: Capsule(), interactive: true)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityIdentifier("search.scope.\(scope.title.lowercased())")
-                }
-            }
-            .padding(.vertical, 2)
-        }
-        .modulaHorizontalRail()
-        .scrollClipDisabled()
+        ModulaSegmentedControl(
+            segments: ChromeScope.allCases.map { scope in
+                let n = hasQuery ? (allCounts[scope] ?? 0) : 0
+                return .init(id: scope, title: n > 0 ? "\(scope.title) \(n)" : scope.title)
+            },
+            selection: $chromeScope,
+            accessibilityLabel: "Search scope",
+            identifier: { "search.scope.\($0.title.lowercased())" }
+        )
     }
 
     /// Typeahead: recent searches and trending topics that start with what you've typed.
@@ -401,7 +376,7 @@ private struct SearchMolibooRow: View {
                     Label("Premium", systemImage: "lock.fill")
                         .labelStyle(.iconOnly)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .accessibilityLabel("Premium Moliboo")
                 }
             }

@@ -245,7 +245,7 @@ struct MascotAssistantDraftSheet: View {
                         .font(.headline)
                         .padding(.horizontal, 8)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .buttonBorderShape(.capsule)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -258,6 +258,7 @@ struct MascotAssistantDraftSheet: View {
             brain.burst(.sparkle)
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .modulaGlassPresentation()
     }
 

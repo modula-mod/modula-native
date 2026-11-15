@@ -176,7 +176,7 @@ struct ConversationListView: View {
                                 .contentShape(Circle())
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                        .modulaAccentCTA(in: Circle())
+                        .modulaPrimaryCTA(in: Circle())
                         .accessibilityLabel("New message")
                         .accessibilityIdentifier("messages.compose")
                         .opacity(selecting ? 0 : 1)
@@ -269,12 +269,12 @@ struct ConversationListView: View {
             .sheet(isPresented: $showCompose) {
                 NavigationStack { NewConversationView(presentedAsSheet: true) }
                     .presentationDetents([.large])
-                    .presentationCornerRadius(32)
+                    .modulaSheetStyle()
             }
             .sheet(isPresented: $showNewGroup) {
                 NavigationStack { NewGroupView(presentedAsSheet: true) }
                     .presentationDetents([.large])
-                    .presentationCornerRadius(32)
+                    .modulaSheetStyle()
             }
             .sheet(item: Binding(
                 get: { folderSheetIDs.map { IdentifiedIDList(ids: $0) } },
@@ -332,49 +332,17 @@ struct ConversationListView: View {
     }
 
     private var searchKindRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(InboxSearchKind.allCases) { kind in
-                    let on = kind == searchKind
-                    Button {
-                        searchKind = kind
-                    } label: {
-                        Text(kind.title)
-                            .font(.caption.weight(on ? .semibold : .regular))
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: 30)
-                            .background(on ? app.appearance.liveAccent.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(on ? .isSelected : [])
-                }
-            }
+        ModulaSegmentedControl("Search in", selection: $searchKind, options: InboxSearchKind.allCases, compact: true) { $0.title }
             .padding(.horizontal, ModulaLayout.contentInset)
-        }
-        .modulaHorizontalRail()
-        .accessibilityIdentifier("messages.inbox.searchKind")
+            .accessibilityIdentifier("messages.inbox.searchKind")
     }
 
     private var folderRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(app.messaging.folderNames, id: \.self) { name in
-                    Button {
-                        inboxDestination = .folder(name)
-                    } label: {
-                        Label(name, systemImage: "folder")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: 30)
-                    }
-                    .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule(), interactive: true)
-                }
-            }
+        // Device-local folders (older servers): shared control, no thumb — a tap opens the folder.
+        ModulaSegmentedControl("Folders", selection: Binding(get: { "" }, set: { inboxDestination = .folder($0) }),
+                               options: app.messaging.folderNames) { $0 }
             .padding(.horizontal, ModulaLayout.contentInset)
-        }
-        .modulaHorizontalRail()
-        .accessibilityIdentifier("messages.inbox.folders")
+            .accessibilityIdentifier("messages.inbox.folders")
     }
 
     /// Roadmap #07: say exactly what a search covered, so a partial local search is never
@@ -439,72 +407,50 @@ struct ConversationListView: View {
         .accessibilityIdentifier("messages.circle")
     }
 
+    /// Inbox filters + synced chat folders in ONE shared segmented control (scrolls past 5, keeps the
+    /// selection in view). Picking a folder resets the filter to All and vice versa.
     private var filterRow: some View {
         let all = app.messaging.visibleConversations
         let unread = all.filter(\.isUnread).count
         let needsReply = all.filter { InboxFilter.needsReply.matches($0, viewerID: app.auth.account?.accountId) }.count
-        return ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 6) {
-                HStack(spacing: 6) {
-                    ForEach(InboxFilter.allCases + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])) { item in
-                        let on = item == filter
-                        Button {
-                            guard item != filter else { return }
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { filter = item }
-                            HapticEngine.shared.play(.selection)
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text(item.title).font(.subheadline.weight(.semibold))
-                                if (item == .unread && unread > 0) || (item == .needsReply && needsReply > 0) {
-                                    Text("\(item == .unread ? unread : needsReply)").font(.caption2.weight(.bold)).monospacedDigit()
-                                        .foregroundStyle(app.appearance.liveAccent)
-                                }
-                            }
-                            .foregroundStyle(on ? app.appearance.liveAccent : Color.primary)
-                            .padding(.horizontal, 16).frame(height: 36)
-                            .modulaGlass(in: Capsule(), interactive: true)
-                            .overlay { if on { Capsule().strokeBorder(app.appearance.liveAccent, lineWidth: 1.5) } }
-                        }
-                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                        .accessibilityIdentifier("messages.filter.\(item.rawValue)")
-                    }
-                    if app.messaging.capabilities.features4.chatFolders {
-                        ForEach(app.messaging.serverFolders) { folder in
-                            let on = serverFolderID == folder.id
-                            Button {
-                                withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { serverFolderID = on ? nil : folder.id }
-                                HapticEngine.shared.play(.selection)
-                            } label: {
-                                Text([folder.emoji, folder.name].compactMap { $0 }.joined(separator: " "))
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .foregroundStyle(on ? app.appearance.liveAccent : Color.primary)
-                                    .padding(.horizontal, 16).frame(height: 36)
-                                    .modulaGlass(in: Capsule(), interactive: true)
-                                    .overlay { if on { Capsule().strokeBorder(app.appearance.liveAccent, lineWidth: 1.5) } }
-                            }
-                            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-                            .accessibilityAddTraits(on ? .isSelected : [])
-                            .accessibilityLabel("Folder \(folder.name)")
-                            .accessibilityIdentifier("messages.folder.\(folder.id)")
-                        }
-                        Button { managingFolders = true } label: {
-                            Image(systemName: app.messaging.serverFolders.isEmpty ? "folder.badge.plus" : "slider.horizontal.3")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(width: 36, height: 36)
-                                .modulaGlass(in: Circle(), interactive: true)
-                        }
-                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: .selection))
-                        .accessibilityLabel(app.messaging.serverFolders.isEmpty ? "New folder" : "Manage folders")
-                        .accessibilityIdentifier("messages.folders.manage")
+        let filters = InboxFilter.allCases + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])
+        let folders = app.messaging.capabilities.features4.chatFolders ? app.messaging.serverFolders : []
+        var segments: [ModulaSegmentedControl<String>.Segment] = filters.map { item in
+            .init(id: "filter:\(item.rawValue)", title: item.title,
+                  badgeCount: item == .unread ? unread : (item == .needsReply ? needsReply : nil))
+        }
+        segments += folders.map { .init(id: "folder:\($0.id)", title: [$0.emoji, $0.name].compactMap { $0 }.joined(separator: " ")) }
+        let selection = Binding<String>(
+            get: { serverFolderID.map { "folder:\($0)" } ?? "filter:\(filter.rawValue)" },
+            set: { value in
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) {
+                    if value.hasPrefix("folder:") {
+                        serverFolderID = String(value.dropFirst(7))
+                        filter = .all
+                    } else {
+                        serverFolderID = nil
+                        filter = InboxFilter(rawValue: String(value.dropFirst(7))) ?? .all
                     }
                 }
-                .padding(.horizontal, ModulaLayout.contentInset)
+            }
+        )
+        return HStack(spacing: 8) {
+            ModulaSegmentedControl(segments: segments, selection: selection, accessibilityLabel: "Inbox filter",
+                                   identifier: { id in
+                                       id.hasPrefix("folder:") ? "messages.folder.\(id.dropFirst(7))" : "messages.filter.\(id.dropFirst(7))"
+                                   })
+            if app.messaging.capabilities.features4.chatFolders {
+                Button { managingFolders = true } label: {
+                    Image(systemName: folders.isEmpty ? "folder.badge.plus" : "slider.horizontal.3")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(ModulaSecondaryButtonStyle(shape: .circle))
+                .accessibilityLabel(folders.isEmpty ? "New folder" : "Manage folders")
+                .accessibilityIdentifier("messages.folders.manage")
             }
         }
-        .modulaHorizontalRail()
-        .scrollClipDisabled()
+        .padding(.horizontal, ModulaLayout.contentInset)
     }
 
     /// Members of the selected server folder (nil when no folder chip is on, or the folder vanished).
@@ -605,7 +551,7 @@ struct ConversationListView: View {
                             Button {
                                 Task { await app.messaging.markConversationRead(conversation.id) }
                             } label: { Label("Read", systemImage: "checkmark.message.fill") }
-                            .tint(app.appearance.liveAccent)
+                            .tint(.primary)
                         } else if !conversation.isUnread, app.messaging.capabilities.markUnread {
                             Button {
                                 Task { await app.messaging.markConversationUnread(conversation.id) }
@@ -620,7 +566,7 @@ struct ConversationListView: View {
                             Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
                                   systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
                         }
-                        .tint(app.appearance.liveAccent)
+                        .tint(.primary)
                         if app.messaging.capabilities.archive {
                             Button {
                                 Task { await app.messaging.archive(conversation.id) }
@@ -725,7 +671,7 @@ struct ConversationListView: View {
                         .padding(.horizontal, 22).frame(height: 44)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .padding(.top, 8)
                 .accessibilityIdentifier("messages.empty.newGroup")
             }
@@ -833,7 +779,7 @@ struct ConversationListView: View {
             HStack(spacing: 12) {
                 Image(systemName: "person.crop.circle.badge.clock")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(width: 54, height: 54)
                     .modulaGlass(in: Circle(), interactive: false)
                 VStack(alignment: .leading, spacing: 2) {
@@ -845,7 +791,7 @@ struct ConversationListView: View {
                 Text("\(count)")
                     .font(.caption2.weight(.bold)).monospacedDigit()
                     .padding(.horizontal, 7).frame(minWidth: 22, minHeight: 22)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
             }
             .contentShape(Rectangle())
@@ -903,7 +849,7 @@ struct ConversationListView: View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 36, height: 36)
                 .modulaGlass(in: Circle(), interactive: false)
             Text(title).font(.body.weight(.medium))
@@ -1062,23 +1008,15 @@ struct MessagesScopePicker: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        Group {
-            if #available(iOS 26.0, *) {
-                MessagesGlassScopeControl(selection: selection, onSelect: navigate)
-            } else {
-                ModulaTabStrip(
-                    items: [
-                        ModulaTabItem(id: MessagesScope.inbox, title: "Chats", systemImage: "bubble.left"),
-                        ModulaTabItem(id: MessagesScope.inMail, title: "In-Mail", systemImage: "envelope"),
-                        ModulaTabItem(id: MessagesScope.requests, title: "Requests", systemImage: "person.badge.clock")
-                    ],
-                    selection: Binding(get: { selection }, set: navigate),
-                    layout: .equalWidth,
-                    compact: true,
-                    accessibilityLabel: "Message sections"
-                )
-            }
-        }
+        ModulaSegmentedControl("Message sections", selection: Binding(get: { selection }, set: navigate),
+                               segments: [(MessagesScope.inbox, "Chats"), (MessagesScope.inMail, "In-Mail"), (MessagesScope.requests, "Requests")],
+                               identifier: { scope in
+                                   switch scope {
+                                   case .inbox: "messages.scope.Chats"
+                                   case .inMail: "messages.scope.In-Mail"
+                                   case .requests: "messages.scope.Requests"
+                                   }
+                               })
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.vertical, 6)
         .accessibilityIdentifier("messages.scope")
@@ -1137,7 +1075,7 @@ struct ConversationRow: View {
                             .accessibilityHidden(true)
                     }
                     if pinned {
-                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(accent)
+                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.primary)
                             .accessibilityHidden(true)
                     }
                     if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 6) }
@@ -1172,7 +1110,7 @@ struct ConversationRow: View {
 
     private var previewText: Text {
         if let draft {
-            return Text("Draft: ").fontWeight(.semibold).foregroundStyle(app.appearance.liveAccent) + Text(draft)
+            return Text("Draft: ").fontWeight(.semibold).foregroundStyle(.primary) + Text(draft)
         }
         if conversation.lastMessage?.kind == .voice {
             let raw = "Voice note"
@@ -1416,6 +1354,7 @@ struct ConversationView: View {
             .sheet(item: $editHistoryFor) { message in
                 MessageEditHistorySheet(message: message)
                     .presentationDetents([.medium, .large])
+                    .modulaSheetStyle()
             }
             // Hold to react: full-screen, transparent, presented without the slide-up animation so
             // the bubble appears to lift in place over a blurred thread.
@@ -1443,6 +1382,7 @@ struct ConversationView: View {
                     handle(.init(id: "react:\(emoji)", title: emoji), message: message)
                 }
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
             }
             .sheet(item: $reactorsFor) { message in
                 MessageReactorsSheet(message: message) { emoji in
@@ -1502,7 +1442,7 @@ struct ConversationView: View {
                                 .contentShape(Circle())
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                        .modulaAccentCTA(in: Circle())
+                        .modulaPrimaryCTA(in: Circle())
                         .accessibilityLabel("Chat info")
                         .accessibilityIdentifier("messages.conversation.info")
                     }
@@ -1862,7 +1802,7 @@ struct ConversationView: View {
     private var gestureTip: some View {
         if !gestureTipDismissed, !app.messaging.messages(for: conversationID).isEmpty {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "hand.tap").font(.title3).foregroundStyle(app.appearance.liveAccent)
+                Image(systemName: "hand.tap").font(.title3).foregroundStyle(.primary)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Chat shortcuts").font(.subheadline.weight(.semibold))
@@ -2307,6 +2247,7 @@ struct ConversationView: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { replyStackFor = nil } } }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
     }
 }
 
@@ -2512,7 +2453,7 @@ struct ConversationComposerDock: View {
                                 HapticEngine.shared.play(.selection)
                             } label: {
                                 HStack(spacing: 6) {
-                                    Text("/\(reply.shortcut)").font(.subheadline.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                                    Text("/\(reply.shortcut)").font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                                     Text(reply.text).font(.subheadline).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
                                 }
                                 .padding(.horizontal, 14)
@@ -2696,7 +2637,7 @@ struct MessageBubble: View {
                             .foregroundStyle(isSelected ? app.appearance.liveAccent : Color.secondary)
                     }
                     if app.messaging.isStarred(message.id) {
-                        Image(systemName: "star.fill").font(.caption2).foregroundStyle(app.appearance.liveAccent)
+                        Image(systemName: "star.fill").font(.caption2).foregroundStyle(.primary)
                             .accessibilityHidden(true)
                     }
                     if message.isForwarded && !message.isDeleted {
@@ -3199,11 +3140,11 @@ struct MessageRequestRow: View {
                 HStack(spacing: 10) {
                     Button(action: onAccept) {
                         HStack(spacing: 6) {
-                            if busy { ProgressView().controlSize(.mini).tint(.white) }
+                            if busy { ProgressView().controlSize(.mini).tint(Color.modulaOnPrimary) }
                             Text("Accept").font(.subheadline.weight(.semibold))
                         }
                         .frame(maxWidth: .infinity).frame(height: 44)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                     }
                     .accessibilityIdentifier("messages.request.accept")
                     Button(action: onDecline) {
@@ -3341,7 +3282,7 @@ struct NewConversationView: View {
                         Image(systemName: "xmark").font(.subheadline.weight(.bold)).frame(width: 34, height: 34).contentShape(Circle())
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
-                    .modulaAccentCTA(in: Circle())
+                    .modulaPrimaryCTA(in: Circle())
                     .accessibilityLabel("Close")
                 }
             }
@@ -3471,68 +3412,6 @@ struct MessagePersonRow: View {
 /// Liquid Glass segmented control for Chats / In-Mail / Requests.
 /// The selected pill morphs between segments via `glassEffectID`.
 @available(iOS 26.0, *)
-struct MessagesGlassScopeControl: View {
-    let selection: MessagesScope
-    var onSelect: (MessagesScope) -> Void
-    @Namespace private var glass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var displayed: MessagesScope?
-
-    private static let items: [(MessagesScope, String, String)] = [
-        (.inbox, "Chats", "bubble.left.and.bubble.right.fill"),
-        (.inMail, "In-Mail", "envelope.fill"),
-        (.requests, "Requests", "person.crop.circle.badge.clock")
-    ]
-
-    var body: some View {
-        let current = displayed ?? selection
-        GlassEffectContainer(spacing: 6) {
-            HStack(spacing: 4) {
-                ForEach(Self.items, id: \.0) { item in
-                    let isOn = item.0 == current
-                    Button {
-                        guard item.0 != current else { return }
-                        HapticEngine.shared.play(.selection)
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82)) {
-                            displayed = item.0
-                        }
-                        onSelect(item.0)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: item.2)
-                                .imageScale(.small)
-                                .symbolEffect(.bounce, value: isOn && !reduceMotion)
-                            Text(item.1)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                        .font(.subheadline.weight(isOn ? .semibold : .medium))
-                        .foregroundStyle(isOn ? Color.primary : Color.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                        .contentShape(Capsule())
-                        .background {
-                            if isOn {
-                                Capsule()
-                                    .fill(Color.clear)
-                                    .glassEffect(.regular.tint(Color.accentColor.opacity(0.35)).interactive(), in: Capsule())
-                                    .glassEffectID("messages.scope.selection", in: glass)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(item.1)
-                    .accessibilityAddTraits(isOn ? .isSelected : [])
-                    .accessibilityIdentifier("messages.scope.\(item.1)")
-                }
-            }
-            .padding(4)
-            .glassEffect(.regular, in: Capsule())
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Message sections")
-        .onChange(of: selection) { _, new in displayed = new }
-    }
-}
 
 /// Shimmering skeleton rows used while a list loads.
 struct MessagesSkeletonList: View {
@@ -3602,7 +3481,7 @@ struct MessagesFriendlyEmpty: View {
             } else {
             Image(systemName: copy.symbol)
                 .font(.system(size: 40, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 92, height: 92)
                 .messagesGlass(Circle(), tint: app.appearance.liveAccent.opacity(0.18))
                 .offset(y: float ? -4 : 4)
@@ -3624,7 +3503,7 @@ struct MessagesFriendlyEmpty: View {
                         .padding(.horizontal, 22).frame(height: 44)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .padding(.top, 4)
                 .accessibilityIdentifier("messages.empty.start")
             }
@@ -3666,7 +3545,7 @@ struct MessagesRetryBanner: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .disabled(busy)
         }
         .padding(.leading, 14)
@@ -4137,7 +4016,7 @@ struct ForwardMessageSheet: View {
                             .frame(minHeight: 36)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .lightImpact))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .disabled(sentTo.contains(conversation.id) || busy.contains(conversation.id))
                     .accessibilityLabel(sentTo.contains(conversation.id) ? "Sent to \(conversation.title)" : "Send to \(conversation.title)")
                 }
@@ -4149,11 +4028,12 @@ struct ForwardMessageSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(app.appearance.liveAccent)
+                    Button("Done") { dismiss() }.tint(.primary)
                 }
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.forward")
     }
 }
@@ -4334,11 +4214,12 @@ struct ChatInfoSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(app.appearance.liveAccent)
+                    Button("Done") { dismiss() }.tint(.primary)
                 }
             }
         }
         .presentationDetents([.large])
+        .modulaSheetStyle()
         .onAppear { nickname = app.messaging.nicknames[conversationID] ?? "" }
         .onDisappear { app.messaging.setNickname(nickname, for: conversationID) }
         .accessibilityIdentifier("messages.info")
@@ -4502,7 +4383,7 @@ struct ChatInfoSheet: View {
             ForEach(links.prefix(20), id: \.self) { url in
                 Link(destination: url) {
                     HStack(spacing: 10) {
-                        Image(systemName: "link").foregroundStyle(app.appearance.liveAccent)
+                        Image(systemName: "link").foregroundStyle(.primary)
                         Text(url.host() ?? url.absoluteString).font(.subheadline).lineLimit(1)
                         Spacer()
                     }
@@ -4530,12 +4411,7 @@ struct ChatSharedContentView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Picker("Show", selection: $tab) {
-                ForEach(Tab.allCases) { item in
-                    Text(tabTitle(item)).tag(item)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Show", selection: $tab, options: Tab.allCases) { tabTitle($0) }
             .padding(.horizontal, ModulaLayout.contentInset)
             ScrollView {
                 switch tab {
@@ -4587,7 +4463,7 @@ struct ChatSharedContentView: View {
                 ForEach(links, id: \.self) { url in
                     Link(destination: url) {
                         HStack(spacing: 12) {
-                            Image(systemName: "link").foregroundStyle(app.appearance.liveAccent).frame(width: 28)
+                            Image(systemName: "link").foregroundStyle(.primary).frame(width: 28)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(MessagePreviewText.displayHost(url)).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                                 Text(MessagePreviewText.displayLink(url)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -4634,7 +4510,7 @@ struct ChatStarredView: View {
                     ForEach(messages) { message in
                         Button { onJump(message.id) } label: {
                             HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: "star.fill").foregroundStyle(app.appearance.liveAccent).padding(.top, 2)
+                                Image(systemName: "star.fill").foregroundStyle(.primary).padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(message.isOwn ? "You" : message.sender.displayName) · \(MessageTimeline.label(for: message.sentAt))")
                                         .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -5020,14 +4896,14 @@ struct ScheduleMessageSheet: View {
                     }
                     DatePicker("Send at", selection: $date, in: window)
                         .datePickerStyle(.graphical)
-                        .tint(app.appearance.liveAccent)
+                        .tint(.primary)
                     Button { finish(date) } label: {
                         Text("Schedule for \(date.formatted(date: .abbreviated, time: .shortened))")
                             .font(.body.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 50)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .lightImpact))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("messages.schedule.confirm")
                 }
                 .padding(ModulaLayout.contentInset)
@@ -5037,7 +4913,7 @@ struct ScheduleMessageSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
         .onAppear {
             let start = initialDate ?? Date().addingTimeInterval(3600)
             date = min(max(start, window.lowerBound), window.upperBound)
@@ -5085,7 +4961,7 @@ struct ScheduledMessagesSheet: View {
                         }
                         .swipeActions(edge: .leading) {
                             Button("Send Now", systemImage: "paperplane") { Task { await app.messaging.sendScheduledNow(item) } }
-                                .tint(app.appearance.liveAccent)
+                                .tint(.primary)
                         }
                         .contextMenu {
                             Button("Send Now", systemImage: "paperplane") { Task { await app.messaging.sendScheduledNow(item) } }
@@ -5104,7 +4980,7 @@ struct ScheduledMessagesSheet: View {
             }
             .navigationTitle("Scheduled")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
             .refreshable { await app.messaging.loadScheduled(conversationID) }
             .alert("Edit message", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
                 TextField("Message", text: $draftText)
@@ -5125,7 +5001,7 @@ struct ScheduledMessagesSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
         .task { await app.messaging.loadScheduled(conversationID) }
         .accessibilityIdentifier("messages.scheduled")
     }
@@ -5324,14 +5200,14 @@ struct MultiForwardSheet: View {
             .safeAreaInset(edge: .bottom) {
                 Button(action: send) {
                     Group {
-                        if sending { ProgressView().tint(.white) }
+                        if sending { ProgressView().tint(Color.modulaOnPrimary) }
                         else { Text(selected.isEmpty ? "Choose up to \(maxTargets)" : "Forward to \(selected.count)") }
                     }
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 50)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .lightImpact))
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .disabled(selected.isEmpty || sending)
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.bottom, 8)
@@ -5340,11 +5216,11 @@ struct MultiForwardSheet: View {
             .navigationTitle("Forward")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) }
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.forward.multi")
     }
 
@@ -5432,7 +5308,7 @@ struct ManageChatFoldersSheet: View {
             .environment(\.editMode, .constant(.active))
             .navigationTitle("Chat Folders")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
             .alert(creating ? "New folder" : "Rename folder",
                    isPresented: Binding(get: { creating || naming != nil }, set: { if !$0 { creating = false; naming = nil } })) {
                 TextField("Name", text: $name)
@@ -5449,7 +5325,7 @@ struct ManageChatFoldersSheet: View {
             .navigationDestination(item: $choosingChats) { folder in FolderChatsPicker(folder: folder) }
         }
         .presentationDetents([.medium, .large])
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
         .task { await app.messaging.loadFolders() }
         .accessibilityIdentifier("messages.folders")
     }
@@ -5506,7 +5382,7 @@ struct QuickRepliesManageSheet: View {
                     ForEach(app.messaging.quickReplies) { reply in
                         Button { shortcut = reply.shortcut; text = reply.text; editing = reply } label: {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("/\(reply.shortcut)").font(.body.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                                Text("/\(reply.shortcut)").font(.body.weight(.semibold)).foregroundStyle(.primary)
                                 Text(reply.text).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
                             }
                             .contentShape(Rectangle())
@@ -5526,7 +5402,7 @@ struct QuickRepliesManageSheet: View {
             }
             .navigationTitle("Quick Replies")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
             .sheet(isPresented: Binding(get: { adding || editing != nil }, set: { if !$0 { adding = false; editing = nil } })) {
                 QuickReplyEditor(shortcut: $shortcut, text: $text, isNew: editing == nil) {
                     let id = editing?.id, s = shortcut, t = text
@@ -5583,7 +5459,7 @@ private struct QuickReplyEditor: View {
             }
         }
         .presentationDetents([.medium])
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
     }
 }
 

@@ -1338,7 +1338,7 @@ struct ProductGetOpenControl: View {
                     .rotationEffect(.degrees(spin ? 360 : 0))
                     .animation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .linear(duration: 0.9).repeatForever(autoreverses: false), value: spin)
                     .onAppear { spin = true }.onDisappear { spin = false }
-                Image(systemName: "arrow.down").font(.caption.weight(.bold)).foregroundStyle(accent)
+                Image(systemName: "arrow.down").font(.caption.weight(.bold)).foregroundStyle(.primary)
             } else {
                 Group {
                     if installed || product.installable {
@@ -1373,27 +1373,13 @@ struct ProductCategoryChips: View {
         return out
     }
     var body: some View {
-        let accent = app.appearance.liveAccent
-        // No kinds → no orphan "Categories" header.
+        // No kinds → no orphan "Categories" header. Shared segmented control (no thumb until one is chosen).
         if !kinds.isEmpty {
-        VStack(alignment: .leading, spacing: 10) {
-            ModulaSectionHeader(title: "Categories")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(kinds, id: \.self) { kind in
-                        Button { onOpen(kind); HapticEngine.shared.play(.selection) } label: {
-                            Text(kind.capitalized).font(.subheadline.weight(.semibold))
-                                .foregroundStyle(selected == kind ? accent : .primary)
-                                .padding(.horizontal, 14).padding(.vertical, 9)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(selected == kind ? 0.32 : 0.12))
-                        }
-                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-                        .accessibilityIdentifier("product-hub.category.\(kind)")
-                        .accessibilityAddTraits(selected == kind ? .isSelected : [])
-                    }
-                }
-            }.scrollClipDisabled()
-        }
+            VStack(alignment: .leading, spacing: 10) {
+                ModulaSectionHeader(title: "Categories")
+                ModulaSegmentedControl("Categories", selection: Binding(get: { selected ?? "" }, set: { onOpen($0) }),
+                                       options: kinds, identifier: { "product-hub.category.\($0)" }) { $0.capitalized }
+            }
         }
     }
 }

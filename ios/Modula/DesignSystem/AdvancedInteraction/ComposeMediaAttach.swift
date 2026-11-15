@@ -191,7 +191,7 @@ struct ComposeMediaAttachStage: View {
                         }
                 }
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
             }
         }
         .onChange(of: pickerItems) { _, items in

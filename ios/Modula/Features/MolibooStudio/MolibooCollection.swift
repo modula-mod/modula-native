@@ -234,26 +234,8 @@ struct MolibooCollectionView: View {
     }
 
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Filter.allCases) { f in
-                    let on = filter == f
-                    Button {
-                        withAnimation(reduceMotion ? nil : .snappy) { filter = f }
-                    } label: {
-                        Text(f.rawValue)
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(on ? .white : .primary)
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? teal : nil, prominent: on)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("collection.filter.\(f.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))")
-                    .accessibilityAddTraits(on ? .isSelected : [])
-                }
-            }
-        }
-        .modulaHorizontalRail()
+        ModulaSegmentedControl("Collection filter", selection: $filter, options: Filter.allCases,
+                               identifier: { "collection.filter.\($0.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))" }) { $0.rawValue }
     }
 
     @ViewBuilder private func tile(id: String, number: Int) -> some View {
