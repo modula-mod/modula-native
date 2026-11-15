@@ -1586,8 +1586,20 @@ struct SettingsRecentsCard: View {
 /// System switch plus a selection haptic when the value flips (Settings pages only).
 struct SettingsHapticToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
+        SettingsAccentSwitch(configuration: configuration)
+    }
+}
+
+/// App-wide switch: the app accent colour (the root `.tint(.primary)` made every switch black/white)
+/// plus a selection tick on flip.
+struct SettingsAccentSwitch: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
+
+    var body: some View {
         Toggle(configuration)
             .toggleStyle(.switch)
+            .tint(app?.appearance.liveAccent ?? .accentColor)
             .sensoryFeedback(.selection, trigger: configuration.isOn)
     }
 }

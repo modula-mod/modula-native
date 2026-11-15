@@ -772,11 +772,15 @@ struct ProfileView: View {
                 withAnimation(reduce ? nil : .spring(response: 0.34, dampingFraction: 0.82)) { shelf = tab }
             }), options: tabs, compact: true, identifier: { "profile.tab.\($0.rawValue)" }) { $0.title }
                 .spatialGesturePriority()
+                // The shelves scroll inside their own slot; they no longer slide under the layout toggle.
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .clipShape(Capsule())
 
             if selected == .posts {
                 ProfilePostLayoutToggle(layout: postLayout, tint: heroTint)
                     .padding(2)
                     .modulaGlass(in: Capsule(), interactive: false)
+                    .fixedSize()
                     .transition(.opacity)
             }
         }

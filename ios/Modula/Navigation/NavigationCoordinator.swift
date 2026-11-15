@@ -531,7 +531,9 @@ struct ShellChromeMetrics: Equatable, Sendable {
 
     var occupiedBottomHeight: CGFloat { bottomBarHeight + accessoryHeight }
     var contentBottomInset: CGFloat {
-        containerReservesOccupiedRegion ? opticalClearance : occupiedBottomHeight + opticalClearance
+        // The floating Tools accessory (Following / For You / Discover / Modules) sits over the last
+        // cards even when the container reserves the tab bar, so always clear its height too.
+        containerReservesOccupiedRegion ? opticalClearance + accessoryHeight : occupiedBottomHeight + opticalClearance
     }
 
     static func resolve(policy: ShellChromePolicy, containerReservesOccupiedRegion: Bool = true) -> Self {

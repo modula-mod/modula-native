@@ -404,7 +404,9 @@ final class ModulaGlassSettings {
         let defaults = UserDefaults.standard
         let nextIntensity = ModulaGlassIntensity(rawValue: defaults.string(forKey: ModulaGlassIntensity.storageKey) ?? "") ?? .standard
         if nextIntensity != intensity { intensity = nextIntensity }
-        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra") || systemConstrained
+        // Only the user's Lighter effects switch flattens glass. Low Power Mode / thermal pressure used to
+        // swap every glass surface for an opaque grey fill (Andy: "flat grey capsules, not Liquid Glass").
+        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra")
         if nextLighter != lighter { lighter = nextLighter }
         let nextBubbles = defaults.bool(forKey: Self.glassBubblesKey)
         if nextBubbles != glassBubbles { glassBubbles = nextBubbles }

@@ -1227,7 +1227,7 @@ struct PostCommentsView: View {
                             .labelStyle(.titleAndIcon)
                             .padding(.horizontal, 10)
                             .frame(minHeight: 30)
-                            .background(Color.primary.opacity(0.06), in: Capsule())
+                            .modulaGlass(in: Capsule(), interactive: false)
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
                     }
@@ -1496,10 +1496,13 @@ struct PostCommentsView: View {
                     showsFormatting: true,
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
-                    collapsesWhenUnfocused: true,
+                    // One stable bar docked to the keyboard (the collapsed pill + docked bar read as two inputs).
+                    collapsesWhenUnfocused: false,
                     // Moliboo steps aside while typing / the tray is open so he never sits on the
                     // composer or the tray; he's back on the perch at rest.
                     hidesMascotWhileComposing: true,
+                    // Never over the composer / formatting bar while the keyboard or a panel is up.
+                    hidesMascot: composerFocused || mediaPanelActive,
                     onTrayChange: { open in
                         attachTrayOpen = open
                         if open { onExpand?() }

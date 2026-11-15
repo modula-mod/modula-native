@@ -107,9 +107,25 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
     var body: some View {
         Group {
             if scrolls {
+                scrollingRow
+            } else {
+                // Never truncate: share the width when every label fits at its natural size,
+                // otherwise fall back to a horizontally scrolling row.
+                ViewThatFits(in: .horizontal) {
+                    row(scrolling: false)
+                    scrollingRow
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityIdentifier("modula.segmented")
+    }
+
+    private var scrollingRow: some View {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
-                        row.padding(.horizontal, 2)
+                        row(scrolling: true).padding(.horizontal, 2)
                     }
                     .modulaHorizontalRail()
                     .scrollClipDisabled()
@@ -118,28 +134,23 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { proxy.scrollTo(value, anchor: .center) }
                     }
                 }
-            } else {
-                row
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier("modula.segmented")
     }
 
-    private var row: some View {
-        HStack(spacing: 2) {
-            ForEach(segments) { segment in
-                button(segment)
-                    .frame(maxWidth: scrolls ? nil : .infinity)
-                    .id(segment.id)
+    private func row(scrolling: Bool) -> some View {
+        ModulaSegmentGlassContainer {
+            HStack(spacing: 2) {
+                ForEach(segments) { segment in
+                    button(segment, scrolling: scrolling)
+                        .frame(maxWidth: scrolling ? nil : .infinity)
+                        .id(segment.id)
+                }
             }
+            .padding(3)
+            .modulaGlass(in: Capsule(), interactive: false)
         }
-        .padding(3)
-        .modulaGlass(in: Capsule(), interactive: false)
     }
 
-    private func button(_ segment: Segment) -> some View {
+    private func button(_ segment: Segment, scrolling: Bool) -> some View {
         let selected = selection == segment.id
         return Button {
             guard segment.isEnabled, !selected else { return }
@@ -155,14 +166,14 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
                         .accessibilityHidden(true)
                 }
                 if !compact || segment.systemImage == nil {
-                    Text(segment.title).lineLimit(1).fixedSize(horizontal: scrolls, vertical: false).minimumScaleFactor(0.8)
+                    Text(segment.title).lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 }
                 ModulaTabBadge(count: segment.badgeCount, showsNotificationDot: segment.showsNotificationDot, selected: selected)
             }
             .font(.subheadline.weight(selected ? .semibold : .medium))
             .foregroundStyle(segment.isEnabled ? Color.primary : Color.secondary)
             .padding(.horizontal, compact ? 10 : 14)
-            .frame(maxWidth: scrolls ? nil : .infinity, minHeight: compact ? 32 : 36)
+            .frame(maxWidth: scrolling ? nil : .infinity, minHeight: compact ? 32 : 36)
             .background {
                 if selected {
                     ModulaSegmentThumb(dark: scheme == .dark)
@@ -195,12 +206,35 @@ extension ModulaSegmentedControl where ID: Sendable {
 /// Neutral raised thumb (white on light, graphite on dark) — never the accent.
 private struct ModulaSegmentThumb: View {
     var dark: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        Capsule()
-            .fill(dark ? Color(white: 0.36) : Color.white)
-            .shadow(color: .black.opacity(dark ? 0.3 : 0.12), radius: 3, y: 1)
-            .accessibilityHidden(true)
+        if #available(iOS 26.0, *), !reduceTransparency, !ModulaGlassSettings.shared.lighter {
+            // Liquid Glass selected pill (interactive), morphing inside the track's glass container.
+            Capsule()
+                .fill(Color.white.opacity(dark ? 0.06 : 0.35))
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .accessibilityHidden(true)
+        } else {
+            // Reduce Transparency / Lighter effects: solid raised thumb.
+            Capsule()
+                .fill(dark ? Color(white: 0.36) : Color.white)
+                .shadow(color: .black.opacity(dark ? 0.3 : 0.12), radius: 3, y: 1)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Groups the segmented track and its glass pill so iOS 26 blends/morphs them as one glass.
+private struct ModulaSegmentGlassContainer<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 2) { content }
+        } else {
+            content
+        }
     }
 }
 

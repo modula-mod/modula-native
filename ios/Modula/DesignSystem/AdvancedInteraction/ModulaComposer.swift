@@ -195,6 +195,8 @@ struct ModulaComposer: View {
     var collapsesWhenUnfocused = false
     /// Chats: the perched mascot steps away while you type, so it never sits over the field or the thread.
     var hidesMascotWhileComposing = false
+    /// Hides the perched mascot outright (e.g. a chat with messages, where it would overlap bubbles).
+    var hidesMascot = false
     /// Tells the host when the "+" tray opens or closes (e.g. to expand a sheet).
     var onTrayChange: ((Bool) -> Void)? = nil
     /// Long-press Send offers "Schedule Message…" (chats with `scheduledMessages`). Nil = no menu.
@@ -383,7 +385,7 @@ struct ModulaComposer: View {
         .modulaComposerMascot(mascot, busy: sending, text: text, attachmentCount: attachments.count, trailingInset: 62,
                               // Stand fully above the card (clear of the formatting tools) while the bar shows.
                               lift: formatBarShown ? 10 : 4,
-                              hidden: hidesMascotWhileComposing && (focused || !text.isEmpty || attachMenuOpen || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
+                              hidden: hidesMascot || hidesMascotWhileComposing && (focused || !text.isEmpty || attachMenuOpen || mediaPanelActive?.wrappedValue == true || recorder.isRecording))
         .onChange(of: attachMenuOpen) { _, open in onTrayChange?(open) }
     }
 

@@ -1350,6 +1350,10 @@ struct ConversationView: View {
                     .padding(.bottom, 6)
                     .accessibilityIdentifier("messages.conversation.jumpToDate")
                   }
+                  // Solid header band: the thread is inset below it instead of scrolling under it.
+                  .frame(maxWidth: .infinity)
+                  .background(Color(uiColor: .systemBackground).ignoresSafeArea(edges: .top))
+                  .overlay(alignment: .bottom) { Divider() }
                 }
             }
             .sheet(isPresented: $showsJumpToDate) {
@@ -2444,6 +2448,7 @@ struct ConversationComposerDock: View {
                     Task { await app.messaging.sendVoice(note, conversation: conversationID, viewer: dockViewer) }
                 } : nil,
                 onSchedule: f4.scheduled ? { schedulingText = text } : nil,
+                showsMascot: app.messaging.messages(for: conversationID).isEmpty,
                 onSend: flushAndSend
             )
         }
@@ -3080,6 +3085,8 @@ struct MessageComposer: View {
     var onMentionQuery: ((String?) -> Void)? = nil
     var onVoiceNote: ((ModulaVoiceNote) -> Void)? = nil
     var onSchedule: (() -> Void)? = nil
+    /// Chats: the mascot only perches on an empty thread so it never covers message bubbles.
+    var showsMascot = true
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
@@ -3123,6 +3130,7 @@ struct MessageComposer: View {
                 onVoiceNote: onVoiceNote,
                 collapsesWhenUnfocused: false,
                 hidesMascotWhileComposing: true,
+                hidesMascot: !showsMascot,
                 onSchedule: onSchedule,
                 onSend: onSend
             )

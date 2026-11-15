@@ -1861,7 +1861,8 @@ extension MessagingStore {
     }
 
     func mentionCandidates(in id: ConversationID, query: String?) -> [ModulaComposerMention] {
-        guard capabilities.mentions else { return [] }
+        // No "@…" being typed → no suggestion card (it used to sit above the composer permanently).
+        guard capabilities.mentions, query != nil else { return [] }
         let people: [ConversationParticipant]
         if let members = groups[id]?.members {
             people = members.filter { !$0.isMe && $0.state == "active" && !$0.blocked }.map(\.participant)

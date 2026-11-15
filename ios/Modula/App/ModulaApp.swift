@@ -16,6 +16,8 @@ struct ModulaApp: App {
                 .environment(environment)
                 // t169u: no accent on controls — back, menus, toolbar icons and links use the label colour.
                 .tint(.primary)
+                // …except switches: every Toggle uses the app accent (Settings → Appearance).
+                .toggleStyle(SettingsHapticToggleStyle())
                 .preferredColorScheme(environment.appearance.colorScheme)
                 // Web links anywhere in the app open in the Modula browser (Settings → Links).
                 .environment(\.openURL, OpenURLAction { url in ModulaLinkRouter.handle(url, source: nil) })
