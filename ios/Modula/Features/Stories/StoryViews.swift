@@ -881,11 +881,12 @@ struct StoryViewer: View {
             Button("Something else", role: .destructive) { reportCurrent(category: "other") }
             Button("Cancel", role: .cancel) {}
         }
+        // Finger-following pull-down closes the viewer (scales + fades with the pull; the
+        // horizontal pager and swipe-up reply keep their own drags).
+        .modulaPullDownToDismiss { app.navigation.close() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
-                if value.translation.height > 80 {
-                    app.navigation.close()
-                } else if value.translation.height < -60, abs(value.translation.width) < 80 {
+                if value.translation.height < -60, abs(value.translation.width) < 80 {
                     // Swipe up → reply (and quick reactions).
                     if let item = currentItem, !item.isOwn {
                         replyFocused = true

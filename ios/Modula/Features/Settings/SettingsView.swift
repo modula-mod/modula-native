@@ -394,6 +394,7 @@ struct SettingsView: View {
         }
         .fullScreenCover(isPresented: $showsQR) {
             SettingsQRModal { showsQR = false }
+                .modulaPullDownToDismiss { showsQR = false }
                 .transition(.scale)
         }
         // Liquid Glass search capsule pinned under the nav bar (replaces the system `.searchable`

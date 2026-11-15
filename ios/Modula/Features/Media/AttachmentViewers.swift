@@ -55,6 +55,7 @@ struct AttachmentViewerRouter: View {
             ModulaDocumentPreview(attachment: attachment, onDismiss: onDismiss)
         case .audio:
             ModulaAudioViewer(attachment: attachment, onDismiss: onDismiss)
+                .modulaPullDownToDismiss(onDismiss)
         case .unsupported:
             NavigationStack {
                 ContentUnavailableView(

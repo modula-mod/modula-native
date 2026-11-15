@@ -91,6 +91,7 @@ struct ProfileEditView: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .interactiveDismissDisabled(editing.isDirty)
+        .modulaBlocksSwipeBack(editing.isDirty)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { attemptDismiss() }

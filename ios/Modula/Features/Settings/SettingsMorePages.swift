@@ -83,6 +83,10 @@ struct GesturesSettingsHost: View {
     @AppStorage("settings.gestures.doubleTapLike") private var doubleTapLike = true
     @AppStorage("settings.gestures.swipeReply") private var swipeReply = true
     @AppStorage("settings.gestures.shakeUndo") private var shakeUndo = false
+    /// Gesture Navigation (Profile side sheet, sidebar mirror, Modules Dock). Same key as the
+    /// dev switch, so turning it off here is the off switch.
+    @AppStorage(SpatialNavigationFeature.enabledKey) private var gestureNavigation = true
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         switch route {
@@ -91,12 +95,22 @@ struct GesturesSettingsHost: View {
                 SettingsHeroBanner(title: "Gestures", subtitle: "Touch shortcuts for browsing and chat.", symbol: "hand.draw")
                 SettingsSceneGraphic(style: .orbit)
                 SettingsToggleCard {
+                    Toggle("Gesture Navigation", isOn: $gestureNavigation)
+                        .accessibilityHint("Swipe from the right edge for your profile, up from the tab bar for the Modules Dock")
+                        .accessibilityIdentifier("settings.gestures.spatial")
+                        .onChange(of: gestureNavigation) { _, on in
+                            // Off: whatever layer is up goes away; Profile goes back to a tab.
+                            if !on { app.navigation.spatial.close() }
+                            HapticEngine.shared.play(.selection)
+                        }
+                }
+                SettingsToggleCard {
                     Toggle("Edge swipe to go back", isOn: $edgeBack)
                     Toggle("Double-tap to like", isOn: $doubleTapLike)
                     Toggle("Swipe to reply in chats", isOn: $swipeReply)
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
                 }
-                SettingsAPIFootnote(text: "Double-tap likes posts with photos or video. Swipe right on a chat bubble to quote it in your reply. Shake to undo works in Modula’s text fields. Edge Picker options are in Appearance.")
+                SettingsAPIFootnote(text: "Double-tap likes posts with photos or video. Swipe right on a chat bubble to quote it in your reply. Shake to undo works in Modula’s text fields. Edge Picker options are in Appearance. Gesture Navigation: swipe in from the right edge on Home for your profile, from the left for the sidebar, and up on the tab bar for the Modules Dock; every swipe also has a button.")
             }
             .navigationTitle("Gestures")
             .navigationBarTitleDisplayMode(.inline)
