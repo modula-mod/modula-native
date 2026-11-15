@@ -18,6 +18,8 @@ final class ModulaVideoPlaybackController {
     /// Playback rate (1 / 1.5 / 2). Persists for the lifetime of this controller.
     private(set) var rate: Float = 1
     var autoplayAllowed = true
+    /// Full-screen viewer: reopen long videos where you left off (this device; last 40 videos).
+    var resumesPosition = false
     private var timeObserver: Any?
 
     init() {
@@ -46,6 +48,10 @@ final class ModulaVideoPlaybackController {
         // pages that only attached (off-screen neighbours, autoplay disabled) played audio/decoded video
         // in the background. `defaultRate` is the rate `play()` will use.
         next.defaultRate = rate
+        if resumesPosition, let seconds = ModulaPlaybackPositions.position(for: url) {
+            next.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .positiveInfinity)
+            ModulaToastCenter.shared.show("Resumed at \(ModulaPlaybackPositions.clock(seconds))", symbol: "play.circle")
+        }
         player = next
         state = .preparing
         timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self, weak next] time in
@@ -87,7 +93,12 @@ final class ModulaVideoPlaybackController {
     func play() {
         guard let player else { return }
         // Sound on → a `.playback` session so audio survives the silent switch and PiP is possible.
-        if !isMuted { ModulaPiP.activatePlaybackSession(mixing: false) }
+        if !isMuted {
+            ModulaPiP.activatePlaybackSession(mixing: false)
+            // One sound-on video at a time: starting another pauses the mini player.
+            let dock = ModulaVideoDock.shared.controller
+            if dock !== self, dock.state == .playing { dock.pause() }
+        }
         player.play()
         player.rate = rate
         state = .playing
@@ -124,6 +135,12 @@ final class ModulaVideoPlaybackController {
         }
     }
 
+    /// Relative seek in seconds (keyboard / accessibility skip).
+    func skip(by seconds: Double) {
+        guard duration > 0 else { return }
+        seek(to: min(max((currentSeconds + seconds) / duration, 0), 1))
+    }
+
     /// Cycle 1x → 1.5x → 2x → 1x. Applies immediately if playing.
     func cycleRate() -> Float {
         let next: Float
@@ -144,6 +161,9 @@ final class ModulaVideoPlaybackController {
     }
 
     func release() {
+        if resumesPosition, let url = currentURL {
+            ModulaPlaybackPositions.record(currentSeconds, duration: duration, for: url)
+        }
         if let timeObserver, let player { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
         // A player showing in Picture in Picture keeps playing after its cell scrolls away;
@@ -642,10 +662,12 @@ final class ModulaVideoDock {
         var route: AppRoute?
     }
 
-    enum Corner: CaseIterable { case topLeading, topTrailing, bottomLeading, bottomTrailing }
+    enum Corner: String, CaseIterable { case topLeading, topTrailing, bottomLeading, bottomTrailing }
 
     private(set) var item: Item?
-    var corner: Corner = .bottomTrailing
+    var corner: Corner = Corner(rawValue: UserDefaults.standard.string(forKey: "video.dock.corner") ?? "") ?? .bottomTrailing {
+        didSet { UserDefaults.standard.set(corner.rawValue, forKey: "video.dock.corner") }
+    }
     var expanded = false
     let controller = ModulaVideoPlaybackController()
 
@@ -893,5 +915,35 @@ struct ModulaVideoDockExpanded: View {
         }
         .modulaPullDownToDismiss { dock.expanded = false }
         .statusBarHidden()
+    }
+}
+
+
+/// Last playback position for long videos opened full screen (≥ 60 s; kept between 10 s and the
+/// last 10 s). Local only.
+enum ModulaPlaybackPositions {
+    private static let key = "video.positions.v1"
+    private static let maxEntries = 40
+
+    static func position(for url: URL) -> Double? {
+        let all = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        return all[url.absoluteString]
+    }
+
+    static func record(_ seconds: Double, duration: Double, for url: URL) {
+        var all = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] ?? [:]
+        let id = url.absoluteString
+        if duration >= 60, seconds >= 10, seconds < duration - 10 {
+            all[id] = seconds
+            if all.count > maxEntries, let drop = all.keys.first(where: { $0 != id }) { all[drop] = nil }
+        } else {
+            all[id] = nil
+        }
+        UserDefaults.standard.set(all, forKey: key)
+    }
+
+    static func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }

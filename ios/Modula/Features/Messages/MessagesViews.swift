@@ -1255,6 +1255,8 @@ struct ConversationView: View {
     @State private var editHistoryFor: Message?
     @State private var showInfo = false
     @State private var jumpTarget: MessageID?
+    @State private var showsJumpToDate = false
+    @State private var jumpDate = Date()
     @State private var replyTarget: Message?
     @State private var editing: Message?
     @State private var unsending: Message?
@@ -1315,6 +1317,7 @@ struct ConversationView: View {
             // Composer floats over the thread so messages scroll under its glass.
             .safeAreaInset(edge: .top, spacing: 0) {
                 if searching {
+                  VStack(spacing: 0) {
                     ConversationSearchBar(
                         query: $searchQuery,
                         scope: $searchScope,
@@ -1331,7 +1334,32 @@ struct ConversationView: View {
                     )
                     .padding(.bottom, 6)
                     .transition(.opacity)
+                    // Jump to a day in the loaded history (no server date-seek endpoint).
+                    Button {
+                        jumpDate = app.messaging.messages(for: conversationID).last?.sentAt ?? Date()
+                        showsJumpToDate = true
+                    } label: {
+                        Label("Jump to date", systemImage: "calendar")
+                            .font(.footnote.weight(.semibold))
+                            .padding(.horizontal, 12).frame(height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule())
+                    .padding(.bottom, 6)
+                    .accessibilityIdentifier("messages.conversation.jumpToDate")
+                  }
                 }
+            }
+            .sheet(isPresented: $showsJumpToDate) {
+                ConversationJumpToDateSheet(
+                    messages: app.messaging.messages(for: conversationID),
+                    date: $jumpDate
+                ) { id in
+                    showsJumpToDate = false
+                    jumpTarget = id
+                }
+                .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
@@ -5585,4 +5613,52 @@ struct InboxRowKey: Equatable, Sendable {
     let viewerID: String?
     let pinned: Bool
     let draft: String?
+}
+
+
+/// Picks a day and jumps to the first loaded message on or after it (the last one before, if the
+/// day is past the end). Only loaded history is searchable; the footnote says so.
+struct ConversationJumpToDateSheet: View {
+    let messages: [Message]
+    @Binding var date: Date
+    var onJump: (MessageID) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    private var range: ClosedRange<Date> {
+        let first = messages.first?.sentAt ?? Date()
+        let last = max(messages.last?.sentAt ?? Date(), first)
+        return Calendar.current.startOfDay(for: first)...last
+    }
+
+    private var target: Message? {
+        let start = Calendar.current.startOfDay(for: date)
+        return messages.first { $0.sentAt >= start } ?? messages.last
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                DatePicker("Day", selection: $date, in: range, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .tint(.primary)
+                Text(messages.isEmpty ? "No messages loaded yet." : "Searches the \(messages.count) messages loaded on this device. Scroll up to load older ones.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .navigationTitle("Jump to date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Go") {
+                        HapticEngine.shared.play(.navigation)
+                        if let target { onJump(target.id) } else { dismiss() }
+                    }
+                    .disabled(target == nil)
+                }
+            }
+        }
+    }
 }

@@ -374,7 +374,8 @@ struct SafetySettingsHost: View {
         case .reporting:
             MyReportsView()
         case .muted:
-            RelationshipListView(kind: .muted)
+            // "Words and accounts": words were missing. Words editor on top, accounts below.
+            MutedWordsAndAccountsView()
         case .sensitive:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sensitive content", subtitle: "Warnings before opening media.", symbol: "eye.trianglebadge.exclamationmark")
@@ -732,5 +733,71 @@ private struct AudioWaveGraphic: View {
                 .fill(app.appearance.liveAccent.opacity(0.08))
         }
         .accessibilityHidden(true)
+    }
+}
+
+
+struct MutedWordsAndAccountsView: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var tab = Tab.words
+    enum Tab: String, CaseIterable, Identifiable { case words = "Words", accounts = "Accounts"; var id: String { rawValue } }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ModulaSegmentedControl("Muted", selection: $tab, options: Tab.allCases, symbol: { $0 == .words ? "textformat" : "person.crop.circle.badge.xmark" }, identifier: { "safety.muted.\($0.rawValue.lowercased())" }) { $0.rawValue }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+            switch tab {
+            case .words: MutedWordsEditor()
+            case .accounts: RelationshipListView(kind: .muted)
+            }
+        }
+        .navigationTitle("Muted")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct MutedWordsEditor: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    TextField("Add a word, phrase or #tag", text: $draft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit(add)
+                    Button("Add", action: add)
+                        .disabled(draft.trimmingCharacters(in: .whitespaces).count < 2)
+                }
+            } footer: {
+                Text("Posts containing these are hidden from Home. Saved on this device only.")
+            }
+            if !app.home.mutedWords.isEmpty {
+                Section("\(app.home.mutedWords.count) muted") {
+                    ForEach(app.home.mutedWords, id: \.self) { word in
+                        Label(word, systemImage: "speaker.slash")
+                    }
+                    .onDelete { offsets in
+                        var words = app.home.mutedWords
+                        words.remove(atOffsets: offsets)
+                        app.home.setMutedWords(words)
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    private func add() {
+        let word = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard word.count >= 2 else { return }
+        app.home.setMutedWords([word] + app.home.mutedWords)
+        draft = ""
+        HapticEngine.shared.play(.selection)
     }
 }

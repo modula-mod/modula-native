@@ -127,6 +127,9 @@ struct PostOptionsMenuContent: View {
             Button("Share via…", systemImage: "square.and.arrow.up") { onSelect("share") }
             Button("Copy link", systemImage: "link") { onSelect("copy-link") }
             Button("Send in message", systemImage: "paperplane") { onSelect("send-message") }
+            if let text = post.text, !text.isEmpty {
+                Button("Copy text", systemImage: "doc.on.doc") { onSelect("copy-text") }
+            }
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
         }
@@ -473,6 +476,7 @@ private struct PostMenuOverlay: View {
             // Soft top fade under the tile row (X progressive-blur feel).
             ZStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
+                    if let text = request.post.text, !text.isEmpty { row("copy-text", "Copy text", "doc.on.doc") }
                     if request.isOwn {
                         if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
                         if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
@@ -834,6 +838,12 @@ enum PostMenuExecutor {
             Task {
                 await app.postActions.setReaction(current, reaction: next)
                 app.home.syncVisibleEngagement()
+            }
+        case "copy-text":
+            if let text = post.text, !text.isEmpty {
+                UIPasteboard.general.string = text
+                HapticEngine.shared.play(.success)
+                app.navigation.flash("Text copied", symbol: "doc.on.doc")
             }
         case "send-message":
             // No "attach post to DM" endpoint yet: copy the link and open a new message.

@@ -17,10 +17,20 @@ final class HomeStore {
     @ObservationIgnored private var visibleMemo: [HomeMode: VisibleMemo] = [:]
     /// Instruments: `FeedFirstPaint` runs from the first feed request to the first rendered row.
     @ObservationIgnored private var feedPaintSignposted = false
+    /// Settings → Safety → Muted → Words (on this device). Observed, so Home re-filters on change.
+    private(set) var mutedWords: [String] = ModulaMutedWords.load()
+
+    func setMutedWords(_ words: [String]) {
+        let cleaned = ModulaMutedWords.normalise(words)
+        ModulaMutedWords.save(cleaned)
+        mutedWords = cleaned
+    }
+
     private struct VisibleMemo {
         let modes: UInt64
         let posts: UInt64
         let options: HomeFeedDisplayOptions
+        var muted: [String] = []
         let value: [SocialPost]
     }
     private(set) var actionError: String?
@@ -74,12 +84,13 @@ final class HomeStore {
         let items = state(for: mode).items
         let postsRevision = posts.revision
         let options = displayOptions(for: mode)
+        let muted = mutedWords
         if let memo = visibleMemo[mode], memo.modes == modesRevision,
-           memo.posts == postsRevision, memo.options == options {
+           memo.posts == postsRevision, memo.options == options, memo.muted == muted {
             return memo.value
         }
         let value = applyDisplay(visibleItems(items), mode: mode)
-        visibleMemo[mode] = VisibleMemo(modes: modesRevision, posts: postsRevision, options: options, value: value)
+        visibleMemo[mode] = VisibleMemo(modes: modesRevision, posts: postsRevision, options: options, muted: muted, value: value)
         return value
     }
 
@@ -316,12 +327,52 @@ final class HomeStore {
 
     private func applyDisplay(_ items: [SocialPost], mode: HomeMode) -> [SocialPost] {
         let options = displayOptions(for: mode)
+        let muted = mutedWords
         return items.filter { post in
+            if !muted.isEmpty, ModulaMutedWords.matches(post.text, words: muted) { return false }
             if options.hideModules, post.kind == .module { return false }
             if options.mediaOnly, !post.hasMedia, post.kind != .media, post.kind != .carousel, post.kind != .video {
                 return false
             }
             return true
         }
+    }
+}
+
+
+/// Muted words: case/diacritic-insensitive whole-word (or #tag) match on post text. Stored on
+/// this device only; there is no server muted-words endpoint.
+enum ModulaMutedWords {
+    static let key = "safety.mutedWords.v1"
+
+    static func load() -> [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+    static func save(_ words: [String]) { UserDefaults.standard.set(words, forKey: key) }
+
+    static func normalise(_ words: [String]) -> [String] {
+        var seen = Set<String>()
+        return words.compactMap { raw in
+            let word = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard word.count >= 2, word.count <= 60 else { return nil }
+            let fold = word.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            return seen.insert(fold).inserted ? word : nil
+        }
+        .prefix(200).map { $0 }
+    }
+
+    static func matches(_ text: String?, words: [String]) -> Bool {
+        guard let text, !text.isEmpty else { return false }
+        let haystack = " " + text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil) + " "
+        for word in words {
+            let needle = word.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            var searchRange = haystack.startIndex..<haystack.endIndex
+            while let range = haystack.range(of: needle, range: searchRange) {
+                let before = haystack[haystack.index(before: range.lowerBound)]
+                let after = range.upperBound < haystack.endIndex ? haystack[range.upperBound] : " "
+                let boundary: (Character) -> Bool = { !($0.isLetter || $0.isNumber) }
+                if (boundary(before) || needle.hasPrefix("#")) && boundary(after) { return true }
+                searchRange = range.upperBound..<haystack.endIndex
+            }
+        }
+        return false
     }
 }

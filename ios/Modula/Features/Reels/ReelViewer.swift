@@ -171,6 +171,15 @@ struct ReelFeedView: View {
             AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
         .onChange(of: app.reels.activeID) { _, id in prefetchNeighbours(of: id) }
+        // Hardware keyboard: ↑/↓ previous/next reel; space and M go to the active page.
+        .focusable()
+        .focusEffectDisabled()
+        .onKeyPress(.upArrow) { move(-1); return .handled }
+        .onKeyPress(.downArrow) { move(1); return .handled }
+        .onKeyPress(.space) { NotificationCenter.default.post(name: .modulaReelKey, object: "space"); return .handled }
+        .onKeyPress(characters: CharacterSet(charactersIn: "mM"), phases: .down) { _ in
+            NotificationCenter.default.post(name: .modulaReelKey, object: "m"); return .handled
+        }
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
     }
@@ -458,6 +467,12 @@ struct ReelPageView: View {
             }
         })
         .animation(.easeOut(duration: 0.18), value: holdPaused)
+        .onReceive(NotificationCenter.default.publisher(for: .modulaReelKey)) { note in
+            guard isActive, reel.attachment != nil else { return }
+            if (note.object as? String) == "m" { playback.toggleMute() } else { playback.toggle() }
+        }
+        .accessibilityAction(named: "Skip forward 10 seconds") { playback.skip(by: 10) }
+        .accessibilityAction(named: "Skip back 10 seconds") { playback.skip(by: -10) }
         // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
         // re-render four times a second just to watch for the end).
         .overlay(alignment: .bottom) {
@@ -895,4 +910,10 @@ struct ReelProgressBar: View {
         let total = max(0, Int(seconds.isFinite ? seconds.rounded() : 0))
         return String(format: "%d:%02d", total / 60, total % 60)
     }
+}
+
+
+extension Notification.Name {
+    /// Hardware-keyboard command for the active reel page ("space" / "m").
+    static let modulaReelKey = Notification.Name("modula.reels.key")
 }

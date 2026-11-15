@@ -102,9 +102,17 @@ struct ModulaVideoViewer: View {
                     }
                     .onAppear {
                         controller.autoplayAllowed = false
+                        controller.resumesPosition = true
                         controller.attach(url: url)
                         controller.play()
                     }
+                    // Hardware keyboard: space play/pause, ←/→ 10 s, M mute.
+                    .focusable()
+                    .focusEffectDisabled()
+                    .onKeyPress(.space) { controller.toggle(); return .handled }
+                    .onKeyPress(.leftArrow) { controller.skip(by: -10); return .handled }
+                    .onKeyPress(.rightArrow) { controller.skip(by: 10); return .handled }
+                    .onKeyPress(characters: CharacterSet(charactersIn: "mM"), phases: .down) { _ in controller.toggleMute(); return .handled }
                     .onDisappear { controller.release() }
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel(attachment.accessibilityLabel)
