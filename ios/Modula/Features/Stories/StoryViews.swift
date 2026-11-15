@@ -4527,6 +4527,13 @@ struct StoryViewersSheet: View {
                 }
             }
             .task { await loadFirst() }
+            // Live: `story.reaction` over the messaging socket (when it's connected).
+            .task(id: app.messaging.storyReactionPulse[itemID] ?? 0) {
+                guard (app.messaging.storyReactionPulse[itemID] ?? 0) > 0 else { return }
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                await refreshLive()
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -4535,6 +4542,8 @@ struct StoryViewersSheet: View {
 
     private func loadFirst() async {
         loading = true
+        // Brings the messaging socket up (once per account) so `story.reaction` arrives live.
+        Task { await app.messaging.probeCapabilities() }
         async let page = app.stories.viewers(itemID: itemID)
         async let reactions = app.stories.reactions(itemID: itemID)
         if let page = await page {
@@ -4546,6 +4555,19 @@ struct StoryViewersSheet: View {
         }
         summary = (await reactions)?.summary ?? []
         loading = false
+    }
+
+    /// Re-reads the first page + summary and merges reactions into the list in place.
+    private func refreshLive() async {
+        async let page = app.stories.viewers(itemID: itemID)
+        async let reactions = app.stories.reactions(itemID: itemID)
+        if let page = await page {
+            let fresh = Dictionary(page.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let known = Set(viewers.map(\.id))
+            viewers = page.items.filter { !known.contains($0.id) } + viewers.map { fresh[$0.id] ?? $0 }
+            total = page.viewerCount
+        }
+        if let summary = await reactions?.summary { self.summary = summary }
     }
 
     private func loadMore() async {

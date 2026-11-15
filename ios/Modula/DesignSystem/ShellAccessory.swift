@@ -107,6 +107,14 @@ enum ShellQuickTab: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Next / previous quick tab in bar order (no wrap-around).
+    func neighbour(_ step: Int) -> ShellQuickTab? {
+        let all = Self.allCases
+        guard let index = all.firstIndex(of: self) else { return nil }
+        let target = index + step
+        return all.indices.contains(target) ? all[target] : nil
+    }
+
     static func current(_ route: AppRoute) -> ShellQuickTab? {
         switch route {
         case .home(.following): .following
@@ -292,12 +300,55 @@ struct ShellAccessorySystemSlot: View {
         .transition(.blurReplace.combined(with: .scale(0.86)))
         .animation(.snappy(duration: 0.28), value: title)
         .contentShape(Capsule())
+        .modifier(QuickTabSwipe(current: quick))
         .onLongPressGesture(minimumDuration: 0.5) { CommandPaletteCenter.shared.present() }
         .modifier(AccessoryModulesLift())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
-        .accessibilityHint("Swipe up or activate to open installed modules")
+        .accessibilityHint("Swipe up for modules, swipe left or right to switch feeds")
         .accessibilityIdentifier("tab.accessory")
+        .accessibilityAdjustableAction { direction in
+            guard let quick else { return }
+            switch direction {
+            case .increment: quick.neighbour(1)?.open(in: app.navigation)
+            case .decrement: quick.neighbour(-1)?.open(in: app.navigation)
+            @unknown default: break
+            }
+        }
+    }
+}
+
+/// Swipe sideways on the minimised accessory to move between Following / For You / Discover /
+/// Modules. The pill follows the finger (rubber-banded at the ends) and settles without bounce.
+private struct QuickTabSwipe: ViewModifier {
+    let current: ShellQuickTab?
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.26, bounce: 0)))
+    private var drag: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: reduceMotion ? 0 : drag)
+            .opacity(1 - min(abs(drag) / 240, 0.35))
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 14)
+                    .updating($drag) { value, state, transaction in
+                        guard current != nil, abs(value.translation.width) > abs(value.translation.height) * 1.4 else { return }
+                        transaction.disablesAnimations = true
+                        let dx = value.translation.width
+                        let blocked = current?.neighbour(dx < 0 ? 1 : -1) == nil
+                        state = blocked ? dx * 0.25 : dx * 0.6
+                    }
+                    .onEnded { value in
+                        guard let current, abs(value.translation.width) > abs(value.translation.height) * 1.4 else { return }
+                        let dx = abs(value.predictedEndTranslation.width) > abs(value.translation.width) * 1.5
+                            ? value.predictedEndTranslation.width : value.translation.width
+                        guard abs(dx) > 44, let next = current.neighbour(dx < 0 ? 1 : -1) else { return }
+                        HapticEngine.shared.play(.selection)
+                        withAnimation(.snappy(duration: 0.24)) { next.open(in: app.navigation) }
+                    }
+            )
     }
 }
 

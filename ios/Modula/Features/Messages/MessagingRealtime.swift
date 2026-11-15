@@ -23,6 +23,8 @@ final class MessagingRealtimeClient {
         case postEngagement(postID: String, likeCount: Int?, reactionCount: Int?, replyCount: Int?)
         /// Server ack: this post's comments are live now (listeners may pause their poll).
         case postSubscribed(postID: String)
+        /// Someone reacted to (or cleared a reaction on) one of my stories (`story.reaction`).
+        case storyReaction(itemID: String)
         case error(String)
         case disconnected
     }
@@ -170,6 +172,9 @@ final class MessagingRealtimeClient {
             onEvent?(.postSubscribed(postID: post))
         case "post.unsubscribed":
             break
+        case "story.reaction":
+            guard let item = value["itemId"]?.string else { return }
+            onEvent?(.storyReaction(itemID: item))
         case "error":
             onEvent?(.error(value["reason"]?.string ?? "socket"))
         default:

@@ -77,6 +77,8 @@ final class MessagingStore {
     private(set) var postCommentPulse: [String: Int] = [:]
     /// Latest counts from `post.engagement` (only the fields the server sent).
     private(set) var postEngagement: [String: PostEngagementCounts] = [:]
+    /// Bumped on `story.reaction` for my story items; the open viewers sheet refetches.
+    private(set) var storyReactionPulse: [String: Int] = [:]
     private var realtime: MessagingRealtimeClient?
     private var presenceHeartbeatTask: Task<Void, Never>?
 
@@ -820,6 +822,7 @@ final class MessagingStore {
     /// (it kept reconnecting with the revoked session after sign-out).
     func resetForAccountChange() {
         livePostIDs = []
+        storyReactionPulse = [:]
         postCommentPulse = [:]
         postEngagement = [:]
         stopRealtime()
@@ -1710,6 +1713,8 @@ extension MessagingStore {
             guard capabilities.markUnread else { return }
             if marked { setMarkedUnreadLocally(conversation, true) } else { setMarkedUnreadLocally(conversation, false) }
             Task { await refreshUnreadSummary() }
+        case .storyReaction(let item):
+            storyReactionPulse[item, default: 0] &+= 1
         case .postSubscribed(let post):
             livePostIDs.insert(post)
         case .postComments(let post):

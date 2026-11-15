@@ -412,3 +412,13 @@ final class SpatialNavigationReleaseTests: XCTestCase {
         XCTAssertEqual(Set(tabs.map(\.symbol)).count, tabs.count)
     }
 }
+
+@MainActor
+final class QuickTabNeighbourTests: XCTestCase {
+    func testNeighboursFollowBarOrderWithoutWrapping() {
+        XCTAssertEqual(ShellQuickTab.following.neighbour(1), .forYou)
+        XCTAssertEqual(ShellQuickTab.discover.neighbour(-1), .forYou)
+        XCTAssertNil(ShellQuickTab.following.neighbour(-1))
+        XCTAssertNil(ShellQuickTab.modules.neighbour(1))
+    }
+}
