@@ -619,8 +619,15 @@ struct ProfileIdentityBlock: View {
                         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
                             return .discarded
                         }
-                        return .systemAction
+                        // Same in-app browser (and "Open links in Modula" setting) as post links.
+                        return ModulaLinkRouter.handle(url, source: nil)
                     })
+                    .contextMenu {
+                        Button { UIPasteboard.general.string = profile.bio; HapticEngine.shared.play(.success) } label: {
+                            Label("Copy bio", systemImage: "doc.on.doc")
+                        }
+                        ShareLink(item: profile.bio) { Label("Share bio", systemImage: "square.and.arrow.up") }
+                    }
                     .accessibilityIdentifier("profile.bio")
 
                 if bioIsLong {

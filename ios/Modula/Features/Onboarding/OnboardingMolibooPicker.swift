@@ -56,9 +56,11 @@ struct OnboardingMolibooPicker: View {
                 Text(chosen.personality)
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.85))
-                    .contentTransition(.opacity)
+                    .id(chosen.rawValue)
+                    .transition(.opacity.combined(with: .offset(y: 4)))
                     .accessibilityHidden(true)
             }
         }
+        .animation(calm ? nil : .smooth(duration: 0.25), value: kindRaw)
     }
 }
