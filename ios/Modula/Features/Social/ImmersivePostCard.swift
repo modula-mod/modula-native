@@ -148,6 +148,8 @@ struct ImmersivePostCard: View {
     @State private var hoveredReaction: String?
     @State private var showsReactionGrid = false
     @State private var viewer: ImmersiveViewerItem?
+    /// Feed → viewer: the cover zooms out of this card's media stage (iOS 18 zoom; off with Reduce Motion).
+    @Namespace private var viewerZoom
     @State private var reactionFrames: [String: CGRect] = [:]
     @State private var heartFrame: CGRect = .zero
     @State private var suppressHeartTap = false
@@ -214,6 +216,7 @@ struct ImmersivePostCard: View {
         .fullScreenCover(item: $viewer) { item in
             AttachmentViewerRouter(attachment: item.attachment, imageGallery: item.gallery) { viewer = nil }
                 .environment(app)
+                .modulaZoomDestination(id: "viewer", namespace: viewerZoom, reduceMotion: calm)
         }
         .environment(\.modulaLinkSource, linkSource)
         .environment(\.openURL, OpenURLAction { url in
@@ -306,6 +309,7 @@ struct ImmersivePostCard: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        .modulaZoomSource(id: "viewer", namespace: viewerZoom)
     }
 
     @ViewBuilder

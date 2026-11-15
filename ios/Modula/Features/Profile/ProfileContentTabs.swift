@@ -52,12 +52,19 @@ struct ProfilePostGrid: View {
     var onOpen: (SocialPost) -> Void
     var onReachEnd: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
             ForEach(posts) { post in
-                Button { onOpen(post) } label: {
+                Button {
+                    // Grid → post: the detail zooms out of this tile (RouteView consumes the arm;
+                    // no-op without a namespace, e.g. in the profile side sheet, or with Reduce Motion).
+                    ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "post", key: post.id), for: .post(post.id, .root))
+                    onOpen(post)
+                } label: {
                     ProfilePostTile(post: post, tint: tint)
+                        .modulaHeroSource("post", key: post.id)
                         .overlay(alignment: .topTrailing) {
                             if post.isPinned {
                                 Image(systemName: "pin.fill")

@@ -377,6 +377,9 @@ struct ModulaPlayerLayerView: UIViewRepresentable {
 
         func setAutoPiP(_ armed: Bool) {
             guard let pip else { return }
+            // Two layers can show one player (dock tile + expanded); the visible, most recently
+            // updated one owns PiP so closing the other doesn't leave the player unregistered.
+            if let player = playerLayer.player { ModulaPiP.shared.register(pip, for: player) }
             let want = armed && ModulaPiP.autoStartEnabled
             if pip.canStartPictureInPictureAutomaticallyFromInline != want {
                 pip.canStartPictureInPictureAutomaticallyFromInline = want
@@ -674,17 +677,21 @@ struct ModulaVideoDockHost: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drag: CGSize = .zero
     @State private var dismissing = false
+    /// Dock → expanded: the cover zooms out of the tile (kept mounted, invisible, while expanded).
+    @Namespace private var dockZoom
     private var dock: ModulaVideoDock { ModulaVideoDock.shared }
 
     var body: some View {
         GeometryReader { geometry in
-            if let item = dock.item, let player = dock.controller.player, !dock.expanded {
+            if let item = dock.item, let player = dock.controller.player {
                 let size = tileSize(item)
                 let origin = position(for: dock.corner, size: size, in: geometry)
                 tile(item: item, player: player)
+                    .modulaZoomSource(id: "dock", namespace: dockZoom)
                     .frame(width: size.width, height: size.height)
                     .position(x: origin.x + drag.width, y: origin.y + drag.height)
-                    .opacity(dismissing ? 0 : 1)
+                    .opacity(dismissing || dock.expanded ? 0 : 1)
+                    .allowsHitTesting(!dock.expanded)
                     .gesture(
                         DragGesture(minimumDistance: 6)
                             .onChanged { drag = $0.translation }
@@ -696,6 +703,7 @@ struct ModulaVideoDockHost: View {
         .animation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.82), value: dock.item)
         .fullScreenCover(isPresented: Binding(get: { dock.expanded }, set: { dock.expanded = $0 })) {
             ModulaVideoDockExpanded()
+                .modulaZoomDestination(id: "dock", namespace: dockZoom, reduceMotion: ModulaEffectGate.reduceMotion(reduceMotion))
         }
     }
 

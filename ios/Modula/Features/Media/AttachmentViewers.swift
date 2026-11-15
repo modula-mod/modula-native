@@ -76,6 +76,7 @@ struct ModulaVideoViewer: View {
     var onDismiss: () -> Void
     @State private var controller = ModulaVideoPlaybackController()
     @State private var download = AttachmentDownloadModel()
+    @State private var chromeHidden = false
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -83,17 +84,33 @@ struct ModulaVideoViewer: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if case .downloaded(let url) = download.state {
-                    VideoPlayer(player: controller.player)
-                        .onAppear {
-                            controller.autoplayAllowed = false
-                            controller.attach(url: url)
-                            controller.play()
+                    // Pooled AVPlayerLayer (not AVKit's VideoPlayer) so ModulaPiP owns PiP: closing the
+                    // viewer while in PiP keeps the video playing until PiP ends.
+                    ZStack {
+                        if let player = controller.player {
+                            ModulaPlayerLayerView(player: player, autoPiP: !controller.isMuted && controller.state == .playing)
+                                .ignoresSafeArea()
                         }
-                        .onDisappear { controller.release() }
-                        .accessibilityLabel(attachment.accessibilityLabel)
-                        .accessibilityAction(named: controller.state == .playing ? "Pause" : "Play") {
-                            controller.toggle()
-                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeOut(duration: 0.18)) { chromeHidden.toggle() }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if !chromeHidden { ModulaFullscreenVideoControls(controller: controller, title: attachment.displayName, onDocked: onDismiss) }
+                    }
+                    .onAppear {
+                        controller.autoplayAllowed = false
+                        controller.attach(url: url)
+                        controller.play()
+                    }
+                    .onDisappear { controller.release() }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel(attachment.accessibilityLabel)
+                    .accessibilityAction(named: controller.state == .playing ? "Pause" : "Play") {
+                        controller.toggle()
+                    }
                 } else if case .failed(let message) = download.state {
                     ContentUnavailableView("Video unavailable", systemImage: "video.badge.exclamationmark", description: Text(message))
                         .foregroundStyle(.white)
@@ -423,5 +440,78 @@ final class RaiseToListenRouter {
             try? session.setCategory(.playback, mode: .spokenAudio, options: [])
         }
         try? session.setActive(true)
+    }
+}
+
+
+/// Bottom transport for the full-screen video viewer: play/pause, scrub, time, speed, mute,
+/// Picture in Picture and "Mini player" (docks and closes the viewer).
+struct ModulaFullscreenVideoControls: View {
+    let controller: ModulaVideoPlaybackController
+    var title: String
+    var onDocked: () -> Void
+    @State private var scrubbing: Double?
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                Text(clock((scrubbing ?? controller.progress) * controller.duration))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                Slider(value: Binding(
+                    get: { scrubbing ?? controller.progress },
+                    set: { scrubbing = $0 }
+                ), in: 0...1) { editing in
+                    if !editing, let value = scrubbing { controller.seek(to: value); scrubbing = nil }
+                }
+                .tint(.white)
+                .accessibilityLabel("Video position")
+                Text("-" + clock(controller.duration * (1 - (scrubbing ?? controller.progress))))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+            }
+            HStack(spacing: 18) {
+                Button { controller.toggle() } label: {
+                    Image(systemName: controller.state == .playing ? "pause.fill" : "play.fill").font(.title2).frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(controller.state == .playing ? "Pause" : "Play")
+                Button { _ = controller.cycleRate() } label: {
+                    Text(String(format: "%.2g×", controller.rate)).font(.subheadline.weight(.bold).monospacedDigit()).frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityLabel("Playback speed \(String(format: "%.2g", controller.rate))")
+                Button { controller.toggleMute() } label: {
+                    Image(systemName: controller.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(controller.isMuted ? "Unmute" : "Mute")
+                Spacer()
+                Button {
+                    ModulaVideoDock.shared.dock(from: controller, title: title, aspect: aspect)
+                    onDocked()
+                } label: {
+                    Image(systemName: "rectangle.inset.bottomright.filled").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Mini player")
+                if ModulaPiP.isSupported {
+                    Button { ModulaPiP.shared.start(controller.player) } label: {
+                        Image(systemName: "pip.enter").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Picture in Picture")
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false, tint: .black.opacity(0.3))
+        .padding(.horizontal, 12).padding(.bottom, 12)
+        .transition(.opacity)
+    }
+
+    private var aspect: CGFloat {
+        guard let size = controller.player?.currentItem?.presentationSize, size.width > 0, size.height > 0 else { return 16.0 / 9.0 }
+        return size.width / size.height
+    }
+
+    private func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.isFinite ? seconds.rounded() : 0))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
