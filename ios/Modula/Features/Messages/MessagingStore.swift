@@ -70,6 +70,13 @@ final class MessagingStore {
     private(set) var reactionDetails: [MessageID: [MessageReactionDetail]] = [:]
     private(set) var receiptsByMessage: [MessageID: MessageReceipts] = [:]
     private(set) var realtimeConnected = false
+    /// Posts whose comments the socket confirmed live (`post.subscribed`). Comments sheets pause
+    /// their REST poll only for these; everything else keeps polling.
+    private(set) var livePostIDs: Set<String> = []
+    /// Bumped on every `post.comment.*` event for a post (ids only; the sheet refetches).
+    private(set) var postCommentPulse: [String: Int] = [:]
+    /// Latest counts from `post.engagement` (only the fields the server sent).
+    private(set) var postEngagement: [String: PostEngagementCounts] = [:]
     private var realtime: MessagingRealtimeClient?
     private var presenceHeartbeatTask: Task<Void, Never>?
 
@@ -732,12 +739,60 @@ final class MessagingStore {
     private func clearUnreadLocally(_ id: ConversationID) {
         guard let index = conversations.firstIndex(where: { $0.id == id }) else { return }
         let c = conversations[index]
-        guard c.unreadCount != 0 else { return }
+        guard c.unreadCount != 0 || c.markedUnread else { return }
+        // `POST /read` also clears a manual unread marker server-side.
         conversations[index] = Conversation(
             id: c.id, kind: c.kind, participants: c.participants, lastMessage: c.lastMessage,
             unreadCount: 0, updatedAt: c.updatedAt, titleOverride: c.titleOverride,
-            isMuted: c.isMuted, isArchived: c.isArchived
+            isMuted: c.isMuted, isArchived: c.isArchived, group: c.group, markedUnread: false
         )
+    }
+
+    private func setMarkedUnreadLocally(_ id: ConversationID, _ marked: Bool) {
+        guard let index = conversations.firstIndex(where: { $0.id == id }),
+              conversations[index].markedUnread != marked else { return }
+        conversations[index].markedUnread = marked
+    }
+
+    /// Swipe / context menu "Mark as Unread" (`POST /v1/conversations/:id/unread`). Only with
+    /// the server's `markUnread` capability; never touches read receipts.
+    func markConversationUnread(_ id: ConversationID) async {
+        guard capabilities.markUnread, let before = conversation(id: id), !before.isUnread else { return }
+        setMarkedUnreadLocally(id, true)
+        HapticEngine.shared.play(.confirmation)
+        #if DEBUG
+        if MessagingDebugFixture.isEnabled { return }
+        #endif
+        do {
+            let marked = try await repository.setMarkedUnread(conversation: id, unread: true)
+            setMarkedUnreadLocally(id, marked)
+            await refreshUnreadSummary()
+        } catch {
+            setMarkedUnreadLocally(id, false)
+            actionError = "Couldn't mark as unread."
+        }
+    }
+
+    // MARK: Live comments (messaging socket, `liveComments` capability)
+
+    /// Comments sheet opened: follow the post over the socket if the server offers it.
+    /// Returns false when live comments aren't available (the caller keeps polling).
+    @discardableResult
+    func followPostComments(_ postID: String) async -> Bool {
+        await probeCapabilities()
+        let live = capabilities.liveComments
+        guard live.enabled, capabilities.realtime else { return false }
+        startRealtimeIfNeeded()
+        guard let realtime else { return false }
+        realtime.subscribePost(postID, frame: live.subscribeFrame, unsubscribeFrame: live.unsubscribeFrame)
+        return true
+    }
+
+    func unfollowPostComments(_ postID: String) {
+        realtime?.unsubscribePost(postID)
+        livePostIDs.remove(postID)
+        postCommentPulse[postID] = nil
+        postEngagement[postID] = nil
     }
 
     /// The 1:1 conversation with a person, matched on handle (case-insensitive, optional "@") or id.
@@ -764,6 +819,9 @@ final class MessagingStore {
     /// Also closes the realtime socket / presence heartbeat, which nothing stopped before
     /// (it kept reconnecting with the revoked session after sign-out).
     func resetForAccountChange() {
+        livePostIDs = []
+        postCommentPulse = [:]
+        postEngagement = [:]
         stopRealtime()
         // Next account re-probes (and restarts realtime) on its first Messages visit.
         probedV2 = false
@@ -1612,10 +1670,13 @@ extension MessagingStore {
         switch event {
         case .hello:
             realtimeConnected = true
+            // Topics re-subscribe on hello; they're live again once re-acked.
+            if !livePostIDs.isEmpty { livePostIDs = [] }
             presenceHeartbeatTask?.cancel()
             presenceHeartbeatTask = nil
         case .disconnected:
             realtimeConnected = false
+            if !livePostIDs.isEmpty { livePostIDs = [] }
             startPresenceHeartbeatFallback()
         case .messageCreated(let conversation, _, _, _), .messageUpdated(let conversation, _), .messageDeleted(let conversation, _):
             Task { _ = await pollThread(conversation); await pollInbox() }
@@ -1645,8 +1706,29 @@ extension MessagingStore {
             presenceByActor[item.actorId] = item
         case .callUpdated(let update):
             CallManager.shared.handleRealtime(update)
+        case .conversationUnread(let conversation, let marked):
+            guard capabilities.markUnread else { return }
+            if marked { setMarkedUnreadLocally(conversation, true) } else { setMarkedUnreadLocally(conversation, false) }
+            Task { await refreshUnreadSummary() }
+        case .postSubscribed(let post):
+            livePostIDs.insert(post)
+        case .postComments(let post):
+            postCommentPulse[post, default: 0] &+= 1
+        case .postEngagement(let post, let likes, let reactions, let replies):
+            var counts = postEngagement[post] ?? PostEngagementCounts()
+            if let likes { counts.likeCount = likes }
+            if let reactions { counts.reactionCount = reactions }
+            if let replies { counts.replyCount = replies }
+            postEngagement[post] = counts
         case .error:
             break
         }
     }
+}
+
+/// Counts pushed by `post.engagement` (each optional: only what the server sent).
+struct PostEngagementCounts: Hashable, Sendable {
+    var likeCount: Int?
+    var reactionCount: Int?
+    var replyCount: Int?
 }

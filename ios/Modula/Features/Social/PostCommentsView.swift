@@ -398,6 +398,33 @@ final class PostCommentsStore {
         await load()
     }
 
+    /// `post.engagement` (counts only): refetch the post so every surface showing it agrees.
+    func refreshPost() async {
+        guard let post = try? await repository.post(id: postID) else { return }
+        postState.upsert(post)
+    }
+
+    /// Live comments event (ids only): refetch the first page, patch edited / re-reacted
+    /// comments in place, drop deleted ones when the whole thread is loaded, and surface new
+    /// top-level comments through the same "N new comments" pill as the poll (no scroll jump).
+    func applyLiveUpdate() async {
+        guard !isLoading, !isSending,
+              let page = try? await repository.comments(postID: postID, cursor: nil) else { return }
+        let fresh = Dictionary(page.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var next = items.map { fresh[$0.id] ?? $0 }
+        if !hasMore, !page.hasMore {
+            next.removeAll { $0.parentID == nil && fresh[$0.id] == nil }
+        }
+        if next != items { items = next }
+        let known = Set(items.map(\.id))
+        let count = page.items.filter { $0.parentID == nil && !known.contains($0.id) }.count
+        if count != newCommentCount { newCommentCount = count }
+        // Expanded threads may have a new / edited reply.
+        for parent in items where expandedReplies.contains(parent.id) && !loadingReplies.contains(parent.id) {
+            await loadReplies(for: parent)
+        }
+    }
+
     func collapseAllReplies() {
         if !expandedReplies.isEmpty { expandedReplies.removeAll() }
     }
@@ -430,6 +457,8 @@ enum CommentSort: String, CaseIterable, Identifiable, Sendable {
 private struct CommentPollKey: Hashable {
     let postID: SocialPostID
     let active: Bool
+    /// Socket confirmed live comments for this post: the REST poll stands down.
+    var live = false
 }
 
 struct PostCommentsView: View {
@@ -596,6 +625,25 @@ struct PostCommentsView: View {
         .fullScreenCover(isPresented: $showsCamera) {
             CommentCameraPicker { image in Task { await store?.addCameraImage(image) } }
                 .ignoresSafeArea()
+        }
+        // Live comments over the messaging socket while this sheet is open (capability
+        // `liveComments`); without it the paused-in-background poll above stays the source.
+        .task(id: postID) {
+            await app.messaging.followPostComments(postID)
+        }
+        .onDisappear { app.messaging.unfollowPostComments(postID) }
+        .task(id: app.messaging.postCommentPulse[postID] ?? 0) {
+            guard (app.messaging.postCommentPulse[postID] ?? 0) > 0 else { return }
+            // Coalesce bursts (several replies / reactions in a row) into one refetch.
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            await store?.applyLiveUpdate()
+        }
+        .task(id: app.messaging.postEngagement[postID]) {
+            guard app.messaging.postEngagement[postID] != nil else { return }
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await store?.refreshPost()
         }
         .task(id: postID) {
             let created = PostCommentsStore(
@@ -896,8 +944,10 @@ struct PostCommentsView: View {
                     // Keyed on scene activity too: polling stops in the background / app switcher
                     // (it kept firing every 25 s there) and resumes on return.
                     Color.clear.frame(height: 0)
-                        .task(id: CommentPollKey(postID: store.postID, active: scenePhase == .active)) {
-                            guard scenePhase == .active else { return }
+                        .task(id: CommentPollKey(postID: store.postID, active: scenePhase == .active,
+                                                 live: app.messaging.livePostIDs.contains(store.postID))) {
+                            guard scenePhase == .active,
+                                  !app.messaging.livePostIDs.contains(store.postID) else { return }
                             while !Task.isCancelled {
                                 try? await Task.sleep(for: .seconds(25))
                                 guard !Task.isCancelled else { return }

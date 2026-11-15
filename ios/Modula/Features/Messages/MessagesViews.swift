@@ -560,6 +560,11 @@ struct ConversationListView: View {
                                 Task { await app.messaging.markConversationRead(conversation.id) }
                             } label: { Label("Read", systemImage: "checkmark.message.fill") }
                             .tint(app.appearance.liveAccent)
+                        } else if !conversation.isUnread, app.messaging.capabilities.markUnread {
+                            Button {
+                                Task { await app.messaging.markConversationUnread(conversation.id) }
+                            } label: { Label("Unread", systemImage: "message.badge.filled.fill") }
+                            .tint(.blue)
                         }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -691,6 +696,10 @@ struct ConversationListView: View {
         if conversation.isUnread, app.messaging.capabilities.markRead {
             Button("Mark as Read", systemImage: "checkmark.message") {
                 Task { await app.messaging.markConversationRead(conversation.id) }
+            }
+        } else if !conversation.isUnread, app.messaging.capabilities.markUnread {
+            Button("Mark as Unread", systemImage: "message.badge") {
+                Task { await app.messaging.markConversationUnread(conversation.id) }
             }
         }
         if let person = conversation.participants.first {
@@ -1111,8 +1120,10 @@ struct ConversationRow: View {
             parts.append(lastIsOwn ? "You: \(preview)" : preview)
         }
         parts.append(Self.relative(conversation.updatedAt))
-        if conversation.isUnread {
+        if conversation.unreadCount > 0 {
             parts.append(String(localized: "\(conversation.unreadCount) unread"))
+        } else if conversation.markedUnread {
+            parts.append("Marked unread")
         } else {
             parts.append("Read")
         }

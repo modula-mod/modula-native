@@ -89,6 +89,8 @@ struct Conversation: Identifiable, Hashable, Sendable {
     var isMuted = false
     var isArchived = false
     var group: ConversationGroupSummary? = nil
+    /// Manually marked unread by me (`markUnread` capability). Never moves read receipts.
+    var markedUnread = false
 
     var title: String {
         if let titleOverride, !titleOverride.isEmpty { return titleOverride }
@@ -102,7 +104,7 @@ struct Conversation: Identifiable, Hashable, Sendable {
         participants.first.flatMap { $0.handle.isEmpty ? nil : "@\($0.handle)" }
     }
 
-    var isUnread: Bool { unreadCount > 0 }
+    var isUnread: Bool { unreadCount > 0 || markedUnread }
 }
 
 struct Message: Identifiable, Hashable, Sendable {
@@ -222,6 +224,10 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var realtimeSingleInstance = false
     /// 1:1 voice/video calls (`calls` block, migration 090). Off unless the server says enabled.
     var calls: CallsCapabilities = .disabled
+    /// `POST /v1/conversations/:id/unread` (migration 092). Off unless the server says so.
+    var markUnread = false
+    /// Live comment updates over this socket (`liveComments.enabled`). Off unless advertised.
+    var liveComments: LiveCommentsCapability = .disabled
 
     /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
     static let production = MessagingBackendCapabilities(
@@ -266,6 +272,9 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
         static let requests = "/v1/message-requests"
         static func acceptRequest(id: String) -> String { "/v1/message-requests/\(escape(id))/accept" }
         static func declineRequest(id: String) -> String { "/v1/message-requests/\(escape(id))/decline" }
+        static func markUnread(conversationID: String) -> String {
+            "/v1/conversations/\(escape(conversationID))/unread"
+        }
         static let unreadSummary = "/v1/conversations/unread"
         static let capabilities = "/v1/messaging/capabilities"
         static let privacy = "/v1/messaging/privacy"
@@ -326,7 +335,8 @@ enum MessagingPayloadDecoder {
             titleOverride: emptyToNil(value["title"]?.string ?? value["name"]?.string ?? value["group"]?["title"]?.string),
             isMuted: value["muted"]?.bool ?? false,
             isArchived: value["archived"]?.bool ?? false,
-            group: value["group"].flatMap(groupSummary)
+            group: value["group"].flatMap(groupSummary),
+            markedUnread: value["markedUnread"]?.bool ?? false
         )
     }
 
@@ -481,6 +491,8 @@ enum MessagingPayloadDecoder {
         caps.realtimeHeartbeatMs = realtime?["heartbeatMs"]?.int ?? 0
         caps.realtimeSingleInstance = realtime?["singleInstance"]?.bool ?? false
         caps.calls = CallPayloadDecoder.capabilities(value["calls"])
+        caps.markUnread = value["markUnread"]?.bool ?? false
+        caps.liveComments = LiveCommentsCapability(value["liveComments"])
         caps.privacyControls = !(value["privacyControls"]?.array ?? []).isEmpty
         caps.idempotentSend = value["idempotentSend"]?.bool ?? false
         let actions = Set((value["notificationActions"]?.array ?? []).compactMap(\.string))
@@ -796,3 +808,25 @@ struct HistorySearchPage: Sendable, Equatable {
     var hasMore: Bool
 }
 
+
+/// `liveComments` block of `/v1/messaging/capabilities`. Frame names come from the server.
+struct LiveCommentsCapability: Hashable, Sendable {
+    var enabled = false
+    var subscribeFrame = "post.subscribe"
+    var unsubscribeFrame = "post.unsubscribe"
+    var maxPostsPerSocket = 0
+
+    static let disabled = LiveCommentsCapability()
+
+    init() {}
+
+    init(_ value: JSONValue?) {
+        guard let value, value["enabled"]?.bool == true,
+              let subscribe = value["subscribeFrame"]?.string, !subscribe.isEmpty,
+              let unsubscribe = value["unsubscribeFrame"]?.string, !unsubscribe.isEmpty else { return }
+        enabled = true
+        subscribeFrame = subscribe
+        unsubscribeFrame = unsubscribe
+        maxPostsPerSocket = max(value["maxPostsPerSocket"]?.int ?? 1, 1)
+    }
+}

@@ -158,7 +158,10 @@ actor GreenfieldMessagingRepository: MessagingRepository {
             "GET",
             path: MessagingBackendCapabilities.Paths.unreadSummary
         )
-        return value["unreadCount"]?.int ?? value["count"]?.int
+        let messages = value["unreadCount"]?.int ?? value["count"]?.int
+        // Conversations marked unread with zero unread messages (additive; 0 on older servers).
+        let marked = value["markedUnreadCount"]?.int ?? 0
+        return messages.map { $0 + marked }
     }
 
     // MARK: Messaging v2
@@ -368,6 +371,16 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         }
         let value: JSONValue = try await client.authenticatedJSON("GET", path: path)
         return MessagingPayloadDecoder.searchPage(from: value)
+    }
+
+    /// `POST /v1/conversations/:id/unread {unread}` (store checks the `markUnread` capability).
+    func setMarkedUnread(conversation: ConversationID, unread: Bool) async throws -> Bool {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "POST",
+            path: MessagingBackendCapabilities.Paths.markUnread(conversationID: conversation),
+            body: .object(["unread": .bool(unread)])
+        )
+        return value["markedUnread"]?.bool ?? unread
     }
 
     func presenceHeartbeat() async throws -> Int {
