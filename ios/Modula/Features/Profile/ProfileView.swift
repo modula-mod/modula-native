@@ -12,6 +12,9 @@ struct ProfileView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var profileTypeSize
     @State private var headerProgress: CGFloat = 0
+    /// Story highlights (`highlights` capability): open one, or the editor (nil id = new).
+    @State private var openHighlight: StoryHighlightRef?
+    @State private var editingHighlight: StoryHighlightRef?
     /// Raw content offset: drives the top-bar title so it only appears once the big name is under it.
     @State private var scrollOffset: CGFloat = 0
     @State private var heroAvatarFrame: CGRect = .zero
@@ -642,8 +645,17 @@ struct ProfileView: View {
     private func highlights(_ profile: ModulaProfile) -> some View {
         let items = highlightItems(profile)
         // A lone "+ New" isn't a highlights row; show it only beside real stories.
-        if items.contains(where: { $0.id != "new" }) {
-            ProfileHighlightsRow(items: items, tint: heroTint)
+        Group {
+            if items.contains(where: { $0.id != "new" }) {
+                ProfileHighlightsRow(items: items, tint: heroTint)
+            }
+        }
+        .task(id: profile.handle) { await app.stories.loadHighlights(handle: profile.handle) }
+        .sheet(item: $openHighlight) { ref in
+            StoryHighlightSheet(highlightID: ref.id, ownerHandle: profile.handle) { editingHighlight = ref }
+        }
+        .sheet(item: $editingHighlight) { ref in
+            StoryHighlightEditor(highlightID: ref.id.hasPrefix("new:") ? nil : ref.id, ownerHandle: profile.handle)
         }
     }
 
@@ -660,13 +672,28 @@ struct ProfileView: View {
                 action: { openProfileStory(profile) }
             ))
         }
+        // Saved highlights from `GET /v1/profiles/:handle/highlights` (only when advertised).
+        for highlight in app.stories.highlights(for: profile.handle) {
+            items.append(ProfileHighlightItem(
+                id: "highlight:\(highlight.id)",
+                title: highlight.title,
+                symbol: highlight.coverURL == nil ? "sparkles" : nil,
+                imageURL: highlight.coverURL,
+                initials: String(highlight.title.prefix(2)).uppercased(),
+                action: { openHighlight = StoryHighlightRef(id: highlight.id) }
+            ))
+        }
         if isOwnProfile {
             items.append(ProfileHighlightItem(
                 id: "new",
                 title: "New",
                 symbol: "plus",
                 action: {
-                    app.navigation.flash("Story highlights are coming soon", symbol: "sparkles")
+                    if app.stories.capabilities.highlights, app.stories.capabilities.archive {
+                        editingHighlight = StoryHighlightRef(id: "new:\(UUID().uuidString)")
+                    } else {
+                        app.navigation.flash("Story highlights are coming soon", symbol: "sparkles")
+                    }
                 }
             ))
         }

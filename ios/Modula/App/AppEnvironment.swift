@@ -446,6 +446,7 @@ final class AppEnvironment {
         profile.resetForAccountChange()
         saved.resetForAccountChange()
         messaging.resetForAccountChange()
+        stories.resetForAccountChange()
     }
 
     func performSignOut(resetAppLock: Bool = true) async {

@@ -788,6 +788,7 @@ struct StoryViewer: View {
     @State private var confirmReport = false
     @State private var confirmDelete = false
     @State private var showsInsights = false
+    @State private var showsViewers = false
 
     private let teal = Color(hex: "#369CAA")
 
@@ -918,7 +919,7 @@ struct StoryViewer: View {
         }
         .onChange(of: engine.index) { _, _ in
             replyDraft = ""
-            reactedLocally = false
+            reactedLocally = currentItem?.viewerReaction != nil
             replyFocused = false
         }
         .onChange(of: replyFocused) { _, focused in
@@ -932,6 +933,13 @@ struct StoryViewer: View {
         .onChange(of: scenePhase) { _, phase in
             engine.isAppActive = phase == .active
             if phase != .active { engine.pause() } else if !holding, !replyFocused { engine.resume() }
+        }
+        .sheet(isPresented: $showsViewers, onDismiss: {
+            if !holding, !replyFocused, scenePhase == .active { engine.resume() }
+        }) {
+            if let item = currentItem, item.isOwn {
+                StoryViewersSheet(itemID: item.id)
+            }
         }
         .sheet(isPresented: $showsInsights) {
             if let item = currentItem, item.isOwn {
@@ -1230,6 +1238,9 @@ struct StoryViewer: View {
                 Button {
                     LocalEmojiReactionStore.shared.set(emoji, for: "story:\(item.id)")
                     reactedLocally = true
+                    if app.stories.capabilities.react, !item.isOwn {
+                        Task { _ = await app.stories.setReaction(itemID: item.id, emoji: emoji) }
+                    }
                     replyFocused = false
                     // Instagram-style: a quick reaction is delivered to the author as a story reply.
                     if canReply, !item.isOwn {
@@ -1274,6 +1285,13 @@ struct StoryViewer: View {
             }
             reactedLocally.toggle()
             if !reduceMotion { HapticEngine.shared.play(.selection) }
+            // `PUT/DELETE /v1/stories/items/:id/reaction`; roll back if the server refuses.
+            let reacted = reactedLocally
+            Task {
+                if !(await app.stories.setReaction(itemID: item.id, emoji: reacted ? "❤️" : nil)) {
+                    reactedLocally = !reacted
+                }
+            }
         }
         .accessibilityIdentifier("story.react")
     }
@@ -1301,6 +1319,12 @@ struct StoryViewer: View {
                         Text(viewers == 1 ? "1 view" : "\(viewers) views")
                     } else if app.stories.capabilities.viewers {
                         Text("Views aren’t loaded yet")
+                    }
+                    if app.stories.capabilities.viewers {
+                        Button("Viewers", systemImage: "eye") {
+                            engine.pause()
+                            showsViewers = true
+                        }
                     }
                     Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
@@ -4428,5 +4452,371 @@ extension AnyTransition {
             removal: .modifier(active: StoryGlassDissolve(blur: 14, scale: 0.98, opacity: 0),
                                identity: StoryGlassDissolve(blur: 0, scale: 1, opacity: 1))
         )
+    }
+}
+
+// MARK: - Story viewers (owner only, `viewers` capability; reactions merged when advertised)
+
+struct StoryViewersSheet: View {
+    let itemID: StoryID
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var viewers: [StoryViewer] = []
+    @State private var total = 0
+    @State private var cursor: String?
+    @State private var loading = true
+    @State private var failed = false
+    @State private var summary: [StoryEmojiCount] = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !summary.isEmpty {
+                    Section {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(summary, id: \.emoji) { entry in
+                                    Text("\(entry.emoji) \(entry.count)")
+                                        .font(.subheadline.weight(.semibold))
+                                        .padding(.horizontal, 12)
+                                        .frame(minHeight: 34)
+                                        .background(Capsule().fill(Color(uiColor: .secondarySystemBackground)))
+                                }
+                            }
+                        }
+                        .modulaHorizontalRail()
+                    }
+                }
+                Section(total == 1 ? "1 viewer" : "\(total) viewers") {
+                    ForEach(viewers) { viewer in
+                        Button {
+                            dismiss()
+                            app.navigation.open(.profile(viewer.person.handle.isEmpty ? viewer.person.id : viewer.person.handle, .overview))
+                        } label: {
+                            HStack(spacing: 12) {
+                                ModulaAvatar(initials: viewer.person.initials, url: viewer.person.avatarURL, size: 40)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(viewer.person.displayName).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                                    if !viewer.person.handle.isEmpty {
+                                        Text("@\(viewer.person.handle)").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                                if let reaction = viewer.reaction { Text(reaction).font(.title3) }
+                            }
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityElement(children: .combine)
+                        .onAppear {
+                            if viewer.id == viewers.last?.id, cursor != nil { Task { await loadMore() } }
+                        }
+                    }
+                    if loading { ProgressView().frame(maxWidth: .infinity) }
+                    if failed, viewers.isEmpty { Text("Viewers aren’t available right now.").foregroundStyle(.secondary) }
+                    if !loading, !failed, viewers.isEmpty { Text("No views yet.").foregroundStyle(.secondary) }
+                }
+            }
+            .navigationTitle("Viewers")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close")
+                }
+            }
+            .task { await loadFirst() }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("story.viewers")
+    }
+
+    private func loadFirst() async {
+        loading = true
+        async let page = app.stories.viewers(itemID: itemID)
+        async let reactions = app.stories.reactions(itemID: itemID)
+        if let page = await page {
+            viewers = page.items
+            total = page.viewerCount
+            cursor = page.hasMore ? page.nextCursor : nil
+        } else {
+            failed = true
+        }
+        summary = (await reactions)?.summary ?? []
+        loading = false
+    }
+
+    private func loadMore() async {
+        guard !loading, let next = cursor else { return }
+        loading = true
+        if let page = await app.stories.viewers(itemID: itemID, cursor: next) {
+            let known = Set(viewers.map(\.id))
+            viewers += page.items.filter { !known.contains($0.id) }
+            cursor = page.hasMore ? page.nextCursor : nil
+        } else {
+            cursor = nil
+        }
+        loading = false
+    }
+}
+
+// MARK: - Story highlights (`highlights` + `archive` capabilities)
+
+struct StoryHighlightRef: Identifiable, Hashable {
+    let id: String
+}
+
+/// One highlight: swipe through its items; the owner can edit or delete it.
+struct StoryHighlightSheet: View {
+    let highlightID: String
+    let ownerHandle: String
+    var onEdit: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var highlight: StoryHighlight?
+    @State private var loaded = false
+    @State private var page: StoryID?
+    @State private var confirmDelete = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let highlight, !highlight.items.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 0) {
+                            ForEach(highlight.items) { item in
+                                StoryArchiveTile(item: item, large: true)
+                                    .containerRelativeFrame(.horizontal)
+                                    .id(item.id)
+                            }
+                        }
+                        .scrollTargetLayout()
+                    }
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: $page)
+                    .modulaHorizontalRail()
+                } else if loaded {
+                    ModulaEmptyState(title: "Nothing here", message: "This highlight has no stories you can see.", symbol: "sparkles")
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .background(Color.black.opacity(0.94).ignoresSafeArea())
+            .navigationTitle(highlight?.title ?? "Highlight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close")
+                }
+                if highlight?.isOwner == true {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button("Edit Highlight", systemImage: "pencil") { dismiss(); onEdit() }
+                            Button("Delete Highlight", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                        } label: { Image(systemName: "ellipsis") }
+                        .accessibilityLabel("Highlight options")
+                    }
+                }
+            }
+            .confirmationDialog("Delete this highlight?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    Task {
+                        if await app.stories.deleteHighlight(id: highlightID, ownerHandle: ownerHandle) { dismiss() }
+                    }
+                }
+            } message: {
+                Text("The stories stay in your archive.")
+            }
+            .task {
+                highlight = await app.stories.highlight(id: highlightID)
+                loaded = true
+            }
+        }
+        .preferredColorScheme(.dark)
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("story.highlight")
+    }
+}
+
+/// Create (nil id) or edit a highlight: title + items picked from `GET /v1/stories/archive`.
+struct StoryHighlightEditor: View {
+    let highlightID: String?
+    let ownerHandle: String
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var archive: [StoryArchiveItem] = []
+    @State private var cursor: String?
+    @State private var selected: [StoryID] = []
+    @State private var cover: StoryID?
+    @State private var loading = true
+    @State private var saving = false
+
+    private var maxTitle: Int { app.stories.capabilities.highlightTitleMax }
+    private var maxItems: Int { app.stories.capabilities.highlightMaxItems }
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !selected.isEmpty && !saving
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    TextField("Highlight name", text: $title)
+                        .font(.title3.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 48)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(uiColor: .secondarySystemBackground)))
+                        .onChange(of: title) { _, value in
+                            if value.count > maxTitle { title = String(value.prefix(maxTitle)) }
+                        }
+                    Text(selected.isEmpty ? "Pick stories from your archive" : "\(selected.count) selected · long-press to set the cover")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                        ForEach(archive) { item in
+                            let index = selected.firstIndex(of: item.id)
+                            Button { toggle(item.id) } label: {
+                                StoryArchiveTile(item: item, large: false)
+                                    .overlay(alignment: .topTrailing) {
+                                        ZStack {
+                                            Circle().fill(index == nil ? Color.black.opacity(0.35) : app.appearance.liveAccent)
+                                            if let index { Text("\(index + 1)").font(.caption2.bold()).foregroundStyle(.white) }
+                                        }
+                                        .frame(width: 24, height: 24)
+                                        .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                                        .padding(6)
+                                    }
+                                    .overlay(alignment: .bottomLeading) {
+                                        if cover == item.id || (cover == nil && selected.first == item.id) {
+                                            Text("Cover").font(.caption2.bold()).foregroundStyle(.white)
+                                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                                .background(Capsule().fill(.black.opacity(0.55)))
+                                                .padding(6)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Use as Cover", systemImage: "photo") {
+                                    if index == nil { toggle(item.id) }
+                                    cover = item.id
+                                }
+                            }
+                            .accessibilityLabel(item.caption ?? "Story")
+                            .accessibilityAddTraits(index == nil ? .isButton : [.isButton, .isSelected])
+                            .onAppear {
+                                if item.id == archive.last?.id, cursor != nil { Task { await loadMore() } }
+                            }
+                        }
+                    }
+                    if loading { ProgressView().frame(maxWidth: .infinity) }
+                    if !loading, archive.isEmpty {
+                        ModulaEmptyState(title: "No stories yet", message: "Stories you post are kept in your archive for highlights.", symbol: "clock.arrow.circlepath")
+                    }
+                }
+                .padding(ModulaLayout.contentInset)
+            }
+            .navigationTitle(highlightID == nil ? "New Highlight" : "Edit Highlight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "Saving…" : "Save") { Task { await save() } }
+                        .disabled(!canSave)
+                }
+            }
+            .task { await loadFirst() }
+        }
+        .presentationDragIndicator(.visible)
+        .interactiveDismissDisabled(saving)
+        .accessibilityIdentifier("story.highlight.editor")
+    }
+
+    private func toggle(_ id: StoryID) {
+        if let index = selected.firstIndex(of: id) {
+            selected.remove(at: index)
+            if cover == id { cover = nil }
+        } else if selected.count < maxItems {
+            selected.append(id)
+        }
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func loadFirst() async {
+        if let highlightID, let existing = await app.stories.highlight(id: highlightID) {
+            title = existing.title
+            selected = existing.items.map(\.id)
+            cover = existing.coverItemID
+        }
+        if let page = await app.stories.archive() {
+            archive = page.items
+            cursor = page.next
+        }
+        loading = false
+    }
+
+    private func loadMore() async {
+        guard !loading, let next = cursor else { return }
+        loading = true
+        if let page = await app.stories.archive(cursor: next) {
+            let known = Set(archive.map(\.id))
+            archive += page.items.filter { !known.contains($0.id) }
+            cursor = page.next
+        } else {
+            cursor = nil
+        }
+        loading = false
+    }
+
+    private func save() async {
+        saving = true
+        let ok = await app.stories.saveHighlight(
+            id: highlightID,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            itemIDs: selected,
+            coverItemID: cover ?? selected.first,
+            ownerHandle: ownerHandle
+        )
+        saving = false
+        if ok {
+            HapticEngine.shared.play(.success)
+            dismiss()
+        } else {
+            HapticEngine.shared.play(.failure)
+        }
+    }
+}
+
+/// Archive / highlight item thumbnail (image or video poster via the media URL).
+struct StoryArchiveTile: View {
+    let item: StoryArchiveItem
+    var large: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color(uiColor: .secondarySystemBackground)
+            if let url = item.mediaURL, !item.isVideo {
+                ModulaAnimatedRemoteImage(url: url)
+                    .scaledToFill()
+            } else {
+                Image(systemName: item.isVideo ? "play.rectangle.fill" : "photo")
+                    .font(large ? .largeTitle : .title3)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if large, let caption = item.caption, !caption.isEmpty {
+                Text(caption)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(16)
+                    .shadow(radius: 6)
+            }
+        }
+        .aspectRatio(large ? nil : 9.0 / 16.0, contentMode: .fit)
+        .frame(maxHeight: large ? .infinity : nil)
+        .clipShape(RoundedRectangle(cornerRadius: large ? 0 : 12, style: .continuous))
+        .contentShape(Rectangle())
     }
 }
