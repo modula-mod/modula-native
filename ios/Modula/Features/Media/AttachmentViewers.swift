@@ -500,7 +500,17 @@ struct ModulaFullscreenVideoControls: View {
                     Image(systemName: controller.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 44, height: 44)
                 }
                 .accessibilityLabel(controller.isMuted ? "Unmute" : "Mute")
+                // AirPlay to a TV / speaker (system route picker).
+                ModulaAirPlayButton()
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("AirPlay")
                 Spacer()
+                if let file = controller.currentURL, file.isFileURL {
+                    ShareLink(item: file) {
+                        Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Share video")
+                }
                 Button {
                     ModulaVideoDock.shared.dock(from: controller, title: title, aspect: aspect)
                     onDocked()
@@ -533,4 +543,18 @@ struct ModulaFullscreenVideoControls: View {
         let total = max(0, Int(seconds.isFinite ? seconds.rounded() : 0))
         return String(format: "%d:%02d", total / 60, total % 60)
     }
+}
+
+
+/// System AirPlay route picker, white on the dark video chrome.
+struct ModulaAirPlayButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        view.tintColor = .white
+        view.activeTintColor = .white
+        view.prioritizesVideoDevices = true
+        return view
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
 }

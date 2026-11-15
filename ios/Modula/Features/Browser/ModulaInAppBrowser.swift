@@ -1,3 +1,5 @@
+import AVFoundation
+import SafariServices
 import SwiftUI
 import UIKit
 import WebKit
@@ -529,6 +531,7 @@ struct ModulaInAppBrowserView: View {
             }
             #endif
         }
+        .background { browserShortcuts }
         .sheet(isPresented: $showAddress) {
             ModulaBrowserAddressSheet(url: page.url, title: page.title) { url in
                 reader = nil
@@ -974,6 +977,9 @@ struct ModulaInAppBrowserView: View {
                 ShareLink(item: page.url) { Label("Share", systemImage: "square.and.arrow.up") }
                 Button { showModulaShare = true } label: { Label("Share to Modula…", systemImage: "paperplane") }
                 Button { UIApplication.shared.open(page.url) } label: { Label("Open in Safari", systemImage: "safari") }
+                Button { copyMarkdownLink() } label: { Label("Copy as Markdown", systemImage: "text.badge.plus") }
+                Button { addToReadingList() } label: { Label("Add to Reading List", systemImage: "eyeglasses") }
+                Button { printPage() } label: { Label("Print…", systemImage: "printer") }
                 if let app = ModulaKnownApps.appName(for: page.url) {
                     Button {
                         UIApplication.shared.open(page.url, options: [.universalLinksOnly: true]) { opened in
@@ -1059,6 +1065,55 @@ struct ModulaInAppBrowserView: View {
 
     private func show(_ message: String) {
         ModulaToastCenter.shared.show(message, symbol: "checkmark.circle")
+    }
+
+    private func copyMarkdownLink() {
+        let title = (page.title?.isEmpty == false ? page.title! : page.domain).replacingOccurrences(of: "]", with: "\\]")
+        UIPasteboard.general.string = "[\(title)](\(page.url.absoluteString))"
+        HapticEngine.shared.play(.success)
+        show("Markdown link copied")
+    }
+
+    /// Safari Reading List (on-device; no Modula server involved).
+    private func addToReadingList() {
+        guard SSReadingList.supportsURL(page.url), let list = SSReadingList.default() else {
+            show("Can't add this page to Reading List")
+            return
+        }
+        do {
+            try list.addItem(with: page.url, title: page.title, previewText: nil)
+            HapticEngine.shared.play(.success)
+            show("Added to Reading List")
+        } catch {
+            HapticEngine.shared.play(.failure)
+            show("Couldn't add to Reading List")
+        }
+    }
+
+    private func printPage() {
+        let info = UIPrintInfo(dictionary: nil)
+        info.outputType = .general
+        info.jobName = page.title ?? page.domain
+        let printer = UIPrintInteractionController.shared
+        printer.printInfo = info
+        printer.printFormatter = page.webView.viewPrintFormatter()
+        _ = printer.present(animated: true, completionHandler: nil)
+    }
+
+    /// Hardware keyboard: ⌘W close, ⌘R reload, ⌘[ / ⌘] back/forward, ⌘L address, ⌘F find, ⇧⌘R reader.
+    private var browserShortcuts: some View {
+        Group {
+            Button("Close") { close() }.keyboardShortcut("w", modifiers: .command)
+            Button("Reload") { page.reload() }.keyboardShortcut("r", modifiers: .command)
+            Button("Back") { if page.canGoBack { page.webView.goBack() } }.keyboardShortcut("[", modifiers: .command)
+            Button("Forward") { if page.canGoForward { page.webView.goForward() } }.keyboardShortcut("]", modifiers: .command)
+            Button("Address") { showAddress = true }.keyboardShortcut("l", modifiers: .command)
+            Button("Find on page") { page.presentFind() }.keyboardShortcut("f", modifiers: .command)
+            Button("Reader") { Task { await toggleReader() } }.keyboardShortcut("r", modifiers: [.command, .shift])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 
     private func copyLink() {
@@ -1189,6 +1244,20 @@ private struct ModulaReaderView: View {
     @Environment(\.colorScheme) private var systemScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: Double = 0
+    @State private var speaker = ModulaReaderSpeaker()
+
+    /// Plain text of the article (title, then blocks), for Listen / Copy / Share.
+    private var plainText: String {
+        var parts = [article.title]
+        for block in article.blocks {
+            switch block {
+            case .heading(let t), .paragraph(let t), .quote(let t): parts.append(t)
+            case .listItem(let t): parts.append("• " + t)
+            case .image: break
+            }
+        }
+        return parts.joined(separator: "\n\n")
+    }
 
     enum ReaderTheme: String, CaseIterable, Identifiable {
         case auto, paper, gray, night
@@ -1265,6 +1334,7 @@ private struct ModulaReaderView: View {
         .foregroundStyle(.primary)
         .tint(.primary)
         .environment(\.colorScheme, theme.scheme ?? systemScheme)
+        .onDisappear { speaker.stop() }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: themeRaw)
         .accessibilityIdentifier("browser.reader")
     }
@@ -1356,6 +1426,17 @@ private struct ModulaReaderView: View {
                     Picker("Theme", selection: $themeRaw) {
                         ForEach(ReaderTheme.allCases) { Text($0.title).tag($0.rawValue) }
                     }
+                    Section {
+                        Button { speaker.toggle(plainText) } label: {
+                            Label(speaker.speaking ? "Stop listening" : "Listen", systemImage: speaker.speaking ? "stop.fill" : "headphones")
+                        }
+                        Button {
+                            UIPasteboard.general.string = plainText
+                            HapticEngine.shared.play(.success)
+                            ModulaToastCenter.shared.show("Article copied", symbol: "doc.on.doc")
+                        } label: { Label("Copy article text", systemImage: "doc.on.doc") }
+                        ShareLink(item: plainText) { Label("Share article text", systemImage: "square.and.arrow.up") }
+                    }
                     Divider()
                     Button { onClose() } label: { Label("Exit reader", systemImage: "doc.richtext") }
                 } label: {
@@ -1404,20 +1485,35 @@ enum ModulaBrowserHistory {
     }
 
     static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+
+    static func remove(_ ids: Set<String>) {
+        let items = load().filter { !ids.contains($0.id) }
+        if let data = try? JSONEncoder().encode(items) { UserDefaults.standard.set(data, forKey: key) }
+    }
 }
 
 private struct ModulaBrowserHistoryView: View {
     var onOpen: (URL) -> Void
     @State private var entries = ModulaBrowserHistory.load()
+    @State private var query = ""
     @Environment(\.dismiss) private var dismiss
+
+    /// Search by title or address (local only).
+    private var shown: [ModulaBrowserHistory.Entry] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return entries }
+        return entries.filter { ($0.title ?? "").localizedCaseInsensitiveContains(q) || $0.url.absoluteString.localizedCaseInsensitiveContains(q) }
+    }
 
     var body: some View {
         NavigationStack {
             List {
                 if entries.isEmpty {
                     ContentUnavailableView("No history yet", systemImage: "clock", description: Text("Pages you open in Modula stay on this device only."))
+                } else if shown.isEmpty {
+                    ContentUnavailableView.search(text: query)
                 }
-                ForEach(entries) { entry in
+                ForEach(shown) { entry in
                     Button { onOpen(entry.url) } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.title?.isEmpty == false ? entry.title! : (entry.url.host ?? entry.url.absoluteString)).lineLimit(1)
@@ -1426,8 +1522,20 @@ private struct ModulaBrowserHistoryView: View {
                         }
                     }
                     .foregroundStyle(.primary)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            ModulaBrowserHistory.remove([entry.id])
+                            entries.removeAll { $0.id == entry.id }
+                            HapticEngine.shared.play(.selection)
+                        } label: { Label("Delete", systemImage: "trash") }
+                    }
+                    .contextMenu {
+                        Button { UIPasteboard.general.url = entry.url } label: { Label("Copy link", systemImage: "link") }
+                        ShareLink(item: entry.url) { Label("Share", systemImage: "square.and.arrow.up") }
+                    }
                 }
             }
+            .searchable(text: $query, prompt: "Search history")
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1714,5 +1822,45 @@ enum ModulaKnownApps {
             ("github.com", "GitHub"), ("linkedin.com", "LinkedIn"), ("amazon.com", "Amazon"), ("amazon.co.uk", "Amazon")
         ]
         return table.first(where: { host == $0.0 || host.hasSuffix("." + $0.0) })?.1
+    }
+}
+
+
+/// Reader "Listen": on-device speech for the extracted article text.
+@MainActor @Observable
+final class ModulaReaderSpeaker: NSObject, AVSpeechSynthesizerDelegate {
+    private(set) var speaking = false
+    @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    func toggle(_ text: String) {
+        if synthesizer.isSpeaking {
+            stop()
+            return
+        }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.prefersAssistiveTechnologySettings = true
+        synthesizer.speak(utterance)
+        speaking = true
+        HapticEngine.shared.play(.selection)
+    }
+
+    func stop() {
+        guard synthesizer.isSpeaking || speaking else { return }
+        synthesizer.stopSpeaking(at: .immediate)
+        speaking = false
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.speaking = false }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.speaking = false }
     }
 }
