@@ -150,21 +150,24 @@ struct ProfileView: View {
             }
         }
         .sheet(isPresented: $showsShareSheet) {
-            if let profile {
-                ProfileShareSheet(
-                    profile: profile,
-                    onCopy: { copyProfileLink(profile) },
-                    onShare: {
-                        showsShareSheet = false
-                        activityShare = ActivityShareItem(url: profile.shareURL)
-                    },
-                    onShowCode: {
-                        showsShareSheet = false
-                        showsModulaCode = true
-                    },
-                    onDismiss: { showsShareSheet = false }
-                )
+            Group {
+                if let profile {
+                    ProfileShareSheet(
+                        profile: profile,
+                        onCopy: { copyProfileLink(profile) },
+                        onShare: {
+                            showsShareSheet = false
+                            activityShare = ActivityShareItem(url: profile.shareURL)
+                        },
+                        onShowCode: {
+                            showsShareSheet = false
+                            showsModulaCode = true
+                        },
+                        onDismiss: { showsShareSheet = false }
+                    )
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsModulaCode) {
             if let profile {
@@ -176,9 +179,12 @@ struct ProfileView: View {
             }
         }
         .sheet(item: $activityShare) { item in
-            ProfileActivityShareView(url: item.url) {
-                activityShare = nil
+            Group {
+                ProfileActivityShareView(url: item.url) {
+                    activityShare = nil
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsFrames) {
             ProfileAvatarOverlayEditor()
@@ -651,10 +657,16 @@ struct ProfileView: View {
         }
         .task(id: profile.handle) { await app.stories.loadHighlights(handle: profile.handle) }
         .sheet(item: $openHighlight) { ref in
-            StoryHighlightSheet(highlightID: ref.id, ownerHandle: profile.handle) { editingHighlight = ref }
+            Group {
+                StoryHighlightSheet(highlightID: ref.id, ownerHandle: profile.handle) { editingHighlight = ref }
+            }
+            .modulaSheetStyle()
         }
         .sheet(item: $editingHighlight) { ref in
-            StoryHighlightEditor(highlightID: ref.id.hasPrefix("new:") ? nil : ref.id, ownerHandle: profile.handle)
+            Group {
+                StoryHighlightEditor(highlightID: ref.id.hasPrefix("new:") ? nil : ref.id, ownerHandle: profile.handle)
+            }
+            .modulaSheetStyle()
         }
     }
 

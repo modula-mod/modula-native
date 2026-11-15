@@ -598,10 +598,16 @@ struct ModulaComposerMascot: View {
                     .presentationCompactAdaptation(.popover)
             }
             .sheet(item: $premiumKind) { k in
-                MascotPremiumSheet(kind: k)
+                Group {
+                    MascotPremiumSheet(kind: k)
+                }
+                .modulaSheetStyle()
             }
             .sheet(isPresented: $dressing) {
-                MascotDressUpSheet()
+                Group {
+                    MascotDressUpSheet()
+                }
+                .modulaSheetStyle()
             }
             .onReceive(NotificationCenter.default.publisher(for: .mascotOutfitDidChange)) { _ in
                 brain.outfitChanged()

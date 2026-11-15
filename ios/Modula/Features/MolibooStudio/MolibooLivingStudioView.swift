@@ -109,7 +109,10 @@ struct MolibooLivingStudioView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .sheet(item: $panel) { p in panelSheet(p).modulaSheetStyle() }
         .sheet(item: $photo) { ph in
-            MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
+            Group {
+                MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
+            }
+            .modulaSheetStyle()
         }
         #if DEBUG
         .overlay(alignment: .bottomLeading) {

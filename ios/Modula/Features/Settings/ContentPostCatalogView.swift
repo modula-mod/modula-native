@@ -136,15 +136,18 @@ private struct ContentPostCatalogPage: View {
             ) { selectedAttachment = nil }
         }
         .sheet(isPresented: $commentsPresented) {
-            ModulaSheet(detents: [.compact, .medium, .large]) {
-                VStack(alignment: .leading, spacing: ModulaSpacing.md) {
-                    Text("Comments").font(.title2.bold())
-                    Text("The production post route supplies live comments. This lab verifies the shared sheet and composer without creating fake network state.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    ModulaComposer(text: $commentText, prompt: "Add a comment…", onSend: {})
+            Group {
+                ModulaSheet(detents: [.compact, .medium, .large]) {
+                    VStack(alignment: .leading, spacing: ModulaSpacing.md) {
+                        Text("Comments").font(.title2.bold())
+                        Text("The production post route supplies live comments. This lab verifies the shared sheet and composer without creating fake network state.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        ModulaComposer(text: $commentText, prompt: "Add a comment…", onSend: {})
+                    }
+                    .padding(ModulaSpacing.md)
                 }
-                .padding(ModulaSpacing.md)
             }
+            .modulaSheetStyle()
         }
         .task(id: route.id) {
             guard route == .stressFeed || route == .feedRhythm else { return }

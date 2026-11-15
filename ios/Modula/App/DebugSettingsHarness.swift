@@ -165,7 +165,10 @@ struct DebugSheetHarnessView: View {
     var body: some View {
         Color(uiColor: .systemBackground).ignoresSafeArea()
             .sheet(isPresented: $shown) {
-                ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+                Group {
+                    ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+                }
+                .modulaSheetStyle()
             }
             .task {
                 if let context { app.navigation.replaceContext(with: context) }

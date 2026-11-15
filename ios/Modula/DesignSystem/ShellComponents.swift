@@ -860,7 +860,10 @@ struct Lab30WhatsNewPresenter: ViewModifier {
                 if seenVersion != Lab30Keys.whatsNewVersion { showWhatsNew = true }
             }
             .sheet(isPresented: $showWhatsNew, onDismiss: { seenVersion = Lab30Keys.whatsNewVersion }) {
-                Lab30WhatsNewSheet { Task { try? await Task.sleep(for: .milliseconds(400)); showGallery = true } }
+                Group {
+                    Lab30WhatsNewSheet { Task { try? await Task.sleep(for: .milliseconds(400)); showGallery = true } }
+                }
+                .modulaSheetStyle()
             }
             .sheet(isPresented: $showGallery) { NavigationStack { Lab30GalleryView() }.modulaSheetStyle() }
             .onReceive(NotificationCenter.default.publisher(for: Lab30GalleryView.openNotification)) { _ in showGallery = true }

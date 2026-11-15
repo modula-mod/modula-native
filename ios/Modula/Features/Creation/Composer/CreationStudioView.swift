@@ -121,28 +121,31 @@ struct CreationStudioView: View {
             .modulaSheetStyle()
         }
         .sheet(isPresented: $showMoreOptions) {
-            CreationMoreOptionsSheet(
-                capabilities: store.capabilities,
-                accent: app.appearance.liveAccent,
-                onFiles: { showFileImporter = true },
-                onLink: {
-                    localLinkURL = "https://"
-                    store.showsLocalLinkEditor = true
-                    store.showsLocalPollEditor = false
-                },
-                onPoll: {
-                    store.showsLocalPollEditor = true
-                    store.showsLocalLinkEditor = false
-                },
-                onMentionsTip: {
-                    store.composerTip = "Type @ followed by a name."
-                    editorFocused = true
-                },
-                onHashtagsTip: {
-                    store.composerTip = "Type # to add a topic."
-                    editorFocused = true
-                }
-            )
+            Group {
+                CreationMoreOptionsSheet(
+                    capabilities: store.capabilities,
+                    accent: app.appearance.liveAccent,
+                    onFiles: { showFileImporter = true },
+                    onLink: {
+                        localLinkURL = "https://"
+                        store.showsLocalLinkEditor = true
+                        store.showsLocalPollEditor = false
+                    },
+                    onPoll: {
+                        store.showsLocalPollEditor = true
+                        store.showsLocalLinkEditor = false
+                    },
+                    onMentionsTip: {
+                        store.composerTip = "Type @ followed by a name."
+                        editorFocused = true
+                    },
+                    onHashtagsTip: {
+                        store.composerTip = "Type # to add a topic."
+                        editorFocused = true
+                    }
+                )
+            }
+            .modulaSheetStyle()
         }
         .onChange(of: videoPickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -469,12 +472,15 @@ struct CreationStudioView: View {
         .animation(stageMotion, value: mediaPanelActive)
         .animation(stageMotion, value: recorder.isRecording)
         .sheet(item: Binding(get: { linkSheet.map { ComposerLinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
-            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
-                switch item.mode {
-                case .link: rich.insertLink(text: label, url: value)
-                case .abbr: rich.insertAbbreviation(label, title: value)
+            Group {
+                ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
+                    switch item.mode {
+                    case .link: rich.insertLink(text: label, url: value)
+                    case .abbr: rich.insertAbbreviation(label, title: value)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .onChange(of: editorFocused) { _, focused in
             if focused { mediaPanelActive = false }

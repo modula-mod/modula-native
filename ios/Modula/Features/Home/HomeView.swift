@@ -205,7 +205,10 @@ struct HomeView: View {
             }
         }
         .sheet(item: $commentsPost, onDismiss: collapseCommentsToBubble) { post in
-            PostCommentsSheet(postID: post.id, commentCount: post.replyCount, postAuthorID: post.author?.id)
+            Group {
+                PostCommentsSheet(postID: post.id, commentCount: post.replyCount, postAuthorID: post.author?.id)
+            }
+            .modulaSheetStyle()
         }
         .overlay(alignment: .bottomTrailing) {
             if let bubble = commentsBubble {

@@ -47,7 +47,10 @@ struct MolibooCardCollectionView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .sheet(item: $inspecting) { card in
-            MolibooGalleryInspectView(card: card, outfit: outfit) { inspecting = nil }
+            Group {
+                MolibooGalleryInspectView(card: card, outfit: outfit) { inspecting = nil }
+            }
+            .modulaSheetStyle()
         }
     }
 

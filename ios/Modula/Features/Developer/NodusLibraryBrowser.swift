@@ -68,14 +68,20 @@ struct NodusLibraryBrowser: View {
                 }
             }
             .sheet(item: $naming) { draft in
-                NodusLibraryEditor(draft: draft) { name, symbol, brief in
-                    Task { await save(draft, name: name, symbol: symbol, brief: brief) }
+                Group {
+                    NodusLibraryEditor(draft: draft) { name, symbol, brief in
+                        Task { await save(draft, name: name, symbol: symbol, brief: brief) }
+                    }
                 }
+                .modulaSheetStyle()
             }
             .sheet(item: $moveTarget) { conversation in
-                NodusMoveChatSheet(library: model.library, conversation: conversation) { projectID, folderID in
-                    Task { await model.place(conversation.id, projectID: projectID, folderID: folderID) }
+                Group {
+                    NodusMoveChatSheet(library: model.library, conversation: conversation) { projectID, folderID in
+                        Task { await model.place(conversation.id, projectID: projectID, folderID: folderID) }
+                    }
                 }
+                .modulaSheetStyle()
             }
             .alert("Chat note", isPresented: notePresented) {
                 TextField("Only on this iPhone", text: $noteText)

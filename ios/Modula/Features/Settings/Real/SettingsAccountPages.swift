@@ -331,9 +331,12 @@ struct DeleteAccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .sheet(isPresented: $showStepUp) {
-            PasswordStepUpSheet(reason: "We ask for your password before scheduling deletion. It’s valid for 10 minutes.") {
-                Task { await requestDeletion() }
+            Group {
+                PasswordStepUpSheet(reason: "We ask for your password before scheduling deletion. It’s valid for 10 minutes.") {
+                    Task { await requestDeletion() }
+                }
             }
+            .modulaSheetStyle()
         }
     }
 

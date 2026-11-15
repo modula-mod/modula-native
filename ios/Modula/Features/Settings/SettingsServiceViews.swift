@@ -251,16 +251,22 @@ struct HelpContactView: View {
         .task { await load() }
         .refreshable { await load() }
         .sheet(isPresented: $composing) {
-            SupportCaseComposer(contact: contact) { opened in
-                lastOpened = opened
-                cases.insert(opened, at: 0)
+            Group {
+                SupportCaseComposer(contact: contact) { opened in
+                    lastOpened = opened
+                    cases.insert(opened, at: 0)
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $mailing) {
-            if let email = contact?.supportEmail {
-                SupportMailComposer(recipient: email, subject: "Modula support", body: "")
-                    .ignoresSafeArea()
+            Group {
+                if let email = contact?.supportEmail {
+                    SupportMailComposer(recipient: email, subject: "Modula support", body: "")
+                        .ignoresSafeArea()
+                }
             }
+            .modulaSheetStyle()
         }
         .navigationTitle("Contact")
         .navigationBarTitleDisplayMode(.inline)

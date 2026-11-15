@@ -333,12 +333,15 @@ struct ModulaComposer: View {
             text = translated
         }
         .sheet(item: Binding(get: { linkSheet.map { LinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
-            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
-                switch item.mode {
-                case .link: rich.insertLink(text: label, url: value)
-                case .abbr: rich.insertAbbreviation(label, title: value)
+            Group {
+                ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
+                    switch item.mode {
+                    case .link: rich.insertLink(text: label, url: value)
+                    case .abbr: rich.insertAbbreviation(label, title: value)
+                }
             }
-        }
+            }
+            .modulaSheetStyle()
         }
         .onChange(of: text) { _, value in
             scheduleQueries(value)

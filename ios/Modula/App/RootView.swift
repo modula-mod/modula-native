@@ -43,7 +43,10 @@ struct RootView: View {
         .overlay { CommandPaletteHost() }
         .overlay { CelebrationHost() }
         .sheet(item: $navigation.presented) { presentation in
-            ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+            Group {
+                ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+            }
+            .modulaSheetStyle()
         }
         .overlay {
             // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.

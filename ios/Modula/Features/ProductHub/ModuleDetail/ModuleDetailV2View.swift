@@ -83,38 +83,44 @@ struct ModuleDetailV2View: View {
             }
         }
         .sheet(isPresented: $confirmInstall) {
-            ModulePermissionReviewSheet(
-                moduleID: moduleID,
-                localDevelopment: product?.betaClassification == "local-development",
-                moduleName: product?.name ?? "Module",
-                operation: isInstalled ? .update : .install,
-                fromVersion: installedVersion,
-                toVersion: app.catalogue.product(moduleID)?.latestVersion ?? installedVersion,
-                permissions: reviewedPermissions,
-                previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
-                onConfirm: { plan in
-                    confirmInstall = false
-                    Task { await runInstall(approvedPlan: plan) }
-                },
-                onCancel: { confirmInstall = false }
-            )
+            Group {
+                ModulePermissionReviewSheet(
+                    moduleID: moduleID,
+                    localDevelopment: product?.betaClassification == "local-development",
+                    moduleName: product?.name ?? "Module",
+                    operation: isInstalled ? .update : .install,
+                    fromVersion: installedVersion,
+                    toVersion: app.catalogue.product(moduleID)?.latestVersion ?? installedVersion,
+                    permissions: reviewedPermissions,
+                    previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
+                    onConfirm: { plan in
+                        confirmInstall = false
+                        Task { await runInstall(approvedPlan: plan) }
+                    },
+                    onCancel: { confirmInstall = false }
+                )
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $confirmRedownload) {
-            ModulePermissionReviewSheet(
-                moduleID: moduleID,
-                localDevelopment: false,
-                moduleName: product?.name ?? "Game",
-                operation: .download,
-                fromVersion: installedVersion,
-                toVersion: installedVersion,
-                permissions: reviewedPermissions,
-                previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
-                onConfirm: { plan in
-                    confirmRedownload = false
-                    Task { await runRedownload(approvedPlan: plan) }
-                },
-                onCancel: { confirmRedownload = false }
-            )
+            Group {
+                ModulePermissionReviewSheet(
+                    moduleID: moduleID,
+                    localDevelopment: false,
+                    moduleName: product?.name ?? "Game",
+                    operation: .download,
+                    fromVersion: installedVersion,
+                    toVersion: installedVersion,
+                    permissions: reviewedPermissions,
+                    previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
+                    onConfirm: { plan in
+                        confirmRedownload = false
+                        Task { await runRedownload(approvedPlan: plan) }
+                    },
+                    onCancel: { confirmRedownload = false }
+                )
+            }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Uninstall \(product?.name ?? "module")?", isPresented: $confirmUninstall, titleVisibility: .visible) {
             Button("Uninstall", role: .destructive) { Task { await runUninstall() } }
@@ -124,23 +130,29 @@ struct ModuleDetailV2View: View {
             Text("Your data is kept on your account, so reinstalling brings it back.")
         }
         .sheet(item: $versionTarget) { option in
-            ModuleVersionSwitchSheet(
-                moduleName: product?.name ?? "Module",
-                option: option,
-                phase: versionPhase,
-                packagePlan: versionPackagePlan,
-                onConfirm: { preview in
-                    versionTarget = nil
-                    Task { await runVersionSwitch(preview, approvedPlan: versionPackagePlan) }
-                },
-                onCancel: { versionTarget = nil }
-            )
-            .task(id: option.version) { await prepareVersionSwitch(option) }
+            Group {
+                ModuleVersionSwitchSheet(
+                    moduleName: product?.name ?? "Module",
+                    option: option,
+                    phase: versionPhase,
+                    packagePlan: versionPackagePlan,
+                    onConfirm: { preview in
+                        versionTarget = nil
+                        Task { await runVersionSwitch(preview, approvedPlan: versionPackagePlan) }
+                    },
+                    onCancel: { versionTarget = nil }
+                )
+                .task(id: option.version) { await prepareVersionSwitch(option) }
+            }
+            .modulaSheetStyle()
         }
         .sheet(item: $zoomedShot) { shot in
-            ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
-                .padding()
-                .accessibilityLabel(shot.alt)
+            Group {
+                ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
+                    .padding()
+                    .accessibilityLabel(shot.alt)
+            }
+            .modulaSheetStyle()
         }
         .accessibilityIdentifier("module-detail.\(moduleID)")
     }

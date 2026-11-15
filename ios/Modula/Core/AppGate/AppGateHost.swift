@@ -43,8 +43,11 @@ struct AppGateHost: View {
             get: { app.push.prePromptPresented && app.gate.state == .ready },
             set: { presented in if !presented, app.push.prePromptPresented { app.push.dismissPrePrompt() } }
         )) {
-            PushPrePromptSheet()
-                .environment(app)
+            Group {
+                PushPrePromptSheet()
+                    .environment(app)
+            }
+            .modulaSheetStyle()
         }
     }
 

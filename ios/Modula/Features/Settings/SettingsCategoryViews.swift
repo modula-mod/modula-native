@@ -347,20 +347,26 @@ struct AppLockSettingsView: View {
         .modulaSoftScrollEdge()
         .navigationTitle("App Lock")
         .sheet(isPresented: $showsSetup) {
-            NavigationStack {
-                PasscodeSetupView(title: "App Lock") { passcode in
-                    try app.appLock.setPasscode(passcode)
-                    try app.appLock.setEnabled(true)
-                    app.refreshLaunchState()
+            Group {
+                NavigationStack {
+                    PasscodeSetupView(title: "App Lock") { passcode in
+                        try app.appLock.setPasscode(passcode)
+                        try app.appLock.setEnabled(true)
+                        app.refreshLaunchState()
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsChange) {
-            NavigationStack {
-                PasscodeSetupView(title: "Change Passcode") { passcode in
-                    try app.appLock.setPasscode(passcode)
+            Group {
+                NavigationStack {
+                    PasscodeSetupView(title: "Change Passcode") { passcode in
+                        try app.appLock.setPasscode(passcode)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Sign out and reset App Lock?", isPresented: $confirmSignOutReset, titleVisibility: .visible) {
             Button("Sign Out and Reset", role: .destructive) {

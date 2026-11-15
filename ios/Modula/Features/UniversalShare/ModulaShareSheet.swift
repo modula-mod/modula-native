@@ -129,9 +129,12 @@ struct ModulaShareSheet: View {
                 .modulaSheetStyle()
         }
         .sheet(isPresented: $showCollectionPicker) {
-            if case .post(let id, _, _, _) = payload {
-                CollectionPicker(postID: id)
+            Group {
+                if case .post(let id, _, _, _) = payload {
+                    CollectionPicker(postID: id)
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showPeoplePicker) {
             PeoplePicker(mode: .inMail, selectionLimit: 1) { people in

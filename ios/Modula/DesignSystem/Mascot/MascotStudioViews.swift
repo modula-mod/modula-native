@@ -203,20 +203,26 @@ struct MascotStudioView: View {
             progress.lastUnlocked = nil
         }
         .sheet(item: $editingCustom) { draft in
-            NavigationStack {
-                CustomMascotEditor(mascot: draft) { saved in
-                    _ = customs.save(saved)
-                    kindRaw = saved.id
-                    editingCustom = nil
-                    brain.react(.excited)
-                    brain.burst(.confetti)
+            Group {
+                NavigationStack {
+                    CustomMascotEditor(mascot: draft) { saved in
+                        _ = customs.save(saved)
+                        kindRaw = saved.id
+                        editingCustom = nil
+                        brain.react(.excited)
+                        brain.burst(.confetti)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(item: $detailItem) { item in
-            MascotItemDetailSheet(item: item, selection: selection) { equipped in
-                if equipped { celebrateEquip() }
+            Group {
+                MascotItemDetailSheet(item: item, selection: selection) { equipped in
+                    if equipped { celebrateEquip() }
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(item: $shareImage) { img in
             MascotActivitySheet(items: [img.image])

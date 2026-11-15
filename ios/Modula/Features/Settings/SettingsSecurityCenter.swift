@@ -200,10 +200,16 @@ struct SettingsSecurityCenter: View {
             Text("You can still sign in with your password or other passkeys.")
         }
         .sheet(isPresented: $showTOTPSetup) {
-            TOTPSetupSheet { totpMessage = "Authenticator app is on for this account." }
+            Group {
+                TOTPSetupSheet { totpMessage = "Authenticator app is on for this account." }
+            }
+            .modulaSheetStyle()
         }
         .sheet(item: $stepUpRetry) { retry in
-            PasswordStepUpSheet(reason: retry.reason) { Task { await retry.action() } }
+            Group {
+                PasswordStepUpSheet(reason: retry.reason) { Task { await retry.action() } }
+            }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Turn off two-factor authentication?", isPresented: $confirmDisableTOTP, titleVisibility: .visible) {
             Button("Turn Off", role: .destructive) { Task { await disableTOTP() } }

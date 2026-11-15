@@ -607,13 +607,22 @@ struct PostCommentsView: View {
                 .ignoresSafeArea()
         }
         .sheet(isPresented: $showsSketch) {
-            CommentSketchSheet { image in Task { await store?.addCameraImage(image) } }
+            Group {
+                CommentSketchSheet { image in Task { await store?.addCameraImage(image) } }
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsContactPicker) {
-            CommentContactPicker { text in insertIntoDraft(text) }
+            Group {
+                CommentContactPicker { text in insertIntoDraft(text) }
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsEventSheet) {
-            CommentEventSheet { text in insertIntoDraft(text) }
+            Group {
+                CommentEventSheet { text in insertIntoDraft(text) }
+            }
+            .modulaSheetStyle()
         }
         .fileImporter(isPresented: $showsAudioImporter, allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav], allowsMultipleSelection: false) { result in
             guard case .success(let urls) = result, let url = urls.first else { return }

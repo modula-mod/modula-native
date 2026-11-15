@@ -280,13 +280,19 @@ struct ConversationListView: View {
                 get: { folderSheetIDs.map { IdentifiedIDList(ids: $0) } },
                 set: { folderSheetIDs = $0?.ids }
             )) { wrapper in
-                MoveToFolderSheet(ids: wrapper.ids)
+                Group {
+                    MoveToFolderSheet(ids: wrapper.ids)
+                }
+                .modulaSheetStyle()
             }
             .sheet(item: Binding(
                 get: { muteSheetIDs.map { IdentifiedIDList(ids: $0) } },
                 set: { muteSheetIDs = $0?.ids }
             )) { wrapper in
-                TimedMuteSheet(ids: wrapper.ids)
+                Group {
+                    TimedMuteSheet(ids: wrapper.ids)
+                }
+                .modulaSheetStyle()
             }
             .navigationDestination(item: $inboxDestination) { destination in
                 switch destination {
@@ -1350,12 +1356,15 @@ struct ConversationView: View {
                 }
             }
             .sheet(item: $forwarding) { message in
-                let f4 = app.messaging.capabilities.features4
-                if f4.forwarding, f4.forwardingKinds.contains(message.kind.rawValue), !message.id.hasPrefix("local-") {
-                    MultiForwardSheet(message: message, excluding: conversationID)
-                } else {
-                    ForwardMessageSheet(message: message, excluding: conversationID)
+                Group {
+                    let f4 = app.messaging.capabilities.features4
+                    if f4.forwarding, f4.forwardingKinds.contains(message.kind.rawValue), !message.id.hasPrefix("local-") {
+                        MultiForwardSheet(message: message, excluding: conversationID)
+                    } else {
+                        ForwardMessageSheet(message: message, excluding: conversationID)
+                    }
                 }
+                .modulaSheetStyle()
             }
             .sheet(item: $editHistoryFor) { message in
                 MessageEditHistorySheet(message: message)
@@ -1391,16 +1400,25 @@ struct ConversationView: View {
                 .modulaSheetStyle()
             }
             .sheet(item: $reactorsFor) { message in
-                MessageReactorsSheet(message: message) { emoji in
-                    handle(.init(id: "react:\(emoji)", title: emoji), message: message)
+                Group {
+                    MessageReactorsSheet(message: message) { emoji in
+                        handle(.init(id: "react:\(emoji)", title: emoji), message: message)
+                    }
                 }
+                .modulaSheetStyle()
             }
             .sheet(item: $receiptsFor) { message in
-                MessageReceiptsSheet(message: message)
+                Group {
+                    MessageReceiptsSheet(message: message)
+                }
+                .modulaSheetStyle()
             }
             .sheet(isPresented: $showInfo) {
-                ChatInfoSheet(conversationID: conversationID) { id in jumpTarget = id }
-                    .messageLinkInspector()
+                Group {
+                    ChatInfoSheet(conversationID: conversationID) { id in jumpTarget = id }
+                        .messageLinkInspector()
+                }
+                .modulaSheetStyle()
             }
             // Roadmap #14: links in this chat (bubbles and Chat info) open an inspector first,
             // so the real destination is visible before leaving the conversation.
@@ -1810,7 +1828,10 @@ struct ConversationView: View {
                     get: { replyStackFor.map { IdentifiedMessageID(id: $0) } },
                     set: { replyStackFor = $0?.id }
                 )) { wrapper in
-                    replyStackSheet(id: wrapper.id, items: items)
+                    Group {
+                        replyStackSheet(id: wrapper.id, items: items)
+                    }
+                    .modulaSheetStyle()
                 }
             }
         }
@@ -2366,17 +2387,23 @@ struct ConversationComposerDock: View {
             if app.messaging.quickReplies.isEmpty { await app.messaging.loadQuickReplies() }
         }
         .sheet(item: Binding(get: { schedulingText.map(ScheduleDraft.init) }, set: { schedulingText = $0?.text })) { draft in
-            ScheduleMessageSheet(text: draft.text, features: f4) { date in
-                Task {
-                    if await app.messaging.schedule(draft.text, in: conversationID, at: date) {
-                        text = ""
-                        app.messaging.drafts[conversationID] = ""
+            Group {
+                ScheduleMessageSheet(text: draft.text, features: f4) { date in
+                    Task {
+                        if await app.messaging.schedule(draft.text, in: conversationID, at: date) {
+                            text = ""
+                            app.messaging.drafts[conversationID] = ""
+                        }
                     }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsScheduled) {
-            ScheduledMessagesSheet(conversationID: conversationID)
+            Group {
+                ScheduledMessagesSheet(conversationID: conversationID)
+            }
+            .modulaSheetStyle()
         }
         .onChange(of: conversationID) { _, _ in
             flushDraft()
@@ -2391,11 +2418,14 @@ struct ConversationComposerDock: View {
         }
         .onDisappear { flushDraft() }
         .sheet(isPresented: $showGif) {
-            MessageGifPickerSheet { gif in
-                insert(gif.url.absoluteString)
-                MessageRecentTokenStore.remember(gif.url.absoluteString)
-                recent = MessageRecentTokenStore.load()
+            Group {
+                MessageGifPickerSheet { gif in
+                    insert(gif.url.absoluteString)
+                    MessageRecentTokenStore.remember(gif.url.absoluteString)
+                    recent = MessageRecentTokenStore.load()
+                }
             }
+            .modulaSheetStyle()
         }
     }
 
@@ -5014,10 +5044,13 @@ struct ScheduledMessagesSheet: View {
                 Button("Cancel", role: .cancel) { editing = nil }
             }
             .sheet(item: $retiming) { item in
-                ScheduleMessageSheet(text: item.text, features: app.messaging.capabilities.features4,
-                                     initialDate: item.sendAt, title: "Change Time") { date in
-                    Task { await app.messaging.updateScheduled(item, text: nil, sendAt: date) }
+                Group {
+                    ScheduleMessageSheet(text: item.text, features: app.messaging.capabilities.features4,
+                                         initialDate: item.sendAt, title: "Change Time") { date in
+                        Task { await app.messaging.updateScheduled(item, text: nil, sendAt: date) }
+                    }
                 }
+                .modulaSheetStyle()
             }
         }
         .presentationDetents([.medium, .large])
@@ -5424,12 +5457,15 @@ struct QuickRepliesManageSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
             .sheet(isPresented: Binding(get: { adding || editing != nil }, set: { if !$0 { adding = false; editing = nil } })) {
-                QuickReplyEditor(shortcut: $shortcut, text: $text, isNew: editing == nil) {
-                    let id = editing?.id, s = shortcut, t = text
-                    Task {
-                        if await app.messaging.saveQuickReply(id: id, shortcut: s, text: t) { adding = false; editing = nil }
+                Group {
+                    QuickReplyEditor(shortcut: $shortcut, text: $text, isNew: editing == nil) {
+                        let id = editing?.id, s = shortcut, t = text
+                        Task {
+                            if await app.messaging.saveQuickReply(id: id, shortcut: s, text: t) { adding = false; editing = nil }
+                        }
                     }
                 }
+                .modulaSheetStyle()
             }
         }
         .task { await app.messaging.loadQuickReplies() }

@@ -411,7 +411,10 @@ struct ModulaInAppBrowserView: View {
             .modulaSheetStyle()
         }
         .sheet(isPresented: $showModulaShare) {
-            ModulaShareSheet(payload: .link(url: page.url, title: page.title))
+            Group {
+                ModulaShareSheet(payload: .link(url: page.url, title: page.title))
+            }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Report this link", isPresented: $showReport, titleVisibility: .visible) {
             Button("Spam") { Task { await report("spam", details: nil) } }

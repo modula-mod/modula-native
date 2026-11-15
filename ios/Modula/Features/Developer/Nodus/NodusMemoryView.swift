@@ -74,27 +74,33 @@ struct NodusMemoryView: View {
         }
         .task { await refresh() }
         .sheet(isPresented: $showingAdd) {
-            NodusMemoryEditor(item: nil) { text, kind, scope in
-                Task {
-                    do {
-                        _ = try await app.nodusMemoryStore.add(text: text, kind: kind, scope: scope)
-                        status = "Memory added with confirmation"
-                        await refresh()
-                    } catch { status = error.localizedDescription }
+            Group {
+                NodusMemoryEditor(item: nil) { text, kind, scope in
+                    Task {
+                        do {
+                            _ = try await app.nodusMemoryStore.add(text: text, kind: kind, scope: scope)
+                            status = "Memory added with confirmation"
+                            await refresh()
+                        } catch { status = error.localizedDescription }
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(item: $editing) { item in
-            NodusMemoryEditor(item: item) { text, kind, _ in
-                Task {
-                    if snapshot.suggestions.contains(where: { $0.id == item.id }) {
-                        _ = try? await app.nodusMemoryStore.approveSuggestion(id: item.id, editedText: text)
-                    } else {
-                        try? await app.nodusMemoryStore.edit(id: item.id, text: text, kind: kind)
+            Group {
+                NodusMemoryEditor(item: item) { text, kind, _ in
+                    Task {
+                        if snapshot.suggestions.contains(where: { $0.id == item.id }) {
+                            _ = try? await app.nodusMemoryStore.approveSuggestion(id: item.id, editedText: text)
+                        } else {
+                            try? await app.nodusMemoryStore.edit(id: item.id, text: text, kind: kind)
+                        }
+                        await refresh()
                     }
-                    await refresh()
                 }
             }
+            .modulaSheetStyle()
         }
         .alert("Clear all Memory?", isPresented: $confirmingClear) {
             Button("Cancel", role: .cancel) {}

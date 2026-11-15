@@ -225,16 +225,19 @@ struct SheetsCatalogPage: View {
             SheetCatalogContent(scrollable: scrollable)
         }
         .sheet(isPresented: $sheetPresented) {
-            ModulaSheet(
-                detents: [.content, .compact, .medium, .large, .full],
-                selectedDetent: $detent,
-                dismissible: dismissible,
-                backgroundInteractionEnabled: backgroundInteraction,
-                transition: .morph,
-                morphSource: .init("catalog.sheet.button")
-            ) {
-                SheetCatalogContent(scrollable: scrollable)
+            Group {
+                ModulaSheet(
+                    detents: [.content, .compact, .medium, .large, .full],
+                    selectedDetent: $detent,
+                    dismissible: dismissible,
+                    backgroundInteractionEnabled: backgroundInteraction,
+                    transition: .morph,
+                    morphSource: .init("catalog.sheet.button")
+                ) {
+                    SheetCatalogContent(scrollable: scrollable)
+                }
             }
+            .modulaSheetStyle()
         }
         .navigationTitle("Sheets")
     }

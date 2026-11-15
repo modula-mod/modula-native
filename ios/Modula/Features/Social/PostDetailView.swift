@@ -43,11 +43,14 @@ struct PostDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .task(id: postID) { await load() }
         .sheet(isPresented: $showsShareSheet) {
-            if let post {
-                PostShareSheet(post: post) {
-                    showsShareSheet = false
+            Group {
+                if let post {
+                    PostShareSheet(post: post) {
+                        showsShareSheet = false
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .fullScreenCover(item: $attachmentViewerItem) { item in
             AttachmentViewerRouter(attachment: item, imageGallery: postImageGallery) { attachmentViewerItem = nil }

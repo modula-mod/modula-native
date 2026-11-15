@@ -104,7 +104,10 @@ struct TOTPSetupSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button(done ? "Done" : "Cancel") { if done { onFinished() }; dismiss() } }
             }
             .sheet(isPresented: $needsStepUp) {
-                PasswordStepUpSheet(reason: "Confirm your password to set up two-factor authentication.") { Task { await enroll() } }
+                Group {
+                    PasswordStepUpSheet(reason: "Confirm your password to set up two-factor authentication.") { Task { await enroll() } }
+                }
+                .modulaSheetStyle()
             }
         }
         .accessibilityIdentifier("settings.totp.setup")

@@ -83,9 +83,12 @@ struct ProfileMediaWorkspace: ViewModifier {
             .sheet(isPresented: $showsScenes, onDismiss: {
                 if cropSession == nil { action = nil }
             }) {
-                ShellSceneCoverPicker { data in
-                    Task { await beginCrop(data: data, kind: .cover) }
+                Group {
+                    ShellSceneCoverPicker { data in
+                        Task { await beginCrop(data: data, kind: .cover) }
+                    }
                 }
+                .modulaSheetStyle()
             }
             .onChange(of: libraryItem) { _, item in
                 guard let item else { return }

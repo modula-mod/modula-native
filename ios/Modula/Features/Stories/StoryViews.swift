@@ -938,14 +938,20 @@ struct StoryViewer: View {
         .sheet(isPresented: $showsViewers, onDismiss: {
             if !holding, !replyFocused, scenePhase == .active { engine.resume() }
         }) {
-            if let item = currentItem, item.isOwn {
-                StoryViewersSheet(itemID: item.id)
+            Group {
+                if let item = currentItem, item.isOwn {
+                    StoryViewersSheet(itemID: item.id)
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsInsights) {
-            if let item = currentItem, item.isOwn {
-                StoryInsightsView(item: item, position: engine.index + 1, count: max(group.items.count, 1))
+            Group {
+                if let item = currentItem, item.isOwn {
+                    StoryInsightsView(item: item, position: engine.index + 1, count: max(group.items.count, 1))
+                }
             }
+            .modulaSheetStyle()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("story.viewer")

@@ -486,20 +486,26 @@ private struct MigrationOverviewPage: View {
         .navigationTitle("Migration")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showsWhat) {
-            MigrationInfoSheet(
-                title: "What is Migration?",
-                paragraphs: ["Migration would change your account’s authoritative home node: the operator responsible for its account records. Only supported records included in your plan would move. Moving your account is different from setting up a new phone, importing a file or transferring a wallet."]
-            ) { app.navigation.open(.settings(.migration(.help))) }
+            Group {
+                MigrationInfoSheet(
+                    title: "What is Migration?",
+                    paragraphs: ["Migration would change your account’s authoritative home node: the operator responsible for its account records. Only supported records included in your plan would move. Moving your account is different from setting up a new phone, importing a file or transferring a wallet."]
+                ) { app.navigation.open(.settings(.migration(.help))) }
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsWhyNot) {
-            MigrationInfoSheet(
-                title: "Migration isn’t available yet",
-                paragraphs: [
-                    "Stage: MX-00 — Explain.",
-                    "Account moves require verified portable identity, signed node discovery, destination acceptance and a secure handoff with recovery. These requirements must be confirmed for your account and destination before a transfer can be offered.",
-                    "If capability checks are unavailable, that is not evidence that your account is ready to move."
-                ]
-            ) { app.navigation.open(.settings(.migration(.help))) }
+            Group {
+                MigrationInfoSheet(
+                    title: "Migration isn’t available yet",
+                    paragraphs: [
+                        "Stage: MX-00 — Explain.",
+                        "Account moves require verified portable identity, signed node discovery, destination acceptance and a secure handoff with recovery. These requirements must be confirmed for your account and destination before a transfer can be offered.",
+                        "If capability checks are unavailable, that is not evidence that your account is ready to move."
+                    ]
+                ) { app.navigation.open(.settings(.migration(.help))) }
+            }
+            .modulaSheetStyle()
         }
     }
 }
