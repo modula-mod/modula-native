@@ -366,8 +366,7 @@ struct SettingsSecurityCenter: View {
     }
 
     private static func day(_ iso: String) -> String {
-        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        let date = ModulaISODate.parse(iso)
         return date.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? iso.prefix(10).description
     }
 }
