@@ -130,10 +130,11 @@ struct MascotWardrobeItem: Identifiable, Hashable, Sendable {
 
     var seasonLabel: String? {
         guard isSeasonal else { return nil }
-        let f = DateFormatter()
+        // Speed: no DateFormatter per wardrobe tile; the calendar already has the month names.
+        let symbols = Calendar.current.shortMonthSymbols
         let names = seasonalMonths.compactMap { m -> String? in
-            guard m >= 1, m <= 12 else { return nil }
-            return f.shortMonthSymbols[m - 1]
+            guard m >= 1, m <= symbols.count else { return nil }
+            return symbols[m - 1]
         }
         return names.joined(separator: ", ")
     }
