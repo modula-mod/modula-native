@@ -208,6 +208,8 @@ struct SocialPost: Identifiable, Hashable, Sendable {
     var engagement: PostEngagement
     /// Place name when the API sends one (post `location` / `place`).
     var location: String? = nil
+    /// Pinned to the author's profile — only when the API says so (`pinned` / `isPinned` / `pinnedAt`).
+    var isPinned: Bool = false
 
     var liked: Bool {
         get { engagement.liked }
@@ -511,7 +513,8 @@ enum SocialPayloadDecoder {
                 reactionCount: value["reactionCount"]?.int ?? value["reaction_count"]?.int ?? 0,
                 reactionSummary: ReactionSummary.decode(from: value["reactionSummary"] ?? value["reactions"] ?? value["reactionBreakdown"] ?? value["byType"])
             ),
-            location: emptyToNil(value["location"]?.string ?? value["location"]?["name"]?.string ?? value["place"]?["name"]?.string ?? value["place"]?.string)
+            location: emptyToNil(value["location"]?.string ?? value["location"]?["name"]?.string ?? value["place"]?["name"]?.string ?? value["place"]?.string),
+            isPinned: value["pinned"]?.bool ?? value["isPinned"]?.bool ?? (value["pinnedAt"]?.string != nil)
         )
     }
 

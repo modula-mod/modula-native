@@ -430,7 +430,7 @@ struct ImmersivePostCard: View {
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             guard ModulaPreferences.doubleTapToLike else { return }
             if !post.liked && post.viewerReaction == nil { onLike() }
-            HapticEngine.shared.play(.lightImpact)
+            HapticEngine.shared.play(.reactionSelect  // same haptic as picking a reaction)
             heartBurst += 1
         })
     }

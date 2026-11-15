@@ -339,7 +339,8 @@ struct ModulaCodeView: View {
     @State private var appeared = false
     @State private var exportImage: UIImage?
     @State private var avatarImage: UIImage?
-    @Namespace private var switchNamespace
+    @AppStorage("modulaCode.brightnessBoost") private var brightnessBoost = true
+    @Environment(\.scenePhase) private var scenePhase
 
     private var accent: Color { app.appearance.liveAccent }
     private var style: ModulaCodeStyle { ModulaCodeStyle(rawValue: styleRaw) ?? .theme }
@@ -371,15 +372,38 @@ struct ModulaCodeView: View {
                     Button("Done", action: onDismiss)
                         .accessibilityIdentifier("modulaCode.done")
                 }
+                if mode == .myCode, subject != nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            brightnessBoost.toggle()
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Image(systemName: brightnessBoost ? "sun.max.fill" : "sun.max")
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        .accessibilityLabel(brightnessBoost ? "Turn off brightness boost" : "Boost brightness for scanning")
+                        .accessibilityIdentifier("modulaCode.brightness")
+                    }
+                }
             }
         }
         .onAppear {
             mode = subject == nil ? .scan : initialMode
             withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.8)) { appeared = true }
+            syncBrightness()
         }
+        // Full brightness while your code is on screen (like a boarding pass); restored on leave.
+        .onChange(of: mode) { _, _ in syncBrightness() }
+        .onChange(of: brightnessBoost) { _, _ in syncBrightness() }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { syncBrightness() } else { ModulaBrightnessBoost.restore() } }
+        .onDisappear { ModulaBrightnessBoost.restore() }
         .task(id: subject?.avatarURL) { await loadAvatar() }
         .task(id: "\(styleRaw)-\(subject?.url.absoluteString ?? "")-\(avatarImage != nil)-\(scheme == .dark)") { renderExport() }
         .accessibilityIdentifier("modulaCode")
+    }
+
+    private func syncBrightness() {
+        if brightnessBoost, mode == .myCode, subject != nil { ModulaBrightnessBoost.boost() } else { ModulaBrightnessBoost.restore() }
     }
 
     // MARK: Chrome
@@ -439,9 +463,9 @@ struct ModulaCodeView: View {
                 Text(subject.kind.uppercased())
                     .font(.caption2.weight(.bold))
                     .tracking(1.2)
-                    .foregroundStyle(accent)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(accent.opacity(0.14), in: Capsule())
+                    .background(Color.primary.opacity(0.08), in: Capsule())
             }
 
             ModulaBrandedQRCode(matrix: matrix, style: style, accent: accent) {
@@ -449,8 +473,9 @@ struct ModulaCodeView: View {
             }
             .padding(18)
             .background(Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.18), radius: 18, y: 8)
-            .frame(maxWidth: 300)
+            .shadow(color: .black.opacity(scheme == .dark ? 0.4 : 0.14), radius: 18, y: 8)
+            // Bigger code = faster, longer-range scans (fills the sheet width on phones).
+            .frame(maxWidth: 340)
             .accessibilityElement()
             .accessibilityLabel("Modula Code for \(subject.subtitle ?? subject.title)")
             .accessibilityHint("Scanning it opens \(subject.url.absoluteString)")
@@ -983,5 +1008,29 @@ private struct ModulaDataScanner: UIViewControllerRepresentable {
                 }
             }
         }
+    }
+}
+
+
+/// Temporarily raises screen brightness (Modula Code on screen) and puts it back exactly once.
+@MainActor
+enum ModulaBrightnessBoost {
+    private static var saved: CGFloat?
+
+    private static var screen: UIScreen? {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?.screen
+    }
+
+    static func boost() {
+        guard let screen, saved == nil else { return }
+        saved = screen.brightness
+        screen.brightness = 1
+    }
+
+    static func restore() {
+        guard let previous = saved else { return }
+        saved = nil
+        screen?.brightness = previous
     }
 }

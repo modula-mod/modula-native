@@ -535,7 +535,7 @@ struct ChatsSettingsHost: View {
                         }
                     }
                 }
-                .sheet(isPresented: $showsQuickReplies) { QuickRepliesManageSheet() }
+                .sheet(isPresented: $showsQuickReplies) { QuickRepliesManageSheet().modulaSheetStyle() }
                 SettingsAPIFootnote(text: "These change how chats look and behave on this iPhone.")
             }
             .navigationTitle("Chats")

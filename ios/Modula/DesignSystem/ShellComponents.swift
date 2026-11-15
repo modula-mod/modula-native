@@ -161,6 +161,11 @@ struct Lab30SoundToggle: View {
 }
 
 // MARK: 18) Offline UI banner / states
+extension Notification.Name {
+    /// Posted once when the device goes from offline to online.
+    static let modulaConnectivityRestored = Notification.Name("modula.connectivity.restored")
+}
+
 @MainActor @Observable
 final class Lab30Connectivity {
     static let shared = Lab30Connectivity()
@@ -210,6 +215,8 @@ struct Lab30OfflineBanner: View {
             UIAccessibility.post(notification: .announcement, argument: now ? "Back online" : "You're offline. Showing saved content")
             HapticEngine.shared.play(now ? .success : .warning)
             guard !was, now else { return }
+            // Screens that failed while offline retry on their own (no pull needed).
+            NotificationCenter.default.post(name: .modulaConnectivityRestored, object: nil)
             showBackOnline = true
             Task { try? await Task.sleep(for: .seconds(2)); showBackOnline = false }
         }
@@ -855,7 +862,7 @@ struct Lab30WhatsNewPresenter: ViewModifier {
             .sheet(isPresented: $showWhatsNew, onDismiss: { seenVersion = Lab30Keys.whatsNewVersion }) {
                 Lab30WhatsNewSheet { Task { try? await Task.sleep(for: .milliseconds(400)); showGallery = true } }
             }
-            .sheet(isPresented: $showGallery) { NavigationStack { Lab30GalleryView() } }
+            .sheet(isPresented: $showGallery) { NavigationStack { Lab30GalleryView() }.modulaSheetStyle() }
             .onReceive(NotificationCenter.default.publisher(for: Lab30GalleryView.openNotification)) { _ in showGallery = true }
     }
 }
@@ -1349,8 +1356,8 @@ struct Lab30GalleryView: View {
         .navigationTitle("30 new ideas")
         .fullScreenCover(isPresented: $showReader) { Lab30FocusReader(title: "On Liquid Glass", author: "Modula team", text: String(repeating: "Glass that bends light and gets out of the way. ", count: 80)) }
         .fullScreenCover(isPresented: $showStory) { Lab30StoryPlayer(colors: [.purple, .orange, .teal, .pink]) }
-        .sheet(isPresented: $showShare) { Lab30GlassShareSheet(url: URL(string: "https://modula.digital")!, people: people) { _ in showShare = false } }
-        .sheet(isPresented: $showSettings) { NavigationStack { Lab30SettingsRedesignPreview() } }
+        .sheet(isPresented: $showShare) { Lab30GlassShareSheet(url: URL(string: "https://modula.digital")!, people: people) { _ in showShare = false }.modulaSheetStyle() }
+        .sheet(isPresented: $showSettings) { NavigationStack { Lab30SettingsRedesignPreview() }.modulaSheetStyle() }
         .overlay { Lab30CoachMarksOverlay(marks: Lab30CoachMarksOverlay.defaultMarks) }
     }
 }

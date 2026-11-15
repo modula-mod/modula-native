@@ -64,7 +64,7 @@ struct MolibooMarketplaceEntry: View {
         .buttonStyle(.plain)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
         .accessibilityIdentifier("moliboo.marketplace.entry")
-        .sheet(isPresented: $shown) { MolibooMarketplaceView() }
+        .sheet(isPresented: $shown) { MolibooMarketplaceView().modulaSheetStyle() }
     }
 }
 

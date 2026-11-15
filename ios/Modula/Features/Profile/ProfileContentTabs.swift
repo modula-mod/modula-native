@@ -58,6 +58,17 @@ struct ProfilePostGrid: View {
             ForEach(posts) { post in
                 Button { onOpen(post) } label: {
                     ProfilePostTile(post: post, tint: tint)
+                        .overlay(alignment: .topTrailing) {
+                            if post.isPinned {
+                                Image(systemName: "pin.fill")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .padding(5)
+                                    .background(.black.opacity(0.45), in: Circle())
+                                    .padding(5)
+                                    .accessibilityLabel("Pinned")
+                            }
+                        }
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.95))
                 // Long-press peek: large preview + quick actions without leaving the grid.
@@ -236,5 +247,14 @@ struct ProfilePostPeek: View {
         }
         .frame(width: 320)
         .background(Color(uiColor: .systemBackground))
+    }
+}
+
+
+/// Pinned posts (server-flagged) lead the profile's posts, in their original order.
+enum ProfilePinnedOrdering {
+    static func pinnedFirst(_ posts: [SocialPost]) -> [SocialPost] {
+        guard posts.contains(where: \.isPinned) else { return posts }
+        return posts.filter(\.isPinned) + posts.filter { !$0.isPinned }
     }
 }

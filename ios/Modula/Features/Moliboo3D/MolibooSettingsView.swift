@@ -103,8 +103,8 @@ struct MolibooSettingsView: View {
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: cheer) { _, _ in haptics }
-        .sheet(isPresented: $showOnboarding) { MolibooWelcomeSheet { onboarded = true; showOnboarding = false } }
-        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .sheet(isPresented: $showOnboarding) { MolibooWelcomeSheet { onboarded = true; showOnboarding = false }.modulaSheetStyle() }
+        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0).modulaSheetStyle() }
         .onAppear {
             if !onboarded { showOnboarding = true }
             care.refresh(kindRaw)

@@ -230,8 +230,8 @@ struct ModulaPDFImmersiveReader: View {
         .sensoryFeedback(.impact(weight: .light), trigger: model.zoomTick)
         .sensoryFeedback(.success, trigger: model.bookmarkTick)
         .sensoryFeedback(.success, trigger: copiedTick)
-        .sheet(isPresented: $showsGrid) { PDFPageGridSheet(model: model) { showsGrid = false } }
-        .sheet(isPresented: $showsOutline) { PDFOutlineSheet(model: model) { showsOutline = false } }
+        .sheet(isPresented: $showsGrid) { PDFPageGridSheet(model: model) { showsGrid = false }.modulaSheetStyle() }
+        .sheet(isPresented: $showsOutline) { PDFOutlineSheet(model: model) { showsOutline = false }.modulaSheetStyle() }
         .sheet(isPresented: Binding(get: { shareItems != nil }, set: { if !$0 { shareItems = nil } })) {
             ActivitySheet(items: shareItems ?? []).presentationDetents([.medium, .large]).modulaSheetStyle()
         }

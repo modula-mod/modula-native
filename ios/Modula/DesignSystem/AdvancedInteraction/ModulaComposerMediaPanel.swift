@@ -516,9 +516,9 @@ struct ModulaStickerPicker: View {
         }
         .task { await load() }
         .onAppear { if let initialSection { selected = initialSection } }
-        .sheet(isPresented: $creatingPack) { ModulaCustomPackEditor(pack: nil) }
-        .sheet(item: $editingPack) { ModulaCustomPackEditor(pack: $0) }
-        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .sheet(isPresented: $creatingPack) { ModulaCustomPackEditor(pack: nil).modulaSheetStyle() }
+        .sheet(item: $editingPack) { ModulaCustomPackEditor(pack: $0).modulaSheetStyle() }
+        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0).modulaSheetStyle() }
         .accessibilityIdentifier("composer.panel.stickers.grid")
     }
 

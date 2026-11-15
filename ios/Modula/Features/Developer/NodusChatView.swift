@@ -191,9 +191,9 @@ struct NodusChatView: View {
         .sheet(isPresented: $showingPrompts) {
             NodusMarketplaceSheet(model: model)
         }
-        .sheet(isPresented: $showingSkills) { NodusSkillsSheet(model: model) }
-        .sheet(isPresented: $showingPersona) { NodusPersonaSheet(model: model) }
-        .sheet(isPresented: $showingCustomise) { NodusCustomiseSheet(model: model) }
+        .sheet(isPresented: $showingSkills) { NodusSkillsSheet(model: model).modulaSheetStyle() }
+        .sheet(isPresented: $showingPersona) { NodusPersonaSheet(model: model).modulaSheetStyle() }
+        .sheet(isPresented: $showingCustomise) { NodusCustomiseSheet(model: model).modulaSheetStyle() }
         .sheet(isPresented: $showingRemote) {
             NodusRemoteSheet(
                 pathStatus: pathMonitor.status,

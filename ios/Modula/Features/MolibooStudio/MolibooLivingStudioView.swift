@@ -107,7 +107,7 @@ struct MolibooLivingStudioView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(environment.isDark ? .dark : .light, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .sheet(item: $panel) { p in panelSheet(p) }
+        .sheet(item: $panel) { p in panelSheet(p).modulaSheetStyle() }
         .sheet(item: $photo) { ph in
             MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
         }

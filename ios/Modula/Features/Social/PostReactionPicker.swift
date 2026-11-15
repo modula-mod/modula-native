@@ -112,7 +112,8 @@ struct PostReactionPicker: View {
         guard !reduceMotion, symbol != nil || glyph != nil else { commit(); return }
         burst = glyph ?? symbol.map { "sf:\($0)" }
         burstTrigger += 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28, execute: commit)
+        // Speed: commit (optimistic update + network) almost immediately; the burst keeps playing.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: commit)
     }
 }
 

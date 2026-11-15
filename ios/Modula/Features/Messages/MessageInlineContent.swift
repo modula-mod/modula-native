@@ -184,7 +184,7 @@ private struct MessageLinkInspectorModifier: ViewModifier {
                 target = MessageLinkTarget(url: url)
                 return .handled
             })
-            .sheet(item: $target) { MessageLinkInspectorSheet(url: $0.url) }
+            .sheet(item: $target) { MessageLinkInspectorSheet(url: $0.url).modulaSheetStyle() }
     }
 }
 

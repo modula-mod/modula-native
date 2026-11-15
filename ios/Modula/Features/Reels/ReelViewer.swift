@@ -259,6 +259,10 @@ struct ReelPageView: View {
     @State private var showsQuickMenu = false
     @State private var captionsOn = true
     @State private var edgeBoost = false
+    /// Hold-to-pause: pressing pauses after a short delay (so swipes don't flicker) and hides the
+    /// overlays; lifting the finger resumes.
+    @State private var holdTask: Task<Void, Never>?
+    @State private var holdPaused = false
     @State private var playback = ModulaVideoPlaybackController()
 
     var body: some View {
@@ -274,7 +278,7 @@ struct ReelPageView: View {
                     .scaleEffect(false ? 0.72 : 1, anchor: .top)
                     .clipShape(RoundedRectangle(cornerRadius: false ? 18 : 0, style: .continuous))
             }
-            if !clearDisplay {
+            if !clearDisplay, !holdPaused {
                 // Legibility scrims: top (tabs/Create), right edge (rail) and bottom (caption),
                 // so overlays stay readable over busy video such as screen recordings.
                 LinearGradient(colors: [.black.opacity(0.32), .black.opacity(0.1), .clear], startPoint: .top, endPoint: .bottom)
@@ -298,7 +302,7 @@ struct ReelPageView: View {
                 .allowsHitTesting(false)
             }
             DoubleTapHeartBurst(trigger: heartBurst, point: heartPoint)
-            if !clearDisplay {
+            if !clearDisplay, !holdPaused {
                 HStack(alignment: .bottom, spacing: 0) {
                     ReelCaptionBlock(reel: reel)
                         .padding(.leading, 14)
@@ -322,7 +326,7 @@ struct ReelPageView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .transition(.opacity)
             }
-            if !clearDisplay, reel.attachment != nil {
+            if !clearDisplay, !holdPaused, reel.attachment != nil {
                 Button {
                     playback.toggleMute()
                     HapticEngine.shared.play(.selection)
@@ -411,7 +415,7 @@ struct ReelPageView: View {
                 heartPoint = event.location
                 let post = resolved
                 if !post.liked { Task { await app.postActions.toggleLike(post) } }
-                HapticEngine.shared.play(.lightImpact)
+                HapticEngine.shared.play(.reactionSelect  // same haptic as picking a reaction)
                 heartBurst += 1
             }
             .exclusively(before: TapGesture().onEnded {
@@ -420,10 +424,25 @@ struct ReelPageView: View {
                 HapticEngine.shared.play(.selection)
             })
         )
-        .onLongPressGesture(minimumDuration: 0.45) {
+        .onLongPressGesture(minimumDuration: 0.45, perform: {
             HapticEngine.shared.play(.contextOpen)
             showsQuickMenu = true
-        }
+        }, onPressingChanged: { pressing in
+            holdTask?.cancel()
+            if pressing {
+                guard reel.attachment != nil, playback.state == .playing else { return }
+                holdTask = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(180))
+                    guard !Task.isCancelled else { return }
+                    playback.pause()
+                    holdPaused = true
+                }
+            } else if holdPaused {
+                holdPaused = false
+                if !showsQuickMenu { playback.play() }
+            }
+        })
+        .animation(.easeOut(duration: 0.18), value: holdPaused)
         // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
         // re-render four times a second just to watch for the end).
         .overlay(alignment: .bottom) {

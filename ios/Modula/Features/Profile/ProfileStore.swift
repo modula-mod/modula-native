@@ -96,6 +96,11 @@ final class ProfileStore {
             sessions[key] = state
             actionError = nil
 
+            // Speed: the first posts page and the featured modules only need the profile, so both
+            // requests go out together instead of back to back.
+            let repository = self.repository
+            let featuredIDs = profile.featuredModuleIds
+            async let modulesFetch = repository.modules(featuredIDs: featuredIDs, catalogue: catalogue)
             // Overview preview only — not full posts pagination.
             if state.overviewPreviewPosts.isEmpty || !background {
                 if let page = try? await repository.posts(identity, handle: profile.handle, cursor: nil) {
@@ -111,7 +116,7 @@ final class ProfileStore {
                     sessions[key] = state
                 }
             }
-            let modules = await repository.modules(featuredIDs: profile.featuredModuleIds, catalogue: catalogue)
+            let modules = await modulesFetch
             state.modules.items = modules.items
             state.modules.loadState = .loaded
             sessions[key] = state

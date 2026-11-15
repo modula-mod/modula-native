@@ -1273,7 +1273,7 @@ struct ComposerMascotSettingsSection: View {
         } footer: {
             Text("Short, quiet sounds that follow your silent switch.")
         }
-        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0).modulaSheetStyle() }
         .onAppear {
             MascotProgressStore.shared.touchDay()
             _ = MascotWardrobeStore.shared.applyOutfitOfTheDayIfNeeded()

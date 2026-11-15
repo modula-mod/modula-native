@@ -244,7 +244,7 @@ struct ConversationListView: View {
                 await app.messaging.expireTimedMutesIfNeeded()
                 await app.messaging.loadFolders()
             }
-            .sheet(isPresented: $managingFolders) { ManageChatFoldersSheet() }
+            .sheet(isPresented: $managingFolders) { ManageChatFoldersSheet().modulaSheetStyle() }
             .task(id: app.messaging.conversationQuery) {
                 guard app.messaging.capabilities.historySearch else { return }
                 try? await Task.sleep(for: .milliseconds(280))

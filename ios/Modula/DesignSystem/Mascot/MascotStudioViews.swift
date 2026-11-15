@@ -1539,7 +1539,7 @@ struct ProfileMascotChip: View {
                 dressUp = true
                 onLongPress?()
             }
-            .sheet(isPresented: $dressUp) { MascotDressUpSheet() }
+            .sheet(isPresented: $dressUp) { MascotDressUpSheet().modulaSheetStyle() }
             .onReceive(NotificationCenter.default.publisher(for: .mascotOutfitDidChange)) { _ in brain.outfitChanged() }
             .accessibilityLabel("Your Moliboo")
             .accessibilityHint("Long-press to dress up")

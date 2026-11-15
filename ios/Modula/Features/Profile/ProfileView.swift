@@ -828,7 +828,7 @@ struct ProfileView: View {
     }
 
     private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool, videoOnly: Bool = false) -> some View {
-        let all = session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items
+        let all = ProfilePinnedOrdering.pinnedFirst(session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items)
         let media = mediaOnly ? all.filter { $0.hasMedia } : all
         let items = videoOnly ? media.filter { [.video, .movie].contains($0.kind) } : media
         return VStack(alignment: .leading, spacing: 12) {
@@ -862,6 +862,13 @@ struct ProfileView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(items) { post in
+                        if post.isPinned {
+                            Label("Pinned", systemImage: "pin.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 10)
+                                .accessibilityIdentifier("profile.post.pinned")
+                        }
                         postCard(post, compactAuthor: true)
                             .modulaScrollReveal()
                             .onAppear {
@@ -949,9 +956,15 @@ struct ProfileView: View {
             statLink(profile.postCount, "posts") { openSection(.posts) }
             statLink(profile.followerCount, profile.followerCount == 1 ? "follower" : "followers") { openSection(.followers) }
             statLink(profile.followingCount, "following") { openSection(.following) }
+            // Richer stats: modules only when the profile actually ships some (real server count).
+            if profile.moduleCount > 0 {
+                statLink(profile.moduleCount, profile.moduleCount == 1 ? "module" : "modules") { openSection(.modules) }
+            }
             if !profileTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Follow / unfollow ticks the follower count with a rolling-digit transition.
+        .animation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .snappy(duration: 0.3), value: profile.followerCount)
         .accessibilityIdentifier("profile.stats")
     }
 
@@ -960,9 +973,14 @@ struct ProfileView: View {
             HapticEngine.shared.play(.selection)
             action()
         } label: {
-            (Text(ModulaCountFormat.compact(value) ?? "0").font(.subheadline.weight(.bold)).foregroundStyle(.primary)
-             + Text(" \(label)").font(.subheadline.weight(.medium)).foregroundStyle(Color.primary.opacity(0.72)))
-                .monospacedDigit()
+            HStack(spacing: 0) {
+                Text(ModulaCountFormat.compact(value) ?? "0")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .contentTransition(.numericText(value: Double(value)))
+                Text(" \(label)").font(.subheadline.weight(.medium)).foregroundStyle(Color.primary.opacity(0.72))
+            }
+            .monospacedDigit()
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(value) \(label)")
@@ -1007,7 +1025,7 @@ struct ProfileView: View {
     }
 
     private func postsTab(_ profile: ModulaProfile) -> some View {
-        let items = session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items
+        let items = ProfilePinnedOrdering.pinnedFirst(session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items)
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(profile.postCount == 1 ? "1 post" : "\(ProfileCountFormatter.compact(max(profile.postCount, items.count))) posts")
@@ -1039,6 +1057,13 @@ struct ProfileView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(items) { post in
+                        if post.isPinned {
+                            Label("Pinned", systemImage: "pin.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 10)
+                                .accessibilityIdentifier("profile.post.pinned")
+                        }
                         postCard(post, compactAuthor: true)
                             .modulaScrollReveal()
                             .onAppear {
@@ -1164,6 +1189,13 @@ struct ProfileView: View {
                         .padding(.top, 20)
                 default:
                     ForEach(items) { post in
+                        if post.isPinned {
+                            Label("Pinned", systemImage: "pin.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 10)
+                                .accessibilityIdentifier("profile.post.pinned")
+                        }
                         postCard(post, compactAuthor: true)
                             .modulaScrollReveal()
                             .onAppear {

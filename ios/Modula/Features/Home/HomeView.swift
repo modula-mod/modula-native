@@ -117,7 +117,13 @@ struct HomeView: View {
                     .frame(maxHeight: .infinity, alignment: .bottom)
             }
         }
-        .sheet(isPresented: $editingHome) { HomeSectionEditor(raw: $homeSectionsRaw) }
+        .sheet(isPresented: $editingHome) { HomeSectionEditor(raw: $homeSectionsRaw).modulaSheetStyle() }
+        // Back online: a feed that failed (or is showing the offline warm page) refreshes itself.
+        .onReceive(NotificationCenter.default.publisher(for: .modulaConnectivityRestored)) { _ in
+            let failed: Bool = { if case .failed = app.home.state(for: mode).loadState { return true }; return false }()
+            guard failed || app.home.isOfflineHint else { return }
+            Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
+        }
         .background { HomeAmbientLayer(model: ambient, update: updateAmbient) }
         .modulaCanvas()
         .modulaSoftScrollEdge()
