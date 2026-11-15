@@ -33,6 +33,8 @@ struct RootView: View {
         .environment(\.shellChromeMetrics, ShellChromeMetrics.resolve(policy: policy))
         // ChatGPT-style push sidebar: the shell becomes a rounded card that slides right.
         .modulaSidebarContainer()
+        // Gesture Navigation System: Profile slides in from the right over a dimmed Home.
+        .modulaSpatialSurfaces()
         // Pull menu frost covers the entire screen (header, tab bar, Tools bar, edge rail).
         .overlay { ModulaPullOverlayHost() }
         // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
@@ -189,8 +191,13 @@ struct RootView: View {
                         navigation.binding(for: tab).wrappedValue = []
                         HapticEngine.shared.play(.selection)
                     }
+                } else if tab == .profile, navigation.spatialEnabled {
+                    // Profile is a sheet from the right over the current tab, not a tab swap.
+                    navigation.spatial.openProfile(.me)
+                    HapticEngine.shared.play(.contextOpen)
                 } else {
                     navigation.selectedTab = tab
+                    navigation.spatial.close()
                 }
             }
         )

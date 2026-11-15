@@ -858,10 +858,20 @@ struct ShellSidebarTrigger: View {
 
 struct ShellSidebarTriggerModifier: ViewModifier {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.spatialSheetContext) private var sheet
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if app.navigation.isAtTabRoot {
+            if let sheet {
+                // Inside a spatial sheet: Close at its root; pushed screens keep the system Back.
+                if sheet.isRoot {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close", systemImage: "xmark") { sheet.close() }
+                            .accessibilityLabel("Close profile")
+                            .accessibilityIdentifier("spatial.profile.close")
+                    }
+                }
+            } else if app.navigation.isAtTabRoot {
                 ToolbarItem(placement: .topBarLeading) {
                     ShellSidebarTrigger()
                 }
