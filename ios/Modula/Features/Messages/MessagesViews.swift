@@ -1,5 +1,6 @@
 import AVFoundation
 import SwiftUI
+import Translation
 import UIKit
 
 struct MessagesRootView: View {
@@ -1256,6 +1257,7 @@ struct ConversationView: View {
     @State private var showInfo = false
     @State private var jumpTarget: MessageID?
     @State private var showsJumpToDate = false
+    @State private var translatingText: String?
     @State private var jumpDate = Date()
     @State private var replyTarget: Message?
     @State private var editing: Message?
@@ -1455,6 +1457,10 @@ struct ConversationView: View {
             .messageLinkInspector()
             // t177u: the in-app browser shows which chat a link came from (no post card).
             .environment(\.modulaChatLinkContext, ModulaChatLinkContext(chatTitle: conversation?.title))
+            .translationPresentation(
+                isPresented: Binding(get: { translatingText != nil }, set: { if !$0 { translatingText = nil } }),
+                text: translatingText ?? ""
+            )
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
@@ -2155,6 +2161,10 @@ struct ConversationView: View {
 
     private func handle(_ action: ModulaContextAction, message: Message) {
         switch action.id {
+        case "translate":
+            // On-device Translation popover (iOS 17.4+); nothing is sent to Modula.
+            let text = message.body.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { translatingText = text }
         case "copy":
             UIPasteboard.general.string = message.body.text
             HapticEngine.shared.play(.confirmation)

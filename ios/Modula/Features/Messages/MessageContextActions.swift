@@ -8,7 +8,8 @@ enum MessageContextActions {
     ) -> [ModulaContextAction] {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc"),
                      ModulaContextAction(id: "forward", title: "Forward", systemImage: "arrowshape.turn.up.right"),
-                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2")]
+                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2"),
+                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate")]
         if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
@@ -27,7 +28,8 @@ enum MessageContextActions {
     static func other(capabilities: MessagingBackendCapabilities) -> [ModulaContextAction] {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc"),
                      ModulaContextAction(id: "forward", title: "Forward", systemImage: "arrowshape.turn.up.right"),
-                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2")]
+                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2"),
+                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate")]
         if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
