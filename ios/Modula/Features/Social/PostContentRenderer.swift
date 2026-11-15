@@ -401,7 +401,8 @@ struct ModulaVideoSurface: View {
         }
         // Speed: visible fraction quantised to 5% steps, so the coordinator is told only when the
         // bucket changes instead of on every scroll frame for every video cell.
-        .onGeometryChange(for: Int.self) { proxy in
+        .onGeometryChange(for: Int.self) { [viewportHeight] proxy in
+            // @Sendable transform: the viewport height is captured as a value (UIScreen is main-actor).
             ModulaVideoSurface.visibleBucket(proxy.frame(in: .global), viewportHeight: viewportHeight)
         } action: { bucket in
             coordinator?.updateVisibility(id: attachment.id, fraction: Double(bucket) / 20)

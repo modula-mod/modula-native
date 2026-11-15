@@ -311,12 +311,13 @@ struct ModulaButton: View {
             .frame(minHeight: max(ModulaLayout.minimumTouch, height))
             .contentShape(Capsule())
         }
-        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.liveAccent, isLoading: isLoading))
+        .buttonStyle(ModulaAccentPrimaryButtonStyle(accent: app.appearance.liveAccent, isLoading: isLoading))
         .accessibilityValue(isLoading ? (loadingTitle ?? "In progress") : "")
     }
 }
 
-struct ModulaPrimaryButtonStyle: ButtonStyle {
+/// Accent-filled primary (legacy). Renamed: `ModulaPrimaryButtonStyle` is the black/white style in ModulaGlass.swift.
+struct ModulaAccentPrimaryButtonStyle: ButtonStyle {
     var accent: Color
     var isLoading = false
     @Environment(\.isEnabled) private var isEnabled

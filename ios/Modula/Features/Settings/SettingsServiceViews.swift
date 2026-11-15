@@ -691,7 +691,7 @@ struct AccountDataExportView: View {
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 52)
                         }
-                        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.liveAccent))
+                        .buttonStyle(ModulaAccentPrimaryButtonStyle(accent: app.appearance.liveAccent))
                         Button("Prepare Again") { model.reset() }
                             .font(.subheadline)
                     case .failed(let message):

@@ -439,7 +439,7 @@ struct ReelPageView: View {
                 heartPoint = event.location
                 let post = resolved
                 if !post.liked { Task { await app.postActions.toggleLike(post) } }
-                HapticEngine.shared.play(.reactionSelect  // same haptic as picking a reaction)
+                HapticEngine.shared.play(.reactionSelect) // same haptic as picking a reaction
                 heartBurst += 1
             }
             .exclusively(before: TapGesture().onEnded {

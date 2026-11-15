@@ -883,7 +883,8 @@ enum StoryFixtures {
 
 // MARK: - Story social (migration 092): viewers, reactions, highlights
 
-struct StoryViewer: Identifiable, Hashable, Sendable {
+/// One person who viewed/reacted to a story (renamed from `StoryViewer`, which clashed with the viewer View).
+struct StoryViewerEntry: Identifiable, Hashable, Sendable {
     let person: ConversationParticipant
     let viewedAt: Date?
     let reaction: String?
@@ -891,7 +892,7 @@ struct StoryViewer: Identifiable, Hashable, Sendable {
 }
 
 struct StoryViewerPage: Hashable, Sendable {
-    var items: [StoryViewer]
+    var items: [StoryViewerEntry]
     var viewerCount: Int
     var nextCursor: String?
     var hasMore: Bool
@@ -903,7 +904,7 @@ struct StoryEmojiCount: Hashable, Sendable {
 }
 
 struct StoryReactionSummary: Hashable, Sendable {
-    var items: [StoryViewer]
+    var items: [StoryViewerEntry]
     var summary: [StoryEmojiCount]
 }
 
@@ -937,10 +938,10 @@ enum StorySocialDecoder {
         )
     }
 
-    static func viewer(_ value: JSONValue) -> StoryViewer? {
+    static func viewer(_ value: JSONValue) -> StoryViewerEntry? {
         guard let person = person(value) else { return nil }
         let at = MessagingPayloadDecoder.decodeDate(value["viewedAt"]?.string ?? value["reactedAt"]?.string)
-        return StoryViewer(person: person, viewedAt: at, reaction: value["reaction"]?.string ?? value["emoji"]?.string)
+        return StoryViewerEntry(person: person, viewedAt: at, reaction: value["reaction"]?.string ?? value["emoji"]?.string)
     }
 
     static func viewerPage(_ value: JSONValue) -> StoryViewerPage {

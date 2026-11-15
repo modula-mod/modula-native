@@ -4467,7 +4467,7 @@ struct StoryViewersSheet: View {
     let itemID: StoryID
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var viewers: [StoryViewer] = []
+    @State private var viewers: [StoryViewerEntry] = []
     @State private var total = 0
     @State private var cursor: String?
     @State private var loading = true
