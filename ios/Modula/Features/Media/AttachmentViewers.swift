@@ -78,6 +78,8 @@ struct ModulaVideoViewer: View {
     @State private var download = AttachmentDownloadModel()
     @State private var chromeHidden = false
     @State private var stageWidth: CGFloat = 0
+    @AppStorage("video.viewer.loop") private var loops = false
+    @AppStorage("video.viewer.rate") private var savedRate = 1.0
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -115,6 +117,15 @@ struct ModulaVideoViewer: View {
                         controller.autoplayAllowed = false
                         controller.resumesPosition = true
                         controller.attach(url: url)
+                        // The viewer remembers the last speed you picked.
+                        if savedRate != 1 { controller.setRate(Float(savedRate)) }
+                        controller.play()
+                    }
+                    .onChange(of: controller.rate) { _, rate in savedRate = Double(rate) }
+                    // Loop (toggle in the controls): restart at the end instead of pausing.
+                    .onReceive(NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)) { note in
+                        guard loops, let item = note.object as? AVPlayerItem, item === controller.player?.currentItem else { return }
+                        controller.seek(to: 0)
                         controller.play()
                     }
                     // Hardware keyboard: space play/pause, ←/→ 10 s, M mute.
@@ -470,6 +481,7 @@ struct ModulaFullscreenVideoControls: View {
     var title: String
     var onDocked: () -> Void
     @State private var scrubbing: Double?
+    @AppStorage("video.viewer.loop") private var loops = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -500,6 +512,13 @@ struct ModulaFullscreenVideoControls: View {
                     Image(systemName: controller.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 44, height: 44)
                 }
                 .accessibilityLabel(controller.isMuted ? "Unmute" : "Mute")
+                Button {
+                    loops.toggle()
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: loops ? "repeat.circle.fill" : "repeat").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel(loops ? "Loop on" : "Loop off")
                 // AirPlay to a TV / speaker (system route picker).
                 ModulaAirPlayButton()
                     .frame(width: 44, height: 44)

@@ -1,3 +1,4 @@
+import Photos
 import SwiftUI
 
 enum ModulaMediaViewerSource: Hashable, Sendable {
@@ -75,11 +76,21 @@ struct ModulaMediaViewerControls: View {
                 }
                 Spacer()
                 if allowsShare, let shareURL {
-                    ShareLink(item: shareURL) {
+                    // Share, plus Save to Photos / Copy image (same permission as sharing).
+                    Menu {
+                        ShareLink(item: shareURL) { Label("Share", systemImage: "square.and.arrow.up") }
+                        Button { Task { await ModulaImageActions.saveToPhotos(shareURL) } } label: {
+                            Label("Save to Photos", systemImage: "square.and.arrow.down")
+                        }
+                        Button { Task { await ModulaImageActions.copy(shareURL) } } label: {
+                            Label("Copy image", systemImage: "doc.on.doc")
+                        }
+                    } label: {
                         Image(systemName: "square.and.arrow.up")
                             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
                             .modulaGlass(in: Circle(), interactive: true)
                     }
+                    .tint(.primary)
                     .accessibilityLabel("Share \(title)")
                 } else {
                     Color.clear.frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
@@ -434,5 +445,49 @@ private struct ModulaPullDownToDismiss: ViewModifier {
                     }
             )
             .accessibilityAction(.escape) { onDismiss() }
+    }
+}
+
+
+/// Save / copy a remote image the viewer is showing. Uses the image bytes (Sendable `Data`).
+@MainActor
+enum ModulaImageActions {
+    private static func data(for url: URL) async -> Data? {
+        if url.isFileURL { return try? Data(contentsOf: url) }
+        return try? await URLSession.shared.data(from: url).0
+    }
+
+    static func saveToPhotos(_ url: URL) async {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            HapticEngine.shared.play(.warning)
+            ModulaToastCenter.shared.show("Allow Photos access in Settings to save", symbol: "photo.badge.exclamationmark")
+            return
+        }
+        guard let bytes = await data(for: url), UIImage(data: bytes) != nil else {
+            HapticEngine.shared.play(.failure)
+            ModulaToastCenter.shared.show("Couldn't load the image", symbol: "exclamationmark.triangle")
+            return
+        }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetCreationRequest.forAsset().addResource(with: .photo, data: bytes, options: nil)
+            }
+            HapticEngine.shared.play(.saveComplete)
+            ModulaToastCenter.shared.show("Saved to Photos", symbol: "checkmark.circle")
+        } catch {
+            HapticEngine.shared.play(.failure)
+            ModulaToastCenter.shared.show("Couldn't save image", symbol: "exclamationmark.triangle")
+        }
+    }
+
+    static func copy(_ url: URL) async {
+        guard let bytes = await data(for: url), let image = UIImage(data: bytes) else {
+            HapticEngine.shared.play(.failure)
+            return
+        }
+        UIPasteboard.general.image = image
+        HapticEngine.shared.play(.success)
+        ModulaToastCenter.shared.show("Image copied", symbol: "doc.on.doc")
     }
 }
