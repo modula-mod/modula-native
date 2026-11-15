@@ -83,16 +83,26 @@ struct SpatialSurfaceContainer<Content: View>: View {
                         .accessibilityHidden(true)
                 }
 
+                if app.navigation.spatialEnabled, spatial.isDockOpen || spatial.liveDockDrag < 0 {
+                    SpatialModulesDock(containerHeight: geometry.size.height + insets.top + insets.bottom,
+                                       bottomInset: insets.bottom)
+                        .ignoresSafeArea()
+                        .zIndex(1)
+                }
+
                 if visible, let target = shownTarget ?? spatial.profileTarget ?? (openDrag != 0 ? .me : nil) {
                     scrim(progress: progress, width: width)
+                        .zIndex(2)
                     sheet(target: target, width: width, insets: insets)
                         .offset(x: reduceMotion ? 0 : (1 - progress) * travel)
                         .opacity(reduceMotion ? progress : 1)
+                        .zIndex(3)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
         .animation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring, value: presented)
+        .animation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring, value: spatial.dockState)
         .onChange(of: spatial.profileTarget) { _, target in
             if let target { shownTarget = target } else { scheduleClear() }
         }

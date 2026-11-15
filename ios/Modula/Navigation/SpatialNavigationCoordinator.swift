@@ -102,6 +102,9 @@ final class SpatialNavigationCoordinator {
     private(set) var lastTransition = SpatialTransition(from: nil, to: nil)
     /// Screens pushed from inside the profile sheet stay inside it (own back stack).
     var sheetPath: [AppRoute] = []
+    /// Live upward drag on the bottom bar (negative = finger moving up) so the dock tracks the
+    /// finger before it settles. Reset to 0 when the drag ends.
+    var liveDockDrag: CGFloat = 0
     /// Called on every change (NavigationCoordinator mirrors the sidebar freeze flags).
     @ObservationIgnored var onTransition: (@MainActor (SpatialSheet?, SpatialSheet?) -> Void)?
     /// Global frames of inner horizontal galleries / module surfaces that own horizontal drags.

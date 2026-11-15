@@ -310,3 +310,60 @@ final class SpatialRecentsTests: XCTestCase {
         XCTAssertLessThanOrEqual(SpatialRecents.load(defaults: defaults).count, SpatialRecents.limit)
     }
 }
+
+@MainActor
+final class SpatialDockTests: XCTestCase {
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: "SpatialDockTests")
+        defaults.removePersistentDomain(forName: "SpatialDockTests")
+    }
+
+    func testPinsToggleAndKeepOrder() {
+        SpatialDockPins.toggle("a", defaults: defaults)
+        SpatialDockPins.toggle("b", defaults: defaults)
+        SpatialDockPins.toggle("c", defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "b", "c"])
+        SpatialDockPins.toggle("b", defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c"])
+        XCTAssertFalse(SpatialDockPins.isPinned("b", defaults: defaults))
+    }
+
+    func testArrangeMovesWithinBounds() {
+        ["a", "b", "c"].forEach { SpatialDockPins.toggle($0, defaults: defaults) }
+        SpatialDockPins.move("c", by: -1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("a", by: -1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("b", by: 5, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("missing", by: 1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+    }
+
+    func testSortOrders() {
+        let modules = [
+            module("m.zeta", name: "Zeta", publisher: "Acme"),
+            module("m.alpha", name: "alpha", publisher: "Zed"),
+            module("m.beta", name: "Beta", publisher: "Acme"),
+        ]
+        XCTAssertEqual(SpatialDockSort.name.sorted(modules, recents: []).map(\.id), ["m.alpha", "m.beta", "m.zeta"])
+        XCTAssertEqual(SpatialDockSort.publisher.sorted(modules, recents: []).map(\.id), ["m.beta", "m.zeta", "m.alpha"])
+        XCTAssertEqual(SpatialDockSort.recent.sorted(modules, recents: ["m.zeta", "m.beta"]).map(\.id), ["m.zeta", "m.beta", "m.alpha"])
+    }
+
+    func testEntryPointIsTheRegisteredModuleRoute() {
+        let tile = module("digital.modula.vault-notes", name: "Vault Notes", publisher: "Modula")
+        XCTAssertEqual(tile.entryPoint, .module("digital.modula.vault-notes", localPath: nil))
+    }
+
+    private func module(_ id: String, name: String, publisher: String) -> SpatialDockModule {
+        SpatialDockModule(product: CatalogueProduct(
+            moduleId: id, productKind: "module", name: name, description: "", publisherId: publisher.lowercased(),
+            publisherName: publisher, latestVersion: "1.0.0", status: "published", installable: true,
+            platforms: ["ios"], betaClassification: nil, installability: nil
+        ), runnable: true)
+    }
+}
