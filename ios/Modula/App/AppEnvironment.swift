@@ -286,10 +286,10 @@ final class AppEnvironment {
         if ProcessInfo.processInfo.arguments.contains("--uitest-local-module-session") {
             auth.adoptUITestLocalModuleSession()
         } else {
-            await auth.restore()
+            await auth.restoreFast()
         }
         #else
-        await auth.restore()
+        await auth.restoreFast()
         #endif
         drafts.setAccountID(auth.account?.accountId)
         catalogue.accountID = auth.account?.accountId
@@ -304,13 +304,37 @@ final class AppEnvironment {
         if auth.isSignedIn {
             appLock.refreshColdLaunchLock()
             // Loaded behind the boot gate: running it on the main actor after the shell
-            // appears competed with the first interactive frames.
-            await catalogue.load()
+            // appears competed with the first interactive frames. Cold launch no longer
+            // waits on every catalogue round trip, though: a deep link waits for the full
+            // load, otherwise the gate opens after at most 450 ms and the rest finishes behind it.
+            let catalogue = self.catalogue
+            let load = Task { await catalogue.load() }
+            if gate.pendingDestination != nil {
+                await load.value
+            } else {
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await load.value }
+                    group.addTask { try? await Task.sleep(for: .milliseconds(200)) }
+                    await group.next()
+                    group.cancelAll()
+                }
+            }
         }
         refreshLaunchState()
-        refreshQuickActions()
+        auth.onRevalidationFailed = { [weak self] in
+            await self?.performSignOut(resetAppLock: false)
+        }
         await push.attach(environment: self)
-        CallManager.shared.attach(client: client, signedIn: auth.isSignedIn)
+        // Not needed for the first frame: quick actions, call wiring and cache trims
+        // run after the gate has opened.
+        let signedIn = auth.isSignedIn
+        let client = self.client
+        Task(priority: .utility) { @MainActor [weak self] in
+            await Task.yield()
+            self?.refreshQuickActions()
+            CallManager.shared.attach(client: client, signedIn: signedIn)
+            ModulaImageDiskCache.trimInBackground()
+        }
         if auth.isSignedIn {
             // Off the boot path: one capability probe so the messaging socket (which carries
             // `call.updated`) runs and call buttons know whether the server enables calls.
@@ -396,6 +420,8 @@ final class AppEnvironment {
         await auth.signOut()
         drafts.setAccountID(nil)
         catalogue.dropAccountScope()
+        ModulaWarmCache.clearAll()
+        ModulaImageDiskCache.clear()
         if resetAppLock {
             appLock.resetAfterSignOut()
         }

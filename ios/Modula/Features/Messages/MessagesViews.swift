@@ -63,7 +63,12 @@ struct MessagesRootView: View {
 struct ConversationListView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var filter: InboxFilter = .all
+    /// Remembered across launches, so "Unread" stays on if that's how you triage.
+    @AppStorage("messages.inbox.filter") private var filterRaw = InboxFilter.all.rawValue
+    private var filter: InboxFilter {
+        get { InboxFilter(rawValue: filterRaw) ?? .all }
+        nonmutating set { filterRaw = newValue.rawValue }
+    }
     /// Remembered, so "Your circle" doesn't pop in and out each time you come back to the inbox.
     @AppStorage("messages.circle.open") private var circleOpen = false
     @State private var showCompose = false
@@ -221,7 +226,10 @@ struct ConversationListView: View {
             .task {
                 #if DEBUG
                 if MessagingDebugFixture.isEnabled {
-                    if app.messaging.conversations.isEmpty { app.messaging.installDebugInbox(MessagingDebugFixture.inbox()) }
+                    if app.messaging.conversations.isEmpty {
+                        app.messaging.installDebugInbox(MessagingDebugFixture.inbox())
+                        for id in ["fx-crew", "fx-sophia"] where !app.messaging.isPinned(id) { app.messaging.togglePin(id) }
+                    }
                     return
                 }
                 #endif
@@ -428,7 +436,7 @@ struct ConversationListView: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             ModulaGlassGroup(spacing: 6) {
                 HStack(spacing: 6) {
-                    ForEach(InboxFilter.allCases) { item in
+                    ForEach(InboxFilter.allCases + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])) { item in
                         let on = item == filter
                         Button {
                             guard item != filter else { return }
@@ -491,7 +499,31 @@ struct ConversationListView: View {
                 if !app.messaging.requests.isEmpty, filter == .all, !searching {
                     requestsEntry
                 }
-                ForEach(items) { conversation in
+                let pinnedCount = (filter == .all && !searching && !selecting)
+                    ? items.prefix(while: { pinned.contains($0.id) }).count : 0
+                if pinnedCount > 0 {
+                    InboxSectionHeader(title: "Pinned", symbol: "pin.fill", count: pinnedCount)
+                    ForEach(items.prefix(pinnedCount)) { inboxRow($0, lastID: items.last?.id) }
+                    if items.count > pinnedCount {
+                        InboxSectionHeader(title: "Chats", symbol: "bubble.left.and.bubble.right.fill", count: items.count - pinnedCount)
+                    }
+                    ForEach(items.dropFirst(pinnedCount)) { inboxRow($0, lastID: items.last?.id) }
+                } else {
+                    ForEach(items) { inboxRow($0, lastID: items.last?.id) }
+                }
+                if filter == .all, !searching, !selecting {
+                    inboxLibraryRows
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .modulaSoftScrollEdge()
+            .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
+        }
+    }
+
+    @ViewBuilder
+    private func inboxRow(_ conversation: Conversation, lastID: ConversationID?) -> some View {
                     Button {
                         if selecting {
                             if selectedIDs.contains(conversation.id) { selectedIDs.remove(conversation.id) }
@@ -556,20 +588,10 @@ struct ConversationListView: View {
                     }
                     .contextMenu { contextMenu(conversation) }
                     .onAppear {
-                        if conversation.id == items.last?.id {
+                        if conversation.id == lastID {
                             Task { await app.messaging.loadMoreConversations() }
                         }
                     }
-                }
-                if filter == .all, !searching, !selecting {
-                    inboxLibraryRows
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .modulaSoftScrollEdge()
-            .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
-        }
     }
 
     @ViewBuilder
@@ -673,6 +695,12 @@ struct ConversationListView: View {
         Button("Copy Name", systemImage: "doc.on.doc") {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
+        }
+        if let body = conversation.lastMessage?.body, !body.isEmpty {
+            Button("Copy Last Message", systemImage: "text.bubble") {
+                UIPasteboard.general.string = body
+                HapticEngine.shared.play(.confirmation)
+            }
         }
         if app.messaging.capabilities.mute {
             Button(conversation.isMuted ? "Unmute" : "Mute…", systemImage: conversation.isMuted ? "bell" : "bell.slash") {
@@ -863,6 +891,8 @@ struct MessageUnreadSeparator: View {
 /// Roadmap #07: bold, accent-coloured search matches (case and accent insensitive).
 enum MessageSearchHighlight {
     static func attributed(_ text: String, query: String, accent: Color) -> AttributedString {
+        // Fast path: not searching → no trimming/scanning per row per redraw.
+        if query.isEmpty { return AttributedString(text) }
         var result = AttributedString(text)
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return result }
@@ -1164,6 +1194,10 @@ struct ConversationView: View {
     @State private var replyQuote: String?
     @State private var composerFocused = false
     @State private var isAtBottom = true
+    @State private var didInitialScroll = false
+    @State private var floatingDay: String?
+    @State private var showsFloatingDay = false
+    @State private var floatingDayHide: Task<Void, Never>?
     @State private var pinnedBeforeKeyboard = false
     @State private var pinnedBeforeInfo = false
     @State private var unseenCount = 0
@@ -1351,6 +1385,14 @@ struct ConversationView: View {
                 }
             }
         .task {
+            #if DEBUG
+            if MessagingDebugFixture.isEnabled {
+                if app.messaging.messages(for: conversationID).isEmpty {
+                    app.messaging.installDebugThread(conversationID, messages: MessagingDebugFixture.thread(conversationID))
+                }
+                return
+            }
+            #endif
             await app.messaging.loadThreadIfNeeded(conversationID)
             await app.messaging.probeCapabilities()
             if app.messaging.capabilities.groups, conversation?.kind == .group {
@@ -1540,6 +1582,7 @@ struct ConversationView: View {
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.vertical, 12)
+                    .scrollTargetLayout()
                 }
                 // Only pin to the newest message while the reader is already there.
                 // Leaving this on while scrolling history yanks the thread when content size changes.
@@ -1548,6 +1591,40 @@ struct ConversationView: View {
                 .contentMargins(.bottom, 40, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
+                // Floating day chip (Liquid Glass) while scrolling history: fires only when
+                // the visible set changes, and only writes state when the day label does.
+                .onScrollTargetVisibilityChange(idType: MessageID.self, threshold: 0.3) { ids in
+                    let visible = Set(ids)
+                    guard !visible.isEmpty, let earliest = items.first(where: { visible.contains($0.id) })?.sentAt else { return }
+                    let label = MessageDayLabel.string(for: earliest)
+                    if label != floatingDay { floatingDay = label }
+                }
+                .onScrollPhaseChange { _, phase in
+                    if phase.isScrolling {
+                        floatingDayHide?.cancel()
+                        if !showsFloatingDay, !isAtBottom { withAnimation(.easeOut(duration: 0.15)) { showsFloatingDay = true } }
+                    } else if showsFloatingDay {
+                        floatingDayHide?.cancel()
+                        floatingDayHide = Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(1400))
+                            guard !Task.isCancelled else { return }
+                            withAnimation(.easeOut(duration: 0.25)) { showsFloatingDay = false }
+                        }
+                    }
+                }
+                .overlay(alignment: .top) {
+                    if showsFloatingDay, let floatingDay {
+                        Text(floatingDay)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                            .padding(.top, 8)
+                            .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
                 .onScrollGeometryChange(for: Bool.self) { geo in
                     geo.contentOffset.y + geo.containerSize.height >= geo.contentSize.height + geo.contentInsets.bottom - 80
                 } action: { _, atBottom in
@@ -1558,10 +1635,11 @@ struct ConversationView: View {
                     }
                     if atBottom, let last = items.last?.id { app.messaging.markReadLocally(last, in: conversationID) }
                 }
-                .onScrollGeometryChange(for: CGFloat.self) { geo in
-                    geo.contentOffset.y
-                } action: { _, y in
-                    prefetchOlderIfNeeded(y: y, items: items, proxy: proxy)
+                // Bool output: the action runs only when crossing the 280 pt line, not every frame.
+                .onScrollGeometryChange(for: Bool.self) { geo in
+                    geo.contentOffset.y < 280
+                } action: { _, nearTop in
+                    if nearTop { prefetchOlderIfNeeded(y: 0, items: items, proxy: proxy) }
                 }
                 // Roadmap #03: open at the first message that arrived since this device last
                 // reached the end of the chat, marked "New messages". Otherwise the newest.
@@ -1583,6 +1661,15 @@ struct ConversationView: View {
                 }
                 // Follow the conversation only when the reader is already at the end or just sent:
                 // never yank someone reading history (respect for the user's place = control).
+                // First page on screen (cache, fixture or network): start at the newest message,
+                // without animation, exactly once.
+                .task(id: items.isEmpty) {
+                    guard !items.isEmpty, !didInitialScroll, jumpTarget == nil else { return }
+                    didInitialScroll = true
+                    try? await Task.sleep(for: .milliseconds(30))
+                    var t = Transaction(); t.disablesAnimations = true
+                    withTransaction(t) { if let last = items.last?.id { proxy.scrollTo(last, anchor: .bottom) } }
+                }
                 .onChange(of: items.last?.id) { _, _ in
                     guard let last = items.last else { return }
                     if last.isOwn || isAtBottom {
@@ -2287,7 +2374,10 @@ struct MessageBubble: View {
     @State private var showsTime = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
-    @State private var rowFrame: CGRect = .zero
+    // Plain reference box: the row's on-screen frame is only needed when a long-press
+    // opens the focus menu, so writing it every scroll frame must not re-render the bubble.
+    @State private var rowFrameBox = ModulaFrameBox()
+    private var rowFrame: CGRect { rowFrameBox.frame }
     /// Roadmap #18: at accessibility text sizes bubbles use nearly the full width (smaller side
     /// gutter, no avatar column) so large text wraps less and stays readable.
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -2449,7 +2539,7 @@ struct MessageBubble: View {
             swipe: swipeToReply,
             onAction: onAction
         ))
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rowFrame = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rowFrameBox.frame = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(message.delivery == .failed ? "Not sent. Swipe up or down for Retry." : "")
@@ -2537,8 +2627,11 @@ struct MessageBubble: View {
     private var bubbleBackground: some View {
         if message.isOwn {
             bubbleShape.fill(ownGradient)
-        } else if reduceTransparency {
+        } else if reduceTransparency || !ModulaGlassSettings.shared.glassBubbles {
+            // Default: a flat fill + hairline. A live glass effect per received bubble
+            // re-sampled the wallpaper on every scroll frame.
             bubbleShape.fill(bubbleFill)
+                .overlay(bubbleShape.stroke(Color.primary.opacity(0.06), lineWidth: 0.5))
         } else {
             Color.clear.modulaGlass(in: bubbleShape, interactive: false)
         }
@@ -4519,5 +4612,45 @@ struct MessagesLiquidEdge: Shape {
         p.addLine(to: CGPoint(x: 0, y: h))
         p.closeSubpath()
         return p
+    }
+}
+
+
+/// "Today" / "Yesterday" / "Monday" / "3 Nov" / "3 Nov 2025" for the floating day chip.
+enum MessageDayLabel {
+    static func string(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+        if days < 7 { return date.formatted(.dateTime.weekday(.wide)) }
+        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            return date.formatted(.dateTime.day().month(.abbreviated))
+        }
+        return date.formatted(.dateTime.day().month(.abbreviated).year())
+    }
+}
+
+
+/// Liquid Glass section header for the inbox (Pinned / Chats). Static, so it costs nothing while scrolling.
+private struct InboxSectionHeader: View {
+    let title: String
+    let symbol: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.caption2.weight(.bold))
+            Text(title).font(.caption.weight(.semibold))
+            Text(count.formatted()).font(.caption2.weight(.bold)).monospacedDigit().foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .modulaGlass(in: Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .listRowInsets(EdgeInsets(top: 10, leading: ModulaLayout.contentInset, bottom: 2, trailing: ModulaLayout.contentInset))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }

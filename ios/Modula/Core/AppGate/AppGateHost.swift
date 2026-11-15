@@ -14,6 +14,7 @@ struct AppGateHost: View {
         }
         .task {
             await app.bootstrapLaunch()
+            ModulaPerf.mark("bootstrapDone")
         }
         .onOpenURL { url in
             app.handleIncomingURL(url)
@@ -26,6 +27,7 @@ struct AppGateHost: View {
             showPrivacyCover = shouldCover(scenePhase)
         }
         .onChange(of: app.gate.state) { _, state in
+            if state == .ready { ModulaPerf.mark("gateReady") }
             if state == .ready { UserDefaults.standard.removeObject(forKey: AppLockView.pendingKey) }
             showPrivacyCover = shouldCover(scenePhase)
         }

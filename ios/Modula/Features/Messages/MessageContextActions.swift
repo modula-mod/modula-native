@@ -219,7 +219,15 @@ enum MessagingDebugFixture {
             Message(id: mid, conversationID: id, sender: who, body: .text(text), sentAt: now.addingTimeInterval(-minutes * 60),
                     delivery: state, isOwn: who.id == viewerID, localDraft: state == .failed ? text : nil)
         }
-        return [
+        let lines = ["Morning!", "Did the build go out?", "Yes, TestFlight is processing.", "Nice — the glass sidebar looks great.",
+                     "Can you check the reels scrubber?", "On it.", "Buffered bar shows now.", "Love it"]
+        var history: [Message] = []
+        for day in stride(from: 5, through: 2, by: -1) {
+            for (i, text) in lines.enumerated() {
+                history.append(m("h\(day)-\(i)", i.isMultiple(of: 2) ? sophia : me, text, minutes: Double(day * 1440 - i * 7), .read))
+            }
+        }
+        return history + [
             m("t1", sophia, "Hey! Did you see the new Activity tab?", minutes: 60 * 25),
             m("t2", me, "Yes, the glass chips came out really nice.", minutes: 60 * 25 - 2, .read),
             m("t3", sophia, "Are you still working on the module SDK?", minutes: 6),
