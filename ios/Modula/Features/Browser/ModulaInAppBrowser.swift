@@ -2092,7 +2092,7 @@ private struct ModulaBrowserQRSheet: View {
                 .lineLimit(2)
                 .truncationMode(.middle)
             if let image {
-                ShareLink(item: Image(uiImage: image), preview: SharePreview("QR code", image: Image(uiImage: image))) {
+                ShareLink(item: Image(uiImage: image), preview: SwiftUI.SharePreview("QR code", image: Image(uiImage: image))) {
                     Label("Share QR code", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.modulaSecondary)

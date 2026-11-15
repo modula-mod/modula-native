@@ -1543,18 +1543,14 @@ struct ConversationView: View {
             _ = await (thread, probe)
             let kind = conversation?.kind
             let firstParticipant = conversation?.participants.first?.id
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { @MainActor in await messaging.loadMessagePins(id) }
-                if messaging.capabilities.groups, kind == .group {
-                    group.addTask { @MainActor in await messaging.loadGroup(id) }
-                }
-                if messaging.capabilities.presence, let actor = firstParticipant {
-                    group.addTask { @MainActor in await messaging.refreshPresence(for: [actor]) }
-                }
-                if calls.capabilities.enabled, kind == .direct {
-                    group.addTask { @MainActor in await calls.loadHistory(id) }
-                }
+            // build fix: the TaskGroup form tripped the region-based isolation checker.
+            async let pins: Void = messaging.loadMessagePins(id)
+            if messaging.capabilities.groups, kind == .group { await messaging.loadGroup(id) }
+            if messaging.capabilities.presence, let actor = firstParticipant {
+                await messaging.refreshPresence(for: [actor])
             }
+            if calls.capabilities.enabled, kind == .direct { await calls.loadHistory(id) }
+            _ = await pins
         }
         .onAppear { ModulaSignpost.begin("ChatOpen", conversationID) }
         .onDisappear { ModulaSignpost.end("ChatOpen", conversationID) }
@@ -3543,10 +3539,6 @@ struct MessagePersonRow: View {
 
 
 // MARK: - Messages v2 chrome
-
-/// Liquid Glass segmented control for Chats / In-Mail / Requests.
-/// The selected pill morphs between segments via `glassEffectID`.
-@available(iOS 26.0, *)
 
 /// Shimmering skeleton rows used while a list loads.
 struct MessagesSkeletonList: View {
