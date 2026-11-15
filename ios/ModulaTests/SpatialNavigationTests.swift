@@ -422,3 +422,26 @@ final class QuickTabNeighbourTests: XCTestCase {
         XCTAssertNil(ShellQuickTab.modules.neighbour(1))
     }
 }
+
+final class HomeSectionLayoutTests: XCTestCase {
+    func testDefaultShowsEverySectionInOrder() {
+        XCTAssertEqual(HomeSectionLayout.visible(HomeSectionLayout.defaultRaw), HomeSection.allCases)
+    }
+
+    func testHiddenAndReorderedRoundTrip() {
+        var entries = HomeSectionLayout.decode(HomeSectionLayout.defaultRaw)
+        entries.move(fromOffsets: IndexSet(integer: 0), toOffset: entries.count)
+        entries[0].visible = false
+        let raw = HomeSectionLayout.encode(entries)
+        XCTAssertEqual(HomeSectionLayout.decode(raw), entries)
+        XCTAssertFalse(HomeSectionLayout.visible(raw).contains(entries[0].section))
+        XCTAssertEqual(HomeSectionLayout.visible(raw).last, .stories)
+    }
+
+    func testUnknownAndDuplicateIdsAreDroppedAndNewSectionsAppended() {
+        let entries = HomeSectionLayout.decode("modules,bogus,modules,-stories")
+        XCTAssertEqual(entries.first?.section, .modules)
+        XCTAssertEqual(entries.count, HomeSection.allCases.count)
+        XCTAssertFalse(HomeSectionLayout.isVisible(.stories, in: "modules,bogus,modules,-stories"))
+    }
+}

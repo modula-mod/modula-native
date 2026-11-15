@@ -29,6 +29,8 @@ struct HomeView: View {
     @State private var editingQuickActions = false
     @State private var showsBackToTop = false
     @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
+    @AppStorage(HomeSectionLayout.storageKey) private var homeSectionsRaw = HomeSectionLayout.defaultRaw
+    @State private var editingHome = false
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -38,89 +40,24 @@ struct HomeView: View {
                     // Vertical rhythm on the spacing scale: sections 12pt apart, a section's own
                     // header and content 8pt apart (Gestalt proximity), matching the Home reference.
                     LazyVStack(alignment: .leading, spacing: ModulaSpacing.sm) {
-                        VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
-                            if !showsStoryTray { modeCaption }
-                            if showsStoryTray {
-                                let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
-                                HStack(alignment: .center, spacing: 10) {
-                                    // One header row: Stories + the feed caption ("Following").
-                                    Text("Stories")
-                                        .font(.headline)
-                                    Text(mode.heroSubtitle)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color.primary.opacity(0.72))
-                                        .lineLimit(1)
-                                        .accessibilityIdentifier("home.hero")
-                                        .accessibilityLabel(mode.heroTitle)
-                                    Spacer(minLength: 8)
-                                    Button {
-                                        app.navigation.push(.reels(.feed))
-                                        HapticEngine.shared.play(.navigation)
-                                    } label: {
-                                        Label("Reels", systemImage: "play.rectangle.fill")
-                                            .font(.caption2.weight(.bold))
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, 10)
-                                            .frame(height: 26)
-                                            .background(app.appearance.liveAccent.gradient, in: Capsule())
-                                            .contentShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 5, y: 2)
-                                    // 44pt hit area without shifting the pill off the content edge.
-                                    .padding(.vertical, 9)
-                                    .contentShape(Rectangle())
-                                    .accessibilityLabel("Watch Reels")
-                                    .accessibilityIdentifier("home.open-reels")
-                                }
-                                StoryTray(
-                                    groups: trayGroups,
-                                    compact: false,
-                                    onSelect: { group in Task { await openStory(group) } },
-                                    onCreate: {
-                                        app.navigation.push(.stories(.create))
-                                        HapticEngine.shared.play(.navigation)
-                                    }
-                                )
-                                // Edge to edge: bleed past both content insets so rings scroll off-screen
-                                // under the trailing fade instead of being clipped mid-ring.
-                                .padding(.leading, -(ModulaLayout.contentInset + leadingInteractionInset))
-                                .padding(.trailing, -(ModulaLayout.contentInset + trailingInteractionInset))
-                                .contentMargins(.leading, ModulaLayout.contentInset + leadingInteractionInset, for: .scrollContent)
-                                .transition(.opacity)
-                            }
-                            if app.home.isOfflineHint && !state.items.isEmpty {
-                                offlineBanner
-                            }
+                        // Sections in the order (and visibility) chosen in Edit Home; the feed stays last.
+                        ForEach(HomeSectionLayout.visible(homeSectionsRaw)) { section in
+                            homeSection(section, state: state)
                         }
+
+                        Button {
+                            editingHome = true
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Label("Edit Home", systemImage: "slider.horizontal.3")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                         .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                        .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-
-                        greetingHero
-                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                            .padding(.bottom, ModulaSpacing.xxs)
-
-                        // Quick actions sit on the page (not on the photo): primary text on glass
-                        // reads in light mode, where white-on-light-glass tiles were unreadable.
-                        greetingActions
-                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-
-                        if app.auth.isSignedIn {
-                            HomeComposerPrompt()
-                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                            HomeModulesBanner()
-                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                        }
-
-                        if HomeTodayFlags.isEnabled {
-                            HomeTodayCard()
-                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                        }
+                        .accessibilityIdentifier("home.edit")
 
                         feedFilterChips
                             .padding(.bottom, ModulaSpacing.xxs)
@@ -173,11 +110,14 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            HomeMascotCompanion()
-                .padding(.horizontal, 8)
-                .frame(height: 260)
-                .frame(maxHeight: .infinity, alignment: .bottom)
+            if HomeSectionLayout.isVisible(.moliboo, in: homeSectionsRaw) {
+                HomeMascotCompanion()
+                    .padding(.horizontal, 8)
+                    .frame(height: 260)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
         }
+        .sheet(isPresented: $editingHome) { HomeSectionEditor(raw: $homeSectionsRaw) }
         .background { HomeAmbientLayer(model: ambient, update: updateAmbient) }
         .modulaCanvas()
         .modulaSoftScrollEdge()
@@ -307,6 +247,106 @@ struct HomeView: View {
             return String(localized: "Messages, \(count) unread")
         }
         return "Messages"
+    }
+
+    // MARK: Customisable sections (Edit Home)
+
+    @ViewBuilder
+    private func homeSection(_ section: HomeSection, state: HomeModeState) -> some View {
+        let leading = ModulaLayout.contentInset + leadingInteractionInset
+        let trailing = ModulaLayout.contentInset + trailingInteractionInset
+        switch section {
+        case .stories:
+                            VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
+                                if !showsStoryTray { modeCaption }
+                                if showsStoryTray {
+                                    let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
+                                    HStack(alignment: .center, spacing: 10) {
+                                        // One header row: Stories + the feed caption ("Following").
+                                        Text("Stories")
+                                            .font(.headline)
+                                        Text(mode.heroSubtitle)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(Color.primary.opacity(0.72))
+                                            .lineLimit(1)
+                                            .accessibilityIdentifier("home.hero")
+                                            .accessibilityLabel(mode.heroTitle)
+                                        Spacer(minLength: 8)
+                                        Button {
+                                            app.navigation.push(.reels(.feed))
+                                            HapticEngine.shared.play(.navigation)
+                                        } label: {
+                                            Label("Reels", systemImage: "play.rectangle.fill")
+                                                .font(.caption2.weight(.bold))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 10)
+                                                .frame(height: 26)
+                                                .background(app.appearance.liveAccent.gradient, in: Capsule())
+                                                .contentShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 5, y: 2)
+                                        // 44pt hit area without shifting the pill off the content edge.
+                                        .padding(.vertical, 9)
+                                        .contentShape(Rectangle())
+                                        .accessibilityLabel("Watch Reels")
+                                        .accessibilityIdentifier("home.open-reels")
+                                    }
+                                    StoryTray(
+                                        groups: trayGroups,
+                                        compact: false,
+                                        onSelect: { group in Task { await openStory(group) } },
+                                        onCreate: {
+                                            app.navigation.push(.stories(.create))
+                                            HapticEngine.shared.play(.navigation)
+                                        }
+                                    )
+                                    // Edge to edge: bleed past both content insets so rings scroll off-screen
+                                    // under the trailing fade instead of being clipped mid-ring.
+                                    .padding(.leading, -(ModulaLayout.contentInset + leadingInteractionInset))
+                                    .padding(.trailing, -(ModulaLayout.contentInset + trailingInteractionInset))
+                                    .contentMargins(.leading, ModulaLayout.contentInset + leadingInteractionInset, for: .scrollContent)
+                                    .transition(.opacity)
+                                }
+                                if app.home.isOfflineHint && !state.items.isEmpty {
+                                    offlineBanner
+                                }
+                            }
+                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+        case .greeting:
+            greetingHero
+                .padding(.leading, leading)
+                .padding(.trailing, trailing)
+                .padding(.bottom, ModulaSpacing.xxs)
+        case .quickActions:
+            // Quick actions sit on the page (not on the photo): primary text on glass
+            // reads in light mode, where white-on-light-glass tiles were unreadable.
+            greetingActions
+                .padding(.leading, leading)
+                .padding(.trailing, trailing)
+        case .composer:
+            if app.auth.isSignedIn {
+                HomeComposerPrompt()
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+            }
+        case .modules:
+            if app.auth.isSignedIn {
+                HomeModulesBanner()
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+            }
+        case .today:
+            if HomeTodayFlags.isEnabled {
+                HomeTodayCard()
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+            }
+        case .moliboo:
+            // Moliboo is the floating companion overlay; this slot only controls visibility.
+            EmptyView()
+        }
     }
 
     /// Greeting hero (reference: scenic card, name in display type, glass quick actions inside the card).
@@ -1820,5 +1860,120 @@ private struct HomeModulesBanner: View {
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
         .accessibilityIdentifier("home.modules.banner")
+    }
+}
+
+// MARK: - Home sections (Edit Home)
+
+enum HomeSection: String, CaseIterable, Identifiable {
+    case stories, greeting, quickActions, composer, modules, today, moliboo
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .stories: "Stories"
+        case .greeting: "Greeting"
+        case .quickActions: "Quick actions"
+        case .composer: "What’s on your mind?"
+        case .modules: "Recently opened modules"
+        case .today: "Today"
+        case .moliboo: "Moliboo"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .stories: "circle.dashed"
+        case .greeting: "sun.max"
+        case .quickActions: "square.grid.2x2"
+        case .composer: "square.and.pencil"
+        case .modules: "shippingbox"
+        case .today: "calendar"
+        case .moliboo: "sparkles"
+        }
+    }
+}
+
+/// Persisted as one string: section ids in order, hidden ones prefixed with "-".
+/// Unknown ids are dropped; sections added in later versions append visible.
+enum HomeSectionLayout {
+    static let storageKey = "home.sections.v1"
+    static let defaultRaw = HomeSection.allCases.map(\.rawValue).joined(separator: ",")
+
+    struct Entry: Identifiable, Equatable {
+        let section: HomeSection
+        var visible: Bool
+        var id: String { section.rawValue }
+    }
+
+    static func decode(_ raw: String) -> [Entry] {
+        var seen = Set<HomeSection>()
+        var entries: [Entry] = []
+        for token in raw.split(separator: ",") {
+            let hidden = token.hasPrefix("-")
+            guard let section = HomeSection(rawValue: String(hidden ? token.dropFirst() : token)),
+                  seen.insert(section).inserted else { continue }
+            entries.append(Entry(section: section, visible: !hidden))
+        }
+        for section in HomeSection.allCases where !seen.contains(section) {
+            entries.append(Entry(section: section, visible: true))
+        }
+        return entries
+    }
+
+    static func encode(_ entries: [Entry]) -> String {
+        entries.map { ($0.visible ? "" : "-") + $0.section.rawValue }.joined(separator: ",")
+    }
+
+    static func visible(_ raw: String) -> [HomeSection] {
+        decode(raw).filter(\.visible).map(\.section)
+    }
+
+    static func isVisible(_ section: HomeSection, in raw: String) -> Bool {
+        decode(raw).first { $0.section == section }?.visible ?? true
+    }
+}
+
+/// Edit Home: show / hide and drag to reorder. Persists immediately; Reset restores defaults.
+struct HomeSectionEditor: View {
+    @Binding var raw: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var entries: [HomeSectionLayout.Entry] = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach($entries) { $entry in
+                        Toggle(isOn: $entry.visible) {
+                            Label(entry.section.title, systemImage: entry.section.symbol)
+                        }
+                        .accessibilityIdentifier("home.edit.\(entry.section.rawValue)")
+                    }
+                    .onMove { from, to in entries.move(fromOffsets: from, toOffset: to) }
+                } footer: {
+                    Text("Drag to reorder. Your feed always stays at the bottom.")
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Edit Home")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Reset") { entries = HomeSectionLayout.decode(HomeSectionLayout.defaultRaw) }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear { entries = HomeSectionLayout.decode(raw) }
+            .onChange(of: entries) { _, value in
+                raw = HomeSectionLayout.encode(value)
+                HapticEngine.shared.play(.selection)
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .accessibilityIdentifier("home.edit.sheet")
     }
 }
