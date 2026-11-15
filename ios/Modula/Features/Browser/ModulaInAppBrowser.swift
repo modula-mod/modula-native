@@ -532,11 +532,7 @@ struct ModulaInAppBrowserView: View {
             #endif
         }
         .background { browserShortcuts }
-        // VoiceOver: rotor actions for the browser controls from anywhere on screen.
-        .accessibilityAction(named: "Back") { if page.canGoBack { page.webView.goBack() } }
-        .accessibilityAction(named: "Forward") { if page.canGoForward { page.webView.goForward() } }
-        .accessibilityAction(named: "Reload") { page.reload() }
-        .accessibilityAction(named: "Show address") { showAddress = true }
+
         .sheet(isPresented: $showAddress) {
             ModulaBrowserAddressSheet(url: page.url, title: page.title) { url in
                 reader = nil
@@ -942,6 +938,10 @@ struct ModulaInAppBrowserView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Address, \(page.domain)")
             .accessibilityHint("Shows the full address")
+            // VoiceOver rotor actions on the address element.
+            .accessibilityAction(named: "Back") { if page.canGoBack { page.webView.goBack() } }
+            .accessibilityAction(named: "Forward") { if page.canGoForward { page.webView.goForward() } }
+            .accessibilityAction(named: "Reload") { page.reload() }
             if page.canGoForward {
                 Button { page.webView.goForward() } label: {
                     Image(systemName: "chevron.forward").frame(width: 30, height: 46)
