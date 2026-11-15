@@ -286,11 +286,13 @@ struct MolibooCollectionView: View {
 
                     HStack(spacing: 4) {
                         if selected {
-                            Image(systemName: "checkmark.circle.fill")
+                            // Selection mark: black/white, readable on any family colour in light and dark.
+                            Image(systemName: "checkmark")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(5)
-                                .background(teal, in: Circle())
+                                .foregroundStyle(Color(uiColor: .systemBackground))
+                                .padding(6)
+                                .background(Color.primary, in: Circle())
+                                .transition(.scale.combined(with: .opacity))
                         }
                         statusBadge(has3D: has3D, kind: kind, unlocked: unlocked)
                     }

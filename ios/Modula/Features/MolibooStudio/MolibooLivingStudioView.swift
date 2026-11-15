@@ -342,7 +342,6 @@ struct MolibooLivingStudioView: View {
                 Spacer()
                 Button("Done") { photoMode = false }
                     .buttonStyle(.modulaPrimary)
-                    .tint(teal)
                     .accessibilityIdentifier("studio.photo.done")
             }
             .padding()
