@@ -222,7 +222,7 @@ final class MessagingStore {
     }
 
     /// Branch on status + code, never on the message (contract conventions).
-    static func f4Error(_ error: Error, fallback: String) -> String {
+    nonisolated static func f4Error(_ error: Error, fallback: String) -> String {
         guard case APIError.rejected(let status, let code) = error else { return fallback }
         switch (status, code) {
         case (403, "CAPABILITY_DISABLED"): return "This isn't available right now."
