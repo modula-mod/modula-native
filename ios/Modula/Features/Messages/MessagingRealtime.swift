@@ -25,6 +25,10 @@ final class MessagingRealtimeClient {
         case postSubscribed(postID: String)
         /// Someone reacted to (or cleared a reaction on) one of my stories (`story.reaction`).
         case storyReaction(itemID: String)
+        /// Messaging features 4.
+        case messagePinned(conversationID: ConversationID)
+        case messageSaved(messageID: MessageID, saved: Bool)
+        case messagesExpired(conversationID: ConversationID, messageIDs: [MessageID])
         case error(String)
         case disconnected
     }
@@ -172,6 +176,15 @@ final class MessagingRealtimeClient {
             onEvent?(.postSubscribed(postID: post))
         case "post.unsubscribed":
             break
+        case "message.pinned":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.messagePinned(conversationID: conversation))
+        case "message.saved":
+            guard let message = value["messageId"]?.string else { return }
+            onEvent?(.messageSaved(messageID: message, saved: value["saved"]?.bool ?? false))
+        case "message.expired":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.messagesExpired(conversationID: conversation, messageIDs: (value["messageIds"]?.array ?? []).compactMap(\.string)))
         case "story.reaction":
             guard let item = value["itemId"]?.string else { return }
             onEvent?(.storyReaction(itemID: item))

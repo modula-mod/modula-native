@@ -2173,3 +2173,27 @@ final class MessagingV3ContractTests: XCTestCase {
         try JSONDecoder().decode(JSONValue.self, from: Data(raw.utf8))
     }
 }
+
+final class MessagingFeatures4Tests: XCTestCase {
+    private func json(_ s: String) throws -> JSONValue { try JSONDecoder().decode(JSONValue.self, from: Data(s.utf8)) }
+
+    func testFeatures4OffWhenMissingOrDisabled() throws {
+        let caps = try XCTUnwrap(MessagingPayloadDecoder.capabilitiesV3(from: try json(#"{"version":3,"pinnedMessages":{"enabled":false}}"#)))
+        XCTAssertEqual(caps.features4, MessagingFeatures4())
+        XCTAssertFalse(caps.features4.pinnedMessages)
+        XCTAssertTrue(caps.features4.notificationLevels.isEmpty)
+    }
+
+    func testFeatures4DecodesEnabledBlocks() throws {
+        let raw = """
+        {"version":3,"pinnedMessages":{"enabled":true,"max":10,"groupAdminsOnly":true},"savedMessages":{"enabled":true},
+         "editHistory":{"enabled":true},"disappearingMessages":{"enabled":true,"ttlOptionsSeconds":[3600,86400]},
+         "chatPins":{"enabled":true,"max":10},"notificationLevels":{"enabled":true,"levels":["all","mentions","none"]}}
+        """
+        let f4 = try XCTUnwrap(MessagingPayloadDecoder.capabilitiesV3(from: try json(raw))).features4
+        XCTAssertTrue(f4.pinnedMessages && f4.savedMessages && f4.editHistory && f4.chatPins && f4.disappearing)
+        XCTAssertEqual(f4.disappearingOptions, [3600, 86400])
+        XCTAssertEqual(f4.notificationLevels, ["all", "mentions", "none"])
+        XCTAssertEqual(MessagingFeatures4.ttlTitle(86400), "1 day")
+    }
+}

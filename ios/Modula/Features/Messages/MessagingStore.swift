@@ -99,9 +99,115 @@ final class MessagingStore {
     func isPinned(_ id: ConversationID) -> Bool { pinnedIDs.contains(id) }
 
     func togglePin(_ id: ConversationID) {
+        let pin = !pinnedIDs.contains(id)
+        let before = pinnedIDs
         if let i = pinnedIDs.firstIndex(of: id) { pinnedIDs.remove(at: i) }
         else { pinnedIDs.insert(id, at: 0); if pinnedIDs.count > MessagingPinStore.limit { pinnedIDs.removeLast() } }
         MessagingPinStore.save(pinnedIDs)
+        // Messaging features 4: chat pins sync per user when the server offers them.
+        guard capabilities.features4.chatPins else { return }
+        Task {
+            do { _ = try await repository.setChatPinned(conversation: id, pinned: pin) }
+            catch {
+                pinnedIDs = before
+                MessagingPinStore.save(before)
+                actionError = "Couldn't \(pin ? "pin" : "unpin") this chat."
+            }
+        }
+    }
+
+    // MARK: Messaging features 4
+
+    /// Message pins per chat (server list, newest first). Only filled when `pinnedMessages` is on.
+    private(set) var pinnedMessageIDs: [ConversationID: [MessageID]] = [:]
+    private static let chatPinMigrationKey = "messages.pins.migrated.v1"
+
+    /// Server becomes the source of truth for chat pins; local pins are POSTed once first.
+    private func adoptServerChatPins(_ items: [Conversation]) {
+        guard capabilities.features4.chatPins else { return }
+        let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: Self.chatPinMigrationKey) {
+            defaults.set(true, forKey: Self.chatPinMigrationKey)
+            let local = pinnedIDs
+            Task { for id in local.reversed() { _ = try? await repository.setChatPinned(conversation: id, pinned: true) } }
+            return
+        }
+        let server = items.filter(\.serverPinned)
+            .sorted { ($0.serverPinnedAt ?? .distantPast) > ($1.serverPinnedAt ?? .distantPast) }
+            .map(\.id)
+        let seen = Set(items.map(\.id))
+        // Keep pins for chats not in this page (pagination), replace the rest with the server's view.
+        let kept = pinnedIDs.filter { !seen.contains($0) }
+        let merged = server + kept
+        if merged != pinnedIDs { pinnedIDs = merged; MessagingPinStore.save(merged) }
+    }
+
+    func isMessagePinned(_ message: Message) -> Bool {
+        pinnedMessageIDs[message.conversationID]?.contains(message.id) == true
+    }
+
+    func loadMessagePins(_ conversation: ConversationID) async {
+        guard capabilities.features4.pinnedMessages else { return }
+        if let ids = try? await repository.pinnedMessageIDs(conversation: conversation) { pinnedMessageIDs[conversation] = ids }
+    }
+
+    func toggleMessagePin(_ message: Message) async {
+        guard capabilities.features4.pinnedMessages else { return }
+        let pin = !isMessagePinned(message)
+        let before = pinnedMessageIDs[message.conversationID] ?? []
+        pinnedMessageIDs[message.conversationID] = pin ? [message.id] + before : before.filter { $0 != message.id }
+        do { try await repository.setMessagePinned(conversation: message.conversationID, message: message.id, pinned: pin) }
+        catch {
+            pinnedMessageIDs[message.conversationID] = before
+            actionError = pin ? "Couldn't pin this message." : "Couldn't unpin this message."
+        }
+    }
+
+    /// Saved = the existing star, synced to the server when `savedMessages` is on.
+    func toggleSaved(_ message: Message) {
+        let save = !starredIDs.contains(message.id)
+        toggleStar(message.id)
+        guard capabilities.features4.savedMessages else { return }
+        Task {
+            do { try await repository.setMessageSaved(conversation: message.conversationID, message: message.id, saved: save) }
+            catch { toggleStar(message.id); actionError = "Couldn't update Saved." }
+        }
+    }
+
+    func editHistory(_ message: Message) async -> [MessageEditVersion]? {
+        guard capabilities.features4.editHistory else { return nil }
+        return try? await repository.editHistory(conversation: message.conversationID, message: message.id)
+    }
+
+    func setNotificationLevel(_ conversation: ConversationID, level: String) async {
+        guard capabilities.features4.notificationLevels.contains(level),
+              let index = conversations.firstIndex(where: { $0.id == conversation }) else { return }
+        let before = conversations[index].notificationLevel
+        conversations[index].notificationLevel = level
+        do {
+            let saved = try await repository.setNotificationLevel(conversation: conversation, level: level)
+            if let i = conversations.firstIndex(where: { $0.id == conversation }) { conversations[i].notificationLevel = saved }
+        } catch {
+            if let i = conversations.firstIndex(where: { $0.id == conversation }) { conversations[i].notificationLevel = before }
+            actionError = "Couldn't change notifications."
+        }
+    }
+
+    func setDisappearing(_ conversation: ConversationID, ttlSeconds: Int?) async {
+        guard capabilities.features4.disappearing else { return }
+        do {
+            let ttl = try await repository.setDisappearing(conversation: conversation, ttlSeconds: ttlSeconds)
+            if let i = conversations.firstIndex(where: { $0.id == conversation }) { conversations[i].disappearingTtlSeconds = ttl }
+        } catch {
+            actionError = "Only admins can change disappearing messages here."
+        }
+    }
+
+    func dropMessages(_ ids: [MessageID], in conversation: ConversationID) {
+        let drop = Set(ids)
+        guard !drop.isEmpty, let thread = threads[conversation] else { return }
+        threads[conversation] = thread.filter { !drop.contains($0.id) }
+        if var pins = pinnedMessageIDs[conversation] { pins.removeAll { drop.contains($0) }; pinnedMessageIDs[conversation] = pins }
     }
 
     func draftPreview(for id: ConversationID) -> String? {
@@ -819,10 +925,13 @@ final class MessagingStore {
 
     func messages(for id: ConversationID) -> [Message] {
         let raw = threads[id] ?? []  // read through `threads` so observation still tracks it
-        if let cached = chronologicalCache[id] { return cached }
-        let sorted = MessagingOrdering.messagesChronological(raw)
-        chronologicalCache[id] = sorted
-        return sorted
+        let sorted: [Message]
+        if let cached = chronologicalCache[id] { sorted = cached }
+        else { sorted = MessagingOrdering.messagesChronological(raw); chronologicalCache[id] = sorted }
+        // Disappearing messages: hide anything past `expiresAt` even before `message.expired` lands.
+        guard capabilities.features4.disappearing, sorted.contains(where: { $0.expiresAt != nil }) else { return sorted }
+        let now = Date()
+        return sorted.filter { ($0.expiresAt ?? .distantFuture) > now }
     }
 
     /// Sign-out / account switch: drop the previous account's in-memory data so the next
@@ -831,6 +940,7 @@ final class MessagingStore {
     /// (it kept reconnecting with the revoked session after sign-out).
     func resetForAccountChange() {
         livePostIDs = []
+        pinnedMessageIDs = [:]
         storyReactionPulse = [:]
         postCommentPulse = [:]
         postEngagement = [:]
@@ -1088,6 +1198,7 @@ final class MessagingStore {
     /// Reconciles a server inbox page with local archive/hide flags without inventing chats the API never returned,
     /// while keeping archived snapshots so the Archived folder still has something to show.
     private func adoptInbox(_ items: [Conversation], replacing: Bool) {
+        adoptServerChatPins(items)
         var incoming = items
         for index in incoming.indices {
             if archivedIDs.contains(incoming[index].id) {
@@ -1724,6 +1835,12 @@ extension MessagingStore {
             Task { await refreshUnreadSummary() }
         case .storyReaction(let item):
             storyReactionPulse[item, default: 0] &+= 1
+        case .messagePinned(let conversation):
+            Task { await loadMessagePins(conversation) }
+        case .messageSaved(let message, let saved):
+            if saved != starredIDs.contains(message) { toggleStar(message) }
+        case .messagesExpired(let conversation, let ids):
+            dropMessages(ids, in: conversation)
         case .postSubscribed(let post):
             livePostIDs.insert(post)
         case .postComments(let post):

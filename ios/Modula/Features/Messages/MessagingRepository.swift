@@ -383,6 +383,53 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         return value["markedUnread"]?.bool ?? unread
     }
 
+    // MARK: Messaging features 4 (store checks `capabilities.features4` first)
+
+    func setMessagePinned(conversation: ConversationID, message: MessageID, pinned: Bool) async throws {
+        _ = try await client.authenticatedJSON(pinned ? "POST" : "DELETE",
+                                               path: MessagingBackendCapabilities.Paths.messagePin(conversation, message))
+    }
+
+    func setMessageSaved(conversation: ConversationID, message: MessageID, saved: Bool) async throws {
+        _ = try await client.authenticatedJSON(saved ? "PUT" : "DELETE",
+                                               path: MessagingBackendCapabilities.Paths.messageSaved(conversation, message))
+    }
+
+    func editHistory(conversation: ConversationID, message: MessageID) async throws -> [MessageEditVersion] {
+        let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.messageEdits(conversation, message))
+        var versions = (value["versions"]?.array ?? []).map {
+            MessageEditVersion(text: $0["text"]?.string ?? "", at: MessagingPayloadDecoder.decodeDate($0["replacedAt"]?.string), current: false)
+        }
+        if let current = value["current"] {
+            versions.append(MessageEditVersion(text: current["text"]?.string ?? "",
+                                               at: MessagingPayloadDecoder.decodeDate(current["editedAt"]?.string), current: true))
+        }
+        return versions
+    }
+
+    func pinnedMessageIDs(conversation: ConversationID) async throws -> [MessageID] {
+        let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.conversationPins(conversation))
+        return (value["items"]?.array ?? []).compactMap { $0["messageId"]?.string }
+    }
+
+    func setChatPinned(conversation: ConversationID, pinned: Bool) async throws -> Bool {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.chatPin(conversation),
+                                                       body: .object(["pinned": .bool(pinned)]))
+        return value["pinned"]?.bool ?? pinned
+    }
+
+    func setNotificationLevel(conversation: ConversationID, level: String) async throws -> String {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.notificationLevel(conversation),
+                                                       body: .object(["level": .string(level)]))
+        return value["level"]?.string ?? level
+    }
+
+    func setDisappearing(conversation: ConversationID, ttlSeconds: Int?) async throws -> Int? {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.disappearing(conversation),
+                                                       body: .object(["ttlSeconds": ttlSeconds.map { .number(Double($0)) } ?? .null]))
+        return value["ttlSeconds"]?.int
+    }
+
     func presenceHeartbeat() async throws -> Int {
         let value: JSONValue = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.presenceHeartbeat, body: .object([:]))
         return value["onlineWindowMs"]?.int ?? 70_000

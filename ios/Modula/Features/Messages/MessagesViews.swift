@@ -702,6 +702,30 @@ struct ConversationListView: View {
                 Task { await app.messaging.markConversationUnread(conversation.id) }
             }
         }
+        if !app.messaging.capabilities.features4.notificationLevels.isEmpty {
+            Menu("Notifications", systemImage: "bell.badge") {
+                ForEach(app.messaging.capabilities.features4.notificationLevels, id: \.self) { level in
+                    Button {
+                        Task { await app.messaging.setNotificationLevel(conversation.id, level: level) }
+                    } label: {
+                        Label(MessagingNotificationLevel.title(level),
+                              systemImage: (conversation.notificationLevel ?? "all") == level ? "checkmark" : MessagingNotificationLevel.icon(level))
+                    }
+                }
+            }
+        }
+        if app.messaging.capabilities.features4.disappearing {
+            Menu("Disappearing Messages", systemImage: "timer") {
+                Button {
+                    Task { await app.messaging.setDisappearing(conversation.id, ttlSeconds: nil) }
+                } label: { Label("Off", systemImage: conversation.disappearingTtlSeconds == nil ? "checkmark" : "xmark.circle") }
+                ForEach(app.messaging.capabilities.features4.disappearingOptions, id: \.self) { ttl in
+                    Button {
+                        Task { await app.messaging.setDisappearing(conversation.id, ttlSeconds: ttl) }
+                    } label: { Label(MessagingFeatures4.ttlTitle(ttl), systemImage: conversation.disappearingTtlSeconds == ttl ? "checkmark" : "timer") }
+                }
+            }
+        }
         if let person = conversation.participants.first {
             Button("View Profile", systemImage: "person.crop.circle") { app.navigation.push(.profile(person.id, .overview)) }
         }
@@ -1217,6 +1241,7 @@ struct ConversationView: View {
     @State private var pinnedBeforeInfo = false
     @State private var unseenCount = 0
     @State private var forwarding: Message?
+    @State private var editHistoryFor: Message?
     @State private var showInfo = false
     @State private var jumpTarget: MessageID?
     @State private var replyTarget: Message?
@@ -1307,6 +1332,10 @@ struct ConversationView: View {
             }
             .sheet(item: $forwarding) { message in
                 ForwardMessageSheet(message: message, excluding: conversationID)
+            }
+            .sheet(item: $editHistoryFor) { message in
+                MessageEditHistorySheet(message: message)
+                    .presentationDetents([.medium, .large])
             }
             // Hold to react: full-screen, transparent, presented without the slide-up animation so
             // the bubble appears to lift in place over a blurred thread.
@@ -1410,6 +1439,7 @@ struct ConversationView: View {
             #endif
             await app.messaging.loadThreadIfNeeded(conversationID)
             await app.messaging.probeCapabilities()
+            await app.messaging.loadMessagePins(conversationID)
             if app.messaging.capabilities.groups, conversation?.kind == .group {
                 await app.messaging.loadGroup(conversationID)
             }
@@ -2050,7 +2080,12 @@ struct ConversationView: View {
         case "delete":
             unsending = message
         case "star":
-            app.messaging.toggleStar(message.id)
+            app.messaging.toggleSaved(message)
+        case "pinMessage":
+            HapticEngine.shared.play(.selection)
+            Task { await app.messaging.toggleMessagePin(message) }
+        case "editHistory":
+            editHistoryFor = message
         case "report":
             Task { _ = await app.messaging.report(message: message) }
         case let id where id.hasPrefix("react:"):
@@ -2494,8 +2529,25 @@ struct MessageBubble: View {
                         Image(systemName: "star.fill").font(.caption2).foregroundStyle(app.appearance.liveAccent)
                             .accessibilityHidden(true)
                     }
+                    if message.isForwarded && !message.isDeleted {
+                        Label(message.forwardedName.map { "Forwarded from \($0)" } ?? "Forwarded",
+                              systemImage: "arrowshape.turn.up.right")
+                            .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    if app.messaging.isMessagePinned(message) {
+                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary)
+                            .accessibilityLabel("Pinned")
+                    }
                     if message.editedAt != nil && !message.isDeleted {
-                        Text("Edited").font(.caption2).foregroundStyle(.secondary)
+                        if app.messaging.capabilities.features4.editHistory {
+                            Button { onAction(.init(id: "editHistory", title: "Edit History")) } label: {
+                                Text("Edited").font(.caption2).foregroundStyle(.secondary).underline()
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Shows earlier versions")
+                        } else {
+                            Text("Edited").font(.caption2).foregroundStyle(.secondary)
+                        }
                     }
                     if showsTime {
                         Text(MessageTimeline.label(for: message.sentAt))
@@ -2675,7 +2727,19 @@ struct MessageBubble: View {
             items.removeAll { $0.id == "delete" && local }
         }
         let starred = app.messaging.isStarred(message.id)
-        items.insert(.init(id: "star", title: starred ? "Unstar" : "Star", systemImage: starred ? "star.slash" : "star"), at: min(1, items.count))
+        let f4 = caps.features4
+        if f4.savedMessages, !local {
+            items.insert(.init(id: "star", title: starred ? "Unsave" : "Save", systemImage: starred ? "bookmark.slash" : "bookmark"), at: min(1, items.count))
+        } else {
+            items.insert(.init(id: "star", title: starred ? "Unstar" : "Star", systemImage: starred ? "star.slash" : "star"), at: min(1, items.count))
+        }
+        if f4.pinnedMessages, !local {
+            let pinned = app.messaging.isMessagePinned(message)
+            items.append(.init(id: "pinMessage", title: pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin"))
+        }
+        if f4.editHistory, message.editedAt != nil, !local {
+            items.append(.init(id: "editHistory", title: "Edit History", systemImage: "clock.arrow.circlepath"))
+        }
         if caps.reactions, !local {
             let emojis = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
             items.insert(.init(id: "react", title: "React", systemImage: "face.smiling",
@@ -4671,5 +4735,60 @@ private struct InboxSectionHeader: View {
         .listRowSeparator(.hidden)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+}
+
+enum MessagingNotificationLevel {
+    static func title(_ level: String) -> String {
+        switch level {
+        case "all": return "All Messages"
+        case "mentions": return "Mentions Only"
+        case "none": return "Nothing"
+        default: return level.capitalized
+        }
+    }
+    static func icon(_ level: String) -> String {
+        switch level {
+        case "mentions": return "at"
+        case "none": return "bell.slash"
+        default: return "bell"
+        }
+    }
+}
+
+/// Messaging features 4: `GET …/messages/:id/edits` (current + earlier versions, newest first here).
+struct MessageEditHistorySheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let message: Message
+    @State private var versions: [MessageEditVersion]?
+    @State private var failed = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let versions {
+                    List(versions.reversed()) { version in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(version.text.isEmpty ? " " : version.text)
+                            Text(version.current ? "Current" : (version.at.map { "Replaced \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "Earlier"))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                } else if failed {
+                    ContentUnavailableView("No history", systemImage: "clock.arrow.circlepath",
+                                           description: Text("This message's edit history isn't available."))
+                } else {
+                    ProgressView()
+                }
+            }
+            .navigationTitle("Edit History")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .task {
+            if let result = await app.messaging.editHistory(message) { versions = result } else { failed = true }
+        }
     }
 }

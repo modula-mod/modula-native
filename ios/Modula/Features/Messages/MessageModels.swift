@@ -91,6 +91,11 @@ struct Conversation: Identifiable, Hashable, Sendable {
     var group: ConversationGroupSummary? = nil
     /// Manually marked unread by me (`markUnread` capability). Never moves read receipts.
     var markedUnread = false
+    /// Messaging features 4 (all optional; nil / defaults on older servers).
+    var serverPinnedAt: Date? = nil
+    var serverPinned = false
+    var notificationLevel: String? = nil
+    var disappearingTtlSeconds: Int? = nil
 
     var title: String {
         if let titleOverride, !titleOverride.isEmpty { return titleOverride }
@@ -124,6 +129,11 @@ struct Message: Identifiable, Hashable, Sendable {
     var attachments: [MessageAttachment] = []
     var mentions: [MessageMention] = []
     var clientMessageId: String? = nil
+    /// Forwarded with attribution; `forwardedName == nil` + `isForwarded` = hidden by a block.
+    var isForwarded = false
+    var forwardedName: String? = nil
+    /// Disappearing timer at send time; dropped locally once passed.
+    var expiresAt: Date? = nil
 
     var previewText: String {
         if kind == .voice { return body.text.isEmpty ? "Voice note" : body.text }
@@ -228,6 +238,8 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var markUnread = false
     /// Live comment updates over this socket (`liveComments.enabled`). Off unless advertised.
     var liveComments: LiveCommentsCapability = .disabled
+    /// Messaging features 4 (migration 093). Every block off unless `enabled: true`.
+    var features4 = MessagingFeatures4()
 
     /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
     static let production = MessagingBackendCapabilities(
@@ -290,6 +302,19 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
         static func reactions(_ conversation: String, _ message: String) -> String {
             "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/reactions"
         }
+        static func messagePin(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/pin"
+        }
+        static func messageSaved(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/saved"
+        }
+        static func messageEdits(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/edits"
+        }
+        static func conversationPins(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/pins" }
+        static func chatPin(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/pin" }
+        static func notificationLevel(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/notifications" }
+        static func disappearing(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/disappearing" }
         static func receipts(_ conversation: String, _ message: String) -> String {
             "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/receipts"
         }
@@ -336,7 +361,11 @@ enum MessagingPayloadDecoder {
             isMuted: value["muted"]?.bool ?? false,
             isArchived: value["archived"]?.bool ?? false,
             group: value["group"].flatMap(groupSummary),
-            markedUnread: value["markedUnread"]?.bool ?? false
+            markedUnread: value["markedUnread"]?.bool ?? false,
+            serverPinnedAt: decodeDate(value["pinnedAt"]?.string),
+            serverPinned: value["pinned"]?.bool ?? false,
+            notificationLevel: value["notificationLevel"]?.string,
+            disappearingTtlSeconds: value["disappearingTtlSeconds"]?.int
         )
     }
 
@@ -375,7 +404,10 @@ enum MessagingPayloadDecoder {
             kind: kind,
             attachments: (value["attachments"]?.array ?? []).compactMap(attachment),
             mentions: (value["mentions"]?.array ?? []).compactMap(mention),
-            clientMessageId: value["clientMessageId"]?.string
+            clientMessageId: value["clientMessageId"]?.string,
+            isForwarded: { if case .object = value["forwardedFrom"] { return true } else { return false } }(),
+            forwardedName: value["forwardedFrom"]?["sender"]?["displayName"]?.string,
+            expiresAt: decodeDate(value["expiresAt"]?.string)
         )
     }
 
@@ -493,6 +525,7 @@ enum MessagingPayloadDecoder {
         caps.calls = CallPayloadDecoder.capabilities(value["calls"])
         caps.markUnread = value["markUnread"]?.bool ?? false
         caps.liveComments = LiveCommentsCapability(value["liveComments"])
+        caps.features4 = MessagingFeatures4(value)
         caps.privacyControls = !(value["privacyControls"]?.array ?? []).isEmpty
         caps.idempotentSend = value["idempotentSend"]?.bool ?? false
         let actions = Set((value["notificationActions"]?.array ?? []).compactMap(\.string))
@@ -831,4 +864,70 @@ struct LiveCommentsCapability: Hashable, Sendable {
         unsubscribeFrame = unsubscribe
         maxPostsPerSocket = max(value["maxPostsPerSocket"]?.int ?? 1, 1)
     }
+}
+
+/// Messaging features 4 capability blocks (`/v1/messaging/capabilities`, additive keys).
+struct MessagingFeatures4: Hashable, Sendable {
+    var pinnedMessages = false
+    var pinnedGroupAdminsOnly = true
+    var savedMessages = false
+    var editHistory = false
+    var disappearing = false
+    var disappearingOptions: [Int] = []
+    var chatPins = false
+    var chatPinsMax = 0
+    var notificationLevels: [String] = []
+    /// Parsed for later rounds (no UI yet): scheduled, folders, quick replies, forwarding, themes.
+    var scheduled = false
+    var chatFolders = false
+    var quickReplies = false
+    var forwarding = false
+    var chatThemes: [String] = []
+
+    init() {}
+
+    init(_ value: JSONValue) {
+        func on(_ key: String) -> JSONValue? { value[key]?["enabled"]?.bool == true ? value[key] : nil }
+        if let block = on("pinnedMessages") {
+            pinnedMessages = true
+            pinnedGroupAdminsOnly = block["groupAdminsOnly"]?.bool ?? true
+        }
+        savedMessages = on("savedMessages") != nil
+        editHistory = on("editHistory") != nil
+        if let block = on("disappearingMessages") {
+            disappearingOptions = (block["ttlOptionsSeconds"]?.array ?? []).compactMap(\.int).filter { $0 > 0 }
+            disappearing = !disappearingOptions.isEmpty
+        }
+        if let block = on("chatPins") {
+            chatPins = true
+            chatPinsMax = block["max"]?.int ?? 10
+        }
+        if let block = on("notificationLevels") {
+            notificationLevels = (block["levels"]?.array ?? []).compactMap(\.string)
+        }
+        scheduled = on("scheduledMessages") != nil
+        chatFolders = on("chatFolders") != nil
+        quickReplies = on("quickReplies") != nil
+        forwarding = on("forwarding") != nil
+        chatThemes = (on("chatThemes")?["themes"]?.array ?? []).compactMap(\.string)
+    }
+
+    static func ttlTitle(_ seconds: Int) -> String {
+        switch seconds {
+        case 3600: return "1 hour"
+        case 86400: return "1 day"
+        case 604800: return "1 week"
+        case 7776000: return "90 days"
+        default:
+            let days = seconds / 86400
+            return days > 0 ? "\(days) days" : "\(max(seconds / 3600, 1)) hours"
+        }
+    }
+}
+
+struct MessageEditVersion: Hashable, Sendable, Identifiable {
+    let text: String
+    let at: Date?
+    let current: Bool
+    var id: String { "\(current)-\(at?.timeIntervalSince1970 ?? 0)-\(text)" }
 }
