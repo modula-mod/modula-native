@@ -251,10 +251,10 @@ struct ReelQuickMenu: View {
                     onRate(Float(value)); onDismiss()
                 } label: {
                     HStack {
-                        Text(value == 1 ? "Normal" : String(format: "%.1g×", value))
+                        Text(value == 1 ? "Normal" : String(format: "%g×", value))  // %.1g printed 1.5 as "2×"
                         Spacer()
                         if abs(Double(rate) - value) < 0.05 {
-                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                            Image(systemName: "checkmark").foregroundStyle(Color.primary)
                         }
                     }
                     .padding(.horizontal, 16).frame(minHeight: 44)

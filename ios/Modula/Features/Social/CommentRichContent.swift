@@ -57,7 +57,7 @@ struct CommentPollView: View {
                     HapticEngine.shared.play(.selection)
                 } label: {
                     HStack {
-                        if poll.viewerVote == index { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor) }
+                        if poll.viewerVote == index { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.primary) }
                         Text(option).font(.subheadline).lineLimit(2)
                         Spacer()
                         if showsResults { Text("\(Int((fraction * 100).rounded()))%").font(.caption.monospacedDigit().weight(.semibold)) }
