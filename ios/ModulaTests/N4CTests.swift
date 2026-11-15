@@ -3,6 +3,7 @@ import ImageIO
 import Network
 import UIKit
 import WebKit
+import SwiftUI
 import XCTest
 @testable import Modula
 
@@ -2293,5 +2294,78 @@ final class MessagingFeatures4UITests: XCTestCase {
         let errorText = MessagingStore.f4Error(APIError.rejected(403, "FORBIDDEN"), fallback: "x")
         XCTAssertEqual(errorText, "Only group admins can change this.")
         XCTAssertEqual(MessagingStore.f4Error(APIError.rejected(403, "CAPABILITY_DISABLED"), fallback: "x"), "This isn't available right now.")
+    }
+}
+
+// MARK: - t169u component unification
+
+/// Mirrors `scripts/verify-boundaries.py`: one segmented control, one sheet style, no accent action buttons.
+final class ModulaComponentUnificationTests: XCTestCase {
+    private struct Rule {
+        let pattern: String
+        let label: String
+        var allowedFiles: Set<String> = []
+    }
+
+    private let rules: [Rule] = [
+        Rule(pattern: #"\.pickerStyle\(\.segmented\)"#, label: "system segmented Picker"),
+        Rule(pattern: #"\b(?:ModulaTabStrip|ModulaTabIndicator|ModulaEffectTabs|DiscoverScopeGlass|MessagesGlassScopeControl|ModulaMetricPicker)\b"#,
+             label: "removed bespoke segmented variant"),
+        Rule(pattern: #"matchedGeometryEffect\(id:\s*"[^"]*(?:pill|tab|segment|chip|scope|filter|thumb|mode)"#,
+             label: "bespoke sliding selection indicator", allowedFiles: ["ModulaTabsAndSpaces.swift"]),
+        Rule(pattern: #"modulaAccentCTA|\.borderedProminent\b"#, label: "accent-filled action button"),
+        Rule(pattern: #"\.tint\((?:app|environment)\.appearance\.liveAccent\)"#, label: "accent-tinted control"),
+        Rule(pattern: #"modulaGlass\([^\n]*tint:\s*(?:app\.appearance\.liveAccent|accent)\b[^\n]*prominent:\s*true"#,
+             label: "accent-filled glass button"),
+        Rule(pattern: #"\.presentationCornerRadius\("#, label: "bespoke sheet corner radius"),
+        Rule(pattern: #"\.presentationDragIndicator\("#, label: "bespoke sheet grabber",
+             allowedFiles: ["ModulaGlass.swift", "ModulaSheet.swift"]),
+    ]
+
+    private var sourceRoot: URL {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "Modula")
+    }
+
+    func testSourceTreeHasOneSegmentedControlAndNoAccentButtons() throws {
+        guard let enumerator = FileManager.default.enumerator(at: sourceRoot, includingPropertiesForKeys: nil) else {
+            throw XCTSkip("Source tree not reachable from the test host")
+        }
+        let compiled = try rules.map { ($0, try NSRegularExpression(pattern: $0.pattern)) }
+        var violations: [String] = []
+        var scanned = 0
+        for case let url as URL in enumerator where url.pathExtension == "swift" {
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            scanned += 1
+            let code = text.split(separator: "\n", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces).hasPrefix("//") ? "" : String($0) }
+                .joined(separator: "\n")
+            let range = NSRange(code.startIndex..., in: code)
+            for (rule, regex) in compiled where !rule.allowedFiles.contains(url.lastPathComponent) {
+                for match in regex.matches(in: code, range: range) {
+                    let prefix = (code as NSString).substring(to: match.range.location)
+                    let line = prefix.reduce(1) { $1 == "\n" ? $0 + 1 : $0 }
+                    violations.append("\(rule.label): \(url.lastPathComponent):\(line)")
+                }
+            }
+        }
+        if scanned == 0 { throw XCTSkip("Source tree not reachable from the test host") }
+        XCTAssertEqual(violations, [], violations.joined(separator: "\n"))
+    }
+
+    func testSegmentedControlScrollsPastFiveSegments() {
+        XCTAssertEqual(ModulaSegmentedControl<Int>.maxFixedSegments, 5)
+    }
+
+    @MainActor
+    func testPrimaryButtonColoursAreNeutralNotAccent() {
+        let light = UITraitCollection(userInterfaceStyle: .light)
+        let dark = UITraitCollection(userInterfaceStyle: .dark)
+        let fill = UIColor(Color.modulaPrimaryFill)
+        let label = UIColor(Color.modulaOnPrimary)
+        // Solid black on light, solid white on dark; label inverted.
+        XCTAssertEqual(fill.resolvedColor(with: light), UIColor.label.resolvedColor(with: light))
+        XCTAssertEqual(fill.resolvedColor(with: dark), UIColor.label.resolvedColor(with: dark))
+        XCTAssertEqual(label.resolvedColor(with: light), UIColor.systemBackground.resolvedColor(with: light))
+        XCTAssertEqual(label.resolvedColor(with: dark), UIColor.systemBackground.resolvedColor(with: dark))
     }
 }
