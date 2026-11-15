@@ -336,7 +336,7 @@ struct CommunityBuildersView: View {
             Divider().padding(.leading, 64)
             CommunityInfoRow(symbol: "person.3", tint: accent, title: community.summary.memberCount == 1 ? "1 member" : "\(community.summary.memberCount) members", subtitle: memberSubtitle(community.summary.membership))
             Divider().padding(.leading, 64)
-            CommunityInfoRow(symbol: "calendar", tint: accent, title: "\(app.communities.events.count) events", subtitle: "Server-persisted community schedule")
+            CommunityInfoRow(symbol: "calendar", tint: accent, title: app.communities.events.count == 1 ? "1 event" : "\(app.communities.events.count) events", subtitle: "Server-persisted community schedule")
         }
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
     }

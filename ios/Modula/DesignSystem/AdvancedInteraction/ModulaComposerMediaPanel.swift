@@ -593,7 +593,7 @@ struct ModulaStickerPicker: View {
                         Text(pack.emoji.prefix(5).joined()).font(.title3)
                         VStack(alignment: .leading) {
                             Text(pack.title).font(.subheadline.weight(.semibold))
-                            Text("\(pack.emoji.count) stickers").font(.caption).foregroundStyle(.secondary)
+                            Text(pack.emoji.count == 1 ? "1 sticker" : "\(pack.emoji.count) stickers").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Button { editingPack = pack } label: { Image(systemName: "pencil").frame(width: 36, height: 36) }

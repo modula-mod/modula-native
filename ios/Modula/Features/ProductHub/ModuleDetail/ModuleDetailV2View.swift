@@ -491,11 +491,11 @@ struct ModuleDetailV2View: View {
                     Text(String(format: "%.1f", average)).font(.system(size: 52, weight: .bold, design: .rounded))
                     VStack(alignment: .leading) {
                         Text(stars(average)).foregroundStyle(.orange)
-                        Text("\(listing.ratingCount) ratings").font(.caption).foregroundStyle(.secondary)
+                        Text(listing.ratingCount == 1 ? "1 rating" : "\(listing.ratingCount) ratings").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Rated \(String(format: "%.1f", average)) out of 5 from \(listing.ratingCount) ratings")
+                .accessibilityLabel("Rated \(String(format: "%.1f", average)) out of 5 from \(listing.ratingCount) \(listing.ratingCount == 1 ? "rating" : "ratings")")
             } else {
                 Text("This module hasn’t received enough ratings yet.").foregroundStyle(.secondary)
             }
@@ -569,7 +569,7 @@ struct ModuleDetailV2View: View {
                 .disabled(allowingPermissions)
                 .accessibilityIdentifier("module.permissions.allow-remaining")
             } else if installationGrants != nil, !declared.isEmpty {
-                Text("All \(declared.count) permissions are granted.")
+                Text(declared.count == 1 ? "The 1 permission is granted." : "All \(declared.count) permissions are granted.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

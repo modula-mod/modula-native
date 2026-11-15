@@ -641,7 +641,7 @@ struct StoryCaptureStage: View {
         }
         .frame(height: 8)
         .accessibilityElement()
-        .accessibilityLabel("\(clips.count) clips recorded")
+        .accessibilityLabel(clips.count == 1 ? "1 clip recorded" : "\(clips.count) clips recorded")
     }
 
     private func undoClip() {
@@ -856,7 +856,7 @@ struct StoryCaptureStage: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(engine.isRecording || merging)
-                    .accessibilityLabel("Done, use \(clips.count) clips")
+                    .accessibilityLabel(clips.count == 1 ? "Done, use 1 clip" : "Done, use \(clips.count) clips")
                 } else {
                     Color.clear.frame(width: 44, height: 44)
                 }

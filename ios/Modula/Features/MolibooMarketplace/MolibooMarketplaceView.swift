@@ -222,7 +222,7 @@ struct MolibooMarketplaceView: View {
                 let members = registry.characters(in: fam.id)
                 Button { path.append(fam.id) } label: {
                     MolibooHeroBanner(eyebrow: "\(fam.label.uppercased()) · \(rangeLabel(fam))", title: fam.name,
-                                      subtitle: fam.artDirection ?? "\(members.count) characters",
+                                      subtitle: fam.artDirection ?? (members.count == 1 ? "1 character" : "\(members.count) characters"),
                                       colors: MolibooFamilyStyle.gradient(fam), kind: members.first?.kind, action: nil, compact: true)
                 }
                 .buttonStyle(MolibooSpringPressStyle())

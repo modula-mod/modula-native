@@ -163,7 +163,7 @@ struct MolibooOutfitsPanel: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(outfit.name).font(.headline)
-                Text("\(outfit.itemIds.count) pieces").font(.caption).foregroundStyle(.secondary)
+                Text(outfit.itemIds.count == 1 ? "1 piece" : "\(outfit.itemIds.count) pieces").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             Button("Wear") { Task { await store.equip(saved: outfit) } }.buttonStyle(.modulaPrimary).controlSize(.small)
