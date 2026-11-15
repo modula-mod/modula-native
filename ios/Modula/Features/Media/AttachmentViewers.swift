@@ -77,6 +77,7 @@ struct ModulaVideoViewer: View {
     @State private var controller = ModulaVideoPlaybackController()
     @State private var download = AttachmentDownloadModel()
     @State private var chromeHidden = false
+    @State private var stageWidth: CGFloat = 0
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
@@ -94,6 +95,16 @@ struct ModulaVideoViewer: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { stageWidth = $0 }
+                    // Double-tap the left/right third: back/forward 10 s (t176u).
+                    .onTapGesture(count: 2) { location in
+                        guard stageWidth > 0 else { return }
+                        let third = stageWidth / 3
+                        if location.x < third { controller.skip(by: -10) }
+                        else if location.x > third * 2 { controller.skip(by: 10) }
+                        else { controller.toggle(); return }
+                        HapticEngine.shared.play(.selection)
+                    }
                     .onTapGesture {
                         withAnimation(.easeOut(duration: 0.18)) { chromeHidden.toggle() }
                     }

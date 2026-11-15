@@ -1417,6 +1417,14 @@ enum ModulaBrowserWarmup {
     private static var warmView: WKWebView?
     private static var warmed = false
 
+    /// Settings → Links → "Clear browsing data": history, cookies/caches of this session's
+    /// shared store, and remembered per-site text sizes.
+    static func clearBrowsingData() async {
+        ModulaBrowserHistory.clear()
+        UserDefaults.standard.removeObject(forKey: "browser.siteZoom.v1")
+        await sharedStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+    }
+
     static func warm() {
         guard !warmed else { return }
         warmed = true

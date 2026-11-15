@@ -576,6 +576,14 @@ struct ChatsSettingsHost: View {
                     if openLinksInApp {
                         Toggle("Block trackers", isOn: $blockTrackers)
                             .accessibilityIdentifier("settings.links.blockTrackers")
+                        Button("Clear browsing data", role: .destructive) {
+                            Task {
+                                await ModulaBrowserWarmup.clearBrowsingData()
+                                HapticEngine.shared.play(.success)
+                                ModulaToastCenter.shared.show("Browsing data cleared", symbol: "checkmark.circle")
+                            }
+                        }
+                        .accessibilityIdentifier("settings.links.clearData")
                     }
                 } header: {
                     Text("Links")

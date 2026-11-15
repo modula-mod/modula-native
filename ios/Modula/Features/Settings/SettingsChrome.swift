@@ -854,6 +854,7 @@ struct BatteryNetworkSettingsPage: View {
     @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true
     @AppStorage("settings.network.preferWiFiUploads") private var preferWiFi = true
     @AppStorage("settings.network.preloadMedia") private var preload = true
+    @AppStorage("settings.network.autoplayCellular") private var autoplayCellular = true
 
     var body: some View {
         SettingsScrollCanvas {
@@ -868,6 +869,9 @@ struct BatteryNetworkSettingsPage: View {
                 SettingsTileToggle(title: "Prefer Wi‑Fi for large uploads", symbol: "network", isOn: $preferWiFi)
                 SettingsDivider()
                 SettingsTileToggle(title: "Preload feed media on Wi‑Fi", symbol: "arrow.down.circle.fill", isOn: $preload)
+                SettingsDivider()
+                SettingsTileToggle(title: "Autoplay videos on cellular", symbol: "play.rectangle.on.rectangle", isOn: $autoplayCellular)
+                    .settingsAnchor("network.autoplayCellular")
             }
         }
         .navigationTitle("Battery & Network")

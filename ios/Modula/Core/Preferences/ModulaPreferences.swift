@@ -131,8 +131,13 @@ enum ModulaPreferences {
         if systemReduceMotion || extraMotionReduction { return false }
         if lowPowerMode && pauseAutoplayOnLowPower { return false }
         if dataSaver && expensiveNetwork { return false }
+        // Settings → Battery & Network → "Autoplay on cellular".
+        if expensiveNetwork && !autoplayOnCellular { return false }
         return true
     }
+
+    /// Feed videos autoplay on cellular / Low Data Mode networks (default on; tapping always plays).
+    static var autoplayOnCellular: Bool { bool("settings.network.autoplayCellular", true) }
 
     /// Whether a feed video should be fetched before the user taps it.
     static func prefetchesVideo(expensiveNetwork: Bool = NetworkConditions.shared.isExpensive) -> Bool {

@@ -256,12 +256,28 @@ struct ModulaPostImageGallery: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 330)
+            .onChange(of: page) { _, _ in HapticEngine.shared.play(.selection) }
             Text("\(page + 1) / \(attachments.count)")
                 .font(.caption2.monospacedDigit().weight(.bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 9).padding(.vertical, 5)
                 .background(.black.opacity(0.56), in: Capsule())
                 .padding(ModulaSpacing.xs)
+            // Carousel dots (t176u): up to 10 pages, current one wider.
+            HStack(spacing: 5) {
+                ForEach(0..<min(attachments.count, 10), id: \.self) { index in
+                    Capsule()
+                        .fill(.white.opacity(index == page ? 1 : 0.5))
+                        .frame(width: index == page ? 14 : 6, height: 6)
+                }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(.black.opacity(0.32), in: Capsule())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 10)
+            .animation(.snappy(duration: 0.22), value: page)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Image gallery")
