@@ -586,7 +586,7 @@ struct ShellAccessoryHost: View {
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Next context") { page = (page + 1) % Self.pageTitles.count }
         .accessibilityAction(named: "Installed modules") {
-            PresentationCoordinator.present(.installedModules, in: app.navigation)
+            app.navigation.openModulesDock()
         }
         .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
         .accessibilityIdentifier("tab.accessory")
@@ -1074,19 +1074,32 @@ private struct AccessoryModulesLift: ViewModifier {
 
     private func present() {
         HapticEngine.shared.play(.contextOpen)
-        PresentationCoordinator.present(.installedModules, in: app.navigation)
+        app.navigation.openModulesDock()
     }
 }
 
 /// Sheet of modules the signed-in account actually has installed. Opens `/module/:id`.
 /// Generic host: only catalogue metadata (name, publisher, kind, icon) — never a module's own UI.
 struct InstalledModulesPanel: View {
+    /// Set when hosted by the spatial Modules Dock instead of a system sheet.
+    var dockState: SpatialDockState? = nil
+    var onClose: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var query = ""
     @State private var filter: InstalledModulesFilter = .all
+    @AppStorage(ModulesDockPrefs.sortKey) private var sortRaw = ModulesDockSort.standard.rawValue
+    @AppStorage(ModulesDockPrefs.pinnedKey) private var pinnedRaw = ""
     @FocusState private var searchFocused: Bool
+
+    private var isHalfDock: Bool { dockState == .half }
+    private var pinned: [String] { ModulesDockPrefs.decode(pinnedRaw) }
+    private var sort: ModulesDockSort { ModulesDockSort(rawValue: sortRaw) ?? .standard }
+
+    private func closePanel() {
+        if let onClose { onClose() } else { dismiss() }
+    }
 
     private var installed: [CatalogueProduct] {
         app.catalogue.products.filter { app.catalogue.installedIDs.contains($0.moduleId) }
@@ -1119,11 +1132,43 @@ struct InstalledModulesPanel: View {
         case .kind(let kind):
             list = list.filter { $0.productKind == kind }
         }
+        if filter != .recent {
+            switch sort {
+            case .standard: break
+            case .name: list.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            case .recent:
+                let order = ProductHubRecents.load()
+                list.sort { (order.firstIndex(of: $0.moduleId) ?? .max) < (order.firstIndex(of: $1.moduleId) ?? .max) }
+            }
+        }
+        // Pinned first, in the order they were pinned (Move earlier/later rearranges).
+        let pins = pinned
+        if !pins.isEmpty {
+            list = ModulesDockPrefs.pinnedFirst(list, pins: pins, id: \.moduleId)
+        }
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isHalfDock {
+            // Half detent: favourites (pinned) + recently used only; drag up for everything.
+            let recents = Set(ProductHubRecents.load())
+            let quick = list.filter { pins.contains($0.moduleId) || recents.contains($0.moduleId) }
+            return Array((quick.isEmpty ? list : quick).prefix(8))
+        }
         guard !needle.isEmpty else { return list }
         return list.filter {
             $0.name.localizedCaseInsensitiveContains(needle) || $0.publisherName.localizedCaseInsensitiveContains(needle)
         }
+    }
+
+    private func togglePin(_ id: String) {
+        var pins = pinned
+        if let index = pins.firstIndex(of: id) { pins.remove(at: index) } else { pins.append(id) }
+        pinnedRaw = ModulesDockPrefs.encode(pins)
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func movePin(_ id: String, by delta: Int) {
+        pinnedRaw = ModulesDockPrefs.encode(ModulesDockPrefs.move(pinned, id: id, by: delta))
+        HapticEngine.shared.play(.selection)
     }
 
     var body: some View {
@@ -1131,10 +1176,12 @@ struct InstalledModulesPanel: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
-                    searchField
-                    if app.auth.isSignedIn, installed.count > 0 { chipRow }
+                    if !isHalfDock {
+                        searchField
+                        if app.auth.isSignedIn, installed.count > 0 { chipRow }
+                    }
                     content
-                    exploreBanner
+                    if !isHalfDock { exploreBanner }
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.top, 4)
@@ -1143,10 +1190,24 @@ struct InstalledModulesPanel: View {
             .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                    Button { closePanel() } label: { Image(systemName: "xmark") }
                         .accessibilityLabel("Close")
                 }
+                if !isHalfDock {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Picker("Sort", selection: $sortRaw) {
+                                ForEach(ModulesDockSort.allCases, id: \.rawValue) { option in
+                                    Text(option.title).tag(option.rawValue)
+                                }
+                            }
+                        } label: { Image(systemName: "arrow.up.arrow.down") }
+                        .accessibilityLabel("Sort modules")
+                        .accessibilityIdentifier("accessory.modules.sort")
+                    }
+                }
             }
+            .toolbar(dockState == nil ? .visible : .hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .task { await app.catalogue.load() }
             .onChange(of: filters) { _, chips in
@@ -1170,6 +1231,17 @@ struct InstalledModulesPanel: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
+            if dockState != nil {
+                Button { closePanel() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close Modules Dock")
+                .accessibilityIdentifier("spatial.dock.close")
+            }
             Button {
                 openHub()
             } label: {
@@ -1274,7 +1346,7 @@ struct InstalledModulesPanel: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: 4), spacing: 18) {
                 ForEach(shown) { product in
                     Button {
-                        dismiss()
+                        closePanel()
                         app.navigation.open(.module(product.moduleId, localPath: nil))
                         HapticEngine.shared.play(.navigation)
                     } label: {
@@ -1302,6 +1374,30 @@ struct InstalledModulesPanel: View {
                     .accessibilityLabel(product.name)
                     .accessibilityHint("Opens \(product.name)")
                     .accessibilityIdentifier("accessory.module.\(product.moduleId)")
+                    // Long-press: pin / arrange, with a card preview (registry metadata only).
+                    .contextMenu {
+                        let isPinned = pinned.contains(product.moduleId)
+                        Button(isPinned ? "Unpin from Dock" : "Pin to Dock",
+                               systemImage: isPinned ? "pin.slash" : "pin") { togglePin(product.moduleId) }
+                        if isPinned {
+                            Button("Move Earlier", systemImage: "arrow.left") { movePin(product.moduleId, by: -1) }
+                            Button("Move Later", systemImage: "arrow.right") { movePin(product.moduleId, by: 1) }
+                        }
+                        Button("Open", systemImage: "arrow.up.forward.app") {
+                            closePanel()
+                            app.navigation.open(.module(product.moduleId, localPath: nil))
+                        }
+                    } preview: {
+                        HStack(spacing: 12) {
+                            ProductArtwork(product: product, size: 58)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(product.name).font(.headline)
+                                Text(product.publisherName).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(16)
+                        .frame(width: 280, alignment: .leading)
+                    }
                 }
             }
             .padding(.top, 4)
@@ -1340,9 +1436,53 @@ struct InstalledModulesPanel: View {
     }
 
     private func openHub() {
-        dismiss()
+        closePanel()
         app.navigation.open(.productHub(.featured))
         HapticEngine.shared.play(.navigation)
+    }
+}
+
+/// Modules Dock sort order (expanded detent).
+enum ModulesDockSort: String, CaseIterable {
+    case standard, name, recent
+    var title: String {
+        switch self {
+        case .standard: return "Default"
+        case .name: return "Name"
+        case .recent: return "Recently Used"
+        }
+    }
+}
+
+/// Pinned dock modules: an ordered list of registry module IDs (no module special cases).
+enum ModulesDockPrefs {
+    static let pinnedKey = "modules.dock.pinned.v1"
+    static let sortKey = "modules.dock.sort.v1"
+
+    static func decode(_ raw: String) -> [String] {
+        raw.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+
+    static func encode(_ ids: [String]) -> String {
+        var seen = Set<String>()
+        return ids.filter { seen.insert($0).inserted }.joined(separator: "\n")
+    }
+
+    static func move(_ ids: [String], id: String, by delta: Int) -> [String] {
+        guard let index = ids.firstIndex(of: id) else { return ids }
+        let target = min(max(index + delta, 0), ids.count - 1)
+        guard target != index else { return ids }
+        var copy = ids
+        copy.remove(at: index)
+        copy.insert(id, at: target)
+        return copy
+    }
+
+    static func pinnedFirst<T>(_ items: [T], pins: [String], id: (T) -> String) -> [T] {
+        let rank = Dictionary(pins.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        let head = items.filter { rank[id($0)] != nil }.sorted { (rank[id($0)] ?? 0) < (rank[id($1)] ?? 0) }
+        let tail = items.filter { rank[id($0)] == nil }
+        return head + tail
     }
 }
 

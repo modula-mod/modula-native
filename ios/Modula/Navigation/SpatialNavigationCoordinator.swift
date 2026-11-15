@@ -9,17 +9,14 @@ import SwiftUI
 // ever open, every gesture has a button equivalent, and views never attach their own
 // competing swipe handlers. Pure state + math: views read it and feed it drag values.
 
-/// Debug: on by default. Release: off unless switched on (Settings → Labs), matching GUBIC.
+/// On by default in every build (Andy: the side sheet ships). The dev toggle
+/// (`dev.spatialNavigation.enabled` = false) and `--spatial-navigation-disabled` are off switches.
 enum SpatialNavigationFeature {
     static let enabledKey = "dev.spatialNavigation.enabled"
 
-    static func enabled(defaults: UserDefaults = .standard) -> Bool {
-        if ProcessInfo.processInfo.arguments.contains("--spatial-navigation-disabled") { return false }
-        #if DEBUG
+    static func enabled(defaults: UserDefaults = .standard, arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        if arguments.contains("--spatial-navigation-disabled") { return false }
         return defaults.object(forKey: enabledKey) as? Bool ?? true
-        #else
-        return defaults.bool(forKey: enabledKey)
-        #endif
     }
 }
 

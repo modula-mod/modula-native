@@ -89,6 +89,10 @@ struct SpatialSurfaceContainer<Content: View>: View {
                         .offset(x: reduceMotion ? 0 : (1 - progress) * travel)
                         .opacity(reduceMotion ? progress : 1)
                 }
+
+                // Modules Dock: up from the bottom bar, three detents, same coordinator.
+                SpatialDockLayer(containerHeight: geometry.size.height + insets.top + insets.bottom,
+                                 bottomInset: insets.bottom, reduceTransparency: reduceTransparency)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
@@ -280,6 +284,110 @@ struct SpatialSheetBackground<S: Shape>: View {
         .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
         .accessibilityHidden(true)
     }
+}
+
+// MARK: - Modules Dock
+
+/// Collapsed = just the bar (nothing drawn here). Half = favourites + recently used. Expanded =
+/// the full launcher (search, filters, sorting, pinned, long-press arrange). Content is the
+/// registry-driven installed-modules panel; the height follows the finger and settles on the
+/// nearest detent with the flick's projected end (no bounce).
+private struct SpatialDockLayer: View {
+    let containerHeight: CGFloat
+    let bottomInset: CGFloat
+    let reduceTransparency: Bool
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
+    @GestureState(resetTransaction: Transaction(animation: SpatialSheetMetrics.settleSpring))
+    private var drag: CGFloat = 0
+    /// Last open detent, kept while the dock animates closed.
+    @State private var shownState: SpatialDockState = .half
+
+    private var spatial: SpatialNavigationCoordinator { app.navigation.spatial }
+
+    var body: some View {
+        let state = spatial.dockState
+        let open = state != .collapsed
+        let base = SpatialNavigationCoordinator.dockHeight(for: open ? state : .collapsed, container: containerHeight)
+        let maxHeight = SpatialNavigationCoordinator.dockHeight(for: .expanded, container: containerHeight)
+        let height = min(max(base - drag, 0), maxHeight)
+        let progress = maxHeight > 0 ? min(height / SpatialNavigationCoordinator.dockHeight(for: .half, container: containerHeight), 1) : 0
+        let shape = UnevenRoundedRectangle(topLeadingRadius: SpatialSheetMetrics.cornerRadius,
+                                           bottomLeadingRadius: 0, bottomTrailingRadius: 0,
+                                           topTrailingRadius: SpatialSheetMetrics.cornerRadius, style: .continuous)
+        ZStack(alignment: .bottom) {
+            if open || drag != 0 {
+                Color.black
+                    .opacity((reduceTransparency ? 0.5 : (scheme == .dark ? 0.4 : 0.24)) * progress)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { collapse() }
+                    .accessibilityLabel("Close Modules Dock")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("spatial.dock.scrim")
+                    .transition(.opacity)
+
+                VStack(spacing: 0) {
+                    handle
+                    InstalledModulesPanel(dockState: open ? state : shownState, onClose: collapse)
+                        .environment(\.spatialSheetContext, SpatialSheetContext(isRoot: true))
+                }
+                .frame(height: max(height, 1), alignment: .top)
+                .frame(maxWidth: .infinity)
+                .background { SpatialSheetBackground(shape: shape, opaque: reduceTransparency) }
+                .clipShape(shape)
+                .shadow(color: .black.opacity(reduceTransparency ? 0 : 0.18), radius: 20, y: -4)
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom))
+                .accessibilityElement(children: .contain)
+                .accessibilityAddTraits(.isModal)
+                .accessibilityIdentifier("spatial.dock")
+                .accessibilityAction(.escape) { collapse() }
+                .accessibilityAction(named: "Expand Modules Dock") { set(.expanded) }
+                .accessibilityAction(named: "Shrink Modules Dock") { set(.half) }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .ignoresSafeArea(edges: .bottom)
+        .animation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring, value: state)
+        .onChange(of: state) { _, new in if new != .collapsed { shownState = new } }
+    }
+
+    /// Grabber strip: the drag zone (the grid below keeps its own scroll and taps).
+    private var handle: some View {
+        Capsule()
+            .fill(Color.primary.opacity(0.22))
+            .frame(width: 40, height: 5)
+            .frame(maxWidth: .infinity, minHeight: 28)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                    .updating($drag) { value, state, transaction in
+                        transaction.disablesAnimations = true
+                        state = value.translation.height
+                    }
+                    .onEnded { value in
+                        let target = SpatialNavigationCoordinator.settledDock(
+                            from: spatial.dockState, translation: value.translation.height,
+                            predicted: value.predictedEndTranslation.height, container: containerHeight)
+                        set(target)
+                    }
+            )
+            .onTapGesture { set(spatial.dockState == .expanded ? .half : .expanded) }
+            .accessibilityLabel(spatial.dockState == .expanded ? "Shrink Modules Dock" : "Expand Modules Dock")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("spatial.dock.handle")
+    }
+
+    private func set(_ state: SpatialDockState) {
+        let changed = state != spatial.dockState
+        withAnimation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring) {
+            spatial.setDock(state)
+        }
+        if changed { HapticEngine.shared.play(state == .collapsed ? .navigation : .selection) }
+    }
+
+    private func collapse() { set(.collapsed) }
 }
 
 // MARK: - Gesture priority regions

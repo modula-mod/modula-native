@@ -10,7 +10,7 @@ final class NavigationCoordinator {
     var banner: ModulaBanner?
     /// Gesture Navigation System: the one owner of Sidebar / Profile sheet / Modules Dock.
     let spatial = SpatialNavigationCoordinator()
-    /// Tests pin this; otherwise follows `SpatialNavigationFeature` (Debug on, Release off).
+    /// Tests pin this; otherwise follows `SpatialNavigationFeature` (on by default; dev toggle turns it off).
     @ObservationIgnored var spatialEnabledOverride: Bool?
     var spatialEnabled: Bool { spatialEnabledOverride ?? SpatialNavigationFeature.enabled() }
     /// Leading global sidebar. Not a sixth tab and not Edge Picker. Backed by `spatial`, so
@@ -45,6 +45,16 @@ final class NavigationCoordinator {
     func binding(for tab: AppTab) -> Binding<[AppRoute]> {
         Binding(get: { self.paths[tab] ?? [] }, set: { self.paths[tab] = $0 })
     }
+    /// Swipe up on the bottom bar / accessory, the Home banner, or the VoiceOver action.
+    /// Spatial on: the Modules Dock (half detent; closes any other layer). Off: the classic sheet.
+    func openModulesDock() {
+        if spatialEnabled {
+            if spatial.isDockOpen { spatial.raiseDock() } else { spatial.openDock(.half) }
+        } else {
+            PresentationCoordinator.present(.installedModules, in: self)
+        }
+    }
+
     func select(_ tab: AppTab) {
         // Profile is a sheet from the right, not a tab root swap, when spatial navigation is on.
         if tab == .profile, spatialEnabled {

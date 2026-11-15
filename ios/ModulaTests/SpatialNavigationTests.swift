@@ -310,3 +310,105 @@ final class SpatialRecentsTests: XCTestCase {
         XCTAssertLessThanOrEqual(SpatialRecents.load(defaults: defaults).count, SpatialRecents.limit)
     }
 }
+
+// MARK: - Gesture Navigation System round 2 (Release default, Modules Dock, quick tabs)
+
+@MainActor
+final class SpatialNavigationReleaseTests: XCTestCase {
+    private func scratchDefaults() -> UserDefaults {
+        let name = "spatial.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
+    func testSpatialNavigationIsOnByDefaultInEveryBuild() {
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: scratchDefaults(), arguments: []))
+    }
+
+    func testDevToggleAndLaunchArgumentAreOffSwitches() {
+        let defaults = scratchDefaults()
+        defaults.set(false, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: defaults, arguments: []))
+        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: scratchDefaults(), arguments: ["--spatial-navigation-disabled"]))
+    }
+
+    func testModulesDockOpensAtHalfThenRaises() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = true
+        navigation.openModulesDock()
+        XCTAssertEqual(navigation.spatial.dockState, .half)
+        XCTAssertNil(navigation.presented)
+        navigation.openModulesDock()
+        XCTAssertEqual(navigation.spatial.dockState, .expanded)
+    }
+
+    func testModulesDockFallsBackToSheetWhenSpatialIsOff() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = false
+        navigation.openModulesDock()
+        XCTAssertEqual(navigation.presented, .installedModules)
+        XCTAssertFalse(navigation.spatial.isDockOpen)
+    }
+
+    func testDockThenProfileLeavesOnlyProfileOpen() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = true
+        navigation.openModulesDock()
+        navigation.select(.profile)
+        XCTAssertTrue(navigation.spatial.isProfileOpen)
+        XCTAssertFalse(navigation.spatial.isDockOpen)
+    }
+
+    func testDockThenSidebarLeavesOnlySidebarOpen() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = true
+        navigation.openModulesDock()
+        navigation.sidebarPresented = true
+        XCTAssertTrue(navigation.spatial.isSidebarOpen)
+        XCTAssertFalse(navigation.spatial.isDockOpen)
+    }
+
+    func testBottomTabTapClosesTheDock() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = true
+        navigation.openModulesDock()
+        navigation.select(.discover)
+        XCTAssertTrue(navigation.spatial.isHome)
+        XCTAssertEqual(navigation.selectedTab, .discover)
+    }
+
+    func testDockPinsAreOrderedDedupedAndMovable() {
+        XCTAssertEqual(ModulesDockPrefs.decode(ModulesDockPrefs.encode(["a", "b", "a", "c"])), ["a", "b", "c"])
+        XCTAssertEqual(ModulesDockPrefs.move(["a", "b", "c"], id: "c", by: -1), ["a", "c", "b"])
+        XCTAssertEqual(ModulesDockPrefs.move(["a", "b", "c"], id: "a", by: -1), ["a", "b", "c"])
+        XCTAssertEqual(ModulesDockPrefs.move(["a"], id: "missing", by: 1), ["a"])
+        XCTAssertEqual(ModulesDockPrefs.pinnedFirst(["x", "b", "y", "a"], pins: ["a", "b", "a"], id: { $0 }), ["a", "b", "x", "y"])
+    }
+
+    // MARK: Quick tabs (accessory page 0)
+
+    func testQuickTabFollowsTheCurrentRoute() {
+        XCTAssertEqual(ShellQuickTab.current(.home(.following)), .following)
+        XCTAssertEqual(ShellQuickTab.current(.home(.forYou)), .forYou)
+        XCTAssertNil(ShellQuickTab.current(.saved(.root)))
+    }
+
+    func testQuickTabsOpenTheirDestinations() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = true
+        ShellQuickTab.discover.open(in: navigation)
+        XCTAssertEqual(navigation.selectedTab, .discover)
+        ShellQuickTab.following.open(in: navigation)
+        XCTAssertEqual(navigation.selectedTab, .home)
+        XCTAssertEqual(ShellQuickTab.current(navigation.currentRoute), .following)
+        ShellQuickTab.modules.open(in: navigation)
+        XCTAssertEqual(navigation.selectedTab, .modules)
+    }
+
+    func testQuickTabsHaveDistinctTitlesAndSymbols() {
+        let tabs = ShellQuickTab.allCases
+        XCTAssertEqual(Set(tabs.map(\.title)).count, tabs.count)
+        XCTAssertEqual(Set(tabs.map(\.symbol)).count, tabs.count)
+    }
+}

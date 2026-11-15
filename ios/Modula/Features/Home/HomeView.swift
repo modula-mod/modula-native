@@ -1788,7 +1788,7 @@ private struct HomeModulesBanner: View {
         let count = app.catalogue.installedIDs.count
         Button {
             HapticEngine.shared.play(.contextOpen)
-            PresentationCoordinator.present(.installedModules, in: app.navigation)
+            app.navigation.openModulesDock()
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: "square.grid.2x2.fill")
