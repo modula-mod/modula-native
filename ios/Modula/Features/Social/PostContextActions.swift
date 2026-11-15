@@ -130,6 +130,9 @@ struct PostOptionsMenuContent: View {
             if let text = post.text, !text.isEmpty {
                 Button("Copy text", systemImage: "doc.on.doc") { onSelect("copy-text") }
             }
+            if PostFirstLink.find(in: post.text) != nil {
+                Button("Open link", systemImage: "safari") { onSelect("open-link") }
+            }
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
         }
@@ -477,6 +480,7 @@ private struct PostMenuOverlay: View {
             ZStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
                     if let text = request.post.text, !text.isEmpty { row("copy-text", "Copy text", "doc.on.doc") }
+                    if PostFirstLink.find(in: request.post.text) != nil { row("open-link", "Open link", "safari") }
                     if request.isOwn {
                         if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
                         if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
@@ -839,6 +843,9 @@ enum PostMenuExecutor {
                 await app.postActions.setReaction(current, reaction: next)
                 app.home.syncVisibleEngagement()
             }
+        case "open-link":
+            // First web link in the post, in the Modula browser (or natively for Modula links).
+            if let url = PostFirstLink.find(in: post.text) { ModulaLinkRouter.open(url, source: nil) }
         case "copy-text":
             if let text = post.text, !text.isEmpty {
                 UIPasteboard.general.string = text
@@ -1220,5 +1227,25 @@ final class ExclusiveReactionRecognizer: UILongPressGestureRecognizer {
         return name.contains("ContextMenu")
             || name.contains("PreviewInteraction")
             || name.contains("UIContextMenu")
+    }
+}
+
+
+/// First http(s) link in a post's text (NSDataDetector, cached per text).
+@MainActor
+enum PostFirstLink {
+    private static var cache: [String: URL?] = [:]
+    private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
+    static func find(in text: String?) -> URL? {
+        guard let text, !text.isEmpty, text.count < 5000 else { return nil }
+        if let hit = cache[text] { return hit }
+        let range = NSRange(text.startIndex..., in: text)
+        let url = detector?.matches(in: text, range: range)
+            .compactMap(\.url)
+            .first { ["http", "https"].contains($0.scheme?.lowercased() ?? "") }
+        if cache.count > 300 { cache.removeAll() }
+        cache[text] = url
+        return url
     }
 }
