@@ -111,11 +111,8 @@ enum ServiceStatusFormat {
     }
 
     static func date(_ iso: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: iso) { return date }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: iso)
+        // Reuse the app-wide cached ISO-8601 parser instead of allocating per call.
+        ModulaISODate.parse(iso)
     }
 }
 

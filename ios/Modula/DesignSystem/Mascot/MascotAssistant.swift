@@ -27,8 +27,7 @@ struct MascotUserContext: Codable, Equatable, Sendable {
         comps.day = day
         comps.year = 2000
         guard let date = Calendar.current.date(from: comps) else { return nil }
-        let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("MMM d")
-        return f.string(from: date)
+        return date.formatted(.dateTime.month(.abbreviated).day())
     }
 }
 
