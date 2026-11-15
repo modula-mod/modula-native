@@ -404,7 +404,8 @@ struct ModulaAudioViewer: View {
                     .foregroundStyle(ModulaColor.accent)
                 Text(attachment.metadata.title ?? attachment.displayName).font(.title2.bold())
                 if let creator = attachment.metadata.creator { Text(creator).foregroundStyle(.secondary) }
-                ProgressView(value: audio.progress).tint(ModulaColor.accent)
+                ProgressView(value: audio.progress).tint(.primary)
+                    .animation(.linear(duration: 0.25), value: audio.progress)
                 if case .failed(let message) = download.state {
                     ContentUnavailableView("Audio unavailable", systemImage: "waveform.badge.exclamationmark", description: Text(message))
                     Button("Retry", systemImage: "arrow.clockwise") { download.retry(attachment, manager: app.attachmentDownloads) }
@@ -412,7 +413,7 @@ struct ModulaAudioViewer: View {
                 } else {
                     Button(audio.isPlaying ? "Pause" : "Play", systemImage: audio.isPlaying ? "pause.fill" : "play.fill") { audio.toggle() }
                     .buttonStyle(.modulaPrimary)
-                    .tint(ModulaColor.accent)
+                    .contentTransition(.symbolEffect(.replace))
                     .disabled(playableURL == nil)
                 }
             }
