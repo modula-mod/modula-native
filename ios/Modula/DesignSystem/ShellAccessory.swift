@@ -83,6 +83,55 @@ struct ShellAccessoryConfiguration: Equatable {
     }
 }
 
+/// Quick tabs hosted by the bottom accessory (replaces the old "Tools" title row).
+enum ShellQuickTab: String, CaseIterable, Identifiable {
+    case following, forYou, discover, modules
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .following: "Following"
+        case .forYou: "For You"
+        case .discover: "Discover"
+        case .modules: "Modules"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .following: "person.2"
+        case .forYou: "sparkles"
+        case .discover: "safari"
+        case .modules: "square.grid.2x2"
+        }
+    }
+
+    static func current(_ route: AppRoute) -> ShellQuickTab? {
+        switch route {
+        case .home(.following): .following
+        case .home(.forYou): .forYou
+        case .discover: .discover
+        case .productHub: .modules
+        default: nil
+        }
+    }
+
+    @MainActor
+    func open(in navigation: NavigationCoordinator) {
+        switch self {
+        case .following, .forYou:
+            navigation.select(.home)
+            navigation.binding(for: .home).wrappedValue = []
+            navigation.replaceContext(with: .home(self == .following ? .following : .forYou))
+        case .discover:
+            navigation.select(.discover)
+        case .modules:
+            navigation.select(.modules)
+        }
+    }
+}
+
 enum ShellIntelligenceChatMetrics {
     static let buttonSize: CGFloat = 48
     static let dockSpacing: CGFloat = 10
@@ -214,19 +263,21 @@ struct ShellAccessorySystemSlot: View {
             activity: app.activity,
             signedIn: app.auth.isSignedIn
         )
-        // Minimised on scroll: the Tools accessory compacts into a single pill.
+        let quick = ShellQuickTab.current(route)
+        let title = quick?.title ?? config.title
+        // Minimised on scroll: the accessory compacts into a single pill naming where you are.
         return HStack(spacing: 7) {
-            Image(systemName: config.symbol)
+            Image(systemName: quick?.symbol ?? config.symbol)
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
                 .background(app.appearance.liveAccent.gradient, in: Circle())
                 .symbolEffect(.bounce, value: config.symbol)
                 .contentTransition(.symbolEffect(.replace))
-            if config.title == "Modula" {
+            if title == "Modula" {
                 ModulaWordmark(height: 14)
             } else {
-                Text(config.title)
+                Text(title)
                     .lineLimit(1)
                     .contentTransition(.interpolate)
             }
@@ -239,12 +290,12 @@ struct ShellAccessorySystemSlot: View {
         .padding(.trailing, 10)
         .frame(maxWidth: .infinity)
         .transition(.blurReplace.combined(with: .scale(0.86)))
-        .animation(.snappy(duration: 0.28), value: config.title)
+        .animation(.snappy(duration: 0.28), value: title)
         .contentShape(Capsule())
         .onLongPressGesture(minimumDuration: 0.5) { CommandPaletteCenter.shared.present() }
         .modifier(AccessoryModulesLift())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(config.title)
+        .accessibilityLabel(title)
         .accessibilityHint("Swipe up or activate to open installed modules")
         .accessibilityIdentifier("tab.accessory")
     }
@@ -480,10 +531,18 @@ struct ShellAccessoryHost: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var iconPulse: [String: Int] = [:]
-    /// Swipeable contexts: 0 = route Tools, 1 = Modules, 2 = Quick actions.
+    /// Swipeable contexts: 0 = quick tabs (Following / For You / Discover / Modules),
+    /// 1 = this route's tools, 2 = Modules, 3 = Quick actions.
     @State private var page = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private static let pageTitles = ["Tools", "Modules", "Quick"]
+    @Namespace private var quickTabSpace
+    private static let pageTitles = ["Tabs", "Tools", "Modules", "Quick"]
+
+    /// Feed-like routes open on the quick tabs; elsewhere (Activity, Profile…) the route's
+    /// own tools come first so e.g. Mark All Read stays one tap away.
+    static func defaultPage(for route: AppRoute) -> Int {
+        ShellQuickTab.current(route) == nil ? 1 : 0
+    }
 
     var body: some View {
         let config = ShellAccessoryConfiguration.configuration(
@@ -492,10 +551,10 @@ struct ShellAccessoryHost: View {
             signedIn: app.auth.isSignedIn
         )
         HStack(spacing: 8) {
-            if page == 0 {
-                toolsRow(config)
-            } else {
-                contextRow(page)
+            switch page {
+            case 0: quickTabsRow
+            case 1: toolsRow(config)
+            default: contextRow(page)
             }
             pageDots
         }
@@ -526,9 +585,51 @@ struct ShellAccessoryHost: View {
         .modifier(AccessoryModulesLift())
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Next context") { page = (page + 1) % Self.pageTitles.count }
+        .accessibilityAction(named: "Installed modules") {
+            PresentationCoordinator.present(.installedModules, in: app.navigation)
+        }
         .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
         .accessibilityIdentifier("tab.accessory")
-        .onChange(of: route) { _, _ in page = 0 }
+        .onChange(of: route) { _, next in page = Self.defaultPage(for: next) }
+        .onAppear { page = Self.defaultPage(for: route) }
+    }
+
+    /// Quick tabs: one tap between the main feeds without reaching for the tab bar.
+    private var quickTabsRow: some View {
+        let current = ShellQuickTab.current(route)
+        let accent = app.appearance.liveAccent
+        return HStack(spacing: 4) {
+            ForEach(ShellQuickTab.allCases) { tab in
+                let selected = tab == current
+                Button {
+                    guard !selected else { return }
+                    HapticEngine.shared.play(.selection)
+                    tab.open(in: app.navigation)
+                } label: {
+                    Text(tab.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        // Primary on glass (readable in light mode), white only on the solid accent pill.
+                        .foregroundStyle(selected ? Color.white : Color.primary)
+                        .padding(.horizontal, 8)
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .background {
+                            if selected {
+                                Capsule()
+                                    .fill(accent.gradient)
+                                    .matchedGeometryEffect(id: "quick.tab.selection", in: quickTabSpace)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+                .accessibilityIdentifier("accessory.quick.\(tab.rawValue)")
+            }
+        }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.26), value: current)
     }
 
     private var pageDots: some View {
@@ -546,7 +647,7 @@ struct ShellAccessoryHost: View {
     private struct ContextItem: Identifiable { let id: String; let title: String; let symbol: String; let run: () -> Void }
 
     private func contextItems(_ page: Int) -> [ContextItem] {
-        if page == 1 {
+        if page == 2 {
             return [
                 ContextItem(id: "hub", title: "Product Hub", symbol: "shippingbox") { app.navigation.open(.productHub(.featured)) },
                 ContextItem(id: "installed", title: "Installed", symbol: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) },
@@ -978,89 +1079,79 @@ private struct AccessoryModulesLift: ViewModifier {
 }
 
 /// Sheet of modules the signed-in account actually has installed. Opens `/module/:id`.
+/// Generic host: only catalogue metadata (name, publisher, kind, icon) — never a module's own UI.
 struct InstalledModulesPanel: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var query = ""
+    @State private var filter: InstalledModulesFilter = .all
+    @FocusState private var searchFocused: Bool
 
     private var installed: [CatalogueProduct] {
         app.catalogue.products.filter { app.catalogue.installedIDs.contains($0.moduleId) }
     }
 
+    /// Chips only for facets the data actually has (no empty "Favorites").
+    private var filters: [InstalledModulesFilter] {
+        let all = installed
+        var chips: [InstalledModulesFilter] = [.all]
+        let ids = Set(all.map(\.moduleId))
+        if ProductHubRecents.load().contains(where: ids.contains) { chips.append(.recent) }
+        if all.contains(where: { app.catalogue.installations[$0.moduleId]?.status == "updateAvailable" }) {
+            chips.append(.updates)
+        }
+        let kinds = Array(Set(all.map(\.productKind))).sorted()
+        if kinds.count > 1 { chips.append(contentsOf: kinds.map { .kind($0) }) }
+        return chips
+    }
+
+    private var shown: [CatalogueProduct] {
+        var list = installed
+        switch filter {
+        case .all:
+            break
+        case .recent:
+            let order = ProductHubRecents.load()
+            list = order.compactMap { id in list.first { $0.moduleId == id } }
+        case .updates:
+            list = list.filter { app.catalogue.installations[$0.moduleId]?.status == "updateAvailable" }
+        case .kind(let kind):
+            list = list.filter { $0.productKind == kind }
+        }
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return list }
+        return list.filter {
+            $0.name.localizedCaseInsensitiveContains(needle) || $0.publisherName.localizedCaseInsensitiveContains(needle)
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            Group {
-                if let error = app.catalogue.error, installed.isEmpty {
-                    ModulaErrorState(message: error) {
-                        Task { await app.catalogue.load() }
-                    }
-                } else if !app.auth.isSignedIn {
-                    ModulaEmptyState(
-                        title: "Sign in to see modules",
-                        message: "Installed Product Hub modules appear here for your account.",
-                        symbol: "shippingbox"
-                    )
-                } else if installed.isEmpty, app.catalogue.loaded {
-                    ModulaEmptyState(
-                        title: "No modules installed",
-                        message: "Install something from Product Hub and it will show up here.",
-                        symbol: "shippingbox"
-                    )
-                } else if installed.isEmpty {
-                    ProgressView("Loading modules…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        ForEach(installed) { product in
-                            Button {
-                                dismiss()
-                                app.navigation.open(.module(product.moduleId, localPath: nil))
-                                HapticEngine.shared.play(.navigation)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    moduleIcon(product)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(product.name)
-                                            .font(.body.weight(.semibold))
-                                            .foregroundStyle(.primary)
-                                        Text(product.publisherName)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
-                                    Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .padding(.vertical, 4)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(product.name)
-                            .accessibilityHint("Opens \(product.name)")
-                            .accessibilityIdentifier("accessory.module.\(product.moduleId)")
-                        }
-                    }
-                    .listStyle(.plain)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    searchField
+                    if app.auth.isSignedIn, installed.count > 0 { chipRow }
+                    content
+                    exploreBanner
                 }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.top, 4)
+                .padding(.bottom, 24)
             }
-            .navigationTitle("Installed")
-            .navigationBarTitleDisplayMode(.inline)
+            .scrollDismissesKeyboard(.immediately)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Product Hub") {
-                        dismiss()
-                        app.navigation.open(.productHub(.featured))
-                        HapticEngine.shared.play(.navigation)
-                    }
-                    .accessibilityIdentifier("accessory.modules.hub")
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel("Close")
                 }
             }
+            .navigationBarTitleDisplayMode(.inline)
             .task { await app.catalogue.load() }
+            .onChange(of: filters) { _, chips in
+                if !chips.contains(filter) { filter = .all }
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -1068,26 +1159,206 @@ struct InstalledModulesPanel: View {
         .accessibilityIdentifier("accessory.modules.panel")
     }
 
-    @ViewBuilder
-    private func moduleIcon(_ product: CatalogueProduct) -> some View {
-        let accent = app.appearance.liveAccent
-        ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(accent.opacity(0.14))
-            if let url = product.presentation?.icon?.source {
-                ModulaRemoteImage(url: url, cacheKey: "module-icon:\(product.moduleId)", maximumPixelSize: 120) { phase in
-                    if case .success(let image) = phase {
-                        Image(uiImage: image).resizable().scaledToFill()
-                    } else {
-                        Image(systemName: "shippingbox.fill").foregroundStyle(accent)
-                    }
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Modules")
+                    .font(.largeTitle.bold())
+                    .accessibilityAddTraits(.isHeader)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button {
+                openHub()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .modulaGlass(in: Circle(), interactive: true, tint: Color(red: 0.93, green: 0.30, blue: 0.34), prominent: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Get more modules")
+            .accessibilityIdentifier("accessory.modules.hub")
+        }
+    }
+
+    private var subtitle: String {
+        guard app.auth.isSignedIn else { return "Your installed modules, one tap away." }
+        switch installed.count {
+        case 0: return "Nothing installed yet."
+        case 1: return "1 installed module"
+        default: return "\(installed.count) installed modules"
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search your modules", text: $query)
+                .focused($searchFocused)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
                 }
-            } else {
-                Image(systemName: "shippingbox.fill").foregroundStyle(accent)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
             }
         }
-        .frame(width: 44, height: 44)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .modulaGlass(in: Capsule(), interactive: true)
+        .accessibilityIdentifier("accessory.modules.search")
+    }
+
+    private var chipRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(filters, id: \.self) { chip in
+                    let selected = chip == filter
+                    Button {
+                        filter = chip
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Text(chip.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(selected ? Color.white : Color.primary)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 34)
+                            .background {
+                                if selected { Capsule().fill(app.appearance.liveAccent.gradient) }
+                            }
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .modulaEdgeToEdgeRail()
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let error = app.catalogue.error, installed.isEmpty {
+            ModulaErrorState(message: error) {
+                Task { await app.catalogue.load() }
+            }
+        } else if !app.auth.isSignedIn {
+            ModulaEmptyState(
+                title: "Sign in to see modules",
+                message: "Installed Product Hub modules appear here for your account.",
+                symbol: "shippingbox"
+            )
+        } else if installed.isEmpty, app.catalogue.loaded {
+            ModulaEmptyState(
+                title: "No modules installed",
+                message: "Install something from Product Hub and it will show up here.",
+                symbol: "shippingbox"
+            )
+        } else if installed.isEmpty {
+            ProgressView("Loading modules…")
+                .frame(maxWidth: .infinity, minHeight: 160)
+        } else if shown.isEmpty {
+            Text("No modules match “\(query)”.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 120)
+        } else {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: 4), spacing: 18) {
+                ForEach(shown) { product in
+                    Button {
+                        dismiss()
+                        app.navigation.open(.module(product.moduleId, localPath: nil))
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        VStack(spacing: 6) {
+                            ProductArtwork(product: product, size: 58)
+                                .overlay(alignment: .topTrailing) {
+                                    if app.catalogue.installations[product.moduleId]?.status == "updateAvailable" {
+                                        Circle().fill(app.appearance.liveAccent)
+                                            .frame(width: 12, height: 12)
+                                            .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2))
+                                            .offset(x: 3, y: -3)
+                                            .accessibilityHidden(true)
+                                    }
+                                }
+                            Text(product.name)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                    .accessibilityLabel(product.name)
+                    .accessibilityHint("Opens \(product.name)")
+                    .accessibilityIdentifier("accessory.module.\(product.moduleId)")
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var exploreBanner: some View {
+        let accent = app.appearance.liveAccent
+        return Button(action: openHub) {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Explore Modules")
+                        .font(.headline)
+                    Text("Find new modules and games in Product Hub.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "shippingbox.and.arrow.backward.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 52, height: 52)
+                    .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(colors: [accent.opacity(0.16), accent.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+            )
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: true)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+        .accessibilityIdentifier("accessory.modules.explore")
+    }
+
+    private func openHub() {
+        dismiss()
+        app.navigation.open(.productHub(.featured))
+        HapticEngine.shared.play(.navigation)
+    }
+}
+
+enum InstalledModulesFilter: Hashable {
+    case all, recent, updates, kind(String)
+
+    var title: String {
+        switch self {
+        case .all: return "All"
+        case .recent: return "Recent"
+        case .updates: return "Updates"
+        case .kind(let kind):
+            if kind == "module" { return "Modules" }
+            if kind == "game" { return "Games" }
+            return kind.prefix(1).uppercased() + String(kind.dropFirst())
+        }
     }
 }
 
