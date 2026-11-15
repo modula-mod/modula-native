@@ -262,9 +262,10 @@ struct MolibooWorldView: View {
                     Spacer()
                     Button { surprise() } label: {
                         Image(systemName: "sparkles").font(.headline).frame(width: 44, height: 44)
+                            .symbolEffect(.bounce, value: joyPulseTick)
                             .modulaGlass(in: Circle(), interactive: true, specular: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(MolibooSpringPressStyle())
                     .accessibilityIdentifier("world.sparkle").accessibilityLabel("Surprise")
                     Menu {
                         Button { route = .settings } label: { Label("Moliboo settings", systemImage: "gearshape") }
@@ -288,6 +289,7 @@ struct MolibooWorldView: View {
     private func surprise() {
         let pick: MolibooEmotion = [.happy, .excited, .curious].randomElement() ?? .happy
         joyPulseTick += 1
+        HapticEngine.shared.play(.lightImpact)
         stage.bounce(allowed: motionAllowed); stage.react(pick, allowed: motionAllowed)
         care.interact(characterID, mood: 1, bond: 1)
     }
@@ -514,7 +516,7 @@ struct MolibooWorldView: View {
                             .submitLabel(.send)
                             .onSubmit { send() }
                             .accessibilityIdentifier("world.composer.field")
-                        Button { chat.draft += emotion.emoji } label: {
+                        Button { chat.draft += emotion.emoji; HapticEngine.shared.play(.selection) } label: {
                             Image(systemName: "face.smiling")
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(.secondary)

@@ -438,13 +438,15 @@ struct MolibooStickerSheet: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
                             ForEach(MolibooStickerExpression.all) { e in
                                 Button {
-                                    notify(MolibooStickerExpression.copy(kind: kind, e) ? "\(e.label) sticker copied" : "Couldn't make that sticker")
+                                    let ok = MolibooStickerExpression.copy(kind: kind, e)
+                                    HapticEngine.shared.play(ok ? .success : .failure)
+                                    notify(ok ? "\(e.label) sticker copied" : "Couldn't make that sticker")
                                 } label: {
                                     MolibooStickerArt(kind: kind, expression: e, size: 100)
                                         .padding(4)
                                         .background(kind.palette.mid.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(MolibooSpringPressStyle())
                                 .accessibilityLabel("\(name) \(e.label) sticker")
                                 .accessibilityIdentifier("stickers.\(e.id)")
                             }
@@ -453,7 +455,7 @@ struct MolibooStickerSheet: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
                             ForEach(moods, id: \.self) { m in
                                 Button { copy(m) } label: { sticker(m).frame(width: 96, height: 96) }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(MolibooSpringPressStyle())
                                     .accessibilityLabel("\(name) \(m.label) sticker")
                                     .accessibilityIdentifier("stickers.\(m.rawValue)")
                             }
@@ -471,8 +473,8 @@ struct MolibooStickerSheet: View {
         ZStack(alignment: .bottomTrailing) {
             if let img = MolibooPortrait.image(for: characterID) { Image(uiImage: img).resizable().scaledToFit() }
             else { Image(systemName: "pawprint.fill").resizable().scaledToFit().padding(20) }
-            Image(systemName: m.symbol).font(.headline).foregroundStyle(.white)
-                .padding(6).background(Color.pink.gradient, in: Circle())
+            Image(systemName: m.symbol).font(.headline).foregroundStyle(Color(uiColor: .systemBackground))
+                .padding(6).background(Color.primary, in: Circle())
         }
     }
 
