@@ -334,7 +334,7 @@ struct CommunityBuildersView: View {
                 subtitle: community.membershipPolicy == .approval ? "Membership requires approval" : "Open membership"
             )
             Divider().padding(.leading, 64)
-            CommunityInfoRow(symbol: "person.3", tint: accent, title: "\(community.summary.memberCount) members", subtitle: memberSubtitle(community.summary.membership))
+            CommunityInfoRow(symbol: "person.3", tint: accent, title: community.summary.memberCount == 1 ? "1 member" : "\(community.summary.memberCount) members", subtitle: memberSubtitle(community.summary.membership))
             Divider().padding(.leading, 64)
             CommunityInfoRow(symbol: "calendar", tint: accent, title: "\(app.communities.events.count) events", subtitle: "Server-persisted community schedule")
         }

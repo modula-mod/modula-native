@@ -190,7 +190,7 @@ struct ProfilePostTile: View {
         var parts: [String] = []
         if isVideo { parts.append("Video post") } else if media != nil { parts.append("Photo post") } else { parts.append("Post") }
         if let text = post.text, !text.isEmpty { parts.append(text) }
-        if post.likeCount > 0 { parts.append("\(post.likeCount) likes") }
+        if post.likeCount > 0 { parts.append(String(localized: "\(post.likeCount) likes")) }  // plural variant in Localizable.xcstrings
         return parts.joined(separator: ", ")
     }
 }
