@@ -505,6 +505,8 @@ struct MolibooMarketplaceDetail: View {
     let family: MolibooRegistryFamily?
     @State private var mood: MolibooStickerExpression = MolibooStickerExpression.all[0]
     @State private var copied: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     private var installedVersion: String? {
         MolibooPackageManager.shared.runtime.store.index(character.packageId).active
     }
@@ -517,10 +519,20 @@ struct MolibooMarketplaceDetail: View {
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .fill(LinearGradient(colors: [c.opacity(0.35), c.opacity(0.1)], startPoint: .top, endPoint: .bottom))
                     if let kind = character.kind {
-                        TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
-                            ModulaMascotFigure(kind: kind, pose: MascotPose(t: ctx.date.timeIntervalSinceReferenceDate, mood: mood.mood, amp: 1), size: 120)
+                        // Paused under Reduce Motion / in the background (saves battery); tap to cycle expressions.
+                        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || scenePhase != .active)) { ctx in
+                            ModulaMascotFigure(kind: kind, pose: MascotPose(t: ctx.date.timeIntervalSinceReferenceDate, mood: mood.mood, amp: reduceMotion ? 0 : 1), size: 120)
                         }
                         .frame(maxWidth: .infinity).frame(height: 240)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            let all = MolibooStickerExpression.all
+                            if let i = all.firstIndex(of: mood) { mood = all[(i + 1) % all.count] }
+                            HapticEngine.shared.play(.lightImpact)
+                        }
+                        .accessibilityLabel("\(character.name), \(mood.label)")
+                        .accessibilityHint("Double-tap for the next expression")
+                        .accessibilityAddTraits(.isButton)
                     } else {
                         MolibooMarketplaceArtwork(character: character, tint: c).frame(height: 240).padding(12)
                     }
@@ -563,15 +575,17 @@ struct MolibooMarketplaceDetail: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(MolibooStickerExpression.all) { e in
-                                    Button { mood = e } label: {
+                                    Button { mood = e; HapticEngine.shared.play(.selection) } label: {
                                         VStack(spacing: 2) {
                                             ModulaMascotFigure(kind: kind, pose: e.pose, size: 26).frame(width: 56, height: 50)
                                             Text(e.label).font(.caption2)
                                         }
                                         .padding(6)
                                         .background((mood == e ? c.opacity(0.25) : Color.primary.opacity(0.05)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.primary.opacity(mood == e ? 0.5 : 0), lineWidth: 1.5))
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(MolibooSpringPressStyle())
+                                    .accessibilityAddTraits(mood == e ? .isSelected : [])
                                 }
                             }
                         }
@@ -583,15 +597,25 @@ struct MolibooMarketplaceDetail: View {
                             HStack(spacing: 10) {
                                 ForEach(MolibooStickerExpression.all.prefix(6)) { e in
                                     Button {
-                                        copied = MolibooStickerExpression.copy(kind: kind, e) ? "\(e.label) sticker copied" : "Couldn't make that sticker"
+                                        let ok = MolibooStickerExpression.copy(kind: kind, e)
+                                        HapticEngine.shared.play(ok ? .success : .failure)
+                                        let text = ok ? "\(e.label) sticker copied" : "Couldn't make that sticker"
+                                        withAnimation(.snappy) { copied = text }
+                                        Task { @MainActor in
+                                            try? await Task.sleep(for: .seconds(2))
+                                            if copied == text { withAnimation(.snappy) { copied = nil } }
+                                        }
                                     } label: { MolibooStickerArt(kind: kind, expression: e, size: 84) }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(MolibooSpringPressStyle())
                                     .accessibilityLabel("\(character.name) \(e.label) sticker")
                                 }
                             }
                         }
                         .modulaHorizontalRail()
-                        if let copied { Text(copied).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
+                        if let copied {
+                            Label(copied, systemImage: "checkmark.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .transition(.opacity.combined(with: .offset(y: 4)))
+                        }
                     }
                 }
                 if let family {
