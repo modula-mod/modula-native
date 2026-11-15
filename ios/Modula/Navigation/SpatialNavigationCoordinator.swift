@@ -271,6 +271,8 @@ final class SpatialNavigationCoordinator {
 enum SpatialSheetMetrics {
     static let gutter: CGFloat = 10
     static let cornerRadius: CGFloat = 32
+    /// Small float gap below the status bar / island and above the home indicator (Andy t194u).
+    static let verticalGap: CGFloat = 9
     /// Wide enough to catch a casual thumb swipe from the right bezel (20 pt missed often).
     static let edgeActivationWidth: CGFloat = 28
     static let travelPadding: CGFloat = 36

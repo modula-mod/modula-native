@@ -163,10 +163,7 @@ struct ShellSidebarContainer<Content: View>: View {
             let inset = sheetStyle ? 0 : Self.cardInset
             let travel = width + inset + 24 // fully off-screen including shadow
             let shape = sheetStyle
-                ? AnyShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0,
-                                                  bottomTrailingRadius: SpatialSheetMetrics.cornerRadius,
-                                                  topTrailingRadius: SpatialSheetMetrics.cornerRadius,
-                                                  style: .continuous))
+                ? AnyShape(RoundedRectangle(cornerRadius: SpatialSheetMetrics.cornerRadius, style: .continuous))
                 : AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             let dimBase: Double = sheetStyle
                 ? (reduceTransparency ? 0.5 : (scheme == .dark ? 0.42 : 0.26))
@@ -226,8 +223,8 @@ struct ShellSidebarContainer<Content: View>: View {
 
                     ShellSidebarView(width: width, onSelect: open, onClose: { close(haptic: true) })
                         // Content respects the safe areas; the card itself floats concentric to the display.
-                        .padding(.top, max(insets.top - inset, ModulaSpacing.sm))
-                        .padding(.bottom, max(insets.bottom - inset, ModulaSpacing.sm))
+                        .padding(.top, sheetStyle ? ModulaSpacing.sm : max(insets.top - inset, ModulaSpacing.sm))
+                        .padding(.bottom, sheetStyle ? ModulaSpacing.sm : max(insets.bottom - inset, ModulaSpacing.sm))
                         .padding(.leading, sheetStyle ? insets.leading : 0)
                         .frame(width: width)
                         .frame(maxHeight: .infinity)
@@ -245,6 +242,9 @@ struct ShellSidebarContainer<Content: View>: View {
                         }
                         .shadow(color: .black.opacity(0.18 * progress), radius: 28, x: 6, y: 0)
                         .padding(inset)
+                        // Same floating gap as the profile sheet (top/bottom only).
+                        .padding(.top, sheetStyle ? insets.top + SpatialSheetMetrics.verticalGap : 0)
+                        .padding(.bottom, sheetStyle ? insets.bottom + SpatialSheetMetrics.verticalGap : 0)
                         .ignoresSafeArea()
                         .offset(x: reduceMotion ? 0 : (progress - 1) * travel)
                         .opacity(reduceMotion ? progress : 1)

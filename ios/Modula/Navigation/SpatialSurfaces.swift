@@ -131,13 +131,8 @@ struct SpatialSurfaceContainer<Content: View>: View {
 
     private func sheet(target: SpatialProfileTarget, width: CGFloat, insets: EdgeInsets) -> some View {
         @Bindable var spatial = self.spatial
-        let shape = UnevenRoundedRectangle(
-            topLeadingRadius: SpatialSheetMetrics.cornerRadius,
-            bottomLeadingRadius: SpatialSheetMetrics.cornerRadius,
-            bottomTrailingRadius: 0,
-            topTrailingRadius: 0,
-            style: .continuous
-        )
+        // Floating card: all four corners rounded, inset a little from the top and bottom safe areas.
+        let shape = RoundedRectangle(cornerRadius: SpatialSheetMetrics.cornerRadius, style: .continuous)
         return NavigationStack(path: $spatial.sheetPath) {
             ProfileView(userID: target.userID, section: target.section)
                 .environment(\.spatialSheetContext, SpatialSheetContext(isRoot: true))
@@ -155,6 +150,8 @@ struct SpatialSurfaceContainer<Content: View>: View {
         .clipShape(shape)
         .overlay(alignment: .leading) { grabber }
         .shadow(color: .black.opacity(reduceTransparency ? 0 : 0.2), radius: 24, x: -6, y: 0)
+        .padding(.top, insets.top + SpatialSheetMetrics.verticalGap)
+        .padding(.bottom, insets.bottom + SpatialSheetMetrics.verticalGap)
         .ignoresSafeArea()
         // Root only: on a pushed screen a rightward swipe is the system Back gesture.
         .simultaneousGesture(closeGesture(width: width), including: spatial.sheetPath.isEmpty ? .all : .subviews)

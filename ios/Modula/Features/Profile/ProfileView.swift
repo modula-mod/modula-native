@@ -313,6 +313,9 @@ struct ProfileView: View {
                 tint: ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas,
                 reduceTransparency: navReduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
             )
+            // The cover bleeds to the top edge at rest: the blur only fades in once the cover's
+            // bottom scrolls up under the header (Andy t195u).
+            .opacity(shelfPinned ? 1 : topBlurOpacity)
             .animation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .easeOut(duration: 0.2), value: shelfPinned)
 
             if shelfPinned, let profile {
@@ -372,6 +375,15 @@ struct ProfileView: View {
                 }
             }
         }
+    }
+
+    /// 0 at rest (cover fully visible) → 1 over a short 24 pt range once the cover's bottom
+    /// reaches the bottom of the header bar.
+    private var topBlurOpacity: CGFloat {
+        let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
+        let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
+        let start = cover - (safeTop + 44)
+        return min(max((scrollOffset - start) / 24, 0), 1)
     }
 
     /// Offset past which `navBarProgress` is fully 1 (nothing above it changes the header).
