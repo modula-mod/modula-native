@@ -150,7 +150,13 @@ private struct WebGameSurface: UIViewRepresentable {
             guard let progress = change.newValue else { return }
             DispatchQueue.main.async { coordinator?.parent.loadingProgress = progress }
         }
-        if let gameURL { view.load(URLRequest(url: gameURL)) }
+        if let gameURL {
+            // Fail closed: the game document loads only after the local-only
+            // network rule list is installed on this view's content controller.
+            Self.loadGame(gameURL, in: view) { loaded in
+                if !loaded { DispatchQueue.main.async { processFailed = true } }
+            }
+        }
         DispatchQueue.main.async { webView = view }
         return view
     }
@@ -199,6 +205,48 @@ private struct WebGameSurface: UIViewRepresentable {
         return configuration
     }
 
+    /// Blocks every load that is not on the game's own custom scheme, beneath
+    /// CSP. Compiled at runtime by WebKit; no third-party code.
+    static let networkRuleListIdentifier = "digital.modula.web-game.local-only.v1"
+    static let networkRules = #"""
+    [{"trigger":{"url-filter":".*"},"action":{"type":"block"}},
+     {"trigger":{"url-filter":"^modula-game://"},"action":{"type":"ignore-previous-rules"}},
+     {"trigger":{"url-filter":"^data:"},"action":{"type":"ignore-previous-rules"}},
+     {"trigger":{"url-filter":"^blob:"},"action":{"type":"ignore-previous-rules"}}]
+    """#
+    @MainActor private static var compiledNetworkRules: WKContentRuleList?
+
+    /// Installs the local-only rule list on `controller`. Reports false, and
+    /// installs nothing, when WebKit cannot compile it.
+    @MainActor
+    static func installNetworkRules(on controller: WKUserContentController,
+                                    completion: @escaping @MainActor (Bool) -> Void) {
+        if let compiledNetworkRules {
+            controller.add(compiledNetworkRules)
+            completion(true)
+            return
+        }
+        Task { @MainActor in
+            let list = try? await WKContentRuleListStore.default()?.compileContentRuleList(
+                forIdentifier: networkRuleListIdentifier, encodedContentRuleList: networkRules)
+            guard let list else { completion(false); return }
+            compiledNetworkRules = list
+            controller.add(list)
+            completion(true)
+        }
+    }
+
+    /// The only way a game document is loaded: never before the rule list is
+    /// in place, and not at all if it could not be compiled.
+    @MainActor
+    static func loadGame(_ url: URL, in view: WKWebView, completion: @escaping @MainActor (Bool) -> Void) {
+        installNetworkRules(on: view.configuration.userContentController) { [weak view] installed in
+            guard installed, let view else { completion(false); return }
+            view.load(URLRequest(url: url))
+            completion(true)
+        }
+    }
+
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
         coordinator.progressObservation = nil
         view.stopLoading()
@@ -227,11 +275,24 @@ private struct WebGameSurface: UIViewRepresentable {
             }
         }
 
+        /// Only the verified entry document may occupy the main frame. Any other
+        /// main-frame navigation (including to listed archive files such as SVG),
+        /// every subframe navigation, and every new-window target is cancelled.
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = action.request.url, let handler,
-                  url.scheme == VerifiedGameSchemeHandler.scheme,
-                  url.host == handler.origin,
+                  action.targetFrame?.isMainFrame == true,
+                  url.absoluteString == handler.entryURL.absoluteString,
                   handler.contains(url) else { return .cancel }
+            return .allow
+        }
+
+        /// The main frame may only display the entry document as HTML. Anything
+        /// WebKit cannot show inline (a download) or any other type is cancelled.
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+            guard let handler, navigationResponse.isForMainFrame, navigationResponse.canShowMIMEType,
+                  navigationResponse.response.mimeType?.lowercased() == "text/html",
+                  let url = navigationResponse.response.url,
+                  url.absoluteString == handler.entryURL.absoluteString else { return .cancel }
             return .allow
         }
 
@@ -275,9 +336,16 @@ private struct WebGameSurface: UIViewRepresentable {
 /// ambiguity. WebKit receives no local-file read grant or Native message bridge.
 private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "modula-game"
-    // Applied by the host on the HTML response, independent of any policy
-    // declared by a downloadable package.
-    private static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
+    // Applied by the host on every HTML response, independent of any policy
+    // declared by a downloadable package. This header (with the local-only
+    // rule list) is the security boundary: it is never derived from, or
+    // relaxed by, the document. A document meta CSP can only add restrictions,
+    // because browsers enforce every policy present.
+    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
+    // Every non-HTML response (SVG, scripts, styles, media) also carries a
+    // policy, so a document type that can script itself can never run code
+    // or reach the network even if WebKit renders it as a document.
+    static let resourceContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; sandbox"
     let digest: String
     let origin: String
     let entryURL: URL
@@ -363,7 +431,7 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         if mime == "text/html" {
             headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
         }
-        if mime == "text/html" { headers["Content-Security-Policy"] = Self.contentSecurityPolicy }
+        headers["Content-Security-Policy"] = mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy
         guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
             task.didFailWithError(WebGamePackageError.invalid("resource response"))
             return
@@ -397,6 +465,13 @@ struct WebGameBrowserProbe {
         browser.stopLoading()
         handler.closeSession()
     }
+
+    /// Loads through the production path: rule list first, then the document.
+    @MainActor func load(_ url: URL) async -> Bool {
+        await withCheckedContinuation { continuation in
+            WebGameSurface.loadGame(url, in: browser) { continuation.resume(returning: $0) }
+        }
+    }
 }
 
 @MainActor
@@ -411,6 +486,16 @@ enum WebGameResourceProbe {
     static func serve(entry: URL, task: WKURLSchemeTask) throws {
         try VerifiedGameSchemeHandler(entry: entry).serve(task)
     }
+
+    /// Installs the production local-only rule list on any content controller.
+    static func installNetworkRules(on controller: WKUserContentController) async -> Bool {
+        await withCheckedContinuation { continuation in
+            WebGameSurface.installNetworkRules(on: controller) { continuation.resume(returning: $0) }
+        }
+    }
+
+    static var resourceContentSecurityPolicy: String { VerifiedGameSchemeHandler.resourceContentSecurityPolicy }
+    static var htmlContentSecurityPolicy: String { VerifiedGameSchemeHandler.contentSecurityPolicy }
 
     static func browser(entry: URL, onNavigationComplete: @escaping (Error?) -> Void) throws -> WebGameBrowserProbe {
         let handler = try VerifiedGameSchemeHandler(entry: entry)
