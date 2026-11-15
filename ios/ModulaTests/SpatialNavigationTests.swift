@@ -367,3 +367,33 @@ final class SpatialDockTests: XCTestCase {
         ), runnable: true)
     }
 }
+
+@MainActor
+final class SpatialFeatureFlagTests: XCTestCase {
+    func testDefaultsOnInDebugAndFollowsTheLabsSwitch() {
+        let defaults = UserDefaults(suiteName: "SpatialFeatureFlagTests")!
+        defaults.removePersistentDomain(forName: "SpatialFeatureFlagTests")
+        #if DEBUG
+        XCTAssertTrue(SpatialNavigationFeature.defaultValue)
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: defaults))
+        #else
+        XCTAssertFalse(SpatialNavigationFeature.defaultValue)
+        #endif
+        defaults.set(false, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: defaults))
+        defaults.set(true, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: defaults))
+    }
+
+    func testRoutingFollowsTheFlagAtCallTime() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = false
+        navigation.select(.profile)
+        XCTAssertEqual(navigation.selectedTab, .profile)
+        navigation.spatialEnabledOverride = true
+        navigation.select(.home)
+        navigation.select(.profile)
+        XCTAssertEqual(navigation.selectedTab, .home)
+        XCTAssertTrue(navigation.spatial.isProfileOpen)
+    }
+}

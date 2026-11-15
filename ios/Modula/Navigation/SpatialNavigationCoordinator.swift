@@ -13,6 +13,15 @@ import SwiftUI
 enum SpatialNavigationFeature {
     static let enabledKey = "dev.spatialNavigation.enabled"
 
+    /// Value used when the switch was never touched (Settings → Labs binds to the same key).
+    static var defaultValue: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
     static func enabled(defaults: UserDefaults = .standard) -> Bool {
         if ProcessInfo.processInfo.arguments.contains("--spatial-navigation-disabled") { return false }
         #if DEBUG

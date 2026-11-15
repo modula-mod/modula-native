@@ -526,6 +526,11 @@ struct ShellAccessoryHost: View {
         .modifier(AccessoryModulesLift())
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Next context") { page = (page + 1) % Self.pageTitles.count }
+        // Gesture Navigation System: every swipe has a VoiceOver / Switch Control equivalent here.
+        .accessibilityAction(named: "Open profile") {
+            if app.navigation.spatialEnabled { app.navigation.spatial.openProfile(.me) } else { app.navigation.open(.me(.overview)) }
+        }
+        .accessibilityAction(named: "Open sidebar") { app.navigation.presentSidebar() }
         .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
         .accessibilityIdentifier("tab.accessory")
         .onChange(of: route) { _, _ in page = 0 }
@@ -549,7 +554,14 @@ struct ShellAccessoryHost: View {
         if page == 1 {
             return [
                 ContextItem(id: "hub", title: "Product Hub", symbol: "shippingbox") { app.navigation.open(.productHub(.featured)) },
-                ContextItem(id: "installed", title: "Installed", symbol: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) },
+                ContextItem(id: "installed", title: app.navigation.spatialEnabled ? "Modules Dock" : "Installed",
+                            symbol: app.navigation.spatialEnabled ? "square.grid.3x3.square" : "checkmark.circle") {
+                    if app.navigation.spatialEnabled {
+                        app.navigation.spatial.openDock(.half)
+                    } else {
+                        app.navigation.open(.productHub(.collection(.installed)))
+                    }
+                },
                 ContextItem(id: "updates", title: "Updates", symbol: "arrow.triangle.2.circlepath") { app.navigation.open(.productHub(.collection(.updates))) }
             ]
         }
