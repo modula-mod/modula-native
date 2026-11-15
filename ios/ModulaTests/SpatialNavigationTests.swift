@@ -270,3 +270,42 @@ final class SpatialNavigationTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class SpatialRecentsTests: XCTestCase {
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: "SpatialRecentsTests")
+        defaults.removePersistentDomain(forName: "SpatialRecentsTests")
+    }
+
+    func testRecordsNamedDestinationsNewestFirstWithoutDuplicates() {
+        SpatialRecents.note(.saved(.root), defaults: defaults)
+        SpatialRecents.note(.settings(.appearance(.root)), defaults: defaults)
+        SpatialRecents.note(.saved(.root), defaults: defaults)
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults).first, .saved(.root))
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults).count, 2)
+    }
+
+    func testIgnoresUnnamedOrTransientRoutes() {
+        SpatialRecents.note(.post("p1", .root), defaults: defaults)
+        SpatialRecents.note(.auth(.login), defaults: defaults)
+        SpatialRecents.note(.home(.following), defaults: defaults)
+        XCTAssertTrue(SpatialRecents.load(defaults: defaults).isEmpty)
+    }
+
+    func testKeepsModulesForTheRecentModulesSection() {
+        SpatialRecents.note(.module("digital.modula.vault-notes", localPath: nil), defaults: defaults)
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults), [.module("digital.modula.vault-notes", localPath: nil)])
+    }
+
+    func testIsCapped() {
+        let routes: [AppRoute] = [.saved(.root), .drafts(.root), .collections(.root), .messages(.inbox), .settings(.root),
+                                  .settings(.moliboo), .settings(.privacy(.root)), .developer(.studio), .productHub(.featured),
+                                  .settings(.notifications(.root))]
+        routes.forEach { SpatialRecents.note($0, defaults: defaults) }
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults).count, SpatialRecents.limit)
+    }
+}
