@@ -344,6 +344,7 @@ struct ConversationListView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("messages.inbox.searchKind")
     }
 
@@ -365,6 +366,7 @@ struct ConversationListView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("messages.inbox.folders")
     }
 
@@ -423,6 +425,7 @@ struct ConversationListView: View {
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         .padding(.top, 4)
@@ -463,6 +466,7 @@ struct ConversationListView: View {
                 .padding(.horizontal, ModulaLayout.contentInset)
             }
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
     }
 
@@ -1591,6 +1595,8 @@ struct ConversationView: View {
                 .contentMargins(.bottom, 40, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
+                // Hold-to-react: the thread must not scroll under the focused bubble / reaction bar.
+                .scrollDisabled(focusRequest != nil)
                 // Floating day chip (Liquid Glass) while scrolling history: fires only when
                 // the visible set changes, and only writes state when the day label does.
                 .onScrollTargetVisibilityChange(idType: MessageID.self, threshold: 0.3) { ids in
@@ -2306,6 +2312,7 @@ struct ConversationComposerDock: View {
                         .padding(.horizontal, ModulaLayout.contentInset)
                     }
                 }
+                .modulaHorizontalRail()
                 .scrollClipDisabled()
                 .padding(.top, 6)
                 .accessibilityIdentifier("messages.smartReplies")

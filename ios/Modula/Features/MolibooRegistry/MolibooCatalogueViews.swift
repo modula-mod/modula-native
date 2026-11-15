@@ -73,6 +73,7 @@ struct MolibooCollectionBrowser: View {
                         .padding(.horizontal, 16)
                     }
                 }
+                .modulaHorizontalRail()
                 Text("\(shown.count) of \(roster.count)")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
@@ -168,6 +169,7 @@ struct MolibooCharacterDetailView: View {
                                 }
                             }
                         }
+                        .modulaHorizontalRail()
                     }
                     section("Wardrobe") {
                         Text(c.wearable ? "Wears Moliboo accessories, fitted for its shape." : "A Legend wears its own look, so accessories are not shown.")

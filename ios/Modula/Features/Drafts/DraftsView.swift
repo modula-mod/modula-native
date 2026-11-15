@@ -63,6 +63,7 @@ struct DraftsView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .modulaHorizontalRail()
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             if filter == .reels {

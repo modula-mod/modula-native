@@ -499,6 +499,7 @@ struct PostCommentsView: View {
                     .padding(.bottom, 24)
                 }
                 .scrollDismissesKeyboard(.interactively)
+                .modulaFreezesScrollDuringReactions()
                 .scrollBounceBehavior(.always)
                 .modulaSoftScrollEdge()
                 .refreshable {

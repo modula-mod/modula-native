@@ -166,6 +166,7 @@ struct PremiumCompareView: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 .modulaHorizontalEdgeFade()
             }
             .padding(.vertical, ModulaSpacing.xs)

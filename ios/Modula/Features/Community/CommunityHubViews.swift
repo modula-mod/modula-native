@@ -119,6 +119,7 @@ struct CommunityHubView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     @ViewBuilder
@@ -191,6 +192,7 @@ struct CommunityHubView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     private func load(reset: Bool) async {
@@ -384,6 +386,7 @@ struct CommunityBuildersView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     @ViewBuilder

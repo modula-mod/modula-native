@@ -61,6 +61,7 @@ struct ActivityChipBar: View {
                     .padding(.vertical, 6)
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
             .onAppear { if selection != .all { proxy.scrollTo(selection, anchor: .center) } }
             .onChange(of: selection) { _, new in

@@ -65,6 +65,7 @@ struct Moliboo3DPreview: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 HStack {
                     Button("Wobble") { controller.wobble() }
                     Button("Idle bob") { controller.playClip("idle_bob") }

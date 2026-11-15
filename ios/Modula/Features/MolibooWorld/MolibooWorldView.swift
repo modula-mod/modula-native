@@ -722,6 +722,7 @@ struct MolibooWorldView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .modulaHorizontalRail()
             .scrollIndicators(.hidden)
             .contentMargins(.horizontal, 24, for: .scrollContent)
             .modulaHorizontalEdgeFade()
@@ -745,6 +746,7 @@ struct MolibooWorldView: View {
             }
             .scrollTargetLayout()
         }
+        .modulaHorizontalRail()
         .scrollTargetBehavior(.paging)
         .scrollIndicators(.hidden)
         .scrollPosition(id: Binding(get: { Optional(currentPickerFamily) }, set: { if let f = $0 { withAnimation(navAnimation) { pickerFamily = f } } }))

@@ -156,9 +156,7 @@ struct RootView: View {
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
                     ShellAccessorySystemSlot(route: navigation.currentRoute)
                 }
-                // On Activity the minimised bar collapses to a lone bell + red badge bubble
-                // (bottom-left), which read as a stray notifications button — keep it expanded there.
-                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
+                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab) ? .onScrollDown : .never)
         } else if #available(iOS 26.0, *) {
             tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
@@ -167,9 +165,7 @@ struct RootView: View {
                         ShellAccessorySystemSlot(route: navigation.currentRoute)
                     }
                 }
-                // On Activity the minimised bar collapses to a lone bell + red badge bubble
-                // (bottom-left), which read as a stray notifications button — keep it expanded there.
-                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
+                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab) ? .onScrollDown : .never)
         } else {
             tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -177,6 +173,17 @@ struct RootView: View {
                         ModulaBottomChrome(route: navigation.currentRoute, showsAccessory: policy.shellAccessoryVisible)
                     }
                 }
+        }
+    }
+
+    /// On Activity the minimised bar collapses to a lone bell + red badge bubble (bottom-left),
+    /// which read as a stray notifications button. On Discover it collapses to a lone compass
+    /// bubble with the Tools pill squeezed in beside it, both floating over the rails —
+    /// keep the bar expanded on those tabs so the bottom chrome has one stable shape.
+    static func tabBarMinimizes(on tab: AppTab) -> Bool {
+        switch tab {
+        case .activity, .discover: false
+        default: true
         }
     }
 

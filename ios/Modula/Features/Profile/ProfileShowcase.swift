@@ -216,6 +216,7 @@ struct ProfileProgressionCard: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
         .padding(12)
         .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous), interactive: false)

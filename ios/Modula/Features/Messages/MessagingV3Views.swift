@@ -260,6 +260,7 @@ struct NewGroupView: View {
                             }
                         }
                     }
+                    .modulaHorizontalRail()
                 }
                 ForEach(filtered) { person in
                     Button {

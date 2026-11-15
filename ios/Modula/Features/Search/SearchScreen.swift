@@ -338,6 +338,7 @@ struct SearchScreen: View {
             }
             .padding(.vertical, 2)
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
     }
 
@@ -372,6 +373,7 @@ struct SearchScreen: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
         .transition(.opacity)
     }

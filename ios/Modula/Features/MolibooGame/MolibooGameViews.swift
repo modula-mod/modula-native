@@ -212,6 +212,7 @@ private struct OutfitSetCard: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             if let bonus = set.setBonus {
                 Label(bonus.name, systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
@@ -264,6 +265,7 @@ struct MolibooInventoryView: View {
                         ForEach(MolibooWearableSlot.allCases) { s in chip(s.title, s) }
                     }
                 }
+                .modulaHorizontalRail()
                 Toggle("Only what I can wear", isOn: $ownedOnly).font(.callout)
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(entries) { e in cell(e) }

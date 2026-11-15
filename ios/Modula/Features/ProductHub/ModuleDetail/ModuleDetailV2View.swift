@@ -370,6 +370,7 @@ struct ModuleDetailV2View: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("module.stats")
     }
 
@@ -449,6 +450,7 @@ struct ModuleDetailV2View: View {
                     }
                     .scrollTargetLayout()
                 }
+                .modulaHorizontalRail()
                 .scrollTargetBehavior(.viewAligned)
                 .accessibilityIdentifier("module.screenshots")
             }

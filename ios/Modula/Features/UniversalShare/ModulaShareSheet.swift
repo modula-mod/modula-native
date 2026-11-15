@@ -169,6 +169,7 @@ struct ModulaShareSheet: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .modulaHorizontalRail()
                 .scrollClipDisabled()
                 .accessibilityIdentifier("share.people")
             }
@@ -437,6 +438,7 @@ struct ModulaShareSheet: View {
                 .padding(.vertical, 2)
             }
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
     }
 
@@ -460,6 +462,7 @@ struct ModulaShareSheet: View {
                 .padding(.vertical, 2)
             }
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
     }
 

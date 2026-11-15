@@ -253,6 +253,7 @@ struct MolibooCollectionView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     @ViewBuilder private func tile(id: String, number: Int) -> some View {

@@ -240,6 +240,7 @@ struct ProfileView: View {
             }
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)
             .modulaSoftScrollEdge()
+            .modulaFreezesScrollDuringReactions()
             .modifier(ProfileTopEdgeEffectHidden())
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
@@ -756,6 +757,7 @@ struct ProfileView: View {
             .padding(3)
             .padding(.trailing, 14)
             }
+            .modulaHorizontalRail()
             // Edge fade so a clipped tab ("Mod…") reads as scrollable instead of cut off.
             .mask {
                 LinearGradient(stops: [

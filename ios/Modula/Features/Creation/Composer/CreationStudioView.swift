@@ -677,6 +677,7 @@ struct CreationStudioView: View {
                     }
                     .padding(.horizontal, 6)
                 }
+                .modulaHorizontalRail()
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barScrollWidth = $0 }
                 // Keep icons inside the pill: clip to the capsule and feather both edges.
                 .clipShape(Capsule())

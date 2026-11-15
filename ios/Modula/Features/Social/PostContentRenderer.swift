@@ -143,6 +143,7 @@ struct ModulaPostContentRenderer: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
     }
 }

@@ -240,3 +240,81 @@ extension View {
         }
     }
 }
+
+// MARK: - Scroll hygiene (rails, reaction lock)
+
+extension View {
+    /// Apply to every horizontal `ScrollView` rail. The tab shell sets
+    /// `contentMargins(.bottom, accessoryClearance)` and a soft top/bottom scroll-edge effect
+    /// for the whole NavigationStack; both leaked into horizontal rails, adding an empty
+    /// band under the cards with a grey soft-edge blur (the "clipping box" look).
+    func modulaHorizontalRail() -> some View {
+        modifier(ModulaHorizontalRailModifier(edgeToEdge: false, inset: 0))
+    }
+
+    /// A horizontal rail inside page content padded by `inset`: scrolls edge to edge (cards no
+    /// longer clip at the page margins), the first/last card still align with the content inset,
+    /// and glass/shadows aren't clipped vertically.
+    func modulaEdgeToEdgeRail(inset: CGFloat = ModulaLayout.contentInset) -> some View {
+        modifier(ModulaHorizontalRailModifier(edgeToEdge: true, inset: inset))
+    }
+
+    /// Apply to a vertical feed `ScrollView`: while any descendant reports
+    /// `postReactionPickerPresented(true)` (hold-to-react picker / emoji scrub), the scroll
+    /// view stops scrolling so the scrub drag can't also move the feed.
+    func modulaFreezesScrollDuringReactions() -> some View {
+        modifier(ModulaReactionScrollLock())
+    }
+}
+
+private struct ModulaHorizontalRailModifier: ViewModifier {
+    let edgeToEdge: Bool
+    let inset: CGFloat
+
+    func body(content: Content) -> some View {
+        // Vertical only: the parents' margins (shell accessory clearance, Profile's
+        // full-bleed top/bottom margins, chat's bottom margin) are meant for the page scroll.
+        // Horizontal margins a rail sets itself are left alone unless it opts into edge-to-edge.
+        content
+            .contentMargins(.vertical, 0, for: .scrollContent)
+            .modifier(HorizontalRailEdgeEffect())
+            .modifier(EdgeToEdgeRail(enabled: edgeToEdge, inset: inset))
+    }
+}
+
+private struct EdgeToEdgeRail: ViewModifier {
+    let enabled: Bool
+    let inset: CGFloat
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .contentMargins(.horizontal, inset, for: .scrollContent)
+                .scrollClipDisabled()
+                .padding(.horizontal, -inset)
+        } else {
+            content
+        }
+    }
+}
+
+private struct HorizontalRailEdgeEffect: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            content
+        }
+    }
+}
+
+private struct ModulaReactionScrollLock: ViewModifier {
+    @State private var pickerPresented = false
+
+    func body(content: Content) -> some View {
+        content
+            .scrollDisabled(pickerPresented)
+            .onPreferenceChange(PostReactionPickerPresentedKey.self) { presented in
+                if pickerPresented != presented { pickerPresented = presented }
+            }
+    }
+}

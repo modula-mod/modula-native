@@ -74,6 +74,7 @@ struct MolibooCardCollectionView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .modulaHorizontalEdgeFade()
         .accessibilityIdentifier("cards.collection.families")
     }

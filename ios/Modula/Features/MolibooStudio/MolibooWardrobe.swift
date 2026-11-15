@@ -189,6 +189,7 @@ struct MolibooWardrobeSheet: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .modulaHorizontalEdgeFade()
     }
 
@@ -247,6 +248,7 @@ struct MolibooWardrobeSheet: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .modulaHorizontalEdgeFade()
     }
 
@@ -392,6 +394,7 @@ struct MolibooWardrobeSheet2D: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             HStack(spacing: 10) {
                 Button("Apply") { session.apply() }.disabled(!session.canApply)
                 Button("Revert") { session.revert() }.disabled(!session.isPreviewing)

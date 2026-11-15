@@ -119,6 +119,7 @@ struct HomeView: View {
                 }
             }
             .modulaSoftScrollEdge()
+            .modulaFreezesScrollDuringReactions()
             .onScrollGeometryChange(for: Bool.self) { [storyTrayFolded] geometry in
                 // Bool output keeps this cheap: the action only runs when the
                 // fold state flips. Hysteresis stops the toolbar swap flickering
@@ -497,6 +498,7 @@ struct HomeView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset + leadingInteractionInset)
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
     }
 

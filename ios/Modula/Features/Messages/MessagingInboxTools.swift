@@ -340,6 +340,7 @@ struct ConversationSearchBar: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             Text("Search covers the messages loaded on this device.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -378,6 +379,7 @@ struct MessageRecentTokensRow: View {
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
             }
+            .modulaHorizontalRail()
             .padding(.bottom, 4)
             .accessibilityIdentifier("messages.recentTokens")
         }

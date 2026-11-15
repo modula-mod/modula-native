@@ -647,6 +647,7 @@ struct ShellSidebarView: View {
                 }
                 .padding(.horizontal, rowInset)
             }
+            .modulaHorizontalRail()
             .scrollIndicators(.hidden)
         }
     }

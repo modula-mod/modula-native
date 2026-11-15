@@ -13,6 +13,7 @@ struct DiscoverScopePicker: View {
                 .padding(.vertical, 2)
                 .padding(.horizontal, 2)
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
         .mask(
             LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.03),

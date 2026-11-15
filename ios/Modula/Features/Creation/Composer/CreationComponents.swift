@@ -419,6 +419,7 @@ struct CreationSuggestionRail: View {
             }
             .padding(.horizontal, 4)
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("compose.suggestions")
     }
 }
@@ -453,6 +454,7 @@ struct MediaAttachmentGrid: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
         .padding(12)
         .background {

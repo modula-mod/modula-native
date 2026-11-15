@@ -238,6 +238,7 @@ struct GubicHubView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     private var sampleCard: some View {
@@ -283,6 +284,7 @@ struct GubicShelf: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
             }
         }
     }

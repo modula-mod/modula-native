@@ -403,6 +403,7 @@ struct CommentReactionChips: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("comment.reactions")
     }
 }

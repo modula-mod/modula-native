@@ -250,6 +250,7 @@ struct MolibooSettingsView: View {
                 }
                 .padding(4)
             }
+            .modulaHorizontalRail()
             .modulaHorizontalEdgeFade(12)
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
         }
@@ -552,6 +553,7 @@ struct MolibooSettingsView: View {
             }
             .padding(.vertical, 4)
         }
+        .modulaHorizontalRail()
     }
 }
 

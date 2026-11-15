@@ -244,6 +244,7 @@ struct StoryTray: View {
             .padding(.vertical, 4)
             .padding(.trailing, compact ? 0 : 24)
         }
+        .modulaHorizontalRail()
         // Soft trailing fade: the row reads as scrollable instead of a ring cut in half.
         .mask {
             if compact {
@@ -352,6 +353,7 @@ struct StoryRootPlaceholder: View {
                             }
                             .padding(.horizontal, ModulaLayout.contentInset)
                         }
+                        .modulaHorizontalRail()
                         .padding(.horizontal, -ModulaLayout.contentInset)
                     }
                 }
@@ -3095,6 +3097,7 @@ struct StoryCreateView: View {
                     }
                     .padding(.horizontal, 16)
                 }
+                .modulaHorizontalRail()
                 colourRow(selection: textSpec.colorHex) { textSpec.colorHex = $0 }
             }
             .padding(.vertical, 14)
@@ -3147,6 +3150,7 @@ struct StoryCreateView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
+        .modulaHorizontalRail()
     }
 
     private func beginText() {
@@ -3276,6 +3280,7 @@ struct StoryCreateView: View {
             }
             .padding(.horizontal, 16)
         }
+        .modulaHorizontalRail()
     }
 
     @ViewBuilder
@@ -3330,6 +3335,7 @@ struct StoryCreateView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -3360,6 +3366,7 @@ struct StoryCreateView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
         }
     }
 
@@ -3524,6 +3531,7 @@ struct StoryCreateView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .modulaHorizontalRail()
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .modulaHorizontalEdgeFade()
             .padding(.top, 14)

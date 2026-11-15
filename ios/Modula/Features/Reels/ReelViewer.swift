@@ -708,6 +708,7 @@ struct DiscoverReelsShelf: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
         .accessibilityIdentifier("discover.reels.shelf")
     }

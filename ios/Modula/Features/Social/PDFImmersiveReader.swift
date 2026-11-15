@@ -351,6 +351,7 @@ struct ModulaPDFImmersiveReader: View {
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
             }
+            .modulaHorizontalRail()
             .scrollIndicators(.hidden)
             .frame(height: 60)
             .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)

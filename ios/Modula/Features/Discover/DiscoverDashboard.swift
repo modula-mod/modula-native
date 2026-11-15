@@ -83,6 +83,7 @@ struct DiscoverDashboardView: View {
                             }
                         }
                     }
+                    .modulaEdgeToEdgeRail()
                 }
             }
         }
@@ -427,6 +428,7 @@ struct DiscoverMosaic: View {
             }
             .padding(.vertical, 2)
         }
+        .modulaEdgeToEdgeRail()
         .transition(.opacity)
     }
 
@@ -671,6 +673,7 @@ struct DiscoverTopicRail: View {
                     }
                 }
             }
+            .modulaEdgeToEdgeRail()
             .scrollClipDisabled()
         }
     }
@@ -714,6 +717,7 @@ struct DiscoverFeaturedModulesRail: View {
                     }
                 }
             }
+            .modulaEdgeToEdgeRail()
             .scrollClipDisabled()
         }
     }

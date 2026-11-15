@@ -373,6 +373,7 @@ struct ImmersivePostCard: View {
                 }
                 .scrollTargetLayout()
             }
+            .modulaHorizontalRail()
             .scrollTargetBehavior(.paging)
             .scrollIndicators(.hidden)
             .scrollPosition(id: $page)

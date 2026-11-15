@@ -118,6 +118,7 @@ struct MolibooStickerBrowser: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 8) {
                     ForEach(family.kinds) { k in
@@ -136,6 +137,7 @@ struct MolibooStickerBrowser: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
             .frame(height: 76)
             HStack {
                 Text("\(kind.name) stickers").font(.headline)

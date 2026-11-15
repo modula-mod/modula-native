@@ -173,6 +173,7 @@ struct MolibooMarketplaceView: View {
                 .padding(.horizontal, 16)
             }
         }
+        .modulaHorizontalRail()
         .padding(.vertical, 8)
     }
 
@@ -199,6 +200,7 @@ struct MolibooMarketplaceView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
             sectionHeader("New arrivals", trailing: "Preview only")
             grid(Array(drafts.prefix(8)), families: families)
         }
@@ -300,6 +302,7 @@ struct MolibooMarketplaceView: View {
             }
             .padding(.horizontal, 16)
         }
+        .modulaHorizontalRail()
     }
 
     private func chip(_ title: String, color: Color, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -561,6 +564,7 @@ struct MolibooMarketplaceDetail: View {
                                 }
                             }
                         }
+                        .modulaHorizontalRail()
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Stickers").font(.title3.weight(.bold))
@@ -575,6 +579,7 @@ struct MolibooMarketplaceDetail: View {
                                 }
                             }
                         }
+                        .modulaHorizontalRail()
                         if let copied { Text(copied).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
                     }
                 }

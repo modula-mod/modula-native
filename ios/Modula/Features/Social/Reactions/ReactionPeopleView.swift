@@ -22,6 +22,7 @@ struct ReactionPeopleView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                 }
+                .modulaHorizontalRail()
             }
             ContentUnavailableView {
                 Label("Reactions", systemImage: "face.smiling")

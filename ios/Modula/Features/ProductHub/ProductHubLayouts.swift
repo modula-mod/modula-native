@@ -142,6 +142,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         if !updates.isEmpty {
@@ -166,6 +167,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         let withShots = scoped.filter { !($0.presentation?.screenshots ?? []).compactMap(\.url).isEmpty }
@@ -178,6 +180,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         ForEach(ProductHubCollections.make(scoped)) { collection in
@@ -189,6 +192,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         if !installed.isEmpty {
@@ -279,6 +283,7 @@ struct ProductHubVariantView: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 .scrollClipDisabled()
             }
         case .installed:
@@ -307,6 +312,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         ProductCategoryChips(products: products, selected: category, onOpen: onCategory)
@@ -321,6 +327,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         if !installed.isEmpty {
@@ -610,6 +617,7 @@ struct ProductHubChipRow: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .scrollClipDisabled()
     }
     private func chip(title: String, symbol: String, count: Int?, on: Bool, action: @escaping () -> Void) -> some View {
@@ -767,6 +775,7 @@ struct ProductHubPreviewCard: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 HStack(spacing: 8) {
                     ProductArtwork(product: product, size: 32)
                     Text(product.name).font(.subheadline.weight(.semibold)).lineLimit(1)

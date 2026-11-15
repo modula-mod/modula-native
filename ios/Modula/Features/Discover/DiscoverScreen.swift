@@ -37,7 +37,10 @@ struct DiscoverScreen: View {
         .navigationTitle("Discover")
         .navigationBarTitleDisplayMode(.inline)
         .modulaSidebarTrigger()
-        .safeAreaInset(edge: .top, spacing: 0) {
+        // Overlay (not safeAreaInset): the scroll views reserve the expanded header's height
+        // as fixed top padding, so collapsing never changes their insets, and the collapsed
+        // bar sits flush on top of the content instead of a tall, see-through inset.
+        .overlay(alignment: .top) {
             header
         }
         .overlay(alignment: .bottom) {
@@ -88,9 +91,15 @@ struct DiscoverScreen: View {
         ModulaGlassGroup(spacing: 8) {
             Group {
                 if collapsed {
+                    // One compact row: chips take the remaining width, search + filter hug the trailing edge.
                     HStack(spacing: 8) {
                         chips
-                        searchEntry.modulaGlassID("discover.search", in: glassNS)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .layoutPriority(0)
+                        searchEntry
+                            .modulaGlassID("discover.search", in: glassNS)
+                            .fixedSize()
+                            .layoutPriority(1)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
@@ -113,13 +122,18 @@ struct DiscoverScreen: View {
         .padding(.top, 4)
         .padding(.bottom, 10)
         .background {
-            // Edge fade so cards dissolve under the header instead of clashing behind it.
-            LinearGradient(stops: [
-                .init(color: Color(uiColor: .systemBackground), location: 0),
-                .init(color: Color(uiColor: .systemBackground).opacity(0.85), location: 0.6),
-                .init(color: Color(uiColor: .systemBackground).opacity(0), location: 1)
-            ], startPoint: .top, endPoint: .bottom)
-            .padding(.bottom, -18)
+            // Opaque behind the whole header (the old fade reached 0 inside the chip row, so
+            // "Trending topics" and cards showed through it); fade only in a short lip below.
+            VStack(spacing: 0) {
+                Color(uiColor: .systemBackground)
+                LinearGradient(
+                    colors: [Color(uiColor: .systemBackground), Color(uiColor: .systemBackground).opacity(0)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 14)
+            }
+            .padding(.bottom, -14)
             .ignoresSafeArea(edges: .top)
             .allowsHitTesting(false)
         }
@@ -127,7 +141,6 @@ struct DiscoverScreen: View {
             // Only the expanded layout defines the reserved height; ignore collapsed/animating sizes.
             if !collapsed, height > expandedHeaderHeight { expandedHeaderHeight = height }
         }
-        .frame(minHeight: expandedHeaderHeight, alignment: .top)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86), value: collapsed)
     }
 
@@ -138,7 +151,9 @@ struct DiscoverScreen: View {
                 content(for: scope)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 8)
+            // The header is an overlay: reserve its expanded height once (fixed, so the
+            // collapse threshold can't feed back into the inset).
+            .padding(.top, 8 + expandedHeaderHeight)
             // Clear the floating Tools pill and the tab bar.
             .padding(.bottom, 140)
             .modulaPullContentEffects()
@@ -151,6 +166,7 @@ struct DiscoverScreen: View {
             collapsed = isCollapsed
         }
         .modulaSoftScrollEdge()
+        .modulaFreezesScrollDuringReactions()
         .environment(\.modulaHeroScope, "discover.\(scope.rawValue)")
         .modulaShellPullActions(liftsAboveContent: false) {
             await app.discover.refresh(scope)
@@ -352,6 +368,7 @@ struct DiscoverScreen: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack { ForEach(0..<3, id: \.self) { _ in DiscoverSkeleton(kind: .topic) } }
             }
+            .modulaHorizontalRail()
             ForEach(0..<3, id: \.self) { _ in DiscoverSkeleton(kind: .person) }
             DiscoverSkeleton(kind: .post)
             DiscoverSkeleton(kind: .module)

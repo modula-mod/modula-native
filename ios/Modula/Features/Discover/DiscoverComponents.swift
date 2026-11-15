@@ -345,6 +345,7 @@ struct DiscoverPeopleShelf: View {
                     }
                 }
             }
+            .modulaEdgeToEdgeRail()
         }
         .accessibilityElement(children: .contain)
     }
@@ -366,6 +367,7 @@ struct DiscoverTopicShelf: View {
                 }
                 .padding(.vertical, 4)
             }
+            .modulaEdgeToEdgeRail()
         }
     }
 }

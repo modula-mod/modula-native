@@ -97,6 +97,7 @@ struct PremiumHubView: View {
                 }
                 .padding(.vertical, 12)
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
             .accessibilityIdentifier("premium.plans")
 

@@ -716,6 +716,7 @@ struct StoryCaptureStage: View {
                 }
                 .padding(.horizontal, 14)
             }
+            .modulaHorizontalRail()
             if ar.placed > 0 {
                 Button("Clear") { ar.clear(); HapticEngine.shared.play(.selection) }
                     .font(.footnote.weight(.semibold)).foregroundStyle(.white)
@@ -808,6 +809,7 @@ struct StoryCaptureStage: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
             if effect == .greenScreen {
                 PhotosPicker(selection: $backdropItems, maxSelectionCount: 1, matching: .images) {
                     Label("Choose backdrop", systemImage: "photo")
@@ -902,6 +904,7 @@ struct StoryCaptureStage: View {
                 }
                 .padding(.horizontal, 8)
             }
+            .modulaHorizontalRail()
             .onAppear { proxy.scrollTo(mode.id, anchor: .center) }
         }
         .frame(maxWidth: .infinity)
@@ -950,6 +953,7 @@ struct StoryCaptureStage: View {
                 }
                 .scrollTargetLayout()
             }
+            .modulaHorizontalRail()
             .contentMargins(.horizontal, max((geo.size.width - 58) / 2, 0), for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $filterID, anchor: .center)
