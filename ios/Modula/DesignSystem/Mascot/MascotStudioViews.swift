@@ -582,7 +582,7 @@ struct MascotStudioView: View {
                                 .font(.caption.weight(.semibold))
                             ProgressView(value: progress.collectionFraction(s))
                                 .progressViewStyle(.linear)
-                                .tint(on ? Color.accentColor : .secondary)
+                                .tint(on ? Color.primary : .secondary)
                                 .frame(width: 54)
                                 .scaleEffect(y: 0.6)
                         }
@@ -590,7 +590,7 @@ struct MascotStudioView: View {
                     }
                     .buttonStyle(.plain)
                     .modulaGlass(in: Capsule(), interactive: true)
-                    .overlay(Capsule().strokeBorder(on ? Color.accentColor : .clear, lineWidth: 1.5))
+                    .overlay(Capsule().strokeBorder(on ? Color.primary : .clear, lineWidth: 1.5))
                     .opacity(on ? 1 : 0.78)
                     .accessibilityAddTraits(on ? .isSelected : [])
                 }
@@ -610,8 +610,8 @@ struct MascotStudioView: View {
                 .padding(.horizontal, 10).padding(.vertical, 6)
         }
         .buttonStyle(.plain)
-        .background(Capsule().fill(on.wrappedValue ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05)))
-        .overlay(Capsule().strokeBorder(on.wrappedValue ? Color.accentColor : .clear, lineWidth: 1))
+        .background(Capsule().fill(on.wrappedValue ? Color.primary.opacity(0.12) : Color.primary.opacity(0.05)))
+        .overlay(Capsule().strokeBorder(on.wrappedValue ? Color.primary : .clear, lineWidth: 1))
     }
 
     private var presetsRow: some View {
@@ -665,7 +665,7 @@ struct MascotStudioView: View {
             .padding(8)
             .frame(maxWidth: .infinity, minHeight: 118)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.primary.opacity(empty ? 0.08 : 0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(empty ? Color.accentColor : .clear, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(empty ? Color.primary : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("No \(slot.title.lowercased())")
@@ -718,7 +718,7 @@ struct MascotStudioView: View {
                                 Text(done ? "Done" : "\(p.value)/\(p.goal)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                             }
                             Text(a.detail).font(.caption).foregroundStyle(.secondary)
-                            ProgressView(value: Double(p.value), total: Double(max(p.goal, 1))).tint(done ? .green : .accentColor)
+                            ProgressView(value: Double(p.value), total: Double(max(p.goal, 1))).tint(done ? .green : .primary)
                             HStack(spacing: 6) {
                                 if let id = a.rewardItemID, let item = MascotWardrobeCatalog.item(id: id) {
                                     Label(item.name, systemImage: "gift.fill").font(.caption2.weight(.semibold)).foregroundStyle(item.rarity.color)
@@ -834,7 +834,7 @@ struct MascotStudioView: View {
                     }
                     Spacer()
                     if kindRaw == custom.id {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.primary)
                     }
                 }
                 .padding(10)
@@ -898,7 +898,7 @@ struct MascotItemTile: View {
         .padding(8)
         .frame(maxWidth: .infinity, minHeight: 118)
         .background(shape.fill(LinearGradient(colors: [item.rarity.color.opacity(equipped ? 0.24 : 0.12), Color.primary.opacity(0.03)], startPoint: .top, endPoint: .bottom)))
-        .overlay(shape.strokeBorder(equipped ? Color.accentColor : item.rarity.color.opacity(0.75), lineWidth: equipped ? 2.5 : (item.rarity.glows ? 1.6 : 1)))
+        .overlay(shape.strokeBorder(equipped ? Color.primary : item.rarity.color.opacity(0.75), lineWidth: equipped ? 2.5 : (item.rarity.glows ? 1.6 : 1)))
         .shadow(color: item.rarity.glows ? item.rarity.color.opacity(item.rarity == .legendary ? 0.55 : 0.35) : .clear, radius: item.rarity == .legendary ? 8 : 5)
         .overlay(alignment: .topTrailing) { badge(equipped: equipped, inSeason: inSeason) }
         .overlay(alignment: .topLeading) {
@@ -1040,7 +1040,7 @@ struct MascotItemDetailSheet: View {
                                     Circle().fill(item.dyes[i])
                                         .frame(width: 30, height: 30)
                                         .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
-                                        .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: dye == i ? 3 : 0).padding(-4))
+                                        .overlay(Circle().strokeBorder(Color.primary, lineWidth: dye == i ? 3 : 0).padding(-4))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Colour \(i + 1)")
@@ -1412,7 +1412,7 @@ struct MascotAssistantSettingsSection: View {
                             }
                             .padding(6)
                             .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(on ? 0.08 : 0.02)))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.accentColor : .clear, lineWidth: 1.5))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.primary : .clear, lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                         .opacity(MascotEntitlements.canUse(kind) ? 1 : 0.4)
@@ -1427,7 +1427,7 @@ struct MascotAssistantSettingsSection: View {
                             }
                             .padding(6)
                             .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(on ? 0.08 : 0.02)))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.accentColor : .clear, lineWidth: 1.5))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.primary : .clear, lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                     }

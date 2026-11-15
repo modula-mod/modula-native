@@ -454,7 +454,7 @@ struct MolibooWardrobeSheet2D: View {
         Button(action: action) {
             Text(title).font(.caption.weight(.semibold))
                 .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(on ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
+                .background(on ? Color.primary.opacity(0.12) : Color.primary.opacity(0.06), in: Capsule())
         }
         .buttonStyle(.plain)
     }

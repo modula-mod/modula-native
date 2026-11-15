@@ -472,7 +472,7 @@ struct MolibooSettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.primary.opacity(0.04)))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2.5))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.primary : .clear, lineWidth: 2.5))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .accessibilityIdentifier("moliboo.hub.off")
