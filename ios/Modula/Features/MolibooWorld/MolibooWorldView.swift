@@ -458,7 +458,7 @@ struct MolibooWorldView: View {
 
     private var compactHeader: some View {
         HStack(spacing: 10) {
-            if let img = MolibooPortrait.image(for: characterID) {
+            if let img = MolibooPortrait.thumb(for: characterID, dressed: true) ?? MolibooPortrait.image(for: characterID) {
                 Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(width: 34, height: 34)
             }
             Text(displayName).font(.headline)
