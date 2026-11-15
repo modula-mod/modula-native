@@ -226,6 +226,8 @@ struct ModulaComposer: View {
     @State private var queries = ComposerQueryBox()
     @State private var attachAppeared = false
     @State private var attachPage: Int? = 0
+    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.24, bounce: 0)))
+    private var trayDrag: CGFloat = 0
     /// Keeps the docked composer open for the moment between a pill tap and the keyboard appearing.
     @State private var holdExpanded = false
     @Namespace private var glass
@@ -391,28 +393,13 @@ struct ModulaComposer: View {
                 if let status = dictation.status {
                     Text(status).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 8)
                 }
-                HStack(alignment: .bottom, spacing: 8) {
-                    if showsAttachmentButton && !recorder.isRecording { attachButton }
-                    if handsFreeRecording && recorder.isRecording {
-                        ModulaGlassIconButton(title: "Discard voice note", systemImage: "trash", size: ModulaLayout.minimumTouch, tint: .red) {
-                            recorder.cancel()
-                            handsFreeRecording = false
-                            HapticEngine.shared.play(.failure)
-                        }
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                    if recorder.isRecording {
-                        ModulaRecordingPill(recorder: recorder, cancelProgress: min(cancelDrag / 110, 1))
-                            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
-                            .modulaGlassID("composer.field", in: glass)
-                            .transition(.opacity)
-                    } else {
-                        fieldPill
-                    }
-                    trailingButton
-                }
+                // + / field / emoji / mic-send are ONE pill (same shape as the collapsed pill);
+                // recording happens inside it too, so the held mic keeps its identity (and its
+                // gesture) and no separate glass circles melt into blobs.
+                fieldPill
                 // The "+" tray opens under the field, in the keyboard's place (iMessage app drawer).
-                if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu.padding(.top, -4) }
+                // Gap > the glass group's 10 pt merge distance, so it never fuses with the pill.
+                if attachMenuOpen && !attachmentOptions.isEmpty { attachMenu.padding(.top, 6) }
         }
         .task(id: holdExpanded) {
             guard collapsesWhenUnfocused, holdExpanded, !focused else { return }
@@ -513,16 +500,20 @@ struct ModulaComposer: View {
         }
         // Ideal height only: bar then field, no stretched blank strip between them.
         .fixedSize(horizontal: false, vertical: true)
-        // A plain shape background sized to the content (not a morphing glass effect), so the
-        // formatting row is always inside the card. Also cheaper than live glass over the keyboard.
+        .frame(minHeight: 52)
+        // One Liquid Glass shape for the whole pill (a single static glass, not per-control glass).
         .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground))
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemBackground))
+            }
         }
-        // Nothing (e.g. the first formatting tool) can render past the card's rounded edge.
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        // Nothing (e.g. the first formatting tool) can render past the pill's rounded edge.
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false)
+        .modulaGlassID("composer.field", in: glass)
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
                 .allowsHitTesting(false)
         }
@@ -531,13 +522,31 @@ struct ModulaComposer: View {
     }
 
     private var fieldRow: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            if let avatar {
-                ModulaAvatar(initials: avatar.initials, url: avatar.url, size: 30)
-                    .padding(.bottom, 7)
-                    .accessibilityHidden(true)
+        HStack(alignment: .bottom, spacing: 4) {
+            // Resting state is avatar-free (one consistent pill everywhere); "+" lives inside.
+            if handsFreeRecording && recorder.isRecording {
+                Button {
+                    recorder.cancel()
+                    handsFreeRecording = false
+                    HapticEngine.shared.play(.failure)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.red)
+                        .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Discard voice note")
+                .transition(.scale.combined(with: .opacity))
+            } else if showsAttachmentButton && !recorder.isRecording {
+                inlineAttachButton
             }
-            if showsFormatting {
+            if recorder.isRecording {
+                ModulaRecordingPill(recorder: recorder, cancelProgress: min(cancelDrag / 110, 1))
+                    .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                    .transition(.opacity)
+            } else if showsFormatting {
                 ModulaRichTextEditor(
                     text: $text,
                     isFocused: $richFocused,
@@ -560,12 +569,13 @@ struct ModulaComposer: View {
                     .textInputAutocapitalization(ModulaPreferences.composerAutoCapitalise ? .sentences : .never)
                     .submitLabel(returnSends ? .send : .return)
             }
-            if let characterLimit, text.count > characterLimit / 2 {
+            if let characterLimit, text.count > characterLimit / 2, !recorder.isRecording {
                 ModulaCharacterLimitRing(count: text.count, limit: characterLimit)
                     .padding(.bottom, 11)
                     .transition(.opacity)
             }
-            if showsFormatting && !recorder.isRecording {
+            // "Aa" only while typing (or with the bar open), not in the resting pill.
+            if showsFormatting && !recorder.isRecording && (focused || formatBarRequested) {
                 Button {
                     formatBarHide?.cancel()
                     withAnimation(barMotion) {
@@ -586,7 +596,7 @@ struct ModulaComposer: View {
                 .accessibilityAddTraits(formatBarRequested ? .isSelected : [])
                 .accessibilityIdentifier("composer.format.toggle")
             }
-            if let mediaPanelActive {
+            if let mediaPanelActive, !recorder.isRecording {
                 ModulaComposerAccessoryButton(
                     title: mediaPanelActive.wrappedValue ? "Show keyboard" : "Emoji and GIFs",
                     systemImage: mediaPanelActive.wrappedValue ? "keyboard" : "face.smiling"
@@ -600,9 +610,103 @@ struct ModulaComposer: View {
                 }
                 .accessibilityIdentifier("composer.media")
             }
+            inlineTrailingButton
         }
-        .padding(.leading, avatar == nil ? 14 : 6)
-        .padding(.trailing, mediaPanelActive == nil ? 14 : 4)
+        .padding(.leading, showsAttachmentButton ? 4 : 14)
+        .padding(.trailing, 4)
+    }
+
+    /// "+" inside the pill; rotates into an × while the tray is open.
+    private var inlineAttachButton: some View {
+        Button {
+            if attachmentOptions.isEmpty {
+                onAttachment?()
+            } else {
+                attachMenuOpen.toggle()
+                if attachMenuOpen { focused = false; mediaPanelActive?.wrappedValue = false }
+            }
+            HapticEngine.shared.play(.lightImpact)
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(attachMenuOpen ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                .rotationEffect(.degrees(attachMenuOpen ? 45 : 0))
+                .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: attachMenuOpen)
+        .accessibilityLabel(attachMenuOpen ? "Close attachments" : "Add attachment")
+        .accessibilityIdentifier("composer.attach")
+    }
+
+    /// Mic inside the pill; morphs to the send arrow once there's something to send.
+    @ViewBuilder
+    private var inlineTrailingButton: some View {
+        let accent = app.appearance.liveAccent
+        Group {
+            if handsFreeRecording && recorder.isRecording {
+                Button {
+                    handsFreeRecording = false
+                    if let note = recorder.finish() {
+                        onVoiceNote?(note)
+                        HapticEngine.shared.play(.success)
+                    }
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(accent))
+                        .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ModulaPressScaleStyle())
+                .accessibilityLabel("Send voice note")
+                .accessibilityIdentifier("composer.voice.send")
+            } else if (showsMic || recorder.isRecording), onVoiceNote != nil {
+                voiceMicButton
+            } else if showsMic {
+                Button {
+                    if let onDictate { onDictate() } else {
+                        dictation.toggle(current: { text }, apply: { text = $0 })
+                    }
+                    HapticEngine.shared.play(.lightImpact)
+                } label: {
+                    Image(systemName: dictation.isListening ? "stop.fill" : "mic")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(dictation.isListening ? Color.red : Color.secondary)
+                        .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!enabled)
+                .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate")
+                .accessibilityIdentifier("composer.mic")
+            } else {
+                Button(action: send) {
+                    ZStack {
+                        Circle().fill(accent.opacity(state.canSend ? 1 : 0.35))
+                        if sending {
+                            ProgressView().tint(.white).controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .frame(width: 34, height: 34)
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(ModulaPressScaleStyle())
+                .disabled(!state.canSend || sending)
+                .accessibilityLabel(sending ? "Sending" : "Send")
+                .accessibilityIdentifier("composer.send")
+            }
+        }
+        .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
     }
 
     /// Tap = dictation, hold = voice note (slide left to cancel).
@@ -612,7 +716,7 @@ struct ModulaComposer: View {
             .foregroundStyle(recorder.isRecording ? Color.white : (dictation.isListening ? Color.red : Color.primary))
             .symbolEffect(.bounce, value: recorder.isRecording)
             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-            .modulaGlass(in: Circle(), tint: recorder.isRecording ? .red : nil, prominent: recorder.isRecording, specular: true)
+            .modifier(ComposerRecordingGlass(recording: recorder.isRecording))
             .scaleEffect(recorder.isRecording && !reduceMotion ? 1.25 : 1)
             .offset(x: recorder.isRecording ? -min(cancelDrag, 120) * 0.4 : 0)
             .contentShape(Circle())
@@ -780,8 +884,8 @@ struct ModulaComposer: View {
                         }
                         .padding(.horizontal, 14)
                         // Room above the first row so icons (and their shadow) are never clipped.
-                        .padding(.top, 12)
-                        .padding(.bottom, 6)
+                        .padding(.top, 18)
+                        .padding(.bottom, 8)
                         .frame(maxHeight: .infinity, alignment: .top)
                         .containerRelativeFrame(.horizontal)
                         .id(pageIndex)
@@ -791,7 +895,10 @@ struct ModulaComposer: View {
             }
             .scrollTargetBehavior(.paging)
             .scrollPosition(id: $attachPage)
-            .frame(height: attachPages.count > 1 || attachmentOptions.count > 4 ? 196 : 104)
+            // Parents' vertical content margins (sheet / chat bottom margins) must not shift the
+            // grid inside the tray — that pushed the top row into the tray's clipped edge.
+            .contentMargins(.vertical, 0, for: .scrollContent)
+            .frame(height: attachPages.count > 1 || attachmentOptions.count > 4 ? 214 : 114)
             if attachPages.count > 1 {
                 HStack(spacing: 6) {
                     ForEach(0..<attachPages.count, id: \.self) { index in
@@ -809,9 +916,25 @@ struct ModulaComposer: View {
         .background(reduceTransparency ? AnyShapeStyle(Color(.secondarySystemBackground)) : AnyShapeStyle(.regularMaterial),
                     in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false, specular: true)
-        .modulaGlassID("composer.attach", in: glass)
-        // Crossfade (cheap) instead of a slide racing the keyboard going down.
-        .transition(.opacity)
+        // Own glass ID: sharing the "+" button's ID made the tray morph out of (and stay fused
+        // to) the button as a notched blob.
+        .modulaGlassID("composer.tray", in: glass)
+        // Finger-following drag down closes the tray.
+        .offset(y: max(0, trayDrag))
+        .gesture(
+            DragGesture(minimumDistance: 12)
+                .updating($trayDrag) { value, state, _ in
+                    if value.translation.height > abs(value.translation.width) { state = value.translation.height }
+                }
+                .onEnded { value in
+                    if value.translation.height > 60 || value.predictedEndTranslation.height > 220 {
+                        attachMenuOpen = false
+                        HapticEngine.shared.play(.selection)
+                    }
+                }
+        )
+        // Slides up from the pill (short, no bounce); crossfade under Reduce Motion.
+        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
         .onAppear {
             attachPage = 0
             attachAppeared = false
@@ -1005,5 +1128,17 @@ private struct ModulaPressScaleStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.88 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+/// The mic is a plain icon inside the pill; it only becomes its own red glass while recording.
+private struct ComposerRecordingGlass: ViewModifier {
+    let recording: Bool
+    func body(content: Content) -> some View {
+        if recording {
+            content.modulaGlass(in: Circle(), tint: .red, prominent: true, specular: true)
+        } else {
+            content
+        }
     }
 }

@@ -1450,8 +1450,9 @@ struct PostCommentsView: View {
                     onVoiceNote: { note in Task { await store?.addVoiceNote(note) } },
                     mascot: .comments,
                     collapsesWhenUnfocused: true,
-                    // Moliboo stays with you while typing; the headroom below keeps it off the comments.
-                    hidesMascotWhileComposing: false,
+                    // Moliboo steps aside while typing / the tray is open so he never sits on the
+                    // composer or the tray; he's back on the perch at rest.
+                    hidesMascotWhileComposing: true,
                     onTrayChange: { open in
                         attachTrayOpen = open
                         if open { onExpand?() }
