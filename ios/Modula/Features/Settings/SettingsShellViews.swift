@@ -509,6 +509,7 @@ struct ChatsSettingsHost: View {
     @AppStorage("settings.chats.linkPreviews") private var linkPreviews = true
     @AppStorage("settings.links.openInApp") private var openLinksInApp = true
     @AppStorage("settings.links.blockTrackers") private var blockTrackers = true
+    @AppStorage("settings.links.inspectChatLinks") private var inspectChatLinks = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @AppStorage("settings.chats.readReceiptsDisplay") private var readReceiptsDisplay = true
     @State private var showsQuickReplies = false
@@ -576,6 +577,8 @@ struct ChatsSettingsHost: View {
                     if openLinksInApp {
                         Toggle("Block trackers", isOn: $blockTrackers)
                             .accessibilityIdentifier("settings.links.blockTrackers")
+                        Toggle("Check chat links first", isOn: $inspectChatLinks)
+                            .accessibilityIdentifier("settings.links.inspectChatLinks")
                         Button("Clear browsing data", role: .destructive) {
                             Task {
                                 await ModulaBrowserWarmup.clearBrowsingData()
@@ -596,7 +599,7 @@ struct ChatsSettingsHost: View {
                 } header: {
                     Text("Links")
                 } footer: {
-                    Text("Web links from posts, chats, bios, comments and notifications open in Modula’s browser, with the post or chat kept at hand. Modula links open right in the app, and links that belong to an installed app, like YouTube or Maps, still open in that app. Block trackers stops a short list of well-known ad and tracking services from loading. Turn off Open links in Modula to use Safari.")
+                    Text("Web links from posts, chats, bios, comments and notifications open in Modula’s browser, with the post or chat kept at hand. Modula links open right in the app, and links that belong to an installed app, like YouTube or Maps, still open in that app. Block trackers stops a short list of well-known ad and tracking services from loading. Check chat links first shows where every chat link goes before opening it (unusual links always get this check). Turn off Open links in Modula to use Safari.")
                 }
             }
             .modulaSoftScrollEdge()

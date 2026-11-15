@@ -188,7 +188,9 @@ private struct MessageLinkInspectorModifier: ViewModifier {
                 // t177u speed: a plain https link (or a Modula link) opens straight in the Modula
                 // browser; only links worth a second look (http, punycode, user@host, other apps)
                 // stop at the inspector first.
-                if !MessageLinkInspectorSheet.needsInspection(url) {
+                // Settings → Links → "Check chat links first" shows the inspector for every link.
+                if !UserDefaults.standard.bool(forKey: "settings.links.inspectChatLinks"),
+                   !MessageLinkInspectorSheet.needsInspection(url) {
                     ModulaLinkRouter.open(url, source: nil, chat: context)
                     return .handled
                 }
