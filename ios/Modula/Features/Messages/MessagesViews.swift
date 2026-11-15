@@ -34,6 +34,8 @@ struct MessagesRootView: View {
                     ConversationListView()
                 case .requests:
                     MessageRequestsView()
+                case .saved:
+                    SavedMessagesView()
                 case .inMail(let mail):
                     InMailRouteView(route: mail)
                 case .new:
@@ -81,6 +83,9 @@ struct ConversationListView: View {
     @State private var inboxDestination: InboxDestination?
     @State private var hideNotice: String?
     @State private var showNewGroup = false
+    /// Server chat folder chip (`chatFolders`); nil = no folder filter.
+    @State private var serverFolderID: String?
+    @State private var managingFolders = false
 
     private enum InboxDestination: Hashable, Identifiable {
         case archived, hidden, folder(String)
@@ -237,7 +242,9 @@ struct ConversationListView: View {
                 await app.messaging.loadRequestsIfNeeded()
                 await app.messaging.probeCapabilities()
                 await app.messaging.expireTimedMutesIfNeeded()
+                await app.messaging.loadFolders()
             }
+            .sheet(isPresented: $managingFolders) { ManageChatFoldersSheet() }
             .task(id: app.messaging.conversationQuery) {
                 guard app.messaging.capabilities.historySearch else { return }
                 try? await Task.sleep(for: .milliseconds(280))
@@ -317,7 +324,7 @@ struct ConversationListView: View {
             if !app.messaging.conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 searchKindRow
             }
-            if !app.messaging.folderNames.isEmpty {
+            if !app.messaging.folderNames.isEmpty, !app.messaging.capabilities.features4.chatFolders {
                 folderRow
             }
         }
@@ -462,6 +469,36 @@ struct ConversationListView: View {
                         .accessibilityAddTraits(on ? .isSelected : [])
                         .accessibilityIdentifier("messages.filter.\(item.rawValue)")
                     }
+                    if app.messaging.capabilities.features4.chatFolders {
+                        ForEach(app.messaging.serverFolders) { folder in
+                            let on = serverFolderID == folder.id
+                            Button {
+                                withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { serverFolderID = on ? nil : folder.id }
+                                HapticEngine.shared.play(.selection)
+                            } label: {
+                                Text([folder.emoji, folder.name].compactMap { $0 }.joined(separator: " "))
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .foregroundStyle(on ? app.appearance.liveAccent : Color.primary)
+                                    .padding(.horizontal, 16).frame(height: 36)
+                                    .modulaGlass(in: Capsule(), interactive: true)
+                                    .overlay { if on { Capsule().strokeBorder(app.appearance.liveAccent, lineWidth: 1.5) } }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                            .accessibilityLabel("Folder \(folder.name)")
+                            .accessibilityIdentifier("messages.folder.\(folder.id)")
+                        }
+                        Button { managingFolders = true } label: {
+                            Image(systemName: app.messaging.serverFolders.isEmpty ? "folder.badge.plus" : "slider.horizontal.3")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(width: 36, height: 36)
+                                .modulaGlass(in: Circle(), interactive: true)
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: .selection))
+                        .accessibilityLabel(app.messaging.serverFolders.isEmpty ? "New folder" : "Manage folders")
+                        .accessibilityIdentifier("messages.folders.manage")
+                    }
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
             }
@@ -470,12 +507,21 @@ struct ConversationListView: View {
         .scrollClipDisabled()
     }
 
+    /// Members of the selected server folder (nil when no folder chip is on, or the folder vanished).
+    private var folderMembers: Set<ConversationID>? {
+        guard app.messaging.capabilities.features4.chatFolders, let id = serverFolderID,
+              let folder = app.messaging.serverFolders.first(where: { $0.id == id }) else { return nil }
+        return Set(folder.conversationIDs)
+    }
+
     @ViewBuilder
     private var content: some View {
         let viewerID = app.auth.account?.accountId
+        let folderMembers = self.folderMembers
         let pinned = Set(app.messaging.pinnedIDs)
         let items = app.messaging.visibleConversations.filter { conversation in
             filter.matches(conversation, viewerID: viewerID, pinned: pinned)
+            && (folderMembers.map { $0.contains(conversation.id) } ?? true)
             && (searchKind == .all || searchKind.matches(conversation, query: app.messaging.conversationQuery, starredIDs: app.messaging.starredIDs, messages: app.messaging.messages(for: conversation.id)))
         }
         let searching = !app.messaging.conversationQuery.trimmingCharacters(in: .whitespaces).isEmpty
@@ -710,6 +756,19 @@ struct ConversationListView: View {
                     } label: {
                         Label(MessagingNotificationLevel.title(level),
                               systemImage: (conversation.notificationLevel ?? "all") == level ? "checkmark" : MessagingNotificationLevel.icon(level))
+                    }
+                }
+            }
+        }
+        if app.messaging.capabilities.features4.chatFolders, !app.messaging.serverFolders.isEmpty {
+            Menu("Folders", systemImage: "folder") {
+                ForEach(app.messaging.serverFolders) { folder in
+                    let inside = folder.conversationIDs.contains(conversation.id)
+                    Button {
+                        let ids = inside ? folder.conversationIDs.filter { $0 != conversation.id } : folder.conversationIDs + [conversation.id]
+                        Task { await app.messaging.setFolderChats(folder, ids) }
+                    } label: {
+                        Label(folder.name, systemImage: inside ? "checkmark" : "folder")
                     }
                 }
             }
@@ -1270,7 +1329,23 @@ struct ConversationView: View {
     var body: some View {
         thread
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background { MessagesWallpaper(theme: app.messaging.wallpaper(for: conversationID)) }
+            .environment(\.chatThemeAccent, ChatThemePalette.accent(app.messaging.theme(for: conversationID)))
+            .background {
+                if let theme = app.messaging.theme(for: conversationID), !ChatThemePalette.background(theme).isEmpty {
+                    ChatThemeBackground(theme: theme)
+                } else {
+                    MessagesWallpaper(theme: app.messaging.wallpaper(for: conversationID))
+                }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if app.messaging.capabilities.features4.pinnedMessages, !searching,
+                   let pins = app.messaging.pinnedMessages[conversationID], !pins.isEmpty {
+                    PinnedMessagesBanner(pins: pins) { pin in jumpToOriginal(pin.messageID, deleted: false) }
+                        .padding(.horizontal, ModulaLayout.contentInset)
+                        .padding(.bottom, 6)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
             .overlay(alignment: .bottomTrailing) { flyOverlay }
             .background { keyboardShortcuts }
             .confirmationDialog(
@@ -1331,7 +1406,12 @@ struct ConversationView: View {
                 }
             }
             .sheet(item: $forwarding) { message in
-                ForwardMessageSheet(message: message, excluding: conversationID)
+                let f4 = app.messaging.capabilities.features4
+                if f4.forwarding, f4.forwardingKinds.contains(message.kind.rawValue), !message.id.hasPrefix("local-") {
+                    MultiForwardSheet(message: message, excluding: conversationID)
+                } else {
+                    ForwardMessageSheet(message: message, excluding: conversationID)
+                }
             }
             .sheet(item: $editHistoryFor) { message in
                 MessageEditHistorySheet(message: message)
@@ -1618,6 +1698,11 @@ struct ConversationView: View {
                                 : .move(edge: .bottom).combined(with: .opacity))
                         }
                         ForEach(calls.trailing) { record in callRow(record) }
+                        ForEach(app.messaging.systemNotes[conversationID] ?? []) { note in
+                            MessagingSystemNoteRow(note: note)
+                                .padding(.top, 10)
+                                .id(note.id)
+                        }
                         if let people = app.messaging.typingPeople[conversationID], !people.isEmpty {
                             MessagesTypingBubble(people: people)
                                 .padding(.top, 10)
@@ -2282,9 +2367,15 @@ struct ConversationComposerDock: View {
     @State private var recent = MessageRecentTokenStore.load()
     @State private var saveTask: Task<Void, Never>?
     @State private var mentionQuery: String?
+    @State private var schedulingText: String?
+    @State private var showsScheduled = false
+
+    private var f4: MessagingFeatures4 { app.messaging.capabilities.features4 }
 
     var body: some View {
         VStack(spacing: 0) {
+            scheduledChip
+            quickReplyStrip
             smartReplies
             MessageRecentTokensRow(tokens: recent) { token in
                 insert(token)
@@ -2304,10 +2395,28 @@ struct ConversationComposerDock: View {
                 onVoiceNote: app.messaging.capabilities.voiceNotes ? { note in
                     Task { await app.messaging.sendVoice(note, conversation: conversationID, viewer: dockViewer) }
                 } : nil,
+                onSchedule: f4.scheduled ? { schedulingText = text } : nil,
                 onSend: flushAndSend
             )
         }
         .onAppear { text = app.messaging.drafts[conversationID] ?? "" }
+        .task(id: conversationID) {
+            await app.messaging.loadScheduled(conversationID)
+            if app.messaging.quickReplies.isEmpty { await app.messaging.loadQuickReplies() }
+        }
+        .sheet(item: Binding(get: { schedulingText.map(ScheduleDraft.init) }, set: { schedulingText = $0?.text })) { draft in
+            ScheduleMessageSheet(text: draft.text, features: f4) { date in
+                Task {
+                    if await app.messaging.schedule(draft.text, in: conversationID, at: date) {
+                        text = ""
+                        app.messaging.drafts[conversationID] = ""
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showsScheduled) {
+            ScheduledMessagesSheet(conversationID: conversationID)
+        }
         .onChange(of: conversationID) { _, _ in
             flushDraft()
             text = app.messaging.drafts[conversationID] ?? ""
@@ -2363,6 +2472,66 @@ struct ConversationComposerDock: View {
                 .padding(.top, 6)
                 .accessibilityIdentifier("messages.smartReplies")
             }
+        }
+    }
+
+    /// "2 scheduled" glass chip above the composer; opens the per-chat list.
+    @ViewBuilder
+    private var scheduledChip: some View {
+        let pending = f4.scheduled ? app.messaging.scheduled(for: conversationID) : []
+        if !pending.isEmpty {
+            Button { showsScheduled = true } label: {
+                Label(pending.count == 1 ? "1 scheduled" : "\(pending.count) scheduled", systemImage: "calendar.badge.clock")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 32)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+            .modulaGlass(in: Capsule(), interactive: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 6)
+            .accessibilityHint("Shows messages waiting to send")
+            .accessibilityIdentifier("messages.scheduled.chip")
+        }
+    }
+
+    /// Typing "/" shows matching quick replies; tapping one replaces the shortcut with its text.
+    @ViewBuilder
+    private var quickReplyStrip: some View {
+        let hits = f4.quickReplies ? QuickReplyMatcher.matches(app.messaging.quickReplies, text: text) : []
+        if !hits.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                ModulaGlassGroup(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(hits) { reply in
+                            Button {
+                                text = reply.text
+                                focus.wrappedValue = true
+                                HapticEngine.shared.play(.selection)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text("/\(reply.shortcut)").font(.subheadline.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                                    Text(reply.text).font(.subheadline).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
+                                }
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 36)
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .accessibilityLabel("Quick reply \(reply.shortcut): \(reply.text)")
+                        }
+                    }
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                }
+            }
+            .modulaHorizontalRail()
+            .scrollClipDisabled()
+            .padding(.top, 6)
+            .transition(.opacity)
+            .accessibilityIdentifier("messages.quickReplies")
         }
     }
 
@@ -2427,6 +2596,7 @@ struct MessageBubble: View {
     @State private var showsTime = false
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.chatThemeAccent) private var themeAccent
     // Plain reference box: the row's on-screen frame is only needed when a long-press
     // opens the focus menu, so writing it every scroll frame must not re-render the bubble.
     @State private var rowFrameBox = ModulaFrameBox()
@@ -2688,7 +2858,7 @@ struct MessageBubble: View {
 
     /// Sent: a soft top-lit accent gradient (one strong colour = "mine", Gestalt similarity).
     private var ownGradient: LinearGradient {
-        let accent = app.appearance.liveAccent
+        let accent = themeAccent ?? app.appearance.liveAccent
         return LinearGradient(colors: [accent.mix(with: .white, by: 0.14), accent], startPoint: .top, endPoint: .bottom)
     }
 
@@ -2837,6 +3007,7 @@ struct MessageComposer: View {
     var mentionSuggestions: [ModulaComposerMention] = []
     var onMentionQuery: ((String?) -> Void)? = nil
     var onVoiceNote: ((ModulaVoiceNote) -> Void)? = nil
+    var onSchedule: (() -> Void)? = nil
     var onSend: () -> Void
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
@@ -2880,6 +3051,7 @@ struct MessageComposer: View {
                 onVoiceNote: onVoiceNote,
                 collapsesWhenUnfocused: false,
                 hidesMascotWhileComposing: true,
+                onSchedule: onSchedule,
                 onSend: onSend
             )
             if showStickers {
@@ -4090,6 +4262,11 @@ struct ChatInfoSheet: View {
                             wallpaperPicker
                         }
                         .padding(.vertical, 10)
+                        if !app.messaging.capabilities.features4.chatThemes.isEmpty {
+                            infoDivider
+                            ChatThemePicker(conversationID: conversationID)
+                                .padding(.vertical, 10)
+                        }
                     }
                     infoGroup("Actions") {
                         Button {
@@ -4790,5 +4967,682 @@ struct MessageEditHistorySheet: View {
         .task {
             if let result = await app.messaging.editHistory(message) { versions = result } else { failed = true }
         }
+    }
+}
+
+// MARK: - Messaging features 4 UI (every entry point is gated on `capabilities.features4`)
+
+struct ScheduleDraft: Identifiable {
+    let text: String
+    var id: String { text }
+}
+
+/// Long-press Send -> quick presets + a date picker, clamped to the server's lead window.
+struct ScheduleMessageSheet: View {
+    let text: String
+    let features: MessagingFeatures4
+    var initialDate: Date? = nil
+    var title = "Schedule Message"
+    let onSchedule: (Date) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var date = Date().addingTimeInterval(3600)
+
+    private var window: ClosedRange<Date> {
+        ScheduleSendPresets.window(now: Date(), minLead: features.scheduledMinLeadSeconds, maxLeadDays: features.scheduledMaxLeadDays)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(MessagePreviewText.plain(text))
+                        .font(.body)
+                        .lineLimit(4)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                    ModulaGlassGroup(spacing: 8) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
+                            ForEach(ScheduleSendPresets.presets(now: Date(), minLead: features.scheduledMinLeadSeconds,
+                                                                maxLeadDays: features.scheduledMaxLeadDays)) { preset in
+                                Button { finish(preset.date) } label: {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(preset.title).font(.subheadline.weight(.semibold))
+                                        Text(preset.date.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                                    .padding(.horizontal, 14)
+                                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                }
+                                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: .selection))
+                                .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                            }
+                        }
+                    }
+                    DatePicker("Send at", selection: $date, in: window)
+                        .datePickerStyle(.graphical)
+                        .tint(app.appearance.liveAccent)
+                    Button { finish(date) } label: {
+                        Text("Schedule for \(date.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .lightImpact))
+                    .modulaAccentCTA()
+                    .accessibilityIdentifier("messages.schedule.confirm")
+                }
+                .padding(ModulaLayout.contentInset)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationCornerRadius(32)
+        .onAppear {
+            let start = initialDate ?? Date().addingTimeInterval(3600)
+            date = min(max(start, window.lowerBound), window.upperBound)
+        }
+    }
+
+    private func finish(_ value: Date) {
+        onSchedule(min(max(value, window.lowerBound), window.upperBound))
+        dismiss()
+    }
+}
+
+/// Per-chat scheduled list: edit text/time, send now, delete. Live via `scheduled.updated`.
+struct ScheduledMessagesSheet: View {
+    let conversationID: ConversationID
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var editing: ScheduledMessage?
+    @State private var retiming: ScheduledMessage?
+    @State private var draftText = ""
+
+    var body: some View {
+        NavigationStack {
+            let items = app.messaging.scheduled(for: conversationID)
+            Group {
+                if items.isEmpty {
+                    ContentUnavailableView("Nothing scheduled", systemImage: "calendar.badge.clock",
+                                           description: Text("Hold the send button to schedule a message."))
+                } else {
+                    List(items) { item in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(MessagePreviewText.plain(item.text)).font(.body).lineLimit(3)
+                            HStack(spacing: 6) {
+                                Image(systemName: item.state == .failed ? "exclamationmark.triangle.fill" : "clock")
+                                    .foregroundStyle(item.state == .failed ? Color.orange : Color.secondary)
+                                Text(item.state == .failed ? "Didn't send" : item.sendAt.formatted(date: .abbreviated, time: .shortened))
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                        .listRowBackground(Color.clear)
+                        .swipeActions(edge: .trailing) {
+                            Button("Delete", systemImage: "trash", role: .destructive) { Task { await app.messaging.cancelScheduled(item) } }
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button("Send Now", systemImage: "paperplane") { Task { await app.messaging.sendScheduledNow(item) } }
+                                .tint(app.appearance.liveAccent)
+                        }
+                        .contextMenu {
+                            Button("Send Now", systemImage: "paperplane") { Task { await app.messaging.sendScheduledNow(item) } }
+                            Button("Edit Text", systemImage: "pencil") { draftText = item.text; editing = item }
+                            Button("Change Time", systemImage: "calendar") { retiming = item }
+                            Button("Delete", systemImage: "trash", role: .destructive) { Task { await app.messaging.cancelScheduled(item) } }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAction(named: "Send now") { Task { await app.messaging.sendScheduledNow(item) } }
+                        .accessibilityAction(named: "Edit") { draftText = item.text; editing = item }
+                        .accessibilityAction(named: "Delete") { Task { await app.messaging.cancelScheduled(item) } }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .navigationTitle("Scheduled")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) } }
+            .refreshable { await app.messaging.loadScheduled(conversationID) }
+            .alert("Edit message", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
+                TextField("Message", text: $draftText)
+                Button("Save") {
+                    if let item = editing {
+                        let text = draftText
+                        Task { await app.messaging.updateScheduled(item, text: text, sendAt: nil) }
+                    }
+                    editing = nil
+                }
+                Button("Cancel", role: .cancel) { editing = nil }
+            }
+            .sheet(item: $retiming) { item in
+                ScheduleMessageSheet(text: item.text, features: app.messaging.capabilities.features4,
+                                     initialDate: item.sendAt, title: "Change Time") { date in
+                    Task { await app.messaging.updateScheduled(item, text: nil, sendAt: date) }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationCornerRadius(32)
+        .task { await app.messaging.loadScheduled(conversationID) }
+        .accessibilityIdentifier("messages.scheduled")
+    }
+}
+
+/// Top-of-thread glass banner. Tap jumps to the shown pin, then steps to the next one (newest first).
+struct PinnedMessagesBanner: View {
+    let pins: [PinnedMessagePreview]
+    let onJump: (PinnedMessagePreview) -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var index = 0
+
+    var body: some View {
+        let current = pins[min(index, pins.count - 1)]
+        Button {
+            onJump(current)
+            HapticEngine.shared.play(.selection)
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { index = (index + 1) % max(pins.count, 1) }
+        } label: {
+            HStack(spacing: 10) {
+                // Segment rail: one tick per pin, the shown one lit.
+                VStack(spacing: 2) {
+                    ForEach(Array(pins.prefix(4).indices), id: \.self) { i in
+                        Capsule()
+                            .fill(i == index % min(pins.count, 4) ? app.appearance.liveAccent : Color.secondary.opacity(0.3))
+                            .frame(width: 3)
+                    }
+                }
+                .frame(height: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(pins.count > 1 ? "Pinned message \(index % pins.count + 1) of \(pins.count)" : "Pinned message")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                    Text(MessagePreviewText.plain(current.text).isEmpty ? "Message" : MessagePreviewText.plain(current.text))
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .contentTransition(.opacity)
+                        .id(current.id)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "pin.fill").font(.footnote).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 50)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        .onChange(of: pins.count) { _, count in if index >= count { index = 0 } }
+        .accessibilityLabel("Pinned message \(index % max(pins.count, 1) + 1) of \(pins.count): \(MessagePreviewText.plain(current.text))")
+        .accessibilityHint("Jumps to the message")
+        .accessibilityIdentifier("messages.pinnedBanner")
+    }
+}
+
+/// Centered system row inside the thread (e.g. the disappearing timer changed).
+struct MessagingSystemNoteRow: View {
+    let note: MessagingSystemNote
+
+    var body: some View {
+        Label(note.text, systemImage: "timer")
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 28)
+            .modulaGlass(in: Capsule(), interactive: false)
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .combine)
+    }
+}
+
+struct ChatThemeBackground: View {
+    let theme: String
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let strength = reduceTransparency ? 0.10 : (scheme == .dark ? 0.30 : 0.22)
+        LinearGradient(colors: ChatThemePalette.background(theme).map { $0.opacity(strength) },
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+            .ignoresSafeArea()
+            .accessibilityHidden(true)
+    }
+}
+
+/// Chat info -> shared theme (8 server presets). Group non-admins get the server's 403 as a note.
+struct ChatThemePicker: View {
+    let conversationID: ConversationID
+    @Environment(AppEnvironment.self) private var app
+    @State private var error: String?
+    @State private var busy = false
+
+    var body: some View {
+        let current = app.messaging.conversation(id: conversationID)?.theme ?? "default"
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "swatchpalette").frame(width: 32)
+                Text("Chat theme").font(.body)
+                Spacer()
+                if busy { ProgressView().controlSize(.small) }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(app.messaging.capabilities.features4.chatThemes, id: \.self) { id in
+                        let on = current == id
+                        Button {
+                            guard !on else { return }
+                            busy = true
+                            HapticEngine.shared.play(.selection)
+                            Task {
+                                error = await app.messaging.setTheme(id, for: conversationID)
+                                busy = false
+                            }
+                        } label: {
+                            Circle()
+                                .fill(swatch(id))
+                                .frame(width: 36, height: 36)
+                                .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
+                                .padding(2)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                        .disabled(busy)
+                        .accessibilityLabel(ChatThemePalette.title(id))
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+                .padding(.leading, 44)
+            }
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.secondary).padding(.leading, 44)
+            } else {
+                Text("Everyone in this chat sees the theme.").font(.footnote).foregroundStyle(.secondary).padding(.leading, 44)
+            }
+        }
+        .accessibilityIdentifier("messages.info.theme")
+    }
+
+    private func swatch(_ id: String) -> AnyShapeStyle {
+        let colors = ChatThemePalette.background(id)
+        if colors.isEmpty { return AnyShapeStyle(app.appearance.liveAccent.opacity(0.35)) }
+        return AnyShapeStyle(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+    }
+}
+
+/// Forward with attribution to up to `maxTargets` chats in one call; shows each chat's result.
+struct MultiForwardSheet: View {
+    let message: Message
+    let excluding: ConversationID
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var selected: [ConversationID] = []
+    @State private var results: [ConversationID: ForwardResult] = [:]
+    @State private var sending = false
+    @State private var query = ""
+
+    private var maxTargets: Int { app.messaging.capabilities.features4.forwardingMaxTargets }
+
+    var body: some View {
+        NavigationStack {
+            let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+            let chats = app.messaging.visibleConversations.filter { $0.id != excluding && (q.isEmpty || $0.title.lowercased().contains(q)) }
+            List(chats) { conversation in
+                let on = selected.contains(conversation.id)
+                let result = results[conversation.id]
+                Button {
+                    toggle(conversation.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        ConversationAvatar(participants: conversation.participants, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(conversation.title).font(.body.weight(.medium)).lineLimit(1)
+                            if let result {
+                                Text(result.ok ? "Sent" : ForwardFailureText.text(result.reason))
+                                    .font(.caption)
+                                    .foregroundStyle(result.ok ? Color.green : Color.orange)
+                            }
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: result?.ok == true ? "checkmark.circle.fill" : (on ? "checkmark.circle.fill" : "circle"))
+                            .font(.title3)
+                            .foregroundStyle(on || result?.ok == true ? app.appearance.liveAccent : Color.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(sending || results[conversation.id]?.ok == true || (!on && selected.count >= maxTargets))
+                .listRowBackground(Color.clear)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .searchable(text: $query, prompt: "Search chats")
+            .safeAreaInset(edge: .bottom) {
+                Button(action: send) {
+                    Group {
+                        if sending { ProgressView().tint(.white) }
+                        else { Text(selected.isEmpty ? "Choose up to \(maxTargets)" : "Forward to \(selected.count)") }
+                    }
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .lightImpact))
+                .modulaAccentCTA()
+                .disabled(selected.isEmpty || sending)
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.bottom, 8)
+                .accessibilityIdentifier("messages.forward.send")
+            }
+            .navigationTitle("Forward")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationCornerRadius(32)
+        .accessibilityIdentifier("messages.forward.multi")
+    }
+
+    private func toggle(_ id: ConversationID) {
+        if let i = selected.firstIndex(of: id) { selected.remove(at: i) }
+        else if selected.count < maxTargets { selected.append(id) }
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func send() {
+        let targets = selected
+        sending = true
+        Task {
+            let out = await app.messaging.forward(message, to: targets)
+            for result in out { results[result.conversationID] = result }
+            selected = out.filter { !$0.ok }.map(\.conversationID)
+            sending = false
+            HapticEngine.shared.play(out.allSatisfy(\.ok) ? .success : .warning)
+        }
+    }
+}
+
+enum ForwardFailureText {
+    static func text(_ reason: String?) -> String {
+        switch reason ?? "" {
+        case "blocked": return "Can't forward: blocked"
+        case "unsupported-kind": return "Only text can be forwarded"
+        case "NOT_FOUND", "not-member": return "Chat not available"
+        case "message-request", "requests-only": return "Waiting on a message request"
+        case "": return "Didn't send"
+        // Store-made sentences (already user-facing) pass through; raw codes don't.
+        case let other: return other.contains(" ") ? other : "Didn't send"
+        }
+    }
+}
+
+/// Inbox -> manage server folders: create, rename, reorder, delete, choose chats.
+struct ManageChatFoldersSheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var naming: ChatFolder?
+    @State private var creating = false
+    @State private var name = ""
+    @State private var emoji = ""
+    @State private var choosingChats: ChatFolder?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(app.messaging.serverFolders) { folder in
+                        Button { choosingChats = folder } label: {
+                            HStack(spacing: 12) {
+                                Text(folder.emoji ?? "📁").font(.title3).frame(width: 32)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(folder.name).font(.body.weight(.medium))
+                                    Text(folder.conversationIDs.count == 1 ? "1 chat" : "\(folder.conversationIDs.count) chats")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions {
+                            Button("Delete", systemImage: "trash", role: .destructive) { Task { await app.messaging.deleteFolder(folder) } }
+                            Button("Rename", systemImage: "pencil") { name = folder.name; emoji = folder.emoji ?? ""; naming = folder }
+                        }
+                        .contextMenu {
+                            Button("Choose Chats", systemImage: "checklist") { choosingChats = folder }
+                            Button("Rename", systemImage: "pencil") { name = folder.name; emoji = folder.emoji ?? ""; naming = folder }
+                            Button("Delete", systemImage: "trash", role: .destructive) { Task { await app.messaging.deleteFolder(folder) } }
+                        }
+                    }
+                    .onMove { source, destination in Task { await app.messaging.moveFolders(from: source, to: destination) } }
+                } footer: {
+                    Text("Folders sync across your devices. Drag to reorder.")
+                }
+                if app.messaging.serverFolders.count < app.messaging.capabilities.features4.chatFoldersMax {
+                    Button("New Folder", systemImage: "folder.badge.plus") { name = ""; emoji = ""; creating = true }
+                        .accessibilityIdentifier("messages.folders.new")
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Chat Folders")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) } }
+            .alert(creating ? "New folder" : "Rename folder",
+                   isPresented: Binding(get: { creating || naming != nil }, set: { if !$0 { creating = false; naming = nil } })) {
+                TextField("Name", text: $name)
+                TextField("Emoji (optional)", text: $emoji)
+                Button(creating ? "Create" : "Save") {
+                    let n = name, e = emoji.isEmpty ? nil : String(emoji.prefix(16))
+                    if let folder = naming { Task { await app.messaging.renameFolder(folder, to: n, emoji: e) } }
+                    else { Task { await app.messaging.createFolder(name: n, emoji: e) } }
+                    creating = false; naming = nil
+                }
+                .disabled(!(1...32).contains(name.trimmingCharacters(in: .whitespaces).count))
+                Button("Cancel", role: .cancel) { creating = false; naming = nil }
+            }
+            .navigationDestination(item: $choosingChats) { folder in FolderChatsPicker(folder: folder) }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationCornerRadius(32)
+        .task { await app.messaging.loadFolders() }
+        .accessibilityIdentifier("messages.folders")
+    }
+}
+
+struct FolderChatsPicker: View {
+    let folder: ChatFolder
+    @Environment(AppEnvironment.self) private var app
+    @State private var chosen: Set<ConversationID> = []
+
+    var body: some View {
+        List(app.messaging.visibleConversations) { conversation in
+            let on = chosen.contains(conversation.id)
+            Button {
+                if on { chosen.remove(conversation.id) } else if chosen.count < 200 { chosen.insert(conversation.id) }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                HStack(spacing: 12) {
+                    ConversationAvatar(participants: conversation.participants, size: 36)
+                    Text(conversation.title).lineLimit(1)
+                    Spacer()
+                    Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(on ? app.appearance.liveAccent : Color.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(on ? .isSelected : [])
+        }
+        .navigationTitle(folder.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { chosen = Set(folder.conversationIDs) }
+        .onDisappear {
+            let ids = Array(chosen)
+            guard Set(ids) != Set(folder.conversationIDs) else { return }
+            Task { await app.messaging.setFolderChats(folder, ids) }
+        }
+    }
+}
+
+/// Settings -> Chats -> Quick replies: add / edit / delete. Live via `messaging.quick-replies.updated`.
+struct QuickRepliesManageSheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var editing: QuickReply?
+    @State private var adding = false
+    @State private var shortcut = ""
+    @State private var text = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(app.messaging.quickReplies) { reply in
+                        Button { shortcut = reply.shortcut; text = reply.text; editing = reply } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("/\(reply.shortcut)").font(.body.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                                Text(reply.text).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .onDelete { offsets in
+                        let doomed = offsets.map { app.messaging.quickReplies[$0] }
+                        Task { for reply in doomed { await app.messaging.deleteQuickReply(reply) } }
+                    }
+                } footer: {
+                    Text("Type / and the shortcut in any chat to drop in the reply.")
+                }
+                if app.messaging.quickReplies.count < app.messaging.capabilities.features4.quickRepliesMax {
+                    Button("New Quick Reply", systemImage: "plus.bubble") { shortcut = ""; text = ""; adding = true }
+                }
+            }
+            .navigationTitle("Quick Replies")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(app.appearance.liveAccent) } }
+            .sheet(isPresented: Binding(get: { adding || editing != nil }, set: { if !$0 { adding = false; editing = nil } })) {
+                QuickReplyEditor(shortcut: $shortcut, text: $text, isNew: editing == nil) {
+                    let id = editing?.id, s = shortcut, t = text
+                    Task {
+                        if await app.messaging.saveQuickReply(id: id, shortcut: s, text: t) { adding = false; editing = nil }
+                    }
+                }
+            }
+        }
+        .task { await app.messaging.loadQuickReplies() }
+        .accessibilityIdentifier("settings.quickReplies")
+    }
+}
+
+private struct QuickReplyEditor: View {
+    @Binding var shortcut: String
+    @Binding var text: String
+    let isNew: Bool
+    let onSave: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 2) {
+                        Text("/").foregroundStyle(.secondary)
+                        TextField("shortcut", text: $shortcut)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                } footer: {
+                    Text(QuickReplyMatcher.isValidShortcut(shortcut) || shortcut.isEmpty
+                         ? "Letters, numbers, - and _, up to 24."
+                         : "Use letters, numbers, - and _ only (up to 24).")
+                }
+                Section("Reply") {
+                    TextField("Message", text: $text, axis: .vertical).lineLimit(3...8)
+                }
+                if let error = app.messaging.actionError {
+                    Section { Text(error).font(.footnote).foregroundStyle(.orange) }
+                }
+            }
+            .navigationTitle(isNew ? "New Quick Reply" : "Edit Quick Reply")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: onSave)
+                        .disabled(!QuickReplyMatcher.isValidShortcut(shortcut) || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  || text.count > 1000)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationCornerRadius(32)
+    }
+}
+
+/// Sidebar -> Saved messages (server list across chats). Tap opens the chat; swipe to remove.
+struct SavedMessagesView: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Group {
+            if !app.messaging.capabilities.features4.savedMessages {
+                ContentUnavailableView("Saved messages aren't available", systemImage: "bookmark.slash")
+            } else if app.messaging.savedItems.isEmpty && !app.messaging.savedLoading {
+                ContentUnavailableView("No saved messages", systemImage: "bookmark",
+                                       description: Text("Hold a message and choose Save to keep it here."))
+            } else {
+                List {
+                    ForEach(app.messaging.savedItems) { item in
+                        Button { app.navigation.open(.messages(.conversation(item.conversationID))) } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(item.senderName.isEmpty ? "Message" : item.senderName).font(.subheadline.weight(.semibold))
+                                    Spacer()
+                                    if let at = item.sentAt {
+                                        Text(at.formatted(date: .abbreviated, time: .omitted)).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Text(MessagePreviewText.plain(item.text)).font(.body).lineLimit(4)
+                                if let chat = app.messaging.conversation(id: item.conversationID) {
+                                    Label(chat.title, systemImage: "bubble.left").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions {
+                            Button("Remove", systemImage: "bookmark.slash", role: .destructive) { Task { await app.messaging.unsave(item) } }
+                        }
+                        .contextMenu {
+                            Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = item.text }
+                            Button("Remove from Saved", systemImage: "bookmark.slash", role: .destructive) { Task { await app.messaging.unsave(item) } }
+                        }
+                        .onAppear { if item.id == app.messaging.savedItems.last?.id { Task { await app.messaging.loadSaved(reset: false) } } }
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .navigationTitle("Saved messages")
+        .navigationBarTitleDisplayMode(.inline)
+        .refreshable { await app.messaging.loadSaved(reset: true) }
+        .task {
+            await app.messaging.probeCapabilities()
+            await app.messaging.loadSaved(reset: true)
+        }
+        .accessibilityIdentifier("messages.saved")
     }
 }

@@ -197,6 +197,8 @@ struct ModulaComposer: View {
     var hidesMascotWhileComposing = false
     /// Tells the host when the "+" tray opens or closes (e.g. to expand a sheet).
     var onTrayChange: ((Bool) -> Void)? = nil
+    /// Long-press Send offers "Schedule Message…" (chats with `scheduledMessages`). Nil = no menu.
+    var onSchedule: (() -> Void)? = nil
     var onSend: () -> Void
 
     @FocusState private var plainFocused: Bool
@@ -702,6 +704,7 @@ struct ModulaComposer: View {
                 }
                 .buttonStyle(ModulaPressScaleStyle())
                 .disabled(!state.canSend || sending)
+                .modifier(ComposerScheduleMenu(onSchedule: state.canSend && !sending ? onSchedule : nil))
                 .accessibilityLabel(sending ? "Sending" : "Send")
                 .accessibilityIdentifier("composer.send")
             }
@@ -1137,6 +1140,24 @@ private struct ComposerRecordingGlass: ViewModifier {
     func body(content: Content) -> some View {
         if recording {
             content.modulaGlass(in: Circle(), tint: .red, prominent: true, specular: true)
+        } else {
+            content
+        }
+    }
+}
+
+/// Hold Send -> glass context menu with "Schedule Message…" (plus a VoiceOver action). No-op when nil.
+private struct ComposerScheduleMenu: ViewModifier {
+    let onSchedule: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onSchedule {
+            content
+                .contextMenu {
+                    Button("Schedule Message…", systemImage: "calendar.badge.clock", action: onSchedule)
+                }
+                .accessibilityAction(named: "Schedule Message", onSchedule)
+                .accessibilityHint("Hold to schedule")
         } else {
             content
         }

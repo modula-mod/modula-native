@@ -407,9 +407,108 @@ actor GreenfieldMessagingRepository: MessagingRepository {
         return versions
     }
 
-    func pinnedMessageIDs(conversation: ConversationID) async throws -> [MessageID] {
+    func pinnedMessages(conversation: ConversationID) async throws -> [PinnedMessagePreview] {
         let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.conversationPins(conversation))
-        return (value["items"]?.array ?? []).compactMap { $0["messageId"]?.string }
+        return (value["items"]?.array ?? []).compactMap(MessagingFeatures4Decoder.pin)
+    }
+
+    // Scheduled messages
+    func scheduledMessages(conversation: ConversationID) async throws -> [ScheduledMessage] {
+        let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.scheduled(conversation))
+        return (value["items"]?.array ?? []).compactMap(MessagingFeatures4Decoder.scheduled)
+    }
+
+    func schedule(conversation: ConversationID, text: String, sendAt: Date) async throws -> ScheduledMessage? {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.scheduled(conversation),
+                                                       body: .object(["text": .string(text), "sendAt": .string(Self.iso(sendAt))]))
+        return value["scheduled"].flatMap(MessagingFeatures4Decoder.scheduled)
+    }
+
+    func updateScheduled(conversation: ConversationID, id: String, text: String?, sendAt: Date?) async throws -> ScheduledMessage? {
+        var body: [String: JSONValue] = [:]
+        if let text { body["text"] = .string(text) }
+        if let sendAt { body["sendAt"] = .string(Self.iso(sendAt)) }
+        let value = try await client.authenticatedJSON("PATCH", path: MessagingBackendCapabilities.Paths.scheduledItem(conversation, id), body: .object(body))
+        return value["scheduled"].flatMap(MessagingFeatures4Decoder.scheduled)
+    }
+
+    func cancelScheduled(conversation: ConversationID, id: String) async throws {
+        _ = try await client.authenticatedJSON("DELETE", path: MessagingBackendCapabilities.Paths.scheduledItem(conversation, id))
+    }
+
+    func sendScheduledNow(conversation: ConversationID, id: String) async throws -> ScheduledMessage? {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.scheduledSendNow(conversation, id))
+        return value["scheduled"].flatMap(MessagingFeatures4Decoder.scheduled)
+    }
+
+    // Chat folders
+    func folders() async throws -> [ChatFolder] {
+        let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.folders)
+        return (value["items"]?.array ?? []).compactMap(MessagingFeatures4Decoder.folder)
+    }
+
+    func createFolder(name: String, emoji: String?, conversationIDs: [ConversationID], sortOrder: Int) async throws -> ChatFolder? {
+        var body: [String: JSONValue] = ["name": .string(name), "conversationIds": .array(conversationIDs.map { .string($0) }),
+                                         "sortOrder": .number(Double(sortOrder))]
+        if let emoji, !emoji.isEmpty { body["emoji"] = .string(emoji) }
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.folders, body: .object(body))
+        return value["folder"].flatMap(MessagingFeatures4Decoder.folder)
+    }
+
+    func updateFolder(id: String, name: String? = nil, emoji: String?? = nil, conversationIDs: [ConversationID]? = nil,
+                      sortOrder: Int? = nil) async throws -> ChatFolder? {
+        var body: [String: JSONValue] = [:]
+        if let name { body["name"] = .string(name) }
+        if let emoji { body["emoji"] = emoji.map { .string($0) } ?? .null }
+        if let conversationIDs { body["conversationIds"] = .array(conversationIDs.map { .string($0) }) }
+        if let sortOrder { body["sortOrder"] = .number(Double(sortOrder)) }
+        let value = try await client.authenticatedJSON("PATCH", path: MessagingBackendCapabilities.Paths.folder(id), body: .object(body))
+        return value["folder"].flatMap(MessagingFeatures4Decoder.folder)
+    }
+
+    func deleteFolder(id: String) async throws {
+        _ = try await client.authenticatedJSON("DELETE", path: MessagingBackendCapabilities.Paths.folder(id))
+    }
+
+    // Quick replies
+    func quickReplies() async throws -> [QuickReply] {
+        let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.quickReplies)
+        return (value["items"]?.array ?? []).compactMap(MessagingFeatures4Decoder.quickReply)
+    }
+
+    func saveQuickReply(id: String?, shortcut: String, text: String) async throws -> QuickReply? {
+        let body: JSONValue = .object(["shortcut": .string(shortcut.lowercased()), "text": .string(text)])
+        let value = try await client.authenticatedJSON(id == nil ? "POST" : "PATCH",
+                                                       path: id.map(MessagingBackendCapabilities.Paths.quickReply) ?? MessagingBackendCapabilities.Paths.quickReplies,
+                                                       body: body)
+        return value["quickReply"].flatMap(MessagingFeatures4Decoder.quickReply)
+    }
+
+    func deleteQuickReply(id: String) async throws {
+        _ = try await client.authenticatedJSON("DELETE", path: MessagingBackendCapabilities.Paths.quickReply(id))
+    }
+
+    // Forward / theme / saved list
+    func forward(conversation: ConversationID, message: MessageID, to targets: [ConversationID]) async throws -> [ForwardResult] {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.forward(conversation, message),
+                                                       body: .object(["conversationIds": .array(targets.map { .string($0) })]))
+        return MessagingFeatures4Decoder.forwardResults(value)
+    }
+
+    func setTheme(conversation: ConversationID, theme: String?) async throws -> String? {
+        let value = try await client.authenticatedJSON("POST", path: MessagingBackendCapabilities.Paths.theme(conversation),
+                                                       body: .object(["theme": theme.map { .string($0) } ?? .null]))
+        return value["theme"]?.string
+    }
+
+    func savedMessages(cursor: String?) async throws -> (items: [SavedMessageItem], next: String?) {
+        let value = try await client.authenticatedJSON("GET", path: MessagingBackendCapabilities.Paths.savedMessages(cursor: cursor))
+        let more = value["hasMore"]?.bool ?? false
+        return ((value["items"]?.array ?? []).compactMap(MessagingFeatures4Decoder.saved), more ? value["nextCursor"]?.string : nil)
+    }
+
+    private static func iso(_ date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
     }
 
     func setChatPinned(conversation: ConversationID, pinned: Bool) async throws -> Bool {

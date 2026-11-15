@@ -501,6 +501,7 @@ struct ChatsSettingsHost: View {
     @AppStorage("settings.links.openInApp") private var openLinksInApp = true
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @AppStorage("settings.chats.readReceiptsDisplay") private var readReceiptsDisplay = true
+    @State private var showsQuickReplies = false
 
     var body: some View {
         switch route {
@@ -525,8 +526,16 @@ struct ChatsSettingsHost: View {
                         SettingsNavigationRow(title: "Chat privacy", subtitle: app.messaging.capabilities.privacyControls ? "Receipts, typing, last seen, lock screen" : "Receipts on this device", symbol: "lock.rectangle.on.rectangle") {
                             app.navigation.open(.settings(.chats(.privacy)))
                         }
+                        if app.messaging.capabilities.features4.quickReplies {
+                            SettingsDivider()
+                            SettingsNavigationRow(title: "Quick replies", subtitle: "Type / in a chat to use them", symbol: "text.bubble") {
+                                showsQuickReplies = true
+                            }
+                            .accessibilityIdentifier("settings.chats.quickReplies")
+                        }
                     }
                 }
+                .sheet(isPresented: $showsQuickReplies) { QuickRepliesManageSheet() }
                 SettingsAPIFootnote(text: "These change how chats look and behave on this iPhone.")
             }
             .navigationTitle("Chats")

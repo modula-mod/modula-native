@@ -185,6 +185,8 @@ enum SettingsRoute: Hashable {
 enum MessagesRoute: Hashable {
     case inbox
     case requests
+    /// Saved messages across chats (`savedMessages` capability).
+    case saved
     case inMail(InMailRoute)
     case new
     case conversation(String)
@@ -364,6 +366,9 @@ enum RouteParser {
         case "requests":
             guard p.count == 2 else { return nil }
             return .messages(.requests)
+        case "saved":
+            guard p.count == 2 else { return nil }
+            return .messages(.saved)
         case "new":
             guard p.count == 2 else { return nil }
             return .messages(.new)
@@ -526,6 +531,7 @@ enum RouteSerializer {
             switch route {
             case .inbox: "/messages/inbox"
             case .requests: "/messages/requests"
+            case .saved: "/messages/saved"
             case .new: "/messages/new"
             case .conversation(let id): "/messages/\(id)"
             case .direct(let person): "/messages/to/\(person)"

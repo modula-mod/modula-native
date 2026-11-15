@@ -2197,3 +2197,101 @@ final class MessagingFeatures4Tests: XCTestCase {
         XCTAssertEqual(MessagingFeatures4.ttlTitle(86400), "1 day")
     }
 }
+
+final class MessagingFeatures4UITests: XCTestCase {
+    private func json(_ s: String) throws -> JSONValue { try JSONDecoder().decode(JSONValue.self, from: Data(s.utf8)) }
+
+    func testLimitsDecode() throws {
+        let raw = """
+        {"version":3,"scheduledMessages":{"enabled":true,"minLeadSeconds":10,"maxLeadDays":365,"maxPending":50},
+         "chatFolders":{"enabled":true,"maxFolders":20},"quickReplies":{"enabled":true,"max":50},
+         "forwarding":{"enabled":true,"maxTargets":5,"kinds":["text"]},
+         "chatThemes":{"enabled":true,"themes":["default","coral","ocean","forest","sunset","midnight","lavender","mono"]}}
+        """
+        let f4 = try XCTUnwrap(MessagingPayloadDecoder.capabilitiesV3(from: try json(raw))).features4
+        XCTAssertTrue(f4.scheduled && f4.chatFolders && f4.quickReplies && f4.forwarding)
+        XCTAssertEqual(f4.forwardingMaxTargets, 5)
+        XCTAssertEqual(f4.forwardingKinds, ["text"])
+        XCTAssertEqual(f4.chatFoldersMax, 20)
+        XCTAssertEqual(f4.chatThemes.count, 8)
+        for id in f4.chatThemes where id != "default" { XCTAssertNotNil(ChatThemePalette.accent(id), id) }
+        XCTAssertNil(ChatThemePalette.accent("default"))
+    }
+
+    func testForwardingWithoutKindsIsOff() throws {
+        let f4 = try XCTUnwrap(MessagingPayloadDecoder.capabilitiesV3(from: try json(#"{"version":3,"forwarding":{"enabled":true,"maxTargets":5,"kinds":[]}}"#))).features4
+        XCTAssertFalse(f4.forwarding)
+    }
+
+    func testScheduledFolderQuickReplyPinSavedDecode() throws {
+        let s = try XCTUnwrap(MessagingFeatures4Decoder.scheduled(try json(
+            #"{"id":"s1","conversationId":"c1","text":"hi","sendAt":"2026-11-16T09:00:00Z","state":"failed","sentMessageId":null,"failureReason":"blocked"}"#)))
+        XCTAssertEqual(s.state, .failed)
+        XCTAssertTrue(s.isOpen)
+        XCTAssertNil(MessagingFeatures4Decoder.scheduled(try json(#"{"id":"s1","conversationId":"c1"}"#)))
+        let f = try XCTUnwrap(MessagingFeatures4Decoder.folder(try json(#"{"id":"f","name":"Work","emoji":null,"sortOrder":2,"conversationIds":["a","b"]}"#)))
+        XCTAssertEqual(f.conversationIDs, ["a", "b"])
+        XCTAssertNil(f.emoji)
+        let q = try XCTUnwrap(MessagingFeatures4Decoder.quickReply(try json(#"{"id":"q","shortcut":"omw","text":"On my way"}"#)))
+        XCTAssertEqual(q.shortcut, "omw")
+        let p = try XCTUnwrap(MessagingFeatures4Decoder.pin(try json(#"{"messageId":"m","message":{"body":"Hello","sender":{"displayName":"Ana"}}}"#)))
+        XCTAssertEqual(p.text, "Hello")
+        XCTAssertEqual(p.senderName, "Ana")
+        let saved = try XCTUnwrap(MessagingFeatures4Decoder.saved(try json(#"{"messageId":"m","conversationId":"c","savedAt":"2026-11-15T10:00:00Z","message":{"body":"x"}}"#)))
+        XCTAssertEqual(saved.conversationID, "c")
+    }
+
+    func testForwardResultsKeepOrderAndReasons() throws {
+        let results = MessagingFeatures4Decoder.forwardResults(try json(
+            #"{"results":[{"conversationId":"a","ok":true,"message":{}},{"conversationId":"b","ok":false,"error":{"code":"FORBIDDEN","reason":"blocked"}}]}"#))
+        XCTAssertEqual(results.map(\.conversationID), ["a", "b"])
+        XCTAssertTrue(results[0].ok)
+        XCTAssertEqual(results[1].reason, "blocked")
+        XCTAssertEqual(ForwardFailureText.text("blocked"), "Can't forward: blocked")
+        XCTAssertEqual(ForwardFailureText.text("SERVER_ERROR"), "Didn't send")
+    }
+
+    func testFolderSortingIsStable() {
+        let a = ChatFolder(id: "1", name: "b", emoji: nil, sortOrder: 1, conversationIDs: [])
+        let b = ChatFolder(id: "2", name: "a", emoji: nil, sortOrder: 1, conversationIDs: [])
+        let c = ChatFolder(id: "3", name: "z", emoji: nil, sortOrder: 0, conversationIDs: [])
+        XCTAssertEqual(MessagingFeatures4Decoder.sorted([a, b, c]).map(\.id), ["3", "2", "1"])
+    }
+
+    func testQuickReplyMatcher() {
+        let replies = [QuickReply(id: "1", shortcut: "omw", text: "On my way"), QuickReply(id: "2", shortcut: "ok", text: "OK!"),
+                       QuickReply(id: "3", shortcut: "thanks", text: "Thank you")]
+        XCTAssertEqual(QuickReplyMatcher.matches(replies, text: "/o").map(\.shortcut), ["ok", "omw"])
+        XCTAssertEqual(QuickReplyMatcher.matches(replies, text: "/").count, 3)
+        XCTAssertTrue(QuickReplyMatcher.matches(replies, text: "omw").isEmpty)
+        XCTAssertTrue(QuickReplyMatcher.matches(replies, text: "/omw now").isEmpty)
+        XCTAssertEqual(QuickReplyMatcher.matches(replies, text: "/OMW").map(\.shortcut), ["omw"])
+        XCTAssertTrue(QuickReplyMatcher.isValidShortcut("on_my-way1"))
+        XCTAssertFalse(QuickReplyMatcher.isValidShortcut("on my way"))
+        XCTAssertFalse(QuickReplyMatcher.isValidShortcut(String(repeating: "a", count: 25)))
+    }
+
+    func testSchedulePresetsStayInsideWindow() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/London")!
+        // Sunday 15 Nov 2026, 13:00 London.
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 15, hour: 13))!
+        let presets = ScheduleSendPresets.presets(now: now, calendar: calendar)
+        XCTAssertEqual(presets.map(\.title), ["In 1 hour", "Tonight, 8 PM", "Tomorrow, 9 AM"]) // Monday 9 AM == tomorrow
+        let window = ScheduleSendPresets.window(now: now, minLead: 10, maxLeadDays: 365)
+        XCTAssertTrue(presets.allSatisfy { window.contains($0.date) })
+        // Late evening: no "Tonight".
+        let late = calendar.date(from: DateComponents(year: 2026, month: 11, day: 17, hour: 19, minute: 30))!
+        XCTAssertFalse(ScheduleSendPresets.presets(now: late, calendar: calendar).contains { $0.title == "Tonight, 8 PM" })
+        // A 1-hour max window drops everything past it.
+        XCTAssertTrue(ScheduleSendPresets.presets(now: now, calendar: calendar, maxLeadDays: 0).allSatisfy { window.contains($0.date) })
+    }
+
+    func testDisappearingNoteAndThemeConversationDecode() throws {
+        XCTAssertEqual(DisappearingNote.text(ttlSeconds: 86400), "Messages now disappear after 1 day")
+        XCTAssertEqual(DisappearingNote.text(ttlSeconds: nil), "Disappearing messages turned off")
+        let errorText = MessagingStore.f4Error(APIError.rejected(403, "FORBIDDEN"), fallback: "x")
+        XCTAssertEqual(errorText, "Only group admins can change this.")
+        XCTAssertEqual(MessagingStore.f4Error(APIError.rejected(403, "CAPABILITY_DISABLED"), fallback: "x"), "This isn't available right now.")
+    }
+}

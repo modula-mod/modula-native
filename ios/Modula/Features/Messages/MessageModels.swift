@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 typealias ConversationID = String
 typealias MessageID = String
@@ -96,6 +97,8 @@ struct Conversation: Identifiable, Hashable, Sendable {
     var serverPinned = false
     var notificationLevel: String? = nil
     var disappearingTtlSeconds: Int? = nil
+    /// Shared chat theme preset id (`chatThemes`); nil = default.
+    var theme: String? = nil
 
     var title: String {
         if let titleOverride, !titleOverride.isEmpty { return titleOverride }
@@ -315,6 +318,24 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
         static func chatPin(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/pin" }
         static func notificationLevel(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/notifications" }
         static func disappearing(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/disappearing" }
+        static func scheduled(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/scheduled" }
+        static func scheduledItem(_ conversation: String, _ id: String) -> String {
+            "/v1/conversations/\(escape(conversation))/scheduled/\(escape(id))"
+        }
+        static func scheduledSendNow(_ conversation: String, _ id: String) -> String { scheduledItem(conversation, id) + "/send-now" }
+        static let folders = "/v1/messaging/folders"
+        static func folder(_ id: String) -> String { "/v1/messaging/folders/\(escape(id))" }
+        static let quickReplies = "/v1/messaging/quick-replies"
+        static func quickReply(_ id: String) -> String { "/v1/messaging/quick-replies/\(escape(id))" }
+        static func forward(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/forward"
+        }
+        static func theme(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/theme" }
+        static func savedMessages(cursor: String?) -> String {
+            var path = "/v1/messages/saved?limit=30"
+            if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .alphanumerics) { path += "&cursor=\(encoded)" }
+            return path
+        }
         static func receipts(_ conversation: String, _ message: String) -> String {
             "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/receipts"
         }
@@ -365,7 +386,8 @@ enum MessagingPayloadDecoder {
             serverPinnedAt: decodeDate(value["pinnedAt"]?.string),
             serverPinned: value["pinned"]?.bool ?? false,
             notificationLevel: value["notificationLevel"]?.string,
-            disappearingTtlSeconds: value["disappearingTtlSeconds"]?.int
+            disappearingTtlSeconds: value["disappearingTtlSeconds"]?.int,
+            theme: value["theme"]?.string
         )
     }
 
@@ -879,9 +901,16 @@ struct MessagingFeatures4: Hashable, Sendable {
     var notificationLevels: [String] = []
     /// Parsed for later rounds (no UI yet): scheduled, folders, quick replies, forwarding, themes.
     var scheduled = false
+    var scheduledMinLeadSeconds = 10
+    var scheduledMaxLeadDays = 365
+    var scheduledMaxPending = 50
     var chatFolders = false
+    var chatFoldersMax = 20
     var quickReplies = false
+    var quickRepliesMax = 50
     var forwarding = false
+    var forwardingMaxTargets = 1
+    var forwardingKinds: [String] = []
     var chatThemes: [String] = []
 
     init() {}
@@ -905,10 +934,25 @@ struct MessagingFeatures4: Hashable, Sendable {
         if let block = on("notificationLevels") {
             notificationLevels = (block["levels"]?.array ?? []).compactMap(\.string)
         }
-        scheduled = on("scheduledMessages") != nil
-        chatFolders = on("chatFolders") != nil
-        quickReplies = on("quickReplies") != nil
-        forwarding = on("forwarding") != nil
+        if let block = on("scheduledMessages") {
+            scheduled = true
+            scheduledMinLeadSeconds = max(block["minLeadSeconds"]?.int ?? 10, 0)
+            scheduledMaxLeadDays = max(block["maxLeadDays"]?.int ?? 365, 1)
+            scheduledMaxPending = max(block["maxPending"]?.int ?? 50, 1)
+        }
+        if let block = on("chatFolders") {
+            chatFolders = true
+            chatFoldersMax = max(block["maxFolders"]?.int ?? 20, 1)
+        }
+        if let block = on("quickReplies") {
+            quickReplies = true
+            quickRepliesMax = max(block["max"]?.int ?? 50, 1)
+        }
+        if let block = on("forwarding") {
+            forwardingKinds = (block["kinds"]?.array ?? []).compactMap(\.string)
+            forwardingMaxTargets = max(block["maxTargets"]?.int ?? 1, 1)
+            forwarding = !forwardingKinds.isEmpty
+        }
         chatThemes = (on("chatThemes")?["themes"]?.array ?? []).compactMap(\.string)
     }
 
@@ -930,4 +974,208 @@ struct MessageEditVersion: Hashable, Sendable, Identifiable {
     let at: Date?
     let current: Bool
     var id: String { "\(current)-\(at?.timeIntervalSince1970 ?? 0)-\(text)" }
+}
+
+// MARK: - Messaging features 4: DTOs and pure logic (decoders are covered by MessagingFeatures4UITests)
+
+struct ScheduledMessage: Identifiable, Hashable, Sendable {
+    enum State: String, Sendable { case pending, sending, sent, failed, cancelled }
+    let id: String
+    let conversationID: ConversationID
+    var text: String
+    var sendAt: Date
+    var state: State
+    var sentMessageID: MessageID?
+    var failureReason: String?
+    /// Still editable / cancellable from the list.
+    var isOpen: Bool { state == .pending || state == .failed }
+}
+
+struct ChatFolder: Identifiable, Hashable, Sendable {
+    let id: String
+    var name: String
+    var emoji: String?
+    var sortOrder: Int
+    var conversationIDs: [ConversationID]
+}
+
+struct QuickReply: Identifiable, Hashable, Sendable {
+    let id: String
+    var shortcut: String
+    var text: String
+}
+
+struct PinnedMessagePreview: Identifiable, Hashable, Sendable {
+    let messageID: MessageID
+    let text: String
+    let senderName: String
+    var id: MessageID { messageID }
+}
+
+struct SavedMessageItem: Identifiable, Hashable, Sendable {
+    let messageID: MessageID
+    let conversationID: ConversationID
+    let savedAt: Date?
+    let text: String
+    let senderName: String
+    let sentAt: Date?
+    var id: MessageID { messageID }
+}
+
+struct ForwardResult: Identifiable, Hashable, Sendable {
+    let conversationID: ConversationID
+    let ok: Bool
+    let reason: String?
+    var id: ConversationID { conversationID }
+}
+
+struct MessagingSystemNote: Identifiable, Hashable, Sendable {
+    let id = UUID()
+    let text: String
+    let at: Date
+}
+
+enum MessagingFeatures4Decoder {
+    static func scheduled(_ value: JSONValue) -> ScheduledMessage? {
+        guard let id = value["id"]?.string, let conversation = value["conversationId"]?.string,
+              let sendAt = MessagingPayloadDecoder.decodeDate(value["sendAt"]?.string) else { return nil }
+        return ScheduledMessage(id: id, conversationID: conversation, text: value["text"]?.string ?? "", sendAt: sendAt,
+                                state: ScheduledMessage.State(rawValue: value["state"]?.string ?? "") ?? .pending,
+                                sentMessageID: value["sentMessageId"]?.string, failureReason: value["failureReason"]?.string)
+    }
+
+    static func folder(_ value: JSONValue) -> ChatFolder? {
+        guard let id = value["id"]?.string, let name = value["name"]?.string else { return nil }
+        return ChatFolder(id: id, name: name, emoji: value["emoji"]?.string, sortOrder: value["sortOrder"]?.int ?? 0,
+                          conversationIDs: (value["conversationIds"]?.array ?? []).compactMap(\.string))
+    }
+
+    static func quickReply(_ value: JSONValue) -> QuickReply? {
+        guard let id = value["id"]?.string, let shortcut = value["shortcut"]?.string else { return nil }
+        return QuickReply(id: id, shortcut: shortcut, text: value["text"]?.string ?? "")
+    }
+
+    static func pin(_ value: JSONValue) -> PinnedMessagePreview? {
+        guard let id = value["messageId"]?.string else { return nil }
+        return PinnedMessagePreview(messageID: id, text: value["message"]?["body"]?.string ?? "",
+                                    senderName: value["message"]?["sender"]?["displayName"]?.string ?? "")
+    }
+
+    static func saved(_ value: JSONValue) -> SavedMessageItem? {
+        guard let id = value["messageId"]?.string, let conversation = value["conversationId"]?.string else { return nil }
+        let message = value["message"]
+        return SavedMessageItem(messageID: id, conversationID: conversation,
+                                savedAt: MessagingPayloadDecoder.decodeDate(value["savedAt"]?.string),
+                                text: message?["body"]?.string ?? "",
+                                senderName: message?["sender"]?["displayName"]?.string ?? "",
+                                sentAt: MessagingPayloadDecoder.decodeDate(message?["sentAt"]?.string))
+    }
+
+    static func forwardResults(_ value: JSONValue) -> [ForwardResult] {
+        (value["results"]?.array ?? []).compactMap { item in
+            guard let id = item["conversationId"]?.string else { return nil }
+            let ok = item["ok"]?.bool ?? false
+            return ForwardResult(conversationID: id, ok: ok,
+                                 reason: ok ? nil : (item["error"]?["reason"]?.string ?? item["error"]?["code"]?.string ?? "failed"))
+        }
+    }
+
+    /// Folders sorted the way the server lists them (sortOrder, then name for ties).
+    static func sorted(_ folders: [ChatFolder]) -> [ChatFolder] {
+        folders.sorted { ($0.sortOrder, $0.name.lowercased()) < ($1.sortOrder, $1.name.lowercased()) }
+    }
+}
+
+/// "/omw" in the composer: the typed shortcut prefix, or nil when the text isn't a shortcut query.
+enum QuickReplyMatcher {
+    static func query(in text: String) -> String? {
+        guard text.hasPrefix("/"), !text.contains(" "), !text.contains("\n") else { return nil }
+        let q = text.dropFirst().lowercased()
+        guard q.count <= 24, q.allSatisfy({ $0.isLetter && $0.isASCII || $0.isNumber && $0.isASCII || $0 == "_" || $0 == "-" }) else { return nil }
+        return String(q)
+    }
+
+    static func matches(_ replies: [QuickReply], text: String, limit: Int = 8) -> [QuickReply] {
+        guard let q = query(in: text) else { return [] }
+        let hits = replies.filter { q.isEmpty || $0.shortcut.hasPrefix(q) }
+        return Array(hits.sorted { $0.shortcut < $1.shortcut }.prefix(limit))
+    }
+
+    static func isValidShortcut(_ s: String) -> Bool {
+        let lower = s.lowercased()
+        return (1...24).contains(lower.count)
+            && lower.allSatisfy { ($0.isASCII && ($0.isLetter || $0.isNumber)) || $0 == "_" || $0 == "-" }
+    }
+}
+
+/// Quick presets for "Schedule message", clamped to the server's lead window.
+enum ScheduleSendPresets {
+    struct Preset: Hashable, Identifiable { let title: String; let date: Date; var id: String { title } }
+
+    static func presets(now: Date, calendar: Calendar = .current, minLead: Int = 10, maxLeadDays: Int = 365) -> [Preset] {
+        var out: [Preset] = []
+        if let hour = calendar.date(byAdding: .hour, value: 1, to: now) { out.append(.init(title: "In 1 hour", date: hour)) }
+        if let tonight = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: now), tonight.timeIntervalSince(now) > 3600 {
+            out.append(.init(title: "Tonight, 8 PM", date: tonight))
+        }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+           let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) {
+            out.append(.init(title: "Tomorrow, 9 AM", date: morning))
+        }
+        if let monday = calendar.nextDate(after: now, matching: DateComponents(hour: 9, minute: 0, weekday: 2), matchingPolicy: .nextTime),
+           !out.contains(where: { calendar.isDate($0.date, equalTo: monday, toGranularity: .minute) }) {
+            out.append(.init(title: "Monday, 9 AM", date: monday))
+        }
+        let range = window(now: now, minLead: minLead, maxLeadDays: maxLeadDays)
+        return out.filter { range.contains($0.date) }
+    }
+
+    static func window(now: Date, minLead: Int, maxLeadDays: Int) -> ClosedRange<Date> {
+        let start = now.addingTimeInterval(TimeInterval(max(minLead, 0) + 30))
+        let end = now.addingTimeInterval(TimeInterval(max(maxLeadDays, 1)) * 86400)
+        return start...max(end, start)
+    }
+}
+
+enum DisappearingNote {
+    static func text(ttlSeconds: Int?) -> String {
+        guard let ttl = ttlSeconds, ttl > 0 else { return "Disappearing messages turned off" }
+        return "Messages now disappear after \(MessagingFeatures4.ttlTitle(ttl))"
+    }
+}
+
+/// Server chat theme ids -> native palettes (bubbles + background). Unknown ids fall back to default.
+enum ChatThemePalette {
+    static func accent(_ id: String?) -> Color? {
+        switch id {
+        case "coral": Color(red: 1.0, green: 0.45, blue: 0.40)
+        case "ocean": Color(red: 0.10, green: 0.50, blue: 0.90)
+        case "forest": Color(red: 0.16, green: 0.58, blue: 0.36)
+        case "sunset": Color(red: 0.98, green: 0.55, blue: 0.18)
+        case "midnight": Color(red: 0.22, green: 0.24, blue: 0.55)
+        case "lavender": Color(red: 0.60, green: 0.48, blue: 0.90)
+        case "mono": Color(white: 0.28)
+        default: nil
+        }
+    }
+
+    static func background(_ id: String?) -> [Color] {
+        switch id {
+        case "coral": [Color(red: 1.0, green: 0.62, blue: 0.55), Color(red: 1.0, green: 0.82, blue: 0.70)]
+        case "ocean": [Color(red: 0.20, green: 0.60, blue: 0.95), Color(red: 0.40, green: 0.85, blue: 0.90)]
+        case "forest": [Color(red: 0.20, green: 0.55, blue: 0.35), Color(red: 0.60, green: 0.80, blue: 0.45)]
+        case "sunset": [Color(red: 1.0, green: 0.50, blue: 0.30), Color(red: 0.85, green: 0.35, blue: 0.60)]
+        case "midnight": [Color(red: 0.10, green: 0.12, blue: 0.35), Color(red: 0.35, green: 0.25, blue: 0.60)]
+        case "lavender": [Color(red: 0.70, green: 0.60, blue: 0.95), Color(red: 0.90, green: 0.75, blue: 0.95)]
+        case "mono": [Color(white: 0.55), Color(white: 0.80)]
+        default: []
+        }
+    }
+
+    static func title(_ id: String) -> String { id == "default" ? "Default" : id.capitalized }
+}
+
+extension EnvironmentValues {
+    /// Per-chat theme accent for own bubbles (nil = app accent).
+    @Entry var chatThemeAccent: Color? = nil
 }

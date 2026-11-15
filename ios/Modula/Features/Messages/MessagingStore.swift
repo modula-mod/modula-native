@@ -119,7 +119,16 @@ final class MessagingStore {
     // MARK: Messaging features 4
 
     /// Message pins per chat (server list, newest first). Only filled when `pinnedMessages` is on.
-    private(set) var pinnedMessageIDs: [ConversationID: [MessageID]] = [:]
+    private(set) var pinnedMessages: [ConversationID: [PinnedMessagePreview]] = [:]
+    /// Scheduled (sender-only), quick replies, folders, saved list, in-chat system notes.
+    private(set) var scheduledByConversation: [ConversationID: [ScheduledMessage]] = [:]
+    private(set) var quickReplies: [QuickReply] = []
+    private(set) var serverFolders: [ChatFolder] = []
+    private(set) var savedItems: [SavedMessageItem] = []
+    private(set) var savedCursor: String?
+    private(set) var savedLoading = false
+    private(set) var systemNotes: [ConversationID: [MessagingSystemNote]] = [:]
+    private static let folderMigrationKey = "messages.folders.migrated.v1"
     private static let chatPinMigrationKey = "messages.pins.migrated.v1"
 
     /// Server becomes the source of truth for chat pins; local pins are POSTed once first.
@@ -143,23 +152,24 @@ final class MessagingStore {
     }
 
     func isMessagePinned(_ message: Message) -> Bool {
-        pinnedMessageIDs[message.conversationID]?.contains(message.id) == true
+        pinnedMessages[message.conversationID]?.contains { $0.messageID == message.id } == true
     }
 
     func loadMessagePins(_ conversation: ConversationID) async {
         guard capabilities.features4.pinnedMessages else { return }
-        if let ids = try? await repository.pinnedMessageIDs(conversation: conversation) { pinnedMessageIDs[conversation] = ids }
+        if let pins = try? await repository.pinnedMessages(conversation: conversation) { pinnedMessages[conversation] = pins }
     }
 
     func toggleMessagePin(_ message: Message) async {
         guard capabilities.features4.pinnedMessages else { return }
         let pin = !isMessagePinned(message)
-        let before = pinnedMessageIDs[message.conversationID] ?? []
-        pinnedMessageIDs[message.conversationID] = pin ? [message.id] + before : before.filter { $0 != message.id }
+        let before = pinnedMessages[message.conversationID] ?? []
+        let preview = PinnedMessagePreview(messageID: message.id, text: message.body.text, senderName: message.sender.displayName)
+        pinnedMessages[message.conversationID] = pin ? [preview] + before : before.filter { $0.messageID != message.id }
         do { try await repository.setMessagePinned(conversation: message.conversationID, message: message.id, pinned: pin) }
         catch {
-            pinnedMessageIDs[message.conversationID] = before
-            actionError = pin ? "Couldn't pin this message." : "Couldn't unpin this message."
+            pinnedMessages[message.conversationID] = before
+            actionError = Self.f4Error(error, fallback: pin ? "Couldn't pin this message." : "Couldn't unpin this message.")
         }
     }
 
@@ -197,17 +207,260 @@ final class MessagingStore {
         guard capabilities.features4.disappearing else { return }
         do {
             let ttl = try await repository.setDisappearing(conversation: conversation, ttlSeconds: ttlSeconds)
-            if let i = conversations.firstIndex(where: { $0.id == conversation }) { conversations[i].disappearingTtlSeconds = ttl }
+            noteDisappearingChange(conversation, ttl: ttl)
         } catch {
-            actionError = "Only admins can change disappearing messages here."
+            actionError = Self.f4Error(error, fallback: "Couldn't change disappearing messages.")
         }
     }
+
+    /// In-chat system row when the shared timer changes (local action or `conversation.updated` reason disappearing).
+    private func noteDisappearingChange(_ conversation: ConversationID, ttl: Int?) {
+        guard let i = conversations.firstIndex(where: { $0.id == conversation }) else { return }
+        guard conversations[i].disappearingTtlSeconds != ttl else { return }
+        conversations[i].disappearingTtlSeconds = ttl
+        systemNotes[conversation, default: []].append(MessagingSystemNote(text: DisappearingNote.text(ttlSeconds: ttl), at: Date()))
+    }
+
+    /// Branch on status + code, never on the message (contract conventions).
+    static func f4Error(_ error: Error, fallback: String) -> String {
+        guard case APIError.rejected(let status, let code) = error else { return fallback }
+        switch (status, code) {
+        case (403, "CAPABILITY_DISABLED"): return "This isn't available right now."
+        case (403, _): return "Only group admins can change this."
+        case (409, _): return "You've reached the limit for this."
+        case (404, _): return "This chat or message isn't available."
+        default: return fallback
+        }
+    }
+
+    // MARK: Scheduled messages
+
+    func scheduled(for conversation: ConversationID) -> [ScheduledMessage] {
+        (scheduledByConversation[conversation] ?? []).filter(\.isOpen).sorted { $0.sendAt < $1.sendAt }
+    }
+
+    func loadScheduled(_ conversation: ConversationID) async {
+        guard capabilities.features4.scheduled else { return }
+        if let items = try? await repository.scheduledMessages(conversation: conversation) { scheduledByConversation[conversation] = items }
+    }
+
+    @discardableResult
+    func schedule(_ text: String, in conversation: ConversationID, at date: Date) async -> Bool {
+        let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard capabilities.features4.scheduled, !body.isEmpty else { return false }
+        do {
+            if let item = try await repository.schedule(conversation: conversation, text: body, sendAt: date) {
+                scheduledByConversation[conversation, default: []].append(item)
+            } else { await loadScheduled(conversation) }
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = Self.f4Error(error, fallback: "Couldn't schedule this message.")
+            return false
+        }
+    }
+
+    func updateScheduled(_ item: ScheduledMessage, text: String?, sendAt: Date?) async {
+        do {
+            let updated = try await repository.updateScheduled(conversation: item.conversationID, id: item.id, text: text, sendAt: sendAt)
+            replaceScheduled(updated ?? item)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't update the scheduled message.") }
+    }
+
+    func cancelScheduled(_ item: ScheduledMessage) async {
+        let before = scheduledByConversation[item.conversationID] ?? []
+        scheduledByConversation[item.conversationID] = before.filter { $0.id != item.id }
+        do { try await repository.cancelScheduled(conversation: item.conversationID, id: item.id) }
+        catch {
+            scheduledByConversation[item.conversationID] = before
+            actionError = Self.f4Error(error, fallback: "Couldn't delete the scheduled message.")
+        }
+    }
+
+    func sendScheduledNow(_ item: ScheduledMessage) async {
+        do {
+            if let updated = try await repository.sendScheduledNow(conversation: item.conversationID, id: item.id) { replaceScheduled(updated) }
+            await refreshThread(item.conversationID)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't send it now.") }
+    }
+
+    private func replaceScheduled(_ item: ScheduledMessage) {
+        var list = scheduledByConversation[item.conversationID] ?? []
+        if let i = list.firstIndex(where: { $0.id == item.id }) { list[i] = item } else { list.append(item) }
+        scheduledByConversation[item.conversationID] = list
+    }
+
+    // MARK: Quick replies
+
+    func loadQuickReplies() async {
+        guard capabilities.features4.quickReplies else { return }
+        if let items = try? await repository.quickReplies() { quickReplies = items }
+    }
+
+    @discardableResult
+    func saveQuickReply(id: String?, shortcut: String, text: String) async -> Bool {
+        guard capabilities.features4.quickReplies, QuickReplyMatcher.isValidShortcut(shortcut),
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        do {
+            if let saved = try await repository.saveQuickReply(id: id, shortcut: shortcut, text: text) {
+                quickReplies.removeAll { $0.id == saved.id }
+                quickReplies.append(saved)
+                quickReplies.sort { $0.shortcut < $1.shortcut }
+            }
+            return true
+        } catch {
+            if case APIError.rejected(409, _) = error { actionError = "That shortcut is taken, or you've hit the limit." }
+            else { actionError = Self.f4Error(error, fallback: "Couldn't save the quick reply.") }
+            return false
+        }
+    }
+
+    func deleteQuickReply(_ reply: QuickReply) async {
+        let before = quickReplies
+        quickReplies.removeAll { $0.id == reply.id }
+        do { try await repository.deleteQuickReply(id: reply.id) }
+        catch { quickReplies = before; actionError = Self.f4Error(error, fallback: "Couldn't delete the quick reply.") }
+    }
+
+    // MARK: Chat folders (server)
+
+    func loadFolders() async {
+        guard capabilities.features4.chatFolders else { return }
+        guard let items = try? await repository.folders() else { return }
+        serverFolders = MessagingFeatures4Decoder.sorted(items)
+        await migrateLocalFoldersOnce()
+    }
+
+    /// Contract: POST each device-local folder once, then the server is the source of truth.
+    private func migrateLocalFoldersOnce() async {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.folderMigrationKey) else { return }
+        defaults.set(true, forKey: Self.folderMigrationKey)
+        var grouped: [String: [ConversationID]] = [:]
+        for (id, name) in folderAssignments where !name.isEmpty { grouped[name, default: []].append(id) }
+        let existing = Set(serverFolders.map { $0.name.lowercased() })
+        var order = (serverFolders.map(\.sortOrder).max() ?? -1) + 1
+        for name in grouped.keys.sorted() where !existing.contains(name.lowercased()) {
+            let ids = Array((grouped[name] ?? []).prefix(200))
+            if let folder = try? await repository.createFolder(name: String(name.prefix(32)), emoji: nil,
+                                                              conversationIDs: ids, sortOrder: min(order, 1000)) {
+                serverFolders.append(folder)
+                order += 1
+            }
+        }
+        serverFolders = MessagingFeatures4Decoder.sorted(serverFolders)
+    }
+
+    @discardableResult
+    func createFolder(name: String, emoji: String?, conversationIDs: [ConversationID] = []) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard capabilities.features4.chatFolders, (1...32).contains(trimmed.count) else { return false }
+        do {
+            let order = min((serverFolders.map(\.sortOrder).max() ?? -1) + 1, 1000)
+            if let folder = try await repository.createFolder(name: trimmed, emoji: emoji, conversationIDs: conversationIDs, sortOrder: order) {
+                serverFolders = MessagingFeatures4Decoder.sorted(serverFolders + [folder])
+            }
+            return true
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't create the folder."); return false }
+    }
+
+    func renameFolder(_ folder: ChatFolder, to name: String, emoji: String?) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...32).contains(trimmed.count) else { return }
+        let cleanEmoji: String? = (emoji?.isEmpty ?? true) ? nil : emoji
+        do {
+            let updated = try await repository.updateFolder(id: folder.id, name: trimmed, emoji: .some(cleanEmoji))
+            adoptFolder(updated)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't rename the folder.") }
+    }
+
+    func setFolderChats(_ folder: ChatFolder, _ ids: [ConversationID]) async {
+        do {
+            let updated = try await repository.updateFolder(id: folder.id, conversationIDs: Array(ids.prefix(200)))
+            adoptFolder(updated)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't update the folder.") }
+    }
+
+    private func adoptFolder(_ folder: ChatFolder?) {
+        guard let folder, let i = serverFolders.firstIndex(where: { $0.id == folder.id }) else { return }
+        serverFolders[i] = folder
+    }
+
+    func deleteFolder(_ folder: ChatFolder) async {
+        let before = serverFolders
+        serverFolders.removeAll { $0.id == folder.id }
+        do { try await repository.deleteFolder(id: folder.id) }
+        catch { serverFolders = before; actionError = Self.f4Error(error, fallback: "Couldn't delete the folder.") }
+    }
+
+    /// Reorder = rewrite sortOrder 0…n, PATCHing only the folders whose order changed.
+    func moveFolders(from source: IndexSet, to destination: Int) async {
+        var list = serverFolders
+        list.move(fromOffsets: source, toOffset: destination)
+        let reordered = list.enumerated().map { pair -> ChatFolder in var f = pair.element; f.sortOrder = pair.offset; return f }
+        let changed = reordered.filter { f in serverFolders.first { $0.id == f.id }?.sortOrder != f.sortOrder }
+        serverFolders = reordered
+        for folder in changed { _ = try? await repository.updateFolder(id: folder.id, sortOrder: folder.sortOrder) }
+    }
+
+    // MARK: Forward / theme / saved
+
+    func forward(_ message: Message, to targets: [ConversationID]) async -> [ForwardResult] {
+        let f4 = capabilities.features4
+        guard f4.forwarding, !targets.isEmpty else { return [] }
+        let capped = Array(targets.prefix(f4.forwardingMaxTargets))
+        do { return try await repository.forward(conversation: message.conversationID, message: message.id, to: capped) }
+        catch {
+            let reason = Self.f4Error(error, fallback: "Couldn't forward.")
+            return capped.map { ForwardResult(conversationID: $0, ok: false, reason: reason) }
+        }
+    }
+
+    func theme(for conversation: ConversationID) -> String? {
+        guard !capabilities.features4.chatThemes.isEmpty else { return nil }
+        return self.conversation(id: conversation)?.theme
+    }
+
+    /// Returns an error line for the picker (403 = group admins only), or nil on success.
+    func setTheme(_ theme: String, for conversation: ConversationID) async -> String? {
+        guard capabilities.features4.chatThemes.contains(theme) else { return "That theme isn't available." }
+        guard let i = conversations.firstIndex(where: { $0.id == conversation }) else { return nil }
+        let before = conversations[i].theme
+        conversations[i].theme = theme == "default" ? nil : theme
+        do {
+            let saved = try await repository.setTheme(conversation: conversation, theme: theme)
+            if let j = conversations.firstIndex(where: { $0.id == conversation }) { conversations[j].theme = saved }
+            return nil
+        } catch {
+            if let j = conversations.firstIndex(where: { $0.id == conversation }) { conversations[j].theme = before }
+            return Self.f4Error(error, fallback: "Couldn't change the theme.")
+        }
+    }
+
+    func loadSaved(reset: Bool) async {
+        guard capabilities.features4.savedMessages, !savedLoading, reset || savedCursor != nil else { return }
+        savedLoading = true
+        defer { savedLoading = false }
+        guard let page = try? await repository.savedMessages(cursor: reset ? nil : savedCursor) else { return }
+        let known = Set(savedItems.map(\.id))
+        savedItems = reset ? page.items : savedItems + page.items.filter { !known.contains($0.id) }
+        savedCursor = page.next
+    }
+
+    func unsave(_ item: SavedMessageItem) async {
+        let before = savedItems
+        savedItems.removeAll { $0.id == item.id }
+        if starredIDs.contains(item.messageID) { toggleStar(item.messageID) }
+        do { try await repository.setMessageSaved(conversation: item.conversationID, message: item.messageID, saved: false) }
+        catch { savedItems = before; actionError = Self.f4Error(error, fallback: "Couldn't remove from Saved.") }
+    }
+
 
     func dropMessages(_ ids: [MessageID], in conversation: ConversationID) {
         let drop = Set(ids)
         guard !drop.isEmpty, let thread = threads[conversation] else { return }
         threads[conversation] = thread.filter { !drop.contains($0.id) }
-        if var pins = pinnedMessageIDs[conversation] { pins.removeAll { drop.contains($0) }; pinnedMessageIDs[conversation] = pins }
+        if var pins = pinnedMessages[conversation] { pins.removeAll { drop.contains($0.messageID) }; pinnedMessages[conversation] = pins }
     }
 
     func draftPreview(for id: ConversationID) -> String? {
@@ -940,7 +1193,13 @@ final class MessagingStore {
     /// (it kept reconnecting with the revoked session after sign-out).
     func resetForAccountChange() {
         livePostIDs = []
-        pinnedMessageIDs = [:]
+        pinnedMessages = [:]
+        scheduledByConversation = [:]
+        quickReplies = []
+        serverFolders = []
+        savedItems = []
+        savedCursor = nil
+        systemNotes = [:]
         storyReactionPulse = [:]
         postCommentPulse = [:]
         postEngagement = [:]
@@ -1820,11 +2079,25 @@ extension MessagingStore {
             }
         case .read(let conversation, _, _):
             Task { _ = await pollThread(conversation) }
-        case .conversationUpdated(let conversation, _):
+        case .conversationUpdated(let conversation, let reason):
+            let ttlBefore = self.conversation(id: conversation)?.disappearingTtlSeconds
             Task {
                 await pollInbox()
                 if capabilities.groups { await loadGroup(conversation) }
+                if reason == "disappearing", let now = self.conversation(id: conversation), now.disappearingTtlSeconds != ttlBefore {
+                    systemNotes[conversation, default: []].append(
+                        MessagingSystemNote(text: DisappearingNote.text(ttlSeconds: now.disappearingTtlSeconds), at: Date()))
+                }
             }
+        case .scheduledUpdated(let conversation):
+            Task {
+                await loadScheduled(conversation)
+                await refreshThread(conversation)
+            }
+        case .foldersUpdated:
+            Task { await loadFolders() }
+        case .quickRepliesUpdated:
+            Task { await loadQuickReplies() }
         case .presence(let item):
             presenceByActor[item.actorId] = item
         case .callUpdated(let update):

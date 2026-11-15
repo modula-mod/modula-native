@@ -594,7 +594,10 @@ struct ShellSidebarView: View {
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.
                                     badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
                                     keywords: $0.subtitle ?? "") }
-        return items
+        // Synced saved messages (messaging features 4); hidden until the server offers them.
+        guard app.messaging.capabilities.features4.savedMessages else { return items }
+        return items + [ShellSidebarItem(id: "messages.saved", title: "Saved messages", symbol: "bookmark.square",
+                                         route: .messages(.saved), requiresSignIn: true, keywords: "saved messages bookmarks chat")]
     }
 
     /// Shortcuts into personal tools. Links only: their interfaces never render in the sidebar.

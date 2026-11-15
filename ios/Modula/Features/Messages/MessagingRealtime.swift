@@ -29,6 +29,9 @@ final class MessagingRealtimeClient {
         case messagePinned(conversationID: ConversationID)
         case messageSaved(messageID: MessageID, saved: Bool)
         case messagesExpired(conversationID: ConversationID, messageIDs: [MessageID])
+        case scheduledUpdated(conversationID: ConversationID)
+        case foldersUpdated
+        case quickRepliesUpdated
         case error(String)
         case disconnected
     }
@@ -185,6 +188,13 @@ final class MessagingRealtimeClient {
         case "message.expired":
             guard let conversation = value["conversationId"]?.string else { return }
             onEvent?(.messagesExpired(conversationID: conversation, messageIDs: (value["messageIds"]?.array ?? []).compactMap(\.string)))
+        case "scheduled.updated":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.scheduledUpdated(conversationID: conversation))
+        case "messaging.folders.updated":
+            onEvent?(.foldersUpdated)
+        case "messaging.quick-replies.updated":
+            onEvent?(.quickRepliesUpdated)
         case "story.reaction":
             guard let item = value["itemId"]?.string else { return }
             onEvent?(.storyReaction(itemID: item))
