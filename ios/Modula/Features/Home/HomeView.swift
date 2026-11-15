@@ -645,7 +645,7 @@ struct HomeView: View {
                 // Perf: filter + resolve the feed once per body pass instead of three times.
                 let visiblePosts = HomeFeedOrdering.friendsFirst(
                     app.home.visiblePosts(for: mode).filter(feedFilter.matches),
-                    friendIDs: mode == .following ? [] : Set(app.home.state(for: .following).items.compactMap { $0.author?.id }),
+                    friendIDs: mode == .following ? [] : app.home.followingAuthorIDs(),
                     ownID: app.auth.account?.accountId
                 )
                 if visiblePosts.isEmpty {

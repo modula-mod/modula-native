@@ -58,6 +58,10 @@ final class AppEnvironment {
         ModulaSignpost.begin("LaunchToFeed")
         ModulaSignpost.begin("EnvironmentInit")
         defer { ModulaSignpost.end("EnvironmentInit") }
+        // Speed: room for the server's ETag / Cache-Control responses (conditional GETs → 304s), set
+        // before the first URLSession.shared use. Policy stays the server's; this only lifts the
+        // 512 KB / 10 MB defaults.
+        URLCache.shared = URLCache(memoryCapacity: 16 * 1_024 * 1_024, diskCapacity: 96 * 1_024 * 1_024)
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
         ModulaPreferences.resetInertLabsTogglesIfNeeded()
@@ -461,6 +465,7 @@ final class AppEnvironment {
         drafts.setAccountID(nil)
         catalogue.dropAccountScope()
         ModulaWarmCache.clearAll()
+        URLCache.shared.removeAllCachedResponses()  // HTTP cache (ETag/Cache-Control) is account-scoped too
         ModulaImageDiskCache.clear()
         if resetAppLock {
             appLock.resetAfterSignOut()

@@ -57,6 +57,18 @@ final class HomeStore {
         }
     }
 
+    @ObservationIgnored private var followingIDsMemo: (revision: UInt64, value: Set<String>)?
+
+    /// Authors in the Following feed — Home's "friends first" ordering used to rebuild this Set on every
+    /// body pass (including ones triggered by scrolling). Memoised on the feed revision.
+    func followingAuthorIDs() -> Set<String> {
+        let items = state(for: .following).items   // keep observation tracking
+        if let memo = followingIDsMemo, memo.revision == modesRevision { return memo.value }
+        let value = Set(items.compactMap { $0.author?.id })
+        followingIDsMemo = (modesRevision, value)
+        return value
+    }
+
     func visiblePosts(for mode: HomeMode) -> [SocialPost] {
         // Read the observed inputs every time so SwiftUI keeps tracking them.
         let items = state(for: mode).items
