@@ -108,10 +108,13 @@ struct MolibooStickerBrowser: View {
                                 Text(f.label).font(.subheadline.weight(.semibold))
                             }
                             .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(c.opacity(family == f ? 0.32 : 0.1), in: Capsule())
-                            .overlay(Capsule().stroke(c.opacity(family == f ? 0.9 : 0.3), lineWidth: family == f ? 1.5 : 1))
+                            // Selected = solid black/white, readable in light and dark.
+                            .foregroundStyle(family == f ? Color(uiColor: .systemBackground) : Color.primary)
+                            .background(family == f ? AnyShapeStyle(Color.primary) : AnyShapeStyle(c.opacity(0.12)), in: Capsule())
+                            .overlay(Capsule().stroke(family == f ? Color.clear : c.opacity(0.35), lineWidth: 1))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MolibooSpringPressStyle())
+                        .sensoryFeedback(.selection, trigger: family == f)
                         .accessibilityAddTraits(family == f ? .isSelected : [])
                         .accessibilityIdentifier("moliboo.stickers.family.\(f.rawValue)")
                     }
@@ -129,8 +132,11 @@ struct MolibooStickerBrowser: View {
                             }
                             .padding(4)
                             .background((kind == k ? k.palette.mid.opacity(0.3) : Color.primary.opacity(0.04)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.primary.opacity(kind == k ? 0.55 : 0), lineWidth: 1.5))
+                            .animation(.snappy(duration: 0.2), value: kind == k)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MolibooSpringPressStyle())
+                        .accessibilityAddTraits(kind == k ? .isSelected : [])
                         .accessibilityLabel("\(k.name) stickers")
                         .accessibilityIdentifier("moliboo.stickers.kind.\(k.rawValue)")
                     }
@@ -149,18 +155,23 @@ struct MolibooStickerBrowser: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 98), spacing: 10)], spacing: 10) {
                 ForEach(MolibooStickerExpression.all) { e in
                     Button {
-                        notify(MolibooStickerExpression.copy(kind: kind, e) ? "\(kind.name) · \(e.label) copied" : "Couldn't make that sticker")
+                        let copied = MolibooStickerExpression.copy(kind: kind, e)
+                        HapticEngine.shared.play(copied ? .success : .failure)
+                        notify(copied ? "\(kind.name) · \(e.label) copied" : "Couldn't make that sticker")
                     } label: {
                         MolibooStickerArt(kind: kind, expression: e, size: 98)
                             .padding(4)
                             .background(kind.palette.mid.opacity(0.1), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(MolibooSpringPressStyle())
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
                     .accessibilityLabel("\(kind.name) \(e.label) sticker")
                     .accessibilityIdentifier("moliboo.stickers.\(kind.rawValue).\(e.id)")
                 }
             }
             .padding(.horizontal, 16)
+            .id(kind)
+            .animation(.smooth(duration: 0.22), value: kind)
         }
     }
 }

@@ -1271,15 +1271,22 @@ struct CustomMascotEditor: View {
                 colorRow("Eyes", r: $mascot.irisR, g: $mascot.irisG, b: $mascot.irisB)
             }
             Section("Features") {
-                Picker("Eyes", selection: $mascot.eyeStyle) {
-                    Text("Round").tag("round"); Text("Happy").tag("happy"); Text("Sleepy").tag("sleepy")
+                // Unified segmented control (was menu pickers): faster to compare looks live.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Eyes").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    ModulaSegmentedControl("Eyes", selection: $mascot.eyeStyle, segments: [("round", "Round"), ("happy", "Happy"), ("sleepy", "Sleepy")], compact: true)
                 }
-                Picker("Mouth", selection: $mascot.mouthStyle) {
-                    Text("Smile").tag("smile"); Text("Open").tag("open"); Text("Cat").tag("cat"); Text("None").tag("none")
+                .padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Mouth").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    ModulaSegmentedControl("Mouth", selection: $mascot.mouthStyle, segments: [("smile", "Smile"), ("open", "Open"), ("cat", "Cat"), ("none", "None")], compact: true)
                 }
-                Picker("Ears", selection: $mascot.ears) {
-                    Text("None").tag("none"); Text("Round").tag("round"); Text("Pointy").tag("pointy"); Text("Floppy").tag("floppy")
+                .padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Ears").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    ModulaSegmentedControl("Ears", selection: $mascot.ears, segments: [("none", "None"), ("round", "Round"), ("pointy", "Pointy"), ("floppy", "Floppy")], compact: true)
                 }
+                .padding(.vertical, 2)
                 Picker("Extras", selection: $mascot.extras) {
                     Text("None").tag("none"); Text("Gills").tag("gills"); Text("Tail").tag("tail"); Text("Antenna").tag("antenna"); Text("Horns").tag("horns")
                 }

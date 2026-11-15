@@ -466,7 +466,7 @@ struct MolibooFamilyCollection: View {
                 HStack {
                     Text("Meet \(family.name)").font(.title3.weight(.bold))
                     Spacer()
-                    Text("\(characters.count) characters").font(.caption.weight(.semibold)).foregroundStyle(.pink)
+                    Text("\(characters.count) characters").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(characters) { m in
@@ -480,7 +480,7 @@ struct MolibooFamilyCollection: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("#\(m.catalogueNumber)").font(.caption2).foregroundStyle(.secondary)
                                     Text(m.name).font(.subheadline.weight(.bold)).lineLimit(1)
-                                    Label("View", systemImage: "arrow.up.right").font(.caption2.weight(.semibold)).foregroundStyle(.pink)
+                                    Label("View", systemImage: "arrow.up.right").font(.caption2.weight(.semibold)).foregroundStyle(.primary)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -558,7 +558,7 @@ struct MolibooMarketplaceDetail: View {
                         HStack {
                             Text("Expressions").font(.title3.weight(.bold))
                             Spacer()
-                            Text("Tap to preview").font(.caption.weight(.semibold)).foregroundStyle(.pink)
+                            Text("Tap to preview").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {

@@ -483,8 +483,9 @@ struct MolibooSettingsView: View {
     private var createCard: some View {
         Button { route = .studio(.custom) } label: {
             VStack(spacing: 6) {
-                Image(systemName: "plus").font(.headline).foregroundStyle(.white).frame(width: 30, height: 30).background(Circle().fill(Color.blue.opacity(0.85)))
-                Text("Create").font(.footnote.weight(.bold)).foregroundStyle(.blue)
+                // Black/white action (no blue accent).
+                Image(systemName: "plus").font(.headline).foregroundStyle(Color(uiColor: .systemBackground)).frame(width: 30, height: 30).background(Circle().fill(Color.primary))
+                Text("Create").font(.footnote.weight(.bold)).foregroundStyle(.primary)
                 Text("Custom").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
