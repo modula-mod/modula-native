@@ -1412,8 +1412,22 @@ struct InstalledModulesPanel: View {
                 symbol: "shippingbox"
             )
         } else if installed.isEmpty {
-            ProgressView("Loading modules…")
-                .frame(maxWidth: .infinity, minHeight: 160)
+            // Skeleton tiles in the grid's shape instead of a bare spinner.
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 18) {
+                ForEach(0..<8, id: \.self) { _ in
+                    VStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.primary.opacity(0.07))
+                            .aspectRatio(1, contentMode: .fit)
+                        Capsule().fill(Color.primary.opacity(0.06)).frame(width: 44, height: 8)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .modulaShimmer()
+            .frame(maxWidth: .infinity, minHeight: 160)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Loading modules")
         } else if shown.isEmpty {
             Text("No modules match “\(query)”.")
                 .font(.subheadline)
