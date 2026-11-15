@@ -106,8 +106,9 @@ struct ReelFeedView: View {
                 ReelFeedTabs(tab: $feedTab)
                 Spacer()
                 Menu {
-                    Button("Post a video", systemImage: "video.badge.plus") {
+                    Button("Post a reel", systemImage: "video.badge.plus") {
                         HapticEngine.shared.play(.navigation)
+                        app.navigation.composeOrigin = .reels
                         app.navigation.open(.compose(.video))
                     }
                     if LiveFeatureFlags.isEnabled {

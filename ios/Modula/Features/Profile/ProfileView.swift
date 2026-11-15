@@ -842,7 +842,7 @@ struct ProfileView: View {
     private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool, videoOnly: Bool = false) -> some View {
         let all = ProfilePinnedOrdering.pinnedFirst(session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items)
         let media = mediaOnly ? all.filter { $0.hasMedia } : all
-        let items = videoOnly ? media.filter { [.video, .movie].contains($0.kind) } : media
+        let items = videoOnly ? media.filter { [.video, .movie].contains($0.kind) || $0.media.contains(where: \.isVideo) } : media
         return VStack(alignment: .leading, spacing: 12) {
             if items.isEmpty {
                 if case .loading = session.posts.loadState {

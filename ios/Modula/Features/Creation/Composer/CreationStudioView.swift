@@ -840,6 +840,10 @@ struct CreationStudioView: View {
             created.publishError = "Sign in to compose. Drafts stay with your account."
         }
         created.start()
+        // Reels → Create: Reels only lists public posts, so start the draft public.
+        if postsToReels, created.draft.audience != .everyone, created.draft.media.isEmpty, created.draft.trimmedText.isEmpty {
+            created.draft.audience = .everyone
+        }
         store = created
         editorFocused = !created.kindUnavailable
     }
@@ -857,8 +861,22 @@ struct CreationStudioView: View {
         app.postActions.ingest(post)
         app.home.ingestPublished(post)
         app.profile.ingestPublished(post)
+        let isReel = post.media.contains(where: \.isVideo)
+            && (post.audience ?? store.draft.audience.greenfieldValue) == AudienceSelection.everyone.greenfieldValue
+        if isReel { app.reels.ingestPublished(post) }
+        let routeToReels = postsToReels && isReel
         close()
-        if ModulaPreferences.creatorShowsInsightsHint {
+        if routeToReels {
+            // Already on Reels (Create opened the composer over it): just focus the new reel.
+            if case .reels = app.navigation.currentRoute {
+                app.reels.activate(post.id)
+            } else {
+                app.navigation.push(.reels(.reel(post.id)))
+            }
+            app.navigation.flash("Posted to Reels. It plays for everyone once processing finishes.", symbol: "play.rectangle")
+        } else if postsToReels, post.media.contains(where: \.isVideo) {
+            app.navigation.flash("Posted. Only public videos appear in Reels.", symbol: "play.rectangle")
+        } else if ModulaPreferences.creatorShowsInsightsHint {
             app.navigation.flash("Posted. See how it does in Settings → Creator → Insights.", symbol: "chart.line.uptrend.xyaxis")
         }
     }
@@ -878,8 +896,12 @@ struct CreationStudioView: View {
         }
     }
 
+    /// Launched from Reels → Create.
+    private var postsToReels: Bool { app.navigation.composeOrigin == .reels }
+
     private func close() {
         store?.flush()
+        app.navigation.composeOrigin = nil
         if app.navigation.presented != nil {
             app.navigation.presented = nil
         } else {

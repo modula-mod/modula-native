@@ -7,6 +7,9 @@ final class NavigationCoordinator {
     private(set) var roots: [AppTab: AppRoute] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, $0.defaultRoute) })
     private(set) var paths: [AppTab: [AppRoute]] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, []) })
     var presented: AppPresentation?
+    /// Where the open composer was launched from. `.reels` = Reels → Create: the composer posts
+    /// publicly (GET /v1/reels lists public posts with a ready video) and routes back to Reels.
+    var composeOrigin: ComposeOrigin?
     var banner: ModulaBanner?
     /// Gesture Navigation System: the one owner of Sidebar / Profile sheet / Modules Dock.
     let spatial = SpatialNavigationCoordinator()
@@ -540,3 +543,6 @@ struct ShellChromeMetrics: Equatable, Sendable {
         )
     }
 }
+
+/// Launch context for the composer (not part of the route, never serialised).
+enum ComposeOrigin: Hashable, Sendable { case reels }

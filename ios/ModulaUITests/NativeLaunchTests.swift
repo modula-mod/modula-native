@@ -1649,7 +1649,7 @@ final class N3CHomeUITests: XCTestCase {
         XCTAssertTrue(reels.waitForExistence(timeout: 5))
         reels.tap()
         XCTAssertTrue(app.descendants(matching: .any)["reels.feed"].firstMatch.waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["Post a video"].exists)
+        XCTAssertTrue(app.buttons["Post a reel"].exists)
         attachScreenshot(app, name: "post05-reels-entry")
         app.buttons["Back"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 5))

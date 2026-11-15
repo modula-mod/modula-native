@@ -186,20 +186,49 @@ final class ReelStore {
     }
 
     func loadIfNeeded() async {
-        if !items.isEmpty { return }
+        // Only optimistic own reels present: still fetch the server feed.
+        if items.count > pendingOwn.count { return }
         await refresh()
+    }
+
+    /// Reels the viewer just posted. GET /v1/reels only lists a post once its video attachment
+    /// is `ready`, so these stay pinned at the top until the server returns the same id (or 30 min).
+    private var pendingOwn: [Reel] = []
+
+    /// Optimistic insert after POST /v1/posts with a video. Reel id == post id on the server.
+    func ingestPublished(_ post: SocialPost) {
+        guard let creator = post.author, post.media.contains(where: \.isVideo) else { return }
+        let reel = Reel(
+            id: post.id, postID: post.id, creator: creator, media: nil,
+            caption: post.text, audio: nil, posterColor: post.glowColour,
+            engagement: post.engagement, createdAt: post.createdAt, canonicalPost: post
+        )
+        pendingOwn.removeAll { $0.id == reel.id }
+        pendingOwn.insert(reel, at: 0)
+        items.removeAll { $0.id == reel.id }
+        items.insert(reel, at: 0)
+        if loadState == .idle { loadState = .loaded }
+        activeID = reel.id
+        restoredID = reel.id
+    }
+
+    private func mergingPending(_ server: [Reel]) -> [Reel] {
+        let cutoff = Date().addingTimeInterval(-30 * 60)
+        let serverIDs = Set(server.map(\.id))
+        pendingOwn.removeAll { serverIDs.contains($0.id) || $0.createdAt < cutoff }
+        return pendingOwn + server
     }
 
     func refresh() async {
         loadState = items.isEmpty ? .loading : .refreshing
         do {
             let page = try await repository.feed()
-            items = page.items
+            items = mergingPending(page.items)
             loadState = .loaded
-            if !page.items.contains(where: { $0.id == activeID }) { activeID = page.items.first?.id }
+            if !items.contains(where: { $0.id == activeID }) { activeID = items.first?.id }
         } catch {
             if let cached = await repository.cached(), !cached.items.isEmpty {
-                items = cached.items
+                items = mergingPending(cached.items)
                 loadState = .loaded
             } else {
                 loadState = .failed("Couldn't load this reel.")
