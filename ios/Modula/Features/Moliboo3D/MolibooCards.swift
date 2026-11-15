@@ -835,7 +835,7 @@ private struct MolibooLegendaryShimmer: ViewModifier {
 
 
 /// Flat (2D) card flip: squashes horizontally to a sliver and back while the faces swap.
-struct MolibooFlatFlip: ViewModifier, Animatable {
+struct MolibooFlatFlip: ViewModifier, @MainActor Animatable {
     var progress: Double
     var enabled: Bool
     init(faceUp: Bool, enabled: Bool) { progress = faceUp ? 1 : 0; self.enabled = enabled }
