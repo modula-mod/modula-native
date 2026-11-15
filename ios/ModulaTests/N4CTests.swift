@@ -2369,3 +2369,42 @@ final class ModulaComponentUnificationTests: XCTestCase {
         XCTAssertEqual(label.resolvedColor(with: dark), UIColor.systemBackground.resolvedColor(with: dark))
     }
 }
+
+// MARK: - Speed + enhancements round (t173u / t174u)
+
+final class SpeedEnhancementsTests: XCTestCase {
+    private func post(_ id: String, extra: [String: JSONValue] = [:]) -> SocialPost? {
+        var fields: [String: JSONValue] = [
+            "id": .string(id),
+            "createdAt": .string("2026-11-15T12:00:00.000Z"),
+            "kind": .string("text"),
+            "text": .string("hello"),
+        ]
+        for (key, value) in extra { fields[key] = value }
+        return SocialPayloadDecoder.post(.object(fields))
+    }
+
+    func testPinnedDecodesOnlyFromServerFlags() {
+        XCTAssertEqual(post("a")?.isPinned, false)
+        XCTAssertEqual(post("b", extra: ["pinned": .bool(true)])?.isPinned, true)
+        XCTAssertEqual(post("c", extra: ["isPinned": .bool(true)])?.isPinned, true)
+        XCTAssertEqual(post("d", extra: ["pinnedAt": .string("2026-11-01T00:00:00Z")])?.isPinned, true)
+    }
+
+    func testPinnedPostsLeadInOriginalOrder() throws {
+        let a = try XCTUnwrap(post("a"))
+        let b = try XCTUnwrap(post("b", extra: ["pinned": .bool(true)]))
+        let c = try XCTUnwrap(post("c"))
+        let d = try XCTUnwrap(post("d", extra: ["pinned": .bool(true)]))
+        XCTAssertEqual(ProfilePinnedOrdering.pinnedFirst([a, b, c, d]).map(\.id), ["b", "d", "a", "c"])
+        XCTAssertEqual(ProfilePinnedOrdering.pinnedFirst([a, c]).map(\.id), ["a", "c"])
+    }
+
+    func testSignpostEndWithoutBeginIsHarmless() {
+        ModulaSignpost.end("ChatOpen", "never-begun")
+        ModulaSignpost.begin("ChatOpen", "t")
+        ModulaSignpost.end("ChatOpen", "t")
+        ModulaSignpost.end("ChatOpen", "t")
+        XCTAssertEqual(ModulaSignpost.measure("ImageDecode") { 42 }, 42)
+    }
+}
