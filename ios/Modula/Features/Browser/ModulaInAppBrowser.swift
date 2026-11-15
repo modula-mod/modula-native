@@ -166,10 +166,37 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
 
     func setTrackerBlocking(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: "settings.links.blockTrackers")
+        applyContentPolicies(for: url, force: true)
+        reload()
+    }
+
+    /// Installed extensions that match this site but haven't been allowed or declined here yet.
+    var extensionPrompt: [BrowserExtensionManifest] = []
+    @ObservationIgnored private var policyKey = ""
+
+    /// One place that owns the content controller: tracker rules + the extensions allowed on this
+    /// site (rule lists and CSS). Rebuilt only when the host or the active set changes.
+    func applyContentPolicies(for target: URL, force: Bool = false) {
+        let extensions = ModulaBrowserExtensions.shared
+        let trackers = ModulaPreferences.bool("settings.links.blockTrackers", true)
+        let active = extensions.active(for: target).map { $0.id + "@" + $0.version }
+        let key = (target.host ?? "") + "|" + active.joined(separator: ",") + "|" + (trackers ? "t" : "")
+        extensionPrompt = extensions.needsPrompt(for: target)
+        guard force || key != policyKey else { return }
+        policyKey = key
         let controller = webView.configuration.userContentController
         controller.removeAllContentRuleLists()
-        if on, let rules = ModulaBrowserWarmup.trackerRules { controller.add(rules) }
-        reload()
+        controller.removeAllUserScripts()
+        if trackers, let rules = ModulaBrowserWarmup.trackerRules { controller.add(rules) }
+        extensions.apply(to: controller, url: target)
+    }
+
+    /// Answer to the per-site permission card.
+    func decideExtension(_ manifest: BrowserExtensionManifest, allow: Bool) {
+        guard let host = url.host else { return }
+        ModulaBrowserExtensions.shared.setDecision(manifest.id, host: host, allow ? .allowed : .denied)
+        applyContentPolicies(for: url, force: true)
+        if allow { reload() }
     }
 
     func scrollToTop() {
@@ -298,6 +325,7 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
         webView.isOpaque = false
         super.init()
         webView.navigationDelegate = self
+        applyContentPolicies(for: url)
         webView.uiDelegate = self
         let refresh = UIRefreshControl()
         refresh.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
@@ -352,6 +380,10 @@ fileprivate final class ModulaWebPage: NSObject, WKNavigationDelegate, WKUIDeleg
             return
         }
         if ["http", "https", "about", "blob", "data"].contains(scheme) {
+            // Extensions are per site: rebuild rules/CSS before a main-frame load to a new host.
+            if navigationAction.targetFrame?.isMainFrame == true, ["http", "https"].contains(scheme) {
+                applyContentPolicies(for: target)
+            }
             decisionHandler(.allow)
             return
         }
@@ -439,6 +471,7 @@ struct ModulaInAppBrowserView: View {
     @State private var pullOffset: CGFloat = 0
     @State private var showAddress = false
     @State private var showQR = false
+    @State private var showExtensions = false
     /// Post card minimised to a slim bar (swipe down on its handle / tap the chevron).
     @State private var drawerCollapsed = false
     @Environment(AppEnvironment.self) private var app
@@ -508,6 +541,12 @@ struct ModulaInAppBrowserView: View {
                     .opacity(hasDrawer ? Double(smooth(clamped, from: 0.55, to: 1)) : Double(clamped))
                     .allowsHitTesting(clamped > 0.9)
                     .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: page.barsHidden)
+                if let manifest = page.extensionPrompt.first, clamped > 0.9, reader == nil {
+                    extensionPromptCard(manifest)
+                        .padding(.horizontal, 12)
+                        .padding(.top, safe.top + 56)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 if let toast {
                     Text(toast)
                         .font(.footnote.weight(.semibold))
@@ -524,6 +563,11 @@ struct ModulaInAppBrowserView: View {
             .scaleEffect(1 - min(pullOffset / 3000, 0.06), anchor: .top)
             .ignoresSafeArea()
             .onAppear { open(); ModulaBrowserWarmup.warm() }
+            .task {
+                // Hidden unless the server advertises browser extensions.
+                await ModulaBrowserExtensions.shared.probeIfNeeded(client: app.client)
+                page.applyContentPolicies(for: page.url)
+            }
             .onChange(of: Int(layout.compactTop)) { _, value in
                 page.setBottomInset(hasDrawer ? max(0, height - CGFloat(value) - safe.bottom + 8) : 64)
             }
@@ -546,6 +590,11 @@ struct ModulaInAppBrowserView: View {
             Task { await toggleReader() }
         }
 
+        .sheet(isPresented: $showExtensions, onDismiss: { page.applyContentPolicies(for: page.url, force: true) }) {
+            ModulaBrowserExtensionsView(currentHost: page.url.host)
+                .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
+        }
         .sheet(isPresented: $showQR) {
             ModulaBrowserQRSheet(url: page.url, title: page.title)
                 .presentationDetents([.medium])
@@ -701,7 +750,8 @@ struct ModulaInAppBrowserView: View {
             Color(uiColor: .systemBackground)
             content()
             if let reader {
-                ModulaReaderView(article: reader, scale: page.zoom, bottomInset: height - top, domain: page.domain) { self.reader = nil }
+                ModulaReaderView(article: reader, scale: page.zoom, bottomInset: height - top, domain: page.domain,
+                                 tweaks: ModulaBrowserExtensions.shared.readerTweaks(for: page.url)) { self.reader = nil }
                     .transition(.opacity)
             }
             if let failure = page.failure {
@@ -1010,6 +1060,41 @@ struct ModulaInAppBrowserView: View {
         return page.isSecure ? .secondary : .orange
     }
 
+    /// Per-site permission: "Allow <extension> on <site>?" Asked once per site; changeable in Extensions.
+    private func extensionPromptCard(_ manifest: BrowserExtensionManifest) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "puzzlepiece.extension").font(.title3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Allow \(manifest.name) on \(page.domain)?").font(.subheadline.weight(.semibold)).lineLimit(2)
+                Text("It can change how this site looks and what it loads.").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Button("Not now") { page.decideExtension(manifest, allow: false); HapticEngine.shared.play(.selection) }
+                .buttonStyle(.modulaSecondary)
+            Button("Allow") { page.decideExtension(manifest, allow: true); HapticEngine.shared.play(.success) }
+                .buttonStyle(.modulaPrimary)
+        }
+        .padding(12)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("browser.extension.prompt")
+    }
+
+    private func runPageAction(_ action: BrowserExtensionManifest.PageAction) {
+        switch action.kind {
+        case .shareToModula:
+            showModulaShare = true
+        case .openURL:
+            guard let template = action.urlTemplate,
+                  let target = ModulaBrowserExtensions.fill(template, page: page.url, title: page.title) else {
+                HapticEngine.shared.play(.failure); return
+            }
+            reader = nil
+            page.webView.load(URLRequest(url: target))
+        }
+        HapticEngine.shared.play(.selection)
+    }
+
     private var moreMenu: some View {
         Menu {
             Section {
@@ -1047,6 +1132,16 @@ struct ModulaInAppBrowserView: View {
                     set: { page.setTrackerBlocking($0); HapticEngine.shared.play(.selection) }
                 )) {
                     Label("Block trackers", systemImage: "hand.raised")
+                }
+            }
+            if ModulaBrowserExtensions.shared.enabled {
+                Section("Extensions") {
+                    ForEach(ModulaBrowserExtensions.shared.pageActions(for: page.url)) { action in
+                        Button { runPageAction(action) } label: {
+                            Label(action.title, systemImage: action.symbol ?? "puzzlepiece.extension")
+                        }
+                    }
+                    Button { showExtensions = true } label: { Label("Extensions…", systemImage: "puzzlepiece.extension") }
                 }
             }
             Section {
@@ -1278,6 +1373,8 @@ private struct ModulaReaderView: View {
     let scale: CGFloat
     let bottomInset: CGFloat
     var domain: String = ""
+    /// Reader tweaks from an active browser extension (font, hide images); user settings otherwise.
+    var tweaks: BrowserExtensionManifest.ReaderTweaks? = nil
     var onClose: () -> Void
     @State private var autoReader = false
     @ScaledMetric private var bodySize: CGFloat = 19
@@ -1330,7 +1427,7 @@ private struct ModulaReaderView: View {
     }
 
     private var theme: ReaderTheme { ReaderTheme(rawValue: themeRaw) ?? .auto }
-    private var design: Font.Design { (ReaderFont(rawValue: fontRaw) ?? .serif).design }
+    private var design: Font.Design { (ReaderFont(rawValue: tweaks?.font ?? fontRaw) ?? ReaderFont(rawValue: fontRaw) ?? .serif).design }
     /// Reader size: its own steps (−3…+5, ~8% each) on top of Dynamic Type and the site's text size.
     private var size: CGFloat { bodySize * scale * (1 + CGFloat(sizeStep) * 0.08) }
 
@@ -1437,11 +1534,13 @@ private struct ModulaReaderView: View {
             }
             .font(.system(size: size, design: design))
         case .image(let url):
-            ModulaRemoteImage(url: url, cacheKey: "reader:\(url.absoluteString)", maximumPixelSize: 1200) { phase in
-                if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFit() } else { Color.primary.opacity(0.05).frame(height: 180) }
+            if tweaks?.hideImages != true {
+                ModulaRemoteImage(url: url, cacheKey: "reader:\(url.absoluteString)", maximumPixelSize: 1200) { phase in
+                    if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFit() } else { Color.primary.opacity(0.05).frame(height: 180) }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.vertical, 4)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.vertical, 4)
         }
     }
 
@@ -2016,5 +2115,319 @@ enum ModulaReaderAutoDomains {
         var all = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
         if on { all.insert(domain) } else { all.remove(domain) }
         UserDefaults.standard.set(Array(all).sorted(), forKey: key)
+    }
+}
+
+// MARK: - Browser extensions (declarative modules, manifest-only v1)
+
+/// A published "browser_extension" module. Manifest-only: no arbitrary JavaScript. Everything it can
+/// do is declared data that the native host interprets (see /workspace/BROWSER-EXTENSIONS.md).
+struct BrowserExtensionManifest: Codable, Equatable, Identifiable, Sendable {
+    struct PageAction: Codable, Hashable, Identifiable, Sendable {
+        enum Kind: String, Codable, Sendable { case openURL = "open_url", shareToModula = "share_to_modula" }
+        var id: String
+        var title: String
+        var symbol: String?
+        var kind: Kind
+        /// For open_url: https template with {url}, {host}, {title} placeholders (percent-encoded on fill).
+        var urlTemplate: String?
+    }
+    struct ReaderTweaks: Codable, Hashable, Sendable {
+        var hideImages: Bool?
+        /// "serif" | "sans" | "rounded"
+        var font: String?
+    }
+
+    var id: String
+    var name: String
+    var version: String
+    var publisherName: String?
+    var summary: String?
+    /// Host patterns: "example.com", "*.example.com" or "*" (all sites, still per-site permission).
+    var matches: [String]
+    /// WKContentRuleList JSON (array of {trigger, action}); compiled natively, never executed.
+    var blockRules: JSONValue?
+    /// Plain CSS inserted as a <style> element by a fixed native template.
+    var css: String?
+    var pageActions: [PageAction]?
+    var reader: ReaderTweaks?
+    /// Registry review + signing (verified by the server before it is listed; the client also
+    /// refuses anything not approved or unsigned).
+    var reviewStatus: String?
+    var signature: String?
+
+    func matches(host: String) -> Bool {
+        let host = host.lowercased()
+        return matches.contains { raw in
+            let pattern = raw.lowercased()
+            if pattern == "*" { return true }
+            if pattern.hasPrefix("*.") {
+                let base = String(pattern.dropFirst(2))
+                return host == base || host.hasSuffix("." + base)
+            }
+            return host == pattern || host == "www." + pattern
+        }
+    }
+
+    var isTrusted: Bool { reviewStatus == "approved" && !(signature ?? "").isEmpty }
+}
+
+/// Native host for browser extensions. Hidden entirely unless the server advertises the capability.
+@MainActor @Observable
+final class ModulaBrowserExtensions {
+    static let shared = ModulaBrowserExtensions()
+
+    enum SiteDecision: String, Codable { case allowed, denied }
+
+    /// `GET /v1/browser-extensions/capabilities` → `{ "enabled": true, "schemaVersion": 1 }`.
+    private(set) var enabled = false
+    private(set) var catalog: [BrowserExtensionManifest] = []
+    private(set) var installedIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "browser.extensions.installed") ?? [])
+    /// extensionID → host → decision. Per-site permission (asked once) and per-site toggle.
+    private(set) var siteDecisions: [String: [String: SiteDecision]] = ModulaBrowserExtensions.loadDecisions()
+    @ObservationIgnored private var probed = false
+    @ObservationIgnored private var compiled: [String: WKContentRuleList] = [:]
+
+    static let capabilitiesPath = "/v1/browser-extensions/capabilities"
+    static let catalogPath = "/v1/browser-extensions"
+
+    func probeIfNeeded(client: GreenfieldClient?) async {
+        guard !probed, let client else { return }
+        probed = true
+        guard let caps = try? await client.json("GET", path: Self.capabilitiesPath),
+              caps["enabled"]?.bool == true, (caps["schemaVersion"]?.int ?? 1) <= 1 else { return }
+        enabled = true
+        await refreshCatalog(client: client)
+    }
+
+    func refreshCatalog(client: GreenfieldClient) async {
+        guard enabled, let value = try? await client.json("GET", path: Self.catalogPath) else { return }
+        let items = value["items"]?.array ?? value.array ?? []
+        let decoded: [BrowserExtensionManifest] = items.compactMap { item in
+            guard let data = try? JSONEncoder().encode(item) else { return nil }
+            return try? JSONDecoder().decode(BrowserExtensionManifest.self, from: data)
+        }
+        catalog = decoded.filter(\.isTrusted)
+        await compileRules()
+    }
+
+    func resetForAccountChange() { probed = false; enabled = false; catalog = [] }
+
+    // MARK: Install / permissions
+
+    func isInstalled(_ id: String) -> Bool { installedIDs.contains(id) }
+
+    func setInstalled(_ id: String, _ on: Bool) {
+        if on { installedIDs.insert(id) } else { installedIDs.remove(id); siteDecisions[id] = nil; saveDecisions() }
+        UserDefaults.standard.set(Array(installedIDs).sorted(), forKey: "browser.extensions.installed")
+        Task { await compileRules() }
+    }
+
+    func decision(_ id: String, host: String) -> SiteDecision? { siteDecisions[id]?[Self.siteKey(host)] }
+
+    func setDecision(_ id: String, host: String, _ decision: SiteDecision?) {
+        var hosts = siteDecisions[id] ?? [:]
+        hosts[Self.siteKey(host)] = decision
+        siteDecisions[id] = hosts.isEmpty ? nil : hosts
+        saveDecisions()
+    }
+
+    /// Installed, trusted extensions that match this host.
+    func candidates(for host: String) -> [BrowserExtensionManifest] {
+        guard enabled, !host.isEmpty else { return [] }
+        return catalog.filter { installedIDs.contains($0.id) && $0.matches(host: host) }
+    }
+
+    /// Extensions allowed to run on this page (permission granted, not a sensitive page).
+    func active(for url: URL) -> [BrowserExtensionManifest] {
+        guard let host = url.host, !Self.isSensitive(url) else { return [] }
+        return candidates(for: host).filter { decision($0.id, host: host) == .allowed }
+    }
+
+    /// Installed extensions that match but haven't been asked about on this site yet.
+    func needsPrompt(for url: URL) -> [BrowserExtensionManifest] {
+        guard let host = url.host, !Self.isSensitive(url) else { return [] }
+        return candidates(for: host).filter { decision($0.id, host: host) == nil }
+    }
+
+    // MARK: Applying to a web view
+
+    /// Content rules + CSS for the extensions active on `url`. Called by `ModulaWebPage` whenever
+    /// its policies are rebuilt (load, host change, toggles).
+    func apply(to controller: WKUserContentController, url: URL) {
+        for ext in active(for: url) {
+            if let list = compiled[ext.id + "@" + ext.version] { controller.add(list) }
+            if let css = ext.css, !css.isEmpty, css.utf8.count < 64_000 {
+                controller.addUserScript(Self.styleScript(css: css, id: ext.id))
+            }
+        }
+    }
+
+    func readerTweaks(for url: URL) -> BrowserExtensionManifest.ReaderTweaks? {
+        active(for: url).compactMap(\.reader).first
+    }
+
+    /// Page actions of the extensions active on this page; ids are namespaced by extension.
+    func pageActions(for url: URL) -> [BrowserExtensionManifest.PageAction] {
+        active(for: url).flatMap { ext in
+            (ext.pageActions ?? []).prefix(4).map { action in
+                var action = action
+                action.id = ext.id + "." + action.id
+                return action
+            }
+        }
+    }
+
+    /// Fills an https URL template; nothing else is allowed.
+    static func fill(_ template: String, page: URL, title: String?) -> URL? {
+        func enc(_ s: String) -> String { s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=?+#"))) ?? "" }
+        let filled = template
+            .replacingOccurrences(of: "{url}", with: enc(page.absoluteString))
+            .replacingOccurrences(of: "{host}", with: enc(page.host ?? ""))
+            .replacingOccurrences(of: "{title}", with: enc(title ?? ""))
+        guard let url = URL(string: filled), url.scheme?.lowercased() == "https", url.host != nil else { return nil }
+        return url
+    }
+
+    // MARK: Safety
+
+    /// Never inject on sign-in or payment pages: known auth/payment hosts and login-like paths here;
+    /// pages with a password field are also skipped by the injected style template itself.
+    static func isSensitive(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return true }
+        let hosts = ["accounts.google.com", "appleid.apple.com", "idmsa.apple.com", "login.microsoftonline.com",
+                     "login.live.com", "auth0.com", "okta.com", "paypal.com", "stripe.com", "checkout.stripe.com",
+                     "pay.google.com", "klarna.com", "adyen.com", "braintreegateway.com", "squareup.com",
+                     "modula.digital"]
+        if hosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) { return true }
+        let prefixes = ["login.", "auth.", "accounts.", "account.", "signin.", "sso.", "secure.", "pay.", "checkout.", "billing."]
+        if prefixes.contains(where: { host.hasPrefix($0) }) { return true }
+        let path = url.path.lowercased()
+        let words = ["/login", "/signin", "/sign-in", "/auth", "/oauth", "/checkout", "/payment", "/billing", "/account/security", "/2fa"]
+        return words.contains { path.contains($0) }
+    }
+
+    /// Fixed template: inserts one <style> with the manifest's CSS (as a JSON string literal), and
+    /// does nothing on pages that contain a password or card field. Runs in an isolated content world.
+    private static func styleScript(css: String, id: String) -> WKUserScript {
+        let cssLiteral = (try? String(data: JSONEncoder().encode(css), encoding: .utf8)) ?? "\"\""
+        let idLiteral = (try? String(data: JSONEncoder().encode("modula-ext-" + id), encoding: .utf8)) ?? "\"modula-ext\""
+        let source = """
+        (function(){
+          if (document.querySelector('input[type=password], input[autocomplete~="cc-number"], input[autocomplete~="one-time-code"]')) return;
+          if (document.getElementById(\(idLiteral))) return;
+          var s = document.createElement('style'); s.id = \(idLiteral); s.textContent = \(cssLiteral);
+          (document.head || document.documentElement).appendChild(s);
+        })();
+        """
+        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: .defaultClient)
+    }
+
+    // MARK: Storage / compile
+
+    private func compileRules() async {
+        guard let store = WKContentRuleListStore.default() else { return }
+        for ext in catalog where installedIDs.contains(ext.id) {
+            let key = ext.id + "@" + ext.version
+            guard compiled[key] == nil, let rules = ext.blockRules, case .array(let array) = rules, !array.isEmpty, array.count <= 5_000,
+                  let data = try? JSONEncoder().encode(rules), let json = String(data: data, encoding: .utf8) else { continue }
+            if let list = try? await store.compileContentRuleList(forIdentifier: "modula.ext." + key, encodedContentRuleList: json) {
+                compiled[key] = list
+            }
+        }
+    }
+
+    private static func siteKey(_ host: String) -> String {
+        host.lowercased().replacingOccurrences(of: "www.", with: "")
+    }
+
+    private static func loadDecisions() -> [String: [String: SiteDecision]] {
+        guard let data = UserDefaults.standard.data(forKey: "browser.extensions.sites"),
+              let value = try? JSONDecoder().decode([String: [String: SiteDecision]].self, from: data) else { return [:] }
+        return value
+    }
+
+    private func saveDecisions() {
+        if let data = try? JSONEncoder().encode(siteDecisions) { UserDefaults.standard.set(data, forKey: "browser.extensions.sites") }
+    }
+}
+
+/// Extensions manager: install / remove, and each extension's per-site permissions.
+struct ModulaBrowserExtensionsView: View {
+    /// When opened from the browser: the current site, for the quick "on this site" toggles.
+    var currentHost: String?
+    @State private var store = ModulaBrowserExtensions.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !store.enabled {
+                    ContentUnavailableView("Extensions aren’t available", systemImage: "puzzlepiece.extension",
+                                           description: Text("Browser extensions appear here when Modula offers them."))
+                } else if store.catalog.isEmpty {
+                    ContentUnavailableView("No extensions yet", systemImage: "puzzlepiece.extension",
+                                           description: Text("Reviewed extensions from the Modula registry will be listed here."))
+                }
+                if let host = currentHost, store.enabled {
+                    let here = store.candidates(for: host)
+                    if !here.isEmpty {
+                        Section("On \(host)") {
+                            ForEach(here) { ext in
+                                Toggle(isOn: Binding(
+                                    get: { store.decision(ext.id, host: host) == .allowed },
+                                    set: { store.setDecision(ext.id, host: host, $0 ? .allowed : .denied); HapticEngine.shared.play(.selection) }
+                                )) { Label(ext.name, systemImage: "puzzlepiece.extension") }
+                            }
+                        }
+                    }
+                }
+                ForEach(store.catalog) { ext in
+                    Section {
+                        Toggle(isOn: Binding(get: { store.isInstalled(ext.id) }, set: { store.setInstalled(ext.id, $0); HapticEngine.shared.play(.selection) })) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ext.name).font(.body.weight(.semibold))
+                                Text([ext.publisherName, "v\(ext.version)"].compactMap { $0 }.joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        if let summary = ext.summary, !summary.isEmpty {
+                            Text(summary).font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Text(capabilitiesLine(ext)).font(.caption).foregroundStyle(.secondary)
+                        if store.isInstalled(ext.id), let sites = store.siteDecisions[ext.id], !sites.isEmpty {
+                            ForEach(sites.keys.sorted(), id: \.self) { site in
+                                HStack {
+                                    Text(site)
+                                    Spacer()
+                                    Text(sites[site] == .allowed ? "Allowed" : "Off").foregroundStyle(.secondary)
+                                }
+                                .font(.subheadline)
+                                .swipeActions {
+                                    Button("Forget", role: .destructive) { store.setDecision(ext.id, host: site, nil) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Extensions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .task {
+                await store.probeIfNeeded(client: ModulaBrowserPresenter.shared.environment?.client)
+            }
+        }
+        .tint(.primary)
+    }
+
+    private func capabilitiesLine(_ ext: BrowserExtensionManifest) -> String {
+        var parts: [String] = []
+        if ext.blockRules != nil { parts.append("Blocks content") }
+        if !(ext.css ?? "").isEmpty { parts.append("Restyles pages") }
+        if !(ext.pageActions ?? []).isEmpty { parts.append("Menu actions") }
+        if ext.reader != nil { parts.append("Reader tweaks") }
+        let sites = ext.matches.contains("*") ? "all sites (asks per site)" : ext.matches.prefix(3).joined(separator: ", ")
+        return (parts.isEmpty ? "No permissions" : parts.joined(separator: " · ")) + " — " + sites
     }
 }

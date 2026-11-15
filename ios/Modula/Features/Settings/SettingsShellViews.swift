@@ -513,6 +513,8 @@ struct ChatsSettingsHost: View {
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @AppStorage("settings.chats.readReceiptsDisplay") private var readReceiptsDisplay = true
     @State private var showsQuickReplies = false
+    @State private var browserExtensions = ModulaBrowserExtensions.shared
+    @State private var showsBrowserExtensions = false
 
     var body: some View {
         switch route {
@@ -574,11 +576,22 @@ struct ChatsSettingsHost: View {
                 Section {
                     Toggle("Open links in Modula", isOn: $openLinksInApp)
                         .accessibilityIdentifier("settings.links.openInApp")
+                        // Browser extensions: hidden unless the server advertises them.
+                        .task { await ModulaBrowserExtensions.shared.probeIfNeeded(client: app.client) }
                     if openLinksInApp {
                         Toggle("Block trackers", isOn: $blockTrackers)
                             .accessibilityIdentifier("settings.links.blockTrackers")
                         Toggle("Check chat links first", isOn: $inspectChatLinks)
                             .accessibilityIdentifier("settings.links.inspectChatLinks")
+                        if browserExtensions.enabled {
+                            Button("Browser extensions") { showsBrowserExtensions = true }
+                                .accessibilityIdentifier("settings.links.extensions")
+                                .sheet(isPresented: $showsBrowserExtensions) {
+                                    ModulaBrowserExtensionsView()
+                                        .presentationDetents([.medium, .large])
+                                        .modulaSheetStyle()
+                                }
+                        }
                         Button("Clear browsing data", role: .destructive) {
                             Task {
                                 await ModulaBrowserWarmup.clearBrowsingData()
