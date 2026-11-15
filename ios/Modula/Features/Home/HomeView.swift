@@ -536,6 +536,9 @@ struct HomeView: View {
         ModulaSegmentedControl("Feed filter", selection: Binding(get: { feedFilter }, set: { filter in
             withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) { feedFilter = filter }
         }), options: HomeFeedFilter.allCases, symbol: { $0.symbol }, identifier: { "home.filter.\($0.rawValue)" }) { $0.title }
+            // Full-bleed rail: when the chips scroll they run to the screen edges with an inset,
+            // instead of being clipped at the right padding.
+            .scrollInset(ModulaLayout.contentInset + leadingInteractionInset)
             .contextMenu {
                 let count = app.home.visiblePosts(for: mode).filter(feedFilter.matches).count
                 Text("\(count) loaded \(count == 1 ? "post" : "posts")")
@@ -556,7 +559,7 @@ struct HomeView: View {
                 }
             }
             .accessibilityHint("Long-press to make the selected filter the default")
-            .padding(.horizontal, ModulaLayout.contentInset + leadingInteractionInset)
+
     }
 
     private var modeCaption: some View {

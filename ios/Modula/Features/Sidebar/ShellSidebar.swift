@@ -678,7 +678,7 @@ struct ShellSidebarView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Color.primary.opacity(0.06), in: Capsule())
+                .modulaGlass(in: Capsule(), interactive: false)
         }
         .padding(.horizontal, rowInset)
         .frame(minHeight: rowHeight)
@@ -1016,7 +1016,7 @@ struct ShellSidebarView: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, ModulaSpacing.sm)
                     .frame(minHeight: 40)
-                    .background(Color.primary.opacity(0.06), in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)

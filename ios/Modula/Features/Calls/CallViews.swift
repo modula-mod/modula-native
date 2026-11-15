@@ -440,7 +440,7 @@ struct CallHistoryRow: View {
         .padding(.leading, 14)
         .padding(.trailing, canCallBack ? 6 : 14)
         .padding(.vertical, 7)
-        .background(.thinMaterial, in: Capsule())
+        .modulaGlass(in: Capsule(), interactive: false)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("messages.call.\(record.id)")

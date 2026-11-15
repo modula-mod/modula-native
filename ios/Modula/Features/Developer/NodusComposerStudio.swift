@@ -436,7 +436,7 @@ struct NodusPhotoThumb: View {
                         .lineLimit(1)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                         .padding(6)
                 }
                 .matchedGeometryEffect(id: geometryID, in: namespace, isSource: !open)

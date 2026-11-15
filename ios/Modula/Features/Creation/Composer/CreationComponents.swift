@@ -488,7 +488,7 @@ struct MediaAttachmentGrid: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                 Spacer()
                 Button {
                     onRemove(item.id)

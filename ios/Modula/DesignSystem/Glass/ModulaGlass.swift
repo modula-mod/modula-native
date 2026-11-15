@@ -56,9 +56,8 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
                 .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.7))
         } else if #available(iOS 26.0, *), !reduceTransparency {
             content
-                .background {
-                    if intensity == .frosted { shape.fill(.thinMaterial) }
-                }
+                // Frosted used to put an opaque-looking .thinMaterial under the glass (read as flat grey);
+                // it is now a slightly whiter glass tint instead.
                 .glassEffect(glass, in: shape)
                 .overlay {
                     if specular {
@@ -88,6 +87,7 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
     private var glass: Glass {
         var value = intensity == .clear ? Glass.clear : Glass.regular
         if let tint { value = value.tint(prominent ? tint : tint.opacity(0.55)) }
+        else if intensity == .frosted { value = value.tint(.white.opacity(0.12)) }
         return interactive ? value.interactive() : value
     }
 }
@@ -404,9 +404,11 @@ final class ModulaGlassSettings {
         let defaults = UserDefaults.standard
         let nextIntensity = ModulaGlassIntensity(rawValue: defaults.string(forKey: ModulaGlassIntensity.storageKey) ?? "") ?? .standard
         if nextIntensity != intensity { intensity = nextIntensity }
-        // Only the user's Lighter effects switch flattens glass. Low Power Mode / thermal pressure used to
-        // swap every glass surface for an opaque grey fill (Andy: "flat grey capsules, not Liquid Glass").
-        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra")
+        // Root cause of "flat grey capsules" on device: `settings.battery.reduceMotionExtra` (the
+        // Battery → "Extra motion reduction" switch, ON on Andy's phone) also flipped every glass
+        // surface to an opaque secondarySystemBackground fill. Motion settings no longer touch glass;
+        // only the system Reduce Transparency setting gets the solid fallback (in ModulaGlassModifier).
+        let nextLighter = false
         if nextLighter != lighter { lighter = nextLighter }
         let nextBubbles = defaults.bool(forKey: Self.glassBubblesKey)
         if nextBubbles != glassBubbles { glassBubbles = nextBubbles }

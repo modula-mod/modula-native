@@ -126,7 +126,7 @@ struct MessageLinkPreview: View {
                         .font(.footnote.weight(.semibold))
                         .lineLimit(1)
                         .padding(.horizontal, 12).padding(.vertical, 9)
-                        .background(Color.primary.opacity(0.06), in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                 }
             }
         }

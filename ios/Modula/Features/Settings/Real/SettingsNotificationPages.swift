@@ -245,7 +245,7 @@ struct MyReportsView: View {
                                 Text(Self.statusLabel(report.status))
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(Color.primary.opacity(0.06), in: Capsule())
+                                    .modulaGlass(in: Capsule(), interactive: false)
                             }
                             if let details = report.details, !details.isEmpty {
                                 Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(2)

@@ -642,7 +642,9 @@ struct ModulaToastHost: View {
     private func glassHost(_ geo: GeometryProxy) -> some View {
         Group {
             // Just below the island / notch, inside the safe area.
-            let top = max(geo.safeAreaInsets.top, 20) + 4
+            // Below the navigation header (44 pt bar + a little air), so a toast such as
+            // "Message sent · Undo" never covers the chat title or its buttons.
+            let top = max(geo.safeAreaInsets.top, 20) + 52
             ZStack(alignment: .top) {
                 if let toast = center.current {
                     pill(toast)

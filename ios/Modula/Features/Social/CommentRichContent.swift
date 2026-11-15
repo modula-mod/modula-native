@@ -238,7 +238,7 @@ struct CommentVoicePlayer: View {
         }
         .padding(8)
         .frame(maxWidth: 280)
-        .background(Color.primary.opacity(0.05), in: Capsule())
+        .modulaGlass(in: Capsule(), interactive: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("comment.voice")
     }

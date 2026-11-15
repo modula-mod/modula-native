@@ -1157,7 +1157,7 @@ struct PostCommentsView: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
-                            .background(Color.primary.opacity(0.07), in: Capsule())
+                            .modulaGlass(in: Capsule(), interactive: false)
                     }
                     }
                     VStack(alignment: .leading, spacing: 2) {

@@ -358,7 +358,7 @@ struct ModulaVideoSurface: View {
                         Label(loadLabel, systemImage: "arrow.down.circle.fill")
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(.ultraThinMaterial, in: Capsule())
+                            .modulaGlass(in: Capsule(), interactive: false)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
@@ -705,7 +705,7 @@ struct ModulaPostMetadataChip: View {
         Label(title, systemImage: systemImage)
             .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             .padding(.horizontal, 9).padding(.vertical, 6)
-            .background(Color.primary.opacity(0.055), in: Capsule())
+            .modulaGlass(in: Capsule(), interactive: false)
             .accessibilityElement(children: .combine)
     }
 }

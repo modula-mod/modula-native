@@ -4022,6 +4022,11 @@ enum MessageLinkText {
     /// Links show as a short, domain-first label ("kl-cc.co.uk/menu") that still opens the
     /// full address (through the link inspector), instead of a long URL truncated mid-host.
     static func attributed(_ text: String) -> AttributedString {
+        // Formatted messages (<span color>, **bold**, ||spoiler||…) go through the shared markup
+        // renderer (which also links URLs) instead of showing the raw tags.
+        if text.contains("<") || text.contains("*") || text.contains("_") || text.contains("~") || text.contains("|") || text.contains("`") || text.contains("=") || text.contains("+") {
+            if !ModulaMarkup.parse(text).isEmpty { return ModulaMarkup.render(text, revealSpoilers: false) }
+        }
         guard let detector, text.contains(".") else { return AttributedString(text) }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         var result = AttributedString()

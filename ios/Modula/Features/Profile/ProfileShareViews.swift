@@ -465,7 +465,7 @@ struct ModulaCodeView: View {
                     .tracking(1.2)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(Color.primary.opacity(0.08), in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
             }
 
             ModulaBrandedQRCode(matrix: matrix, style: style, accent: accent) {

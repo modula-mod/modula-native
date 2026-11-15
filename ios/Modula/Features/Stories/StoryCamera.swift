@@ -802,7 +802,7 @@ struct StoryCaptureStage: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14).frame(height: 34)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                 }
                 .buttonStyle(.plain)
             }

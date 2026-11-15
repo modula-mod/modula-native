@@ -276,7 +276,8 @@ enum SpatialSheetMetrics {
     static let travelPadding: CGFloat = 36
 
     nonisolated static func sheetWidth(for total: CGFloat) -> CGFloat {
-        max(total - gutter, 0)
+        // Profile sheet and sidebar both cover 95% of the screen width.
+        max(total * 0.95, 0)
     }
 
     /// Quick and crisp, no bounce at rest; same curve as the sidebar so both sheets feel alike.

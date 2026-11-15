@@ -552,7 +552,7 @@ struct MolibooMarketplaceDetail: View {
                             ForEach(Array(character.traits.prefix(4).enumerated()), id: \.offset) { _, trait in
                                 Text(trait).font(.caption.weight(.semibold))
                                     .padding(.horizontal, 12).padding(.vertical, 6)
-                                    .background(Color.primary.opacity(0.06), in: Capsule())
+                                    .modulaGlass(in: Capsule(), interactive: false)
                             }
                         }
                         .padding(.top, 6)

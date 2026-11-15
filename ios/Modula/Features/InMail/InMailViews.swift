@@ -277,7 +277,7 @@ struct InMailComposer: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.regularMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .padding(.top, 8)
                     .accessibilityLabel("Draft saved")
             }

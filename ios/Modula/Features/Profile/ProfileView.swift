@@ -105,7 +105,7 @@ struct ProfileView: View {
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .padding(.bottom, 12)
                     .onTapGesture { app.profile.clearActionError() }
                     .accessibilityIdentifier("profile.banner")
@@ -196,7 +196,7 @@ struct ProfileView: View {
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(.regularMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .padding(.top, 56)
                     .transition(.opacity)
             }

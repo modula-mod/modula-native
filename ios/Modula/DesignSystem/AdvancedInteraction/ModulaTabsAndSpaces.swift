@@ -69,6 +69,11 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
     /// Per-segment UI-test identifier (keeps existing ids such as `discover.scope.people`).
     var identifier: ((ID) -> String)? = nil
     var onSelection: ((ID) -> Void)?
+    /// Horizontal content inset when the row scrolls (full-bleed rail that never cuts off a segment).
+    var scrollContentInset: CGFloat = 0
+
+    /// Lets a scrolling row run edge to edge with `inset` of leading/trailing content margin.
+    func scrollInset(_ inset: CGFloat) -> Self { var copy = self; copy.scrollContentInset = inset; return copy }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
@@ -112,7 +117,7 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
                 // Never truncate: share the width when every label fits at its natural size,
                 // otherwise fall back to a horizontally scrolling row.
                 ViewThatFits(in: .horizontal) {
-                    row(scrolling: false)
+                    row(scrolling: false).padding(.horizontal, scrollContentInset)
                     scrollingRow
                 }
             }
@@ -127,6 +132,7 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         row(scrolling: true).padding(.horizontal, 2)
                     }
+                    .contentMargins(.horizontal, scrollContentInset, for: .scrollContent)
                     .modulaHorizontalRail()
                     .scrollClipDisabled()
                     .onAppear { proxy.scrollTo(selection, anchor: .center) }

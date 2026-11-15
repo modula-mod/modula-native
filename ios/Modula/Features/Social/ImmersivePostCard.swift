@@ -1145,7 +1145,7 @@ struct ImmersivePostCard: View {
             }
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(Color.primary.opacity(0.035), in: Capsule())
+            .modulaGlass(in: Capsule(), interactive: false)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)

@@ -385,7 +385,7 @@ struct HelpContactView: View {
                             Text(item.state.capitalized)
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Color.primary.opacity(0.06), in: Capsule())
+                                .modulaGlass(in: Capsule(), interactive: false)
                         }
                         .frame(minHeight: 52)
                         .accessibilityElement(children: .combine)
