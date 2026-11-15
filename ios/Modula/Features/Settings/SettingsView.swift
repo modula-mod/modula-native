@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsGroup<Content: View>: View {
     let title: String
@@ -339,6 +340,13 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 4)
+                        // Long-press to copy the exact version/build for bug reports.
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = versionSummary
+                                HapticEngine.shared.play(.success)
+                            } label: { Label("Copy version", systemImage: "doc.on.doc") }
+                        }
                         .accessibilityIdentifier("settings.footer.version")
                 }
             }
