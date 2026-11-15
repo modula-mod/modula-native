@@ -105,7 +105,7 @@ struct MolibooOutfitsPanel: View {
         Group {
             if !MolibooGameFlags.enabled { MolibooGameUnavailable() }
             else if let store { content(store).modifier(MolibooGameMessage(store: store)) }
-            else { ProgressView().frame(maxWidth: .infinity, minHeight: 160) }
+            else { ModulaLoadingState(title: "Loading your Moliboo…").frame(maxWidth: .infinity, minHeight: 160) }
         }
         .task {
             guard MolibooGameFlags.enabled, store == nil else { return }
@@ -186,7 +186,7 @@ private struct OutfitSetCard: View {
                     HStack(spacing: 6) {
                         MolibooRarityDot(rarity: set.rarity)
                         Text(set.name).font(.headline)
-                        if worn { Image(systemName: "checkmark.seal.fill").foregroundStyle(Color.accentColor).accessibilityLabel("Wearing") }
+                        if worn { Image(systemName: "checkmark.seal.fill").foregroundStyle(Color.primary).accessibilityLabel("Wearing") }
                     }
                     Text(accessLine).font(.caption).foregroundStyle(.secondary)
                     if let c = set.completion {
@@ -286,8 +286,10 @@ struct MolibooInventoryView: View {
         return Button(title) { slot = s }
             .font(.callout.weight(.semibold))
             .padding(.horizontal, 14).frame(minHeight: 36)
-            .foregroundStyle(on ? Color.accentColor : .primary)
-            .modulaGlass(in: Capsule(), interactive: true, tint: on ? Color.accentColor.opacity(0.18) : nil)
+            // Selected = solid black/white (same as the segmented control).
+            .foregroundStyle(on ? Color(uiColor: .systemBackground) : .primary)
+            .modulaGlass(in: Capsule(), interactive: true, tint: on ? Color.primary : nil, prominent: on)
+            .sensoryFeedback(.selection, trigger: on)
             .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -369,11 +371,15 @@ struct MolibooSkillsBuffsCard: View {
     private var careRow: some View {
         HStack(spacing: 8) {
             ForEach(MolibooGameCareAction.allCases) { a in
-                Button { Task { await store.care(a) } } label: {
+                Button {
+                    HapticEngine.shared.play(.lightImpact)
+                    Task { await store.care(a) }
+                } label: {
                     VStack(spacing: 3) { Image(systemName: a.symbol).font(.body.weight(.semibold)); Text(a.title).font(.caption2.weight(.semibold)) }
                         .frame(maxWidth: .infinity, minHeight: 52)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MolibooSpringPressStyle())
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
                 .accessibilityIdentifier("moliboo.care.\(a.rawValue)")
             }
@@ -442,7 +448,7 @@ struct MolibooQuestsPanel: View {
                 Text("\(q.progress)/\(q.target) · \(rewardLine(q))").font(.caption2).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            if q.claimed { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor).accessibilityLabel("Collected") }
+            if q.claimed { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.primary).accessibilityLabel("Collected") }
             else if q.completed {
                 Button("Collect") { Task { await store.claim(q) } }.buttonStyle(.modulaPrimary).controlSize(.small)
                     .accessibilityIdentifier("moliboo.quest.claim.\(q.questId)")
