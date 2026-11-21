@@ -548,12 +548,28 @@ final class ProductHubStore {
         }
     }
 
+    enum UninstallResult: Equatable {
+        case removed
+        case needsStepUp(idempotencyKey: String)
+        case failed
+    }
+
     @discardableResult
     func uninstall(_ id: String) async -> Bool {
+        if case .removed = await uninstall(id, choice: .keepData, confirmDelete: false) { return true }
+        return false
+    }
+
+    func uninstall(
+        _ id: String,
+        choice: ModuleUninstallChoice,
+        confirmDelete: Bool,
+        idempotencyKey: String? = nil
+    ) async -> UninstallResult {
         if product(id)?.betaClassification == "local-development" {
-            return uninstallLocalDevelopment(id)
+            return uninstallLocalDevelopment(id) ? .removed : .failed
         }
-        guard operations[id] == nil else { return false }
+        guard operations[id] == nil else { return .failed }
         operations[id] = .uninstalling
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
@@ -562,17 +578,80 @@ final class ProductHubStore {
                WebGameSessionPins.shared.contains(activation.store.moduleRoot(accountID: accountID, moduleId: id)) {
                 throw ModuleActivationError.activeSession
             }
-            try await client.uninstallModule(id, idempotencyKey: Self.key("uninstall", id))
+            let key = idempotencyKey ?? Self.key("uninstall", id)
+            let outcome = await ModuleUninstallFlow(client: client).requestUninstall(
+                moduleID: id,
+                choice: choice,
+                confirmDelete: confirmDelete,
+                idempotencyKey: key
+            )
+            switch outcome {
+            case .succeeded:
+                return await finishUninstall(id)
+            case .needsPasswordStepUp:
+                return .needsStepUp(idempotencyKey: key)
+            case .failed(let message):
+                lifecycleErrors[id] = message
+                await refreshInstallations()
+                return .failed
+            case .cancelled, .passwordRejected, .rateLimited, .unavailable, .stillRequiresStepUp:
+                await refreshInstallations()
+                return .failed
+            }
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: "remove")
+            await refreshInstallations()
+            return .failed
+        }
+    }
+
+    /// After the step-up sheet confirms the password: one password step-up, then one
+    /// deleteData retry. A second `STEP_UP_REQUIRED` is returned and is not retried.
+    func completeDeleteDataAfterStepUp(
+        _ id: String,
+        password: String,
+        idempotencyKey: String
+    ) async -> ModuleUninstallOutcome {
+        guard operations[id] == nil else { return .failed("This module is already being updated. Try again in a moment.") }
+        operations[id] = .uninstalling
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        let outcome = await ModuleUninstallFlow(client: client).submitPasswordAndRetryDelete(
+            moduleID: id,
+            password: password,
+            confirmDelete: true,
+            idempotencyKey: idempotencyKey
+        )
+        switch outcome {
+        case .succeeded:
+            let removed = await finishUninstall(id)
+            return removed == .removed ? .succeeded : .failed("The module was uninstalled on the server, but this device couldn’t finish removing it. Pull to refresh and try again.")
+        case .passwordRejected, .rateLimited, .unavailable:
+            await refreshInstallations()
+            return outcome
+        case .stillRequiresStepUp(let message), .failed(let message):
+            lifecycleErrors[id] = message
+            await refreshInstallations()
+            return outcome
+        case .needsPasswordStepUp, .cancelled:
+            lifecycleErrors[id] = ModuleUninstallFlow.stillRequiresStepUpMessage
+            await refreshInstallations()
+            return .stillRequiresStepUp(ModuleUninstallFlow.stillRequiresStepUpMessage)
+        }
+    }
+
+    private func finishUninstall(_ id: String) async -> UninstallResult {
+        do {
             let removed = try await settle(id) { $0 == nil || $0?.isPresent == false }
             if removed, let activation, let accountID {
                 try activation.store.removeModule(accountID: accountID, moduleId: id)
             }
             restoreLocalDevelopmentInstallations()
-            return removed
+            return removed ? .removed : .failed
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "remove")
             await refreshInstallations()
-            return false
+            return .failed
         }
     }
 
@@ -1090,7 +1169,7 @@ final class ProductHubStore {
 
     static func message(_ error: Error, verb: String) -> String {
         switch error {
-        case APIError.unauthenticated, APIError.rejected(401, _): "Sign in to Modula to \(verb) modules."
+        case APIError.unauthenticated, APIError.rejected(401, "UNAUTHENTICATED"), APIError.rejected(401, "SESSION_EXPIRED"): "Sign in to Modula to \(verb) modules."
         case APIError.rejected(_, "CAPABILITY_DISABLED"): "Installing modules is turned off on this server."
         case APIError.rejected(_, "CONFLICT"), APIError.rejected(409, _): "Another change to this module is in progress. Try again shortly."
         case let api as APIError: "Couldn’t \(verb) the module. \(api.userFacingMessage)"

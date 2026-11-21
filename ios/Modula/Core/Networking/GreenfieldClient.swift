@@ -23,6 +23,8 @@ enum APIError: Error, LocalizedError, Equatable {
             "Verify your email before signing in."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
+        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"):
+            "Confirm your password to continue."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
         case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
             "This module doesn't have permission to change your records. Review its permissions, then try again."
@@ -48,6 +50,22 @@ enum APIError: Error, LocalizedError, Equatable {
     var code: String? {
         if case .rejected(_, let code) = self { return code }
         return nil
+    }
+
+    /// `401 STEP_UP_REQUIRED` means the session is still valid; the action needs a
+    /// recent password / passkey / Apple confirmation. It must not be treated as a
+    /// revoked token (refresh + sign-out).
+    var requiresStepUp: Bool {
+        if case .rejected(_, let code) = self { return Self.isStepUpCode(code) }
+        return false
+    }
+
+    static func isStepUpCode(_ code: String) -> Bool {
+        code == "STEP_UP_REQUIRED" || code == "FORBIDDEN_STEP_UP"
+    }
+
+    static func requiresStepUp(_ error: Error) -> Bool {
+        (error as? APIError)?.requiresStepUp == true
     }
 }
 
@@ -503,10 +521,66 @@ actor GreenfieldClient {
 
     /// Uninstall keeps the account's module data so a reinstall restores it.
     func uninstallModule(_ moduleID: String, idempotencyKey: String) async throws {
+        try await uninstallModule(moduleID, choice: .keepData, confirmDelete: false, idempotencyKey: idempotencyKey)
+    }
+
+    /// `DELETE /v1/modules/:id/install`. `deleteData` requires `confirmDelete: true`.
+    /// Do not send `recentAuth`: Mosaic #201 ignores a client-asserted claim and reads
+    /// recency only from the session (refreshed by sign-in or `/v1/auth/step-up/*`).
+    func uninstallModule(
+        _ moduleID: String,
+        choice: ModuleUninstallChoice,
+        confirmDelete: Bool,
+        idempotencyKey: String
+    ) async throws {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        let _: JSONValue = try await authenticated("DELETE", path: "/v1/modules/\(path)/install", body: .object([
-            "choice": .string("keepData"), "idempotencyKey": .string(idempotencyKey),
-        ]))
+        guard Self.isSafeIdempotencyKey(idempotencyKey) else { throw APIError.invalidResponse }
+        var body: [String: JSONValue] = [
+            "choice": .string(choice.rawValue),
+            "idempotencyKey": .string(idempotencyKey),
+        ]
+        if choice == .deleteData {
+            body["confirmDelete"] = .bool(confirmDelete)
+        }
+        let _: JSONValue = try await authenticated(
+            "DELETE",
+            path: "/v1/modules/\(path)/install",
+            body: .object(body),
+            headers: ["Idempotency-Key": idempotencyKey]
+        )
+    }
+
+    /// Re-authenticates the current session only (`POST /v1/auth/step-up/password`).
+    /// Requires the current bearer. The body is exactly `{ "password" }` — no email
+    /// or account id. The password is not stored. A successful result refreshes
+    /// `recent_authentication_at` on this session; retry the original call with the
+    /// same access token. Rate limits surface `Retry-After` when the server sends it.
+    func passwordStepUp(password: String) async throws -> PasswordStepUpResult {
+        if password.isEmpty || password.count > 1024 {
+            throw PasswordStepUpFailure.validation("Enter your password")
+        }
+        let generation = epoch
+        let bearer = try await accessToken()
+        let first = try await performRequest(
+            "POST",
+            path: "/v1/auth/step-up/password",
+            body: .object(["password": .string(password)]),
+            bearer: bearer
+        )
+        if first.response.statusCode == 401, generation == epoch, tokens != nil {
+            let code = Self.peekErrorCode(first.data) ?? "UNAUTHENTICATED"
+            if !APIError.isStepUpCode(code) && code != "VALIDATION_FAILED" {
+                let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
+                let retry = try await performRequest(
+                    "POST",
+                    path: "/v1/auth/step-up/password",
+                    body: .object(["password": .string(password)]),
+                    bearer: renewed
+                )
+                return try Self.decodePasswordStepUp(retry.data, response: retry.response)
+            }
+        }
+        return try Self.decodePasswordStepUp(first.data, response: first.response)
     }
 
     /// Module ids are reverse-DNS; anything else never reaches a URL path.
@@ -673,6 +747,9 @@ actor GreenfieldClient {
             let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
+        } catch let error as APIError where error.requiresStepUp && generation == epoch {
+            // Session is valid; the action needs a recent re-auth. Do not refresh or sign out.
+            throw error
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
             // The access token was rejected although it looked valid locally (revoked
             // session, clock skew). A 401 means the request wasn't processed, so refresh
@@ -682,6 +759,8 @@ actor GreenfieldClient {
                 let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
+            } catch let error as APIError where error.requiresStepUp && generation == epoch {
+                throw error
             } catch APIError.rejected(401, let code) where generation == epoch {
                 // The refresh just succeeded, so the shell's own session is valid. For
                 // module-scoped calls a repeated 401 is the module's rejection, not a
@@ -745,6 +824,106 @@ actor GreenfieldClient {
                 throw APIError.unauthenticated
             }
             throw error
+        }
+    }
+
+    private func performRequest(
+        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20,
+        headers: [String: String] = [:]
+    ) async throws -> (data: Data, response: HTTPURLResponse) {
+        guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
+              path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host else { throw APIError.unconfigured }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = timeout
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
+        request.httpBody = try body.map { try JSONEncoder().encode($0) }
+        let (data, response) = try await transport.data(for: request)
+        guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
+        return (data, http)
+    }
+
+    nonisolated static func peekErrorCode(_ data: Data) -> String? {
+        guard let envelope = try? JSONDecoder().decode(Envelope<JSONValue>.self, from: data) else { return nil }
+        return envelope.error?.code
+    }
+
+    nonisolated static func decodePasswordStepUp(_ data: Data, response: HTTPURLResponse) throws -> PasswordStepUpResult {
+        struct StepUpEnvelope: Decodable {
+            var ok: Bool
+            var data: PasswordStepUpResult?
+            var error: StepUpError?
+            struct StepUpError: Decodable {
+                var code: String?
+                var message: String?
+                var fieldErrors: [String: String]?
+                var details: [String: JSONValue]?
+                var retryable: Bool?
+            }
+        }
+        let envelope: StepUpEnvelope
+        do {
+            envelope = try JSONDecoder().decode(StepUpEnvelope.self, from: data)
+        } catch {
+            if response.statusCode == 429 {
+                throw PasswordStepUpFailure.rateLimited(retryAfter: parseRetryAfter(response, details: nil), message: "Too many attempts. Try again shortly.")
+            }
+            throw APIError.invalidResponse
+        }
+        if (200..<300).contains(response.statusCode), envelope.ok, let value = envelope.data {
+            return value
+        }
+        let code = envelope.error?.code ?? (response.statusCode == 429 ? "RATE_LIMITED" : "REQUEST_FAILED")
+        let fieldMessage = envelope.error?.fieldErrors?["password"]
+        let message = fieldMessage ?? envelope.error?.message
+        let retryAfter = parseRetryAfter(response, details: envelope.error?.details)
+        switch code {
+        case "VALIDATION_FAILED":
+            throw PasswordStepUpFailure.validation(message ?? "That password is not correct.")
+        case "RATE_LIMITED", "TOO_MANY_REQUESTS":
+            throw PasswordStepUpFailure.rateLimited(
+                retryAfter: retryAfter,
+                message: message ?? "Too many attempts. Try again in a few minutes."
+            )
+        case "CONFLICT":
+            throw PasswordStepUpFailure.conflict(message ?? "This account has no password. Confirm with your authenticator or passkey instead.")
+        default:
+            if response.statusCode == 429 {
+                throw PasswordStepUpFailure.rateLimited(
+                    retryAfter: retryAfter,
+                    message: message ?? "Too many attempts. Try again in a few minutes."
+                )
+            }
+            throw PasswordStepUpFailure.failed(message ?? APIError.rejected(response.statusCode, code).userFacingMessage)
+        }
+    }
+
+    /// Delta-seconds or HTTP-date `Retry-After`, plus a numeric `details.retryAfter` when present.
+    nonisolated static func parseRetryAfter(_ response: HTTPURLResponse, details: [String: JSONValue]?) -> TimeInterval? {
+        if let fromDetails = retryAfterValue(details?["retryAfter"]) { return fromDetails }
+        guard let raw = response.value(forHTTPHeaderField: "Retry-After")?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else { return nil }
+        if let seconds = TimeInterval(raw) { return max(0, seconds) }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        if let date = formatter.date(from: raw) { return max(0, date.timeIntervalSinceNow) }
+        return nil
+    }
+
+    nonisolated static func retryAfterValue(_ value: JSONValue?) -> TimeInterval? {
+        switch value {
+        case .number(let number): return number >= 0 ? number : 0
+        case .string(let raw):
+            if let seconds = TimeInterval(raw) { return max(0, seconds) }
+            return nil
+        default: return nil
         }
     }
 

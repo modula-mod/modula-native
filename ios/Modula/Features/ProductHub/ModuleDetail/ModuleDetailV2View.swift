@@ -13,6 +13,8 @@ struct ModuleDetailV2View: View {
     @State private var confirmInstall = false
     @State private var confirmRedownload = false
     @State private var confirmUninstall = false
+    @State private var stepUp: ModuleUninstallStepUpContext?
+    @State private var uninstallNotice: String?
     @State private var expandedDescription = false
     @State private var zoomedShot: ModuleScreenshot?
     @State private var showAllPermissions = false
@@ -117,11 +119,33 @@ struct ModuleDetailV2View: View {
             )
         }
         .confirmationDialog("Uninstall \(product?.name ?? "module")?", isPresented: $confirmUninstall, titleVisibility: .visible) {
-            Button("Uninstall", role: .destructive) { Task { await runUninstall() } }
+            Button("Uninstall", role: .destructive) { Task { await runUninstall(choice: .keepData) } }
                 .accessibilityIdentifier("module.uninstall.confirm")
+            Button("Uninstall and Delete Data", role: .destructive) { Task { await runUninstall(choice: .deleteData) } }
+                .accessibilityIdentifier("module.uninstall.confirmDelete")
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your data is kept on your account, so reinstalling brings it back.")
+            Text("Uninstall keeps this module’s data on your account, so reinstalling brings it back. Deleting data removes those records permanently and may ask you to confirm your password.")
+        }
+        .sheet(item: $stepUp) { context in
+            ModuleUninstallStepUpSheet(
+                email: app.auth.account?.email ?? "",
+                moduleName: product?.name ?? "this module",
+                submit: { password in
+                    await app.catalogue.completeDeleteDataAfterStepUp(
+                        moduleID,
+                        password: password,
+                        idempotencyKey: context.idempotencyKey
+                    )
+                },
+                onCancel: {
+                    uninstallNotice = ModuleUninstallFlow.cancelledNotice
+                    stepUp = nil
+                },
+                onFinished: { outcome in
+                    handleUninstallOutcome(outcome, name: product?.name ?? "Module")
+                }
+            )
         }
         .sheet(item: $versionTarget) { option in
             ModuleVersionSwitchSheet(
@@ -275,6 +299,12 @@ struct ModuleDetailV2View: View {
                         .font(.footnote)
                         .foregroundStyle(ModulaColor.accent)
                         .accessibilityIdentifier("module.install.notice")
+                }
+                if let uninstallNotice {
+                    Text(uninstallNotice)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("module.uninstall.notice")
                 }
             }
         }
@@ -825,12 +855,35 @@ struct ModuleDetailV2View: View {
         }
     }
 
-    private func runUninstall() async {
-        if await app.catalogue.uninstall(moduleID) {
+    private func runUninstall(choice: ModuleUninstallChoice) async {
+        uninstallNotice = nil
+        let confirmDelete = choice == .deleteData
+        let result = await app.catalogue.uninstall(moduleID, choice: choice, confirmDelete: confirmDelete)
+        switch result {
+        case .removed:
             HapticEngine.shared.play(.success)
             installFeedback = "\(product?.name ?? "Module") removed"
-        } else {
+        case .needsStepUp(let key):
+            stepUp = ModuleUninstallStepUpContext(idempotencyKey: key)
+        case .failed:
             HapticEngine.shared.play(.failure)
+        }
+    }
+
+    private func handleUninstallOutcome(_ outcome: ModuleUninstallOutcome, name: String) {
+        stepUp = nil
+        switch outcome {
+        case .succeeded:
+            HapticEngine.shared.play(.success)
+            installFeedback = "\(name) removed"
+            uninstallNotice = nil
+        case .cancelled:
+            uninstallNotice = ModuleUninstallFlow.cancelledNotice
+        case .stillRequiresStepUp(let message), .failed(let message):
+            HapticEngine.shared.play(.failure)
+            uninstallNotice = message
+        case .needsPasswordStepUp, .passwordRejected, .rateLimited, .unavailable:
+            break
         }
     }
 }
@@ -1070,4 +1123,11 @@ private struct FlowLayout: Layout {
             rowHeight = max(rowHeight, size.height)
         }
     }
+}
+
+
+/// Holds the idempotency key for a delete-data uninstall that is waiting on password step-up.
+struct ModuleUninstallStepUpContext: Identifiable, Equatable {
+    let idempotencyKey: String
+    var id: String { idempotencyKey }
 }
