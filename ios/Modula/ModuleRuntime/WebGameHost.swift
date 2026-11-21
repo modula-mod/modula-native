@@ -69,10 +69,16 @@ enum WebGamePackageServe {
         return mime.lowercased().split(separator: ";").first?.trimmingCharacters(in: .whitespaces) == "text/html"
     }
 
-    enum BytesReply {
+    enum BytesReply: Equatable {
         case complete
         case partial(Range<Int>)
         case unsatisfiable
+    }
+
+    /// ASCII digits only (`^[0-9]+$`). A leading `+` or any other sign is rejected.
+    static func asciiDigitInt(_ raw: some StringProtocol) -> Int? {
+        guard !raw.isEmpty, raw.unicodeScalars.allSatisfy({ 48...57 ~= $0.value }) else { return nil }
+        return Int(raw)
     }
 
     /// A single `bytes=` range may be 206. Multi-range or malformed Range
@@ -86,18 +92,18 @@ enum WebGamePackageServe {
         let spec = String(raw.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
         if spec.isEmpty || spec.contains(",") { return .complete }
         if spec.hasPrefix("-") {
-            guard let suffix = Int(spec.dropFirst()), suffix > 0 else { return .complete }
+            guard let suffix = asciiDigitInt(spec.dropFirst()), suffix > 0 else { return .complete }
             guard size > 0 else { return .unsatisfiable }
             let length = min(suffix, size)
             return .partial((size - length)..<size)
         }
         let parts = spec.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
-        guard parts.count == 2, let start = Int(parts[0]), start >= 0 else { return .complete }
+        guard parts.count == 2, let start = asciiDigitInt(parts[0]) else { return .complete }
         if parts[1].isEmpty {
             guard start < size else { return .unsatisfiable }
             return .partial(start..<size)
         }
-        guard let end = Int(parts[1]), end >= start else { return .complete }
+        guard let end = asciiDigitInt(parts[1]), end >= start else { return .complete }
         guard start < size else { return .unsatisfiable }
         return .partial(start..<(min(end, size - 1) + 1))
     }
@@ -129,7 +135,7 @@ enum WebGamePackageServe {
                 "Content-Range": "bytes \(range.lowerBound)-\(range.upperBound - 1)/\(bytes.count)",
             ])
         case .unsatisfiable:
-            finish(task, url: url, status: 416, mime: mime, bytes: Data(), extra: [
+            finish(task, url: url, status: 416, mime: "text/plain; charset=utf-8", bytes: Data(), extra: [
                 "Content-Range": "bytes */\(bytes.count)",
             ])
         }

@@ -189,6 +189,54 @@ final class GubicBridgeTests: XCTestCase {
         rangedHandler.serve(unsat)
         XCTAssertEqual((unsat.response as? HTTPURLResponse)?.statusCode, 416)
         XCTAssertEqual((unsat.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Range"), "bytes */8")
+        XCTAssertEqual((unsat.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8")
+        XCTAssertTrue(unsat.body.isEmpty)
+
+        let suffix = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=-3"])
+        rangedHandler.serve(suffix)
+        let suffixResponse = try XCTUnwrap(suffix.response as? HTTPURLResponse)
+        XCTAssertEqual(suffixResponse.statusCode, 206)
+        XCTAssertEqual(suffixResponse.value(forHTTPHeaderField: "Content-Range"), "bytes 5-7/8")
+        XCTAssertEqual(suffix.body, Data("fgh".utf8))
+
+        let openEnd = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=0-"])
+        rangedHandler.serve(openEnd)
+        XCTAssertEqual((openEnd.response as? HTTPURLResponse)?.statusCode, 206)
+        XCTAssertEqual((openEnd.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Range"), "bytes 0-7/8")
+        XCTAssertEqual(openEnd.body, payload)
+
+        let minusZero = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=-0"])
+        rangedHandler.serve(minusZero)
+        XCTAssertEqual((minusZero.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(minusZero.body, payload)
+
+        let inverted = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=5-3"])
+        rangedHandler.serve(inverted)
+        XCTAssertEqual((inverted.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(inverted.body, payload)
+
+        let overflow = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=99999999999999999999-"])
+        rangedHandler.serve(overflow)
+        XCTAssertEqual((overflow.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(overflow.body, payload)
+
+        let plus = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=+0-3"])
+        rangedHandler.serve(plus)
+        XCTAssertEqual((plus.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(plus.body, payload)
+
+        let emptyFiles = GubicSchemeHandler(files: ["index.html": Data("<p></p>".utf8), "empty.bin": Data()])
+        defer { emptyFiles.close() }
+        let emptyURL = try XCTUnwrap(URL(string: "gubic://\(emptyFiles.origin)/empty.bin"))
+        for range in ["bytes=0-", "bytes=-5", "bytes=0-1"] {
+            let empty = GubicRecordingSchemeTask(emptyURL, headers: ["Range": range])
+            emptyFiles.serve(empty)
+            let emptyResponse = try XCTUnwrap(empty.response as? HTTPURLResponse, range)
+            XCTAssertEqual(emptyResponse.statusCode, 416, range)
+            XCTAssertEqual(emptyResponse.value(forHTTPHeaderField: "Content-Range"), "bytes */0", range)
+            XCTAssertEqual(emptyResponse.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8", range)
+            XCTAssertTrue(empty.body.isEmpty, range)
+        }
 
         let named = Data("ok".utf8)
         let nested = Data("nested".utf8)

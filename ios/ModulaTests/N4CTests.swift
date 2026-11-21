@@ -767,6 +767,12 @@ final class WebGameHostHardeningTests: XCTestCase {
         try await browser.evaluateJavaScript(script) as? String ?? "<non-string>"
     }
 
+    /// `evaluateJavaScript` does not wait for a Promise (WKError.javaScriptResultTypeIsUnsupported).
+    /// `callAsyncJavaScript` in the page world treats the body as an async function; use `return await`.
+    private func awaitPageJS(_ browser: WKWebView, _ functionBody: String, arguments: [String: Any] = [:]) async throws -> Any? {
+        try await browser.callAsyncJavaScript(functionBody, arguments: arguments, in: nil, contentWorld: .page)
+    }
+
     private func loopbackListener() async throws -> (NWListener, NWEndpoint.Port, LockedConnectionCount) {
         let connections = LockedConnectionCount()
         let listener = try NWListener(using: .tcp, on: .any)
@@ -1159,17 +1165,21 @@ final class WebGameHostHardeningTests: XCTestCase {
         // The host header CSP must actually allow a same-origin fetch.
         let (probe, _) = try await open(entry)
         defer { probe.browser.removeFromSuperview(); probe.close() }
-        let fetched = try await probe.browser.evaluateJavaScript(
-            "fetch('level.json').then(r => r.text().then(t => String(r.status) + ':' + t))"
-        ) as? String
-        XCTAssertEqual(fetched, "200:{\"ok\":true}")
-        let unlisted = try await probe.browser.evaluateJavaScript(
-            "fetch('missing.json').then(r => String(r.status))"
-        ) as? String
+        let fetched = try await awaitPageJS(probe.browser, """
+            const r = await fetch('level.json');
+            const t = await r.text();
+            return r.status + ':' + t;
+            """) as? String
+        XCTAssertEqual(fetched, #"200:{"ok":true}"#)
+        let unlisted = try await awaitPageJS(probe.browser, """
+            const r = await fetch('missing.json');
+            return String(r.status);
+            """) as? String
         XCTAssertEqual(unlisted, "404")
-        let postStatus = try await probe.browser.evaluateJavaScript(
-            "fetch('level.json', {method: 'POST'}).then(r => String(r.status))"
-        ) as? String
+        let postStatus = try await awaitPageJS(probe.browser, """
+            const r = await fetch('level.json', {method: 'POST'});
+            return String(r.status);
+            """) as? String
         XCTAssertEqual(postStatus, "404")
     }
 
@@ -1320,6 +1330,7 @@ final class WebGameHostHardeningTests: XCTestCase {
         let (unsat, _, _) = try serve(rangeURL, headers: ["Range": "bytes=1000-1001"])
         XCTAssertEqual(unsat.statusCode, 416)
         XCTAssertEqual(unsat.value(forHTTPHeaderField: "Content-Range"), "bytes */70")
+        XCTAssertEqual(unsat.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8")
 
         let (cookie, _, _) = try serve(listed, headers: ["Cookie": "session=secret", "Authorization": "Bearer x"])
         XCTAssertEqual(cookie.statusCode, 200)
@@ -1332,50 +1343,134 @@ final class WebGameHostHardeningTests: XCTestCase {
         defer { probe.browser.removeFromSuperview(); probe.close() }
         let browser = probe.browser
 
-        let loaded = try await browser.evaluateJavaScript("""
-            Promise.all([
-              fetch('level.json').then(r => r.text().then(t => r.status + ':' + t)),
+        let loaded = try await awaitPageJS(browser, """
+            const rows = await Promise.all([
+              fetch('level.json').then(async r => r.status + ':' + await r.text()),
               fetch('font.xml').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
               fetch('sound.ogg').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
               fetch('sound.mp3').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
               fetch('sound.m4a').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
               fetch('sound.wav').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
               fetch('ui.woff').then(r => r.status + ':' + (r.headers.get('content-type') || ''))
-            ]).then(rows => rows.join('|'))
+            ]);
+            return rows.join('|');
             """) as? String
-        XCTAssertEqual(loaded, "200:{\\"ok\\":true}|200:application/xml|200:audio/ogg|200:audio/mpeg|200:audio/mp4|200:audio/wav|200:font/woff")
+        XCTAssertEqual(loaded, #"200:{"ok":true}|200:application/xml|200:audio/ogg|200:audio/mpeg|200:audio/mp4|200:audio/wav|200:font/woff"#)
 
-        let blobImage = try await browser.evaluateJavaScript("""
-            fetch('pixel.png').then(r => r.blob()).then(b => new Promise(resolve => {
+        let blobImage = try await awaitPageJS(browser, """
+            const r = await fetch('pixel.png');
+            const b = await r.blob();
+            return await new Promise(resolve => {
               const img = new Image();
               img.onload = () => resolve('ok:' + img.naturalWidth + 'x' + img.naturalHeight);
               img.onerror = () => resolve('img-error');
               img.src = URL.createObjectURL(b);
-            }))
+            });
             """) as? String
         XCTAssertEqual(blobImage, "ok:1x1")
 
         let before = connections.value
-        let blocked = try await browser.evaluateJavaScript("""
-            (() => {
-              const xhr = (url) => new Promise(resolve => {
-                const x = new XMLHttpRequest();
-                x.onload = () => resolve('ok:' + x.status);
-                x.onerror = () => resolve('blocked');
-                x.open('GET', url);
-                x.send();
-              });
-              return Promise.all([
-                fetch('https://api.modula.digital/v1/health').then(() => 'api-ok', () => 'api-blocked'),
-                fetch('http://127.0.0.1:\(port.rawValue)/remote').then(() => 'remote-ok', () => 'remote-blocked'),
-                xhr('https://api.modula.digital/v1/health'),
-                xhr('http://127.0.0.1:\(port.rawValue)/remote')
-              ]).then(rows => rows.join(','));
-            })()
+        let blocked = try await awaitPageJS(browser, """
+            const probeFetch = async (url, ok, blocked) => {
+              try {
+                const r = await fetch(url);
+                return ok + ':' + r.status;
+              } catch (_) {
+                return blocked;
+              }
+            };
+            const probeXHR = (url) => new Promise(resolve => {
+              const x = new XMLHttpRequest();
+              x.onload = () => resolve('ok:' + x.status);
+              x.onerror = () => resolve('blocked');
+              x.open('GET', url);
+              x.send();
+            });
+            const rows = await Promise.all([
+              probeFetch('https://api.modula.digital/v1/health', 'api-ok', 'api-blocked'),
+              probeFetch('http://127.0.0.1:\(port.rawValue)/remote', 'remote-ok', 'remote-blocked'),
+              probeXHR('https://api.modula.digital/v1/health'),
+              probeXHR('http://127.0.0.1:\(port.rawValue)/remote')
+            ]);
+            return rows.join(',');
             """) as? String
         XCTAssertEqual(blocked, "api-blocked,remote-blocked,blocked,blocked")
         try await Task.sleep(for: .milliseconds(400))
         XCTAssertEqual(connections.value, before, "a game fetch or XHR reached the loopback listener")
+    }
+
+    func testByteRangeEdgesAndUnsatisfiableEmptyFile() throws {
+        let payload = Data("abcdefgh".utf8)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: nil, size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-3", size: 8), .partial(0..<4))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-", size: 8), .partial(0..<8))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-3", size: 8), .partial(5..<8))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-0", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=5-3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-999", size: 8), .partial(0..<8))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=100-101", size: 8), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=100-", size: 8), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=99999999999999999999-", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-99999999999999999999", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=+0-3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-+3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-+3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-", size: 0), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-5", size: 0), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-1", size: 0), .unsatisfiable)
+
+        let origin = String(repeating: "b", count: 64)
+        func url(_ path: String) throws -> URL {
+            var components = URLComponents()
+            components.scheme = "modula-game"
+            components.host = origin
+            components.path = "/" + path
+            return try XCTUnwrap(components.url)
+        }
+        func serve(_ path: String, range: String?, files: [String: Data]) throws -> (HTTPURLResponse, Data) {
+            var headers: [String: String] = [:]
+            if let range { headers["Range"] = range }
+            let task = RecordingGameSchemeTask(try url(path), headers: headers)
+            WebGamePackageServe.serve(task, scheme: "modula-game", origin: origin, files: files, isOpen: true)
+            XCTAssertTrue(task.finished, "\(path) \(range ?? "<none>")")
+            return (try XCTUnwrap(task.response as? HTTPURLResponse), task.body)
+        }
+        let files = ["clip.bin": payload, "empty.bin": Data()]
+
+        let suffix = try serve("clip.bin", range: "bytes=-3", files: files)
+        XCTAssertEqual(suffix.0.statusCode, 206)
+        XCTAssertEqual(suffix.0.value(forHTTPHeaderField: "Content-Range"), "bytes 5-7/8")
+        XCTAssertEqual(suffix.0.value(forHTTPHeaderField: "Content-Type"), "application/octet-stream")
+        XCTAssertEqual(suffix.1, Data("fgh".utf8))
+
+        let openEnd = try serve("clip.bin", range: "bytes=0-", files: files)
+        XCTAssertEqual(openEnd.0.statusCode, 206)
+        XCTAssertEqual(openEnd.0.value(forHTTPHeaderField: "Content-Range"), "bytes 0-7/8")
+        XCTAssertEqual(openEnd.1, payload)
+
+        let minusZero = try serve("clip.bin", range: "bytes=-0", files: files)
+        XCTAssertEqual(minusZero.0.statusCode, 200)
+        XCTAssertEqual(minusZero.1, payload)
+
+        let inverted = try serve("clip.bin", range: "bytes=5-3", files: files)
+        XCTAssertEqual(inverted.0.statusCode, 200)
+        XCTAssertEqual(inverted.1, payload)
+
+        let overflow = try serve("clip.bin", range: "bytes=99999999999999999999-", files: files)
+        XCTAssertEqual(overflow.0.statusCode, 200)
+        XCTAssertEqual(overflow.1, payload)
+
+        let plus = try serve("clip.bin", range: "bytes=+0-3", files: files)
+        XCTAssertEqual(plus.0.statusCode, 200)
+        XCTAssertEqual(plus.1, payload)
+
+        for range in ["bytes=0-", "bytes=-5", "bytes=0-1"] {
+            let empty = try serve("empty.bin", range: range, files: files)
+            XCTAssertEqual(empty.0.statusCode, 416, range)
+            XCTAssertEqual(empty.0.value(forHTTPHeaderField: "Content-Range"), "bytes */0", range)
+            XCTAssertEqual(empty.0.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8", range)
+            XCTAssertTrue(empty.1.isEmpty, range)
+        }
     }
 
     func testParsedPackagePolicyRejectsUnsafeAndRemoteSourcesAndAcceptsSamples() throws {
