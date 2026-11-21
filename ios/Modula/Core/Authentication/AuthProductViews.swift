@@ -480,7 +480,6 @@ struct RegisterView: View {
     @State private var error: String?
     @State private var diagnostic: String?
     @State private var busy = false
-    @State private var alreadyRegistered = false
     @State private var shake = 0
     @FocusState private var focus: Field?
 
@@ -525,16 +524,6 @@ struct RegisterView: View {
                 if let error {
                     AuthErrorBanner(message: error)
                         .accessibilityIdentifier("auth.register.error")
-                    if alreadyRegistered, app.auth.pendingSignup?.email == PendingSignup.normalizedEmail(trimmedEmail) {
-                        Button("Enter your verification code") {
-                            HapticEngine.shared.play(.navigation)
-                            app.navigation.open(.auth(.verify))
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
-                        .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
-                        .accessibilityIdentifier("auth.register.resume")
-                    }
                     #if DEBUG
                     if let diagnostic {
                         Text(diagnostic).font(.caption2).foregroundStyle(.secondary)
@@ -612,12 +601,12 @@ struct RegisterView: View {
         busy = true
         error = nil
         diagnostic = nil
-        alreadyRegistered = false
         defer { busy = false }
         do {
             // The store keeps {email, account, challenge, expiry} in the Keychain; the
-            // password is only sent here and never stored.
-            let result = try await app.auth.register(payload: RegistrationPayload(
+            // password is only sent here and never stored. Any 2xx (including 202) and
+            // a legacy 409 EMAIL_TAKEN go to the code-entry screen.
+            _ = try await app.auth.register(payload: RegistrationPayload(
                 email: trimmedEmail,
                 password: password,
                 handle: handle.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -627,13 +616,8 @@ struct RegisterView: View {
             ))
             password = ""
             HapticEngine.shared.play(.success)
-            if result.verificationRequired {
-                app.navigation.open(.auth(.verify))
-            } else {
-                app.navigation.open(.auth(.login))
-            }
+            app.navigation.open(.auth(.verify))
         } catch let api as APIError {
-            alreadyRegistered = api.code == "CONFLICT"
             error = AuthenticationStore.isRateLimited(api)
                 ? (app.auth.rateLimitNotice ?? AuthenticationStore.signupMessage(api))
                 : AuthenticationStore.signupMessage(api)
@@ -666,6 +650,17 @@ struct VerifyEmailView: View {
 
     /// Greenfield emails 6-digit codes (ChallengeService `codeDigits` default).
     static let codeLength = 6
+
+    /// Neutral existing-account way out on the code-entry screen. Both routes are the
+    /// live sign-in and forgot-password flows (no dead controls). Tests read these
+    /// so the copy and destinations cannot drift from the buttons.
+    enum AlternateActions {
+        static let existingAccountCopy = "If you already have an account, you’ll get an email to sign in or reset your password instead."
+        static let signInTitle = "Sign in"
+        static let forgotPasswordTitle = "Forgot password"
+        static let signInRoute: AppRoute = .auth(.login)
+        static let forgotPasswordRoute: AppRoute = .auth(.forgotPassword)
+    }
 
     private var pending: PendingSignup? { app.auth.pendingSignup }
 
@@ -730,6 +725,31 @@ struct VerifyEmailView: View {
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("auth.verify.expiry")
+            Text(AlternateActions.existingAccountCopy)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("auth.verify.existing-account")
+            HStack(spacing: ModulaSpacing.md) {
+                Button(AlternateActions.signInTitle) {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(AlternateActions.signInRoute)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.verify.sign-in")
+                Button(AlternateActions.forgotPasswordTitle) {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(AlternateActions.forgotPasswordRoute)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.verify.forgot-password")
+            }
+            .disabled(app.auth.verifying || app.auth.resending)
             Button("Use a different account") {
                 app.auth.abandonPendingSignup()
                 app.auth.pendingNotice = nil

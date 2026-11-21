@@ -339,10 +339,152 @@ final class AuthPendingSignupTests: XCTestCase {
     }
 
     func testRegisterErrorsArePlainLanguage() {
-        XCTAssertTrue(AuthenticationStore.signupMessage(.rejected(409, "CONFLICT")).contains("already in use"))
+        let conflict = AuthenticationStore.signupMessage(.rejected(409, "CONFLICT"))
+        XCTAssertEqual(conflict, AuthenticationStore.checkEmailMessage)
+        XCTAssertFalse(Self.revealsExistingAccount(conflict))
+        XCTAssertEqual(AuthenticationStore.signupMessage(.rejected(409, "EMAIL_TAKEN")), AuthenticationStore.checkEmailMessage)
+        XCTAssertEqual(AuthenticationStore.signupMessage(.rejected(409, "HANDLE_TAKEN")), "That username is taken. Pick another one.")
         XCTAssertEqual(AuthenticationStore.signupMessage(.rejected(429, "RATE_LIMITED")), AuthenticationStore.rateLimitedRegisterMessage)
         XCTAssertTrue(AuthenticationStore.signupMessage(.rejected(400, "VALIDATION_FAILED")).contains("10 characters"))
         XCTAssertTrue(AuthenticationStore.verificationMessage(.rejected(401, "CHALLENGE_EXPIRED")).contains("expired"))
+        XCTAssertTrue(AuthenticationStore.verificationMessage(.rejected(401, "CHALLENGE_INVALID")).contains("didn’t work")
+                      || AuthenticationStore.verificationMessage(.rejected(401, "CHALLENGE_INVALID")).contains("didn't work"))
+    }
+
+    /// Phrases that would tell the person this email already has an account.
+    private static func revealsExistingAccount(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        for phrase in ["already registered", "already in use", "this email is already", "email is already registered"] {
+            if lowered.contains(phrase) { return true }
+        }
+        return false
+    }
+
+    // MARK: GreenField #196 — 202 check-your-email, decoy, legacy 409
+
+    func testRegister202GoesToCodeEntryWithoutRequiringAccountId() async throws {
+        let store = makeStore()
+        let expires = iso(clock.now.addingTimeInterval(3_600))
+        // #190 / #196 shape: 202, verificationChallengeId, verificationExpiresAt, email;
+        // accountId omitted (a decoy may lack it or send a fake one).
+        PendingSignupRouter.handler = { method, path, _ in
+            guard method == "POST", path == "/v1/accounts/register" else { return (404, "{}") }
+            return (202, #"{"ok":true,"data":{"verificationChallengeId":"chal-202","verificationExpiresAt":"\#(expires)","email":"newbie@example.com","verificationDelivery":{"channel":"email","recipient":"n•••@example.com"}}}"#)
+        }
+        let result = try await store.register(payload: payload())
+        XCTAssertEqual(result.challengeID, "chal-202")
+        XCTAssertNil(result.accountID, "accountId is optional on a 202 / decoy")
+        XCTAssertTrue(result.verificationRequired)
+        let pending = try XCTUnwrap(store.pendingSignup)
+        XCTAssertEqual(pending.email, "newbie@example.com")
+        XCTAssertNil(pending.accountID)
+        XCTAssertEqual(pending.challengeID, "chal-202")
+        XCTAssertEqual(pending.recipient, "n•••@example.com")
+        XCTAssertEqual(pending.expiresAt.timeIntervalSince1970, clock.now.addingTimeInterval(3_600).timeIntervalSince1970, accuracy: 1)
+        XCTAssertEqual(PendingSignupStore(namespace: namespace).load(), pending)
+        let raw = String(decoding: try XCTUnwrap(PendingSignupStore(namespace: namespace).storedData()), as: UTF8.self)
+        XCTAssertFalse(raw.contains(password))
+        XCTAssertNil(PendingSignupRouter.log.first?.authorization, "register sends no bearer")
+    }
+
+    func testDecoyChallengeWrongCodeIsInvalidAndLocksAfterFive() async throws {
+        let store = makeStore()
+        let expires = iso(clock.now.addingTimeInterval(3_600))
+        PendingSignupRouter.handler = { method, path, _ in
+            guard method == "POST", path == "/v1/accounts/register" else { return (404, "{}") }
+            // Decoy may carry a fake accountId; it must never verify.
+            return (202, #"{"ok":true,"data":{"accountId":"acct-decoy","verificationChallengeId":"chal-decoy","verificationExpiresAt":"\#(expires)","email":"taken@example.com"}}"#)
+        }
+        _ = try await store.register(payload: payload("taken@example.com"))
+        XCTAssertEqual(store.pendingSignup?.accountID, "acct-decoy")
+        XCTAssertEqual(store.pendingSignup?.challengeID, "chal-decoy")
+
+        PendingSignupRouter.log = []
+        PendingSignupRouter.handler = { method, path, _ in
+            guard method == "POST", path == "/v1/accounts/verify-email" else { return (404, "{}") }
+            return (401, #"{"ok":false,"error":{"code":"CHALLENGE_INVALID"}}"#)
+        }
+        for attempt in 1...PendingSignupStore.attemptLimit {
+            let ok = await store.verifyPendingCode("000000")
+            XCTAssertFalse(ok)
+            XCTAssertEqual(store.pendingSignup?.failedAttempts, attempt)
+            if attempt < PendingSignupStore.attemptLimit {
+                let message = try XCTUnwrap(store.signupError)
+                XCTAssertTrue(message.contains("didn’t work") || message.contains("didn't work"), message)
+                XCTAssertTrue(message.contains("tries left"), message)
+                XCTAssertFalse(Self.revealsExistingAccount(message))
+            }
+        }
+        XCTAssertEqual(store.signupError, AuthenticationStore.lockedMessage)
+        XCTAssertNotNil(store.pendingSignup, "lockout must not clear or loop the pending sign-up")
+        XCTAssertTrue(PendingSignupRouter.log.allSatisfy { $0.body["challengeId"] == "chal-decoy" })
+        PendingSignupRouter.log = []
+        let blocked = await store.verifyPendingCode("111111")
+        XCTAssertFalse(blocked)
+        XCTAssertTrue(PendingSignupRouter.log.isEmpty, "a locked decoy isn’t retried against the server")
+        XCTAssertEqual(store.signupError, AuthenticationStore.lockedMessage)
+    }
+
+    func testLegacy409DoesNotRevealExistingAccountAndOpensCheckEmailPath() async throws {
+        let store = makeStore()
+        PendingSignupRouter.handler = { method, path, _ in
+            method == "POST" && path == "/v1/accounts/register"
+                ? (409, #"{"ok":false,"error":{"code":"EMAIL_TAKEN"}}"#)
+                : (404, "{}")
+        }
+        let result = try await store.register(payload: payload("  Taken@Example.com "))
+        XCTAssertTrue(result.verificationRequired)
+        let pending = try XCTUnwrap(store.pendingSignup)
+        XCTAssertEqual(pending.email, "taken@example.com")
+        XCTAssertNil(pending.accountID)
+        XCTAssertNil(pending.challengeID)
+        XCTAssertEqual(PendingSignupStore(namespace: namespace).load()?.email, "taken@example.com")
+        XCTAssertNil(store.signupError)
+        XCTAssertFalse(Self.revealsExistingAccount(AuthenticationStore.signupMessage(.rejected(409, "EMAIL_TAKEN"))))
+        XCTAssertFalse(Self.revealsExistingAccount(AuthenticationStore.signupMessage(.rejected(409, "CONFLICT"))))
+        XCTAssertFalse(Self.revealsExistingAccount(AuthenticationStore.checkEmailMessage))
+
+        // CONFLICT (legacy generic 409) also opens the check-email path.
+        PendingSignupStore(namespace: namespace).clear()
+        let other = makeStore()
+        PendingSignupRouter.handler = { method, path, _ in
+            method == "POST" && path == "/v1/accounts/register"
+                ? (409, #"{"ok":false,"error":{"code":"CONFLICT"}}"#)
+                : (404, "{}")
+        }
+        _ = try await other.register(payload: payload("legacy@example.com"))
+        XCTAssertEqual(other.pendingSignup?.email, "legacy@example.com")
+        XCTAssertNil(other.signupError)
+
+        // HANDLE_TAKEN stays on the form: the username is taken, not the email.
+        let handleStore = makeStore()
+        PendingSignupRouter.handler = { _, path, _ in
+            path == "/v1/accounts/register"
+                ? (409, #"{"ok":false,"error":{"code":"HANDLE_TAKEN"}}"#)
+                : (404, "{}")
+        }
+        do {
+            _ = try await handleStore.register(payload: payload("fresh@example.com"))
+            XCTFail("HANDLE_TAKEN should still surface as an error")
+        } catch let api as APIError {
+            XCTAssertEqual(api, .rejected(409, "HANDLE_TAKEN"))
+            XCTAssertEqual(AuthenticationStore.signupMessage(api), "That username is taken. Pick another one.")
+        }
+        XCTAssertNil(handleStore.pendingSignup)
+    }
+
+    func testVerifyEmailLinksRouteToSignInAndForgotPassword() {
+        XCTAssertEqual(VerifyEmailView.AlternateActions.signInTitle, "Sign in")
+        XCTAssertEqual(VerifyEmailView.AlternateActions.forgotPasswordTitle, "Forgot password")
+        XCTAssertEqual(VerifyEmailView.AlternateActions.signInRoute, .auth(.login))
+        XCTAssertEqual(VerifyEmailView.AlternateActions.forgotPasswordRoute, .auth(.forgotPassword))
+        XCTAssertTrue(AuthRoute.allCases.contains(.login))
+        XCTAssertTrue(AuthRoute.allCases.contains(.forgotPassword))
+        let copy = VerifyEmailView.AlternateActions.existingAccountCopy
+        XCTAssertTrue(copy.contains("already have an account"), copy)
+        XCTAssertTrue(copy.contains("sign in"), copy)
+        XCTAssertTrue(copy.contains("reset"), copy)
+        XCTAssertFalse(Self.revealsExistingAccount(copy))
     }
 
     func testRegisterRateLimitedSurfacesAndStoresNothing() async {

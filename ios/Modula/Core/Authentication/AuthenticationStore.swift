@@ -178,8 +178,13 @@ final class AuthenticationStore {
         return stored
     }
 
-    /// Creates the account. When Greenfield requires email verification the pending state is
-    /// saved (never the password) so the code step survives the app closing.
+    /// Creates the account. Any 2xx — including 202 "check your email" and a GreenField
+    /// #196 decoy for an email that already has an account — saves the pending record
+    /// (never the password) so the code step survives the app closing. `accountId` is
+    /// optional: a decoy may omit it or send a fake one.
+    ///
+    /// A legacy 409 `EMAIL_TAKEN` / `CONFLICT` is treated the same way, so the UI never
+    /// reveals that the account exists.
     func register(payload: RegistrationPayload) async throws -> RegistrationResult {
         let result: RegistrationResult
         do {
@@ -188,15 +193,34 @@ final class AuthenticationStore {
             let details = await client.lastFailureDetails(path: "/v1/accounts/register")
             rateLimitNotice = applyRateLimit(details)
             throw api
+        } catch let api as APIError where Self.isExistingAccountConflict(api) {
+            let details = await client.lastFailureDetails(path: "/v1/accounts/register")
+            return persistPendingFromRegister(
+                email: payload.email,
+                handle: payload.handle,
+                result: RegistrationResult(
+                    accountID: nil,
+                    status: nil,
+                    challengeID: details?.challengeID,
+                    verificationRequired: true,
+                    handle: nil,
+                    recipient: details?.recipient,
+                    expiresAt: details?.expiresAt
+                )
+            )
         }
-        guard result.verificationRequired else {
-            abandonPendingSignup()
-            return result
-        }
+        return persistPendingFromRegister(email: payload.email, handle: payload.handle, result: result)
+    }
+
+    /// Saves the pending sign-up for a successful (or legacy-409) register and returns `result`.
+    @discardableResult
+    private func persistPendingFromRegister(email: String, handle: String, result: RegistrationResult) -> RegistrationResult {
         let started = now()
-        let pending = PendingSignup(
-            email: PendingSignup.normalizedEmail(payload.email),
-            handle: result.handle ?? payload.handle,
+        pendingNotice = nil
+        signupError = nil
+        persist(PendingSignup(
+            email: PendingSignup.normalizedEmail(email),
+            handle: result.handle ?? handle,
             accountID: result.accountID,
             challengeID: result.challengeID,
             recipient: result.recipient,
@@ -204,10 +228,7 @@ final class AuthenticationStore {
             expiresAt: PendingSignupStore.expiry(server: result.expiresAt, from: started),
             lastCodeSentAt: started,
             resendAvailableAt: started.addingTimeInterval(PendingSignupStore.resendCooldown)
-        )
-        pendingNotice = nil
-        signupError = nil
-        persist(pending)
+        ))
         return result
     }
 
@@ -310,9 +331,12 @@ final class AuthenticationStore {
             abandonPendingSignup()
             return true
         } catch let api as APIError {
-            if pending.challengeID == nil, case .rejected(_, "CHALLENGE_INVALID") = api {
+            // Only the resend-without-a-new-id path uses this notice. A #196 decoy
+            // (or a legacy 409 with no challenge id) must look like an ordinary wrong code.
+            if pending.challengeID == nil, pendingNotice == Self.resendUnconfirmableNotice,
+               Self.isInvalidVerificationCode(api) {
                 signupError = Self.resendUnconfirmableNotice
-            } else if case .rejected(_, "CHALLENGE_INVALID") = api {
+            } else if Self.isInvalidVerificationCode(api) {
                 pending.failedAttempts += 1
                 persist(pending)
                 signupError = pending.isLocked
@@ -429,11 +453,46 @@ final class AuthenticationStore {
     static let resendUnconfirmableNotice = "A new code was sent, but this version of Modula can’t confirm resent codes yet, and your earlier code no longer works. Contact support to finish verifying, or sign in with another account."
     static let rateLimitedRegisterMessage = "Too many attempts. Try again in about 10 minutes."
 
+    /// Legacy 409 / `EMAIL_TAKEN` (and close variants) that must not reveal the account.
+    /// `HANDLE_TAKEN` is not included: that only says the username is taken.
+    static func isExistingAccountConflict(_ api: APIError) -> Bool {
+        guard case .rejected(let status, let code) = api else { return false }
+        if isHandleTaken(code) { return false }
+        if existingAccountCodes.contains(code) { return true }
+        return status == 409
+    }
+
+    static func isHandleTaken(_ code: String) -> Bool {
+        code == "HANDLE_TAKEN" || code == "USERNAME_TAKEN" || code == "HANDLE_UNAVAILABLE"
+    }
+
+    private static let existingAccountCodes: Set<String> = [
+        "EMAIL_TAKEN", "EMAIL_EXISTS", "ACCOUNT_EXISTS", "ALREADY_REGISTERED", "CONFLICT"
+    ]
+
+    /// Wrong-code answers, including a #196 decoy challenge that will never verify.
+    static func isInvalidVerificationCode(_ api: APIError) -> Bool {
+        guard case .rejected(_, let code) = api else { return false }
+        switch code {
+        case "CHALLENGE_INVALID", "INVALID_CODE", "VERIFICATION_FAILED", "CHALLENGE_NOT_FOUND":
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Neutral copy used only as a safety net if a 409 ever surfaces as an error.
+    static let checkEmailMessage = "Check your email. If you already have an account, you’ll get a message about signing in or resetting your password instead."
+
     /// Plain-language copy for Greenfield's sign-up errors.
     static func signupMessage(_ api: APIError) -> String {
+        if isHandleTaken(api.code ?? "") {
+            return "That username is taken. Pick another one."
+        }
+        if isExistingAccountConflict(api) {
+            return checkEmailMessage
+        }
         switch api {
-        case .rejected(_, "CONFLICT"):
-            return "That email or username is already in use. Sign in instead, or pick another username."
         case .rejected(_, "VALIDATION_FAILED"):
             return "Check your details: a valid email, a display name of 2 to 80 characters and a password of at least 10 characters."
         case .rejected(_, "FORBIDDEN"):
@@ -448,7 +507,8 @@ final class AuthenticationStore {
     /// Plain-language copy for Greenfield's verification (challenge) errors.
     static func verificationMessage(_ api: APIError) -> String {
         switch api {
-        case .rejected(_, "CHALLENGE_INVALID"):
+        case .rejected(_, "CHALLENGE_INVALID"), .rejected(_, "INVALID_CODE"),
+             .rejected(_, "VERIFICATION_FAILED"), .rejected(_, "CHALLENGE_NOT_FOUND"):
             return "That code didn’t work. Check the latest email from Modula and try again."
         case .rejected(_, "CHALLENGE_EXPIRED"):
             return "That code has expired. Tap Resend code to get a new one."
