@@ -238,6 +238,8 @@ struct SettingsView: View {
                         }
                     }
 
+                    if query.isEmpty { SettingsRecentsCard() }
+
                     settingsSection("Privacy & Security") {
                         TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
                         TelegramDivider()
@@ -350,7 +352,7 @@ struct SettingsView: View {
             scrollY = y
         }
         .modulaSoftScrollEdge()
-        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .background(SettingsAmbientBackdrop().ignoresSafeArea())
         .overlay {
             if !isSearching {
                 IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }

@@ -35,6 +35,8 @@ final class PostCommentsStore {
     static let characterLimit = 5000
     private(set) var loadingReplies: Set<SocialCommentID> = []
     private(set) var expandedReplies: Set<SocialCommentID> = []
+    /// Top-level comments on the server's first page that this sheet hasn't shown yet.
+    private(set) var newCommentCount = 0
 
     init(client: GreenfieldClient, postState: PostStateStore, postID: SocialPostID, capabilities: PostBackendCapabilities = .production) {
         self.repository = GreenfieldPostRepository(client: client, capabilities: capabilities)
@@ -44,22 +46,42 @@ final class PostCommentsStore {
         self.draft = UserDefaults.standard.string(forKey: "comments.draft.\(postID)") ?? ""
     }
 
+    /// Last first page per post (memory only) so reopening a sheet paints instantly,
+    /// then refreshes in place.
+    private static var firstPageCache: [SocialPostID: (items: [SocialComment], author: String?)] = [:]
+
     func load() async {
-        isLoading = true
+        if items.isEmpty, let cached = Self.firstPageCache[postID] {
+            items = cached.items
+            if postAuthorHandle == nil { postAuthorHandle = cached.author }
+            isLoading = false
+        } else {
+            isLoading = items.isEmpty
+        }
         loadError = nil
         do {
+            // Comments and the post (for the author/pin rule) in parallel, not one after the other.
+            let repository = self.repository
+            let postID = self.postID
+            let needsAuthor = postAuthorHandle == nil
+            async let authorHandle: String? = needsAuthor ? (try? await repository.post(id: postID))?.author?.handle : nil
             let page = try await repository.comments(postID: postID, cursor: nil)
             items = page.items
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             isLoading = false
-            if postAuthorHandle == nil, let post = try? await repository.post(id: postID) {
-                postAuthorHandle = post.author?.handle
+            if needsAuthor, let handle = await authorHandle { postAuthorHandle = handle }
+            Self.firstPageCache[postID] = (page.items, postAuthorHandle)
+            if Self.firstPageCache.count > 24, let drop = Self.firstPageCache.keys.first(where: { $0 != postID }) {
+                Self.firstPageCache[drop] = nil
             }
-            // Settings → Feed → "Expand reply threads": open the first few threads.
+            // Settings → Feed → "Expand reply threads": open the first few threads together.
             if ModulaPreferences.feedShowReplyThreads {
-                for comment in Self.threadsToExpand(page.items) {
-                    await loadReplies(for: comment)
+                let threads = Self.threadsToExpand(page.items)
+                await withTaskGroup(of: Void.self) { group in
+                    for comment in threads {
+                        group.addTask { await self.loadReplies(for: comment) }
+                    }
                 }
             }
         } catch let api as APIError {
@@ -363,6 +385,23 @@ final class PostCommentsStore {
         expandedReplies.remove(comment.id)
     }
 
+    func checkForNewComments() async {
+        guard !isLoading, !isSending,
+              let page = try? await repository.comments(postID: postID, cursor: nil) else { return }
+        let known = Set(items.map(\.id))
+        let fresh = page.items.filter { $0.parentID == nil && !known.contains($0.id) }.count
+        if fresh != newCommentCount { newCommentCount = fresh }
+    }
+
+    func showNewComments() async {
+        newCommentCount = 0
+        await load()
+    }
+
+    func collapseAllReplies() {
+        if !expandedReplies.isEmpty { expandedReplies.removeAll() }
+    }
+
     func delete(_ comment: SocialComment) async {
         do {
             try await repository.deleteComment(commentID: comment.id)
@@ -424,15 +463,18 @@ struct PostCommentsView: View {
     @State private var locating = false
     @State private var revealedSpoilers: Set<SocialCommentID> = []
     @State private var translating: String?
-    @State private var swipeOffsets: [SocialCommentID: CGFloat] = [:]
     @State private var dropTargeted = false
     @State private var menuComment: SocialComment?
     @State private var assistantDraft: MascotAssistantDraft?
     @State private var assistantHandled: Set<String> = []
     @State private var assistantBrain = MascotBrain()
     @AppStorage(ModulaMascotSettings.key(for: .comments)) private var commentsMascotShown = ModulaMascotSettings.defaultShown(.comments)
-    @State private var sort: CommentSort = .best
-    @State private var heartBursts: [SocialCommentID: Int] = [:]
+    /// Remembered: the comments sheet reopens with the order you last picked.
+    @AppStorage("comments.sort") private var sortRaw = CommentSort.best.rawValue
+    private var sort: CommentSort {
+        get { CommentSort(rawValue: sortRaw) ?? .best }
+        nonmutating set { sortRaw = newValue.rawValue }
+    }
     @State private var searchText = ""
     @State private var showsSearch = false
     @State private var scrollTarget: SocialCommentID?
@@ -465,13 +507,13 @@ struct PostCommentsView: View {
                 }
                 .onChange(of: scrollTarget) { _, id in
                     guard let id else { return }
-                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82)) {
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.22)) {
                         proxy.scrollTo(id, anchor: .center)
                     }
                     scrollTarget = nil
                 }
                 .onChange(of: focusComposerRequest) { _, _ in
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.86)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
                         proxy.scrollTo("post.comments.anchor", anchor: .top)
                     }
                     composerFocused = true
@@ -664,20 +706,33 @@ struct PostCommentsView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .accessibilityHidden(true)
                     Text("Comments").font(.headline)
                     if displayedCount > 0 {
                         Text("\(displayedCount)")
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .font(.caption.weight(.bold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7)
+                            .frame(minHeight: 20)
+                            .background(Capsule().fill(app.appearance.liveAccent))
+                            .contentTransition(.numericText(value: Double(displayedCount)))
                             .accessibilityLabel("\(displayedCount) comments")
                     }
+                }
+                .padding(.horizontal, isSheet ? 12 : 0)
+                .frame(minHeight: isSheet ? 36 : 0)
+                .background {
+                    if isSheet { Color.clear.modulaGlass(in: Capsule(), interactive: false, specular: true) }
                 }
                 // Segmented sort (Hick: three visible choices beat a hidden menu).
                 HStack(spacing: 6) {
                     ForEach(CommentSort.allCases) { option in
                         let selected = sort == option
                         Button {
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) { sort = option }
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { sort = option }
                             HapticEngine.shared.play(.selection)
                         } label: {
                             Text(option.title)
@@ -700,9 +755,22 @@ struct PostCommentsView: View {
                 .modulaGlass(in: Capsule(), interactive: false)
                 .frame(minHeight: 44)
             }
+            if let store, store.expandedReplies.count > 1 {
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.collapseAllReplies() }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: "arrow.up.and.line.horizontal.and.arrow.down")
+                        .font(.footnote.weight(.semibold))
+                        .frame(width: 36, height: 36)
+                        .modulaGlass(in: Circle(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Collapse all replies")
+            }
             Spacer(minLength: 8)
             Button {
-                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.78)) {
+                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
                     showsSearch.toggle()
                     if !showsSearch { searchText = "" }
                 }
@@ -818,8 +886,34 @@ struct PostCommentsView: View {
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(filteredRoots(store)) { comment in
+                    Color.clear.frame(height: 0)
+                        .task(id: store.postID) {
+                            while !Task.isCancelled {
+                                try? await Task.sleep(for: .seconds(25))
+                                guard !Task.isCancelled else { return }
+                                await store.checkForNewComments()
+                            }
+                        }
+                    if store.newCommentCount > 0, searchText.isEmpty {
+                        Button {
+                            HapticEngine.shared.play(.selection)
+                            Task { await store.showNewComments() }
+                        } label: {
+                            Label(store.newCommentCount == 1 ? "1 new comment" : "\(store.newCommentCount) new comments", systemImage: "arrow.up")
+                                .font(.footnote.weight(.semibold))
+                                .padding(.horizontal, 14)
+                                .frame(height: 34)
+                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.35), specular: true)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .accessibilityIdentifier("comments.newPill")
+                    }
+                    let rootList = filteredRoots(store)
+                    ForEach(rootList) { comment in
                         commentRow(comment, store: store)
+                            .onAppear { prefetchMoreIfNeeded(comment, in: rootList, store: store) }
                         let replies = filteredReplies(store, parent: comment)
                         if store.expandedReplies.contains(comment.id) || (!searchText.isEmpty && !replies.isEmpty) {
                             ForEach(replies) { reply in
@@ -827,7 +921,7 @@ struct PostCommentsView: View {
                             }
                             if !replies.isEmpty || comment.replyCount > 0 {
                                 Button {
-                                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .snappy) {
+                                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.2)) {
                                         store.collapseReplies(for: comment)
                                     }
                                     HapticEngine.shared.play(.selection)
@@ -916,6 +1010,15 @@ struct PostCommentsView: View {
     private func sortedReplies(_ items: [SocialComment]) -> [SocialComment] {
         // Replies always read chronologically so threads stay coherent.
         items.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// Starts the next page while ~6 comments are still below, so scrolling doesn't
+    /// stop at a "Load more" button.
+    private func prefetchMoreIfNeeded(_ comment: SocialComment, in list: [SocialComment], store: PostCommentsStore) {
+        guard searchText.isEmpty, store.hasMore, !store.isLoadingMore,
+              let index = list.lastIndex(where: { $0.id == comment.id }),
+              index >= list.count - 6 else { return }
+        Task { await store.loadMore() }
     }
 
     private func filteredRoots(_ store: PostCommentsStore) -> [SocialComment] {
@@ -1105,26 +1208,20 @@ struct PostCommentsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .id(comment.id)
-        // Swipe left to reply (Telegram-style) with a haptic at the threshold.
-        .background(alignment: .trailing) {
-            Image(systemName: "arrowshape.turn.up.left.fill")
-                .font(.title3)
-                .foregroundStyle(app.appearance.liveAccent)
-                .opacity(Double(min(abs(swipeOffsets[comment.id] ?? 0) / 64, 1)))
-                .scaleEffect(min(abs(swipeOffsets[comment.id] ?? 0) / 64, 1))
-                .padding(.trailing, 4)
-        }
-        .offset(x: swipeOffsets[comment.id] ?? 0)
-        .simultaneousGesture(swipeToReply(comment, store: store))
-        .simultaneousGesture(TapGesture(count: 2).onEnded {
-            Task { await store.react(comment, type: "like") }
-            heartBursts[comment.id, default: 0] += 1
-            HapticEngine.shared.play(.lightImpact)
-        })
-        .overlay {
-            DoubleTapHeartBurst(trigger: heartBursts[comment.id, default: 0])
-                .frame(width: 72, height: 72)
-        }
+        // Swipe left to reply (Telegram-style) + double-tap like. Drag/burst state lives in the
+        // row modifier so a swipe re-renders one row, not the whole comments sheet.
+        .modifier(CommentRowSwipeModifier(
+            accent: app.appearance.liveAccent,
+            reduceMotion: reduceMotion,
+            onReply: {
+                store.quoting = nil
+                store.replyingTo = comment
+                composerFocused = true
+            },
+            onDoubleTap: {
+                Task { await store.react(comment, type: "like") }
+            }
+        ))
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Reply") { store.replyingTo = comment; composerFocused = true }
         .accessibilityAction(named: "Like") {
@@ -1132,7 +1229,7 @@ struct PostCommentsView: View {
         }
         .onLongPressGesture(minimumDuration: 0.35) {
             HapticEngine.shared.play(.actionConfirmed)
-            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82)) { menuComment = comment }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.22)) { menuComment = comment }
         }
         .accessibilityAction(named: "More actions") { menuComment = comment }
     }
@@ -1144,28 +1241,6 @@ struct PostCommentsView: View {
     private func isOP(_ comment: SocialComment) -> Bool {
         guard let postAuthorID, let authorID = comment.author?.id else { return false }
         return authorID == postAuthorID
-    }
-
-    private func swipeToReply(_ comment: SocialComment, store: PostCommentsStore) -> some Gesture {
-        DragGesture(minimumDistance: 14)
-            .onChanged { value in
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.2, value.translation.width < 0 else { return }
-                let offset = max(value.translation.width * 0.6, -90)
-                let previous = swipeOffsets[comment.id] ?? 0
-                if previous > -56 && offset <= -56 { HapticEngine.shared.play(.dragThreshold) }
-                swipeOffsets[comment.id] = offset
-            }
-            .onEnded { _ in
-                let triggered = (swipeOffsets[comment.id] ?? 0) <= -56
-                withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.3, dampingFraction: 0.75)) {
-                    swipeOffsets[comment.id] = nil
-                }
-                if triggered {
-                    store.quoting = nil
-                    store.replyingTo = comment
-                    composerFocused = true
-                }
-            }
     }
 
     @ViewBuilder
@@ -1305,7 +1380,7 @@ struct PostCommentsView: View {
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
                     .gesture(DragGesture(minimumDistance: 24).onEnded { value in
                         if value.translation.height > 70 {
-                            withAnimation(.snappy) { mediaStage = .collapsed }
+                            withAnimation(.easeOut(duration: 0.2)) { mediaStage = .collapsed }
                         }
                     })
                 }
@@ -1352,7 +1427,7 @@ struct PostCommentsView: View {
                             if value {
                                 mediaPanelTab = .emoji
                                 stickerSection = nil
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                                withAnimation(.easeOut(duration: 0.22)) {
                                     mediaStage = .collapsed
                                 }
                             }
@@ -1432,8 +1507,8 @@ struct PostCommentsView: View {
         .background {
             if mediaPanelActive { canvas.ignoresSafeArea(edges: .bottom) }
         }
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 0.85), value: mediaPanelActive)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.36, dampingFraction: 0.82), value: mediaStage)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: mediaPanelActive)
+        .animation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22), value: mediaStage)
         .gesture(
             DragGesture(minimumDistance: PostGestureThresholds.dragActivationDistance)
                 .onEnded { value in
@@ -1454,14 +1529,14 @@ struct PostCommentsView: View {
         case "photos":
             composerFocused = false
             mediaPanelActive = false
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { mediaStage = .library }
+            withAnimation(.easeOut(duration: 0.22)) { mediaStage = .library }
         case "camera":
             composerFocused = false
             mediaPanelActive = false
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { mediaStage = .camera }
+            withAnimation(.easeOut(duration: 0.22)) { mediaStage = .camera }
         case "gif", "sticker", "mascot":
             composerFocused = false
-            withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { mediaStage = .collapsed }
+            withAnimation(.easeOut(duration: 0.22)) { mediaStage = .collapsed }
             mediaPanelTab = option.id == "gif" ? .gifs : .stickers
             stickerSection = option.id == "mascot" ? "mascots" : nil
             mediaPanelActive = true
@@ -1751,5 +1826,54 @@ struct CommentQuickEmojiRow: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("post.comment.quick")
+    }
+}
+
+
+/// Per-row swipe-to-reply and double-tap heart. Kept out of `PostCommentsView` state so
+/// a drag only invalidates this row.
+private struct CommentRowSwipeModifier: ViewModifier {
+    let accent: Color
+    let reduceMotion: Bool
+    let onReply: () -> Void
+    let onDoubleTap: () -> Void
+    @State private var offset: CGFloat = 0
+    @State private var burst = 0
+
+    func body(content: Content) -> some View {
+        content
+            .background(alignment: .trailing) {
+                let t = min(abs(offset) / 64, 1)
+                Image(systemName: "arrowshape.turn.up.left.fill")
+                    .font(.title3)
+                    .foregroundStyle(accent)
+                    .opacity(Double(t))
+                    .scaleEffect(t)
+                    .padding(.trailing, 4)
+            }
+            .offset(x: offset)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 14)
+                    .onChanged { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) * 1.2, value.translation.width < 0 else { return }
+                        let next = max(value.translation.width * 0.6, -90)
+                        if offset > -56 && next <= -56 { HapticEngine.shared.play(.dragThreshold) }
+                        offset = next
+                    }
+                    .onEnded { _ in
+                        let triggered = offset <= -56
+                        withAnimation(.easeOut(duration: reduceMotion ? 0.12 : 0.2)) { offset = 0 }
+                        if triggered { onReply() }
+                    }
+            )
+            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                onDoubleTap()
+                burst += 1
+                HapticEngine.shared.play(.lightImpact)
+            })
+            .overlay {
+                DoubleTapHeartBurst(trigger: burst)
+                    .frame(width: 72, height: 72)
+            }
     }
 }
