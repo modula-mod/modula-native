@@ -1,0 +1,159 @@
+name: iOS unit tests
+
+# Hosted macOS unit tests for unsigned simulator builds.
+# Dispatch from main (once this file is on the default branch) with
+#   ref: prism/auth-pending-signup-01   (#299)
+#   ref: prism/gubic-host-hardening     (#300)
+# Leave `ref` blank to test the branch this workflow was dispatched from.
+# pull_request is included so this unmerged PR can be certified without
+# landing the file on main first.
+#
+# If Xcode 26.6 is missing on macos-26, this job fails rather than
+# switching toolchains. A previously successful hosted compile used the
+# public-preview runner `xcode-27` with
+#   DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer
+#   destination: platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0
+# That fallback is not applied automatically.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to test (e.g. prism/auth-pending-signup-01). Leave blank to use the dispatching ref.
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ios-unit-tests-${{ github.event.pull_request.head.sha || inputs.ref || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  simulator-unit:
+    name: Xcode 26.6 / iOS 26.5 / iPhone 17 Pro
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      NODE_VERSION: "22.21.0"
+    steps:
+      - name: Check out the requested ref
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Select Xcode 26.6
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/logs
+          if [[ ! -d "${DEVELOPER_DIR}" ]]; then
+            echo "::error::Xcode 26.6 was not found at ${DEVELOPER_DIR}."
+            echo "Installed Xcode apps:"
+            ls -d /Applications/Xcode*.app 2>/dev/null || echo "(none)"
+            echo "Optional fallback (not applied): runs-on: xcode-27 with DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer and -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0'."
+            exit 1
+          fi
+          sudo xcode-select --switch "${DEVELOPER_DIR}"
+          xcodebuild -runFirstLaunch
+          xcodebuild -version | tee artifacts/logs/xcode-version.txt
+          if ! grep -q 'Xcode 26.6' artifacts/logs/xcode-version.txt; then
+            echo "::error::Expected Xcode 26.6 after selecting ${DEVELOPER_DIR}."
+            cat artifacts/logs/xcode-version.txt
+            exit 1
+          fi
+
+      - name: Select Node.js 22.21.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install JavaScript and CocoaPods 1.16.2
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v${NODE_VERSION}"
+          npm ci
+          gem install cocoapods -v 1.16.2 --no-document --user-install
+          export PATH="$(ruby -e 'print File.join(Gem.user_dir, "bin")'):${PATH}"
+          test "$(pod _1.16.2_ --version)" = "1.16.2"
+          pod _1.16.2_ install --project-directory=ios --deployment
+
+      - name: Force Debug API traffic off production
+        run: |
+          set -euo pipefail
+          # /$() breaks // so xcconfig does not treat the URL as a comment.
+          printf '%s\n' 'MODULA_API_URL = http:/$()/127.0.0.1:9' > ios/Configuration/Debug.local.xcconfig
+
+      - name: Build for testing
+        id: build
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/logs artifacts/DerivedData artifacts/SourcePackages
+
+          run_build() {
+            xcodebuild build-for-testing \
+              -workspace ios/Modula.xcworkspace \
+              -scheme Modula \
+              -configuration Debug \
+              -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" \
+              -derivedDataPath artifacts/DerivedData \
+              -resultBundlePath artifacts/build.xcresult \
+              -clonedSourcePackagesDirPath artifacts/SourcePackages \
+              COMPILER_INDEX_STORE_ENABLE=NO \
+              "$@"
+          }
+
+          if run_build CODE_SIGNING_ALLOWED=NO 2>&1 | tee artifacts/logs/build-for-testing.log; then
+            echo "signing=unsigned" >> "${GITHUB_OUTPUT}"
+          else
+            if grep -Eiq 'CODE_SIGN|code ?sign|signing certificate|Provisioning profile|development team' artifacts/logs/build-for-testing.log; then
+              echo "::warning::Unsigned build failed with a signing error; retrying with ad-hoc CODE_SIGN_IDENTITY=-."
+              rm -rf artifacts/build.xcresult
+              run_build CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY=- \
+                2>&1 | tee artifacts/logs/build-for-testing-adhoc.log
+              echo "signing=adhoc" >> "${GITHUB_OUTPUT}"
+            else
+              echo "::error::Unsigned build-for-testing failed, and the log does not look like a signing issue. Not retrying with ad-hoc codesign."
+              if ! xcrun simctl list devices available | tee artifacts/logs/simulators.txt | grep -q 'iPhone 17 Pro'; then
+                echo "::error::iPhone 17 Pro was not in the available simulator list. Check artifacts/logs/simulators.txt."
+              fi
+              exit 1
+            fi
+          fi
+
+      - name: Test without building
+        run: |
+          set -euo pipefail
+          signing="${{ steps.build.outputs.signing }}"
+          sign_args=(CODE_SIGNING_ALLOWED=NO)
+          if [[ "${signing}" == "adhoc" ]]; then
+            sign_args=(CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY=-)
+          fi
+          xcodebuild test-without-building \
+            -workspace ios/Modula.xcworkspace \
+            -scheme Modula \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" \
+            -derivedDataPath artifacts/DerivedData \
+            -resultBundlePath artifacts/unit-tests.xcresult \
+            -clonedSourcePackagesDirPath artifacts/SourcePackages \
+            -only-testing:ModulaTests \
+            -skip-testing:ModulaTests/GreenfieldAuthContractTests \
+            -skip-testing:ModulaTests/GreenfieldBridgeIntegrationTests \
+            "${sign_args[@]}" \
+            2>&1 | tee artifacts/logs/unit-tests.log
+
+      - name: Upload xcresult
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-unit-tests-${{ github.run_id }}
+          path: |
+            artifacts/*.xcresult
+            artifacts/logs/
+          if-no-files-found: ignore
+          retention-days: 14
