@@ -353,7 +353,9 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     // rule list) is the security boundary: it is never derived from, or
     // relaxed by, the document. A document meta CSP can only add restrictions,
     // because browsers enforce every policy present.
-    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
+    // connect-src 'self' is the per-package modula-game:// origin only:
+    // the handler serves listed files, GET only, with no cookies.
+    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
     // Every non-HTML response (SVG, scripts, styles, media) also carries a
     // policy, so a document type that can script itself can never run code
     // or reach the network even if WebKit renders it as a document.
@@ -418,9 +420,18 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     fileprivate func serve(_ task: WKURLSchemeTask) {
-        guard let url = task.request.url, contains(url),
-              let bytes = files[String(url.path.dropFirst())] else {
+        guard let url = task.request.url else {
             task.didFailWithError(WebGamePackageError.invalid("unlisted resource"))
+            return
+        }
+        let method = (task.request.httpMethod ?? "GET").uppercased()
+        guard method == "GET" else {
+            finish(task, url: url, status: 405, mime: "text/plain", bytes: Data(), extra: ["Allow": "GET"])
+            return
+        }
+        // Only manifest-listed package files on this origin are served.
+        guard contains(url), let bytes = files[String(url.path.dropFirst())] else {
+            finish(task, url: url, status: 404, mime: "text/plain", bytes: Data())
             return
         }
         let mime: String
@@ -444,13 +455,25 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         case "xml": mime = "application/xml"
         default: mime = "application/octet-stream"
         }
+        finish(task, url: url, status: 200, mime: mime, bytes: bytes)
+    }
+
+    /// Completes a scheme response. Never sets cookies or credential-allowing
+    /// CORS headers; 'self' is this handler's per-package origin only.
+    private func finish(_ task: WKURLSchemeTask, url: URL, status: Int, mime: String, bytes: Data,
+                        extra: [String: String] = [:]) {
         var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
                        "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
-        if mime == "text/html" {
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+        if status == 200 {
+            headers["Content-Security-Policy"] = mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy
+            if mime == "text/html" {
+                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+            }
+        } else {
+            headers["Content-Security-Policy"] = Self.resourceContentSecurityPolicy
         }
-        headers["Content-Security-Policy"] = mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy
-        guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
+        for (name, value) in extra { headers[name] = value }
+        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) else {
             task.didFailWithError(WebGamePackageError.invalid("resource response"))
             return
         }

@@ -14,7 +14,11 @@ private final class RecordingGameSchemeTask: NSObject, WKURLSchemeTask {
     var finished = false
     var failure: Error?
 
-    init(_ url: URL) { request = URLRequest(url: url) }
+    init(_ url: URL, method: String = "GET") {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        self.request = request
+    }
     func didReceive(_ response: URLResponse) { self.response = response }
     func didReceive(_ data: Data) { body.append(data) }
     func didFinish() { finished = true }
@@ -279,7 +283,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             XCTAssertTrue(acceptedTask.finished)
             XCTAssertNil(acceptedTask.failure)
             let csp = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Security-Policy")
-            XCTAssertTrue(csp?.contains("connect-src 'none'") == true)
+            XCTAssertTrue(csp?.contains("connect-src 'self'") == true)
             XCTAssertTrue(csp?.contains("frame-src 'none'") == true)
             let permissionsPolicy = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Permissions-Policy")
             XCTAssertTrue(permissionsPolicy?.contains("geolocation=()") == true)
@@ -784,7 +788,8 @@ final class WebGameHostHardeningTests: XCTestCase {
         XCTAssertTrue(Set(defaults).isSubset(of: ["'none'", "'self'", "modula-game:"]), "\(defaults)")
         let scripts = try XCTUnwrap(header["script-src"])
         XCTAssertEqual(scripts, ["'self'"])
-        for name in ["connect-src", "frame-src", "worker-src", "base-uri", "form-action", "object-src"] {
+        XCTAssertEqual(header["connect-src"], ["'self'"])
+        for name in ["frame-src", "worker-src", "base-uri", "form-action", "object-src"] {
             XCTAssertEqual(header[name], ["'none'"], name)
         }
         // The header is a constant: serving any document yields the same bytes,
@@ -1021,7 +1026,7 @@ final class WebGameHostHardeningTests: XCTestCase {
             XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Type"), expectedType[path], path)
             XCTAssertTrue(csp.hasPrefix("default-src 'none'"), "\(path): \(csp)")
             if path.hasSuffix(".html") {
-                XCTAssertTrue(csp.contains("script-src 'self'") && csp.contains("connect-src 'none'"), "\(path): \(csp)")
+                XCTAssertTrue(csp.contains("script-src 'self'") && csp.contains("connect-src 'self'"), "\(path): \(csp)")
             } else {
                 XCTAssertEqual(csp, WebGameResourceProbe.resourceContentSecurityPolicy, path)
                 XCTAssertFalse(csp.contains("script-src"), path)
@@ -1099,6 +1104,71 @@ final class WebGameHostHardeningTests: XCTestCase {
         XCTAssertEqual(ruled, 0, "the local-only rule list let a page reach the network")
     }
 
+    /// ATLAS: connect-src 'self' is the per-package scheme origin only.
+    /// GET of a listed file is allowed; an unlisted path is 404; POST is
+    /// rejected; the document policy refuses a remote host or ws:.
+    func testSameOriginFetchOfListedFilesIsAllowedAndUnsafeConnectSrcIsRejected() async throws {
+        let policy = "default-src 'none'; script-src 'self'; connect-src 'self'; object-src 'none'"
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(policy)))
+        for rejected in [
+            "default-src 'none'; script-src 'self'; connect-src https://evil.example; object-src 'none'",
+            "default-src 'none'; script-src 'self'; connect-src ws://evil.example; object-src 'none'",
+            "default-src 'none'; script-src 'self'; connect-src wss:; object-src 'none'",
+        ] {
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(rejected)), rejected)
+        }
+
+        let listedBody = Data("{\"ok\":true}".utf8)
+        let entry = try install([
+            "index.html": Data(HardeningGameFixture.document(policy).utf8),
+            "level.json": listedBody,
+        ], id: "digital.modula.qa-connect-self")
+        let url = try WebGameResourceProbe.entryURL(entry: entry)
+        let listed = try XCTUnwrap(URL(string: "level.json", relativeTo: url)?.absoluteURL)
+        let missing = try XCTUnwrap(URL(string: "missing.json", relativeTo: url)?.absoluteURL)
+
+        let get = RecordingGameSchemeTask(listed)
+        try WebGameResourceProbe.serve(entry: entry, task: get)
+        XCTAssertTrue(get.finished)
+        XCTAssertNil(get.failure)
+        let getResponse = try XCTUnwrap(get.response as? HTTPURLResponse)
+        XCTAssertEqual(getResponse.statusCode, 200)
+        XCTAssertEqual(get.body, listedBody)
+        XCTAssertNil(getResponse.value(forHTTPHeaderField: "Set-Cookie"))
+        XCTAssertNil(getResponse.value(forHTTPHeaderField: "Access-Control-Allow-Credentials"))
+
+        let notFound = RecordingGameSchemeTask(missing)
+        try WebGameResourceProbe.serve(entry: entry, task: notFound)
+        XCTAssertTrue(notFound.finished)
+        XCTAssertNil(notFound.failure)
+        XCTAssertEqual((notFound.response as? HTTPURLResponse)?.statusCode, 404)
+
+        let posted = RecordingGameSchemeTask(listed, method: "POST")
+        try WebGameResourceProbe.serve(entry: entry, task: posted)
+        XCTAssertTrue(posted.finished)
+        XCTAssertNil(posted.failure)
+        let postResponse = try XCTUnwrap(posted.response as? HTTPURLResponse)
+        XCTAssertEqual(postResponse.statusCode, 405)
+        XCTAssertEqual(postResponse.value(forHTTPHeaderField: "Allow"), "GET")
+        XCTAssertNil(postResponse.value(forHTTPHeaderField: "Set-Cookie"))
+
+        // The host header CSP must actually allow a same-origin fetch.
+        let (probe, _) = try await open(entry)
+        defer { probe.browser.removeFromSuperview(); probe.close() }
+        let fetched = try await probe.browser.evaluateJavaScript(
+            "fetch('level.json').then(r => r.text().then(t => String(r.status) + ':' + t))"
+        ) as? String
+        XCTAssertEqual(fetched, "200:{\"ok\":true}")
+        let unlisted = try await probe.browser.evaluateJavaScript(
+            "fetch('missing.json').then(r => String(r.status))"
+        ) as? String
+        XCTAssertEqual(unlisted, "404")
+        let postStatus = try await probe.browser.evaluateJavaScript(
+            "fetch('level.json', {method: 'POST'}).then(r => String(r.status))"
+        ) as? String
+        XCTAssertEqual(postStatus, "405")
+    }
+
     func testParsedPackagePolicyRejectsUnsafeAndRemoteSourcesAndAcceptsSamples() throws {
         // The bundled samples' declared policies still pass.
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(HardeningGameFixture.samplePolicy)))
@@ -1107,6 +1177,8 @@ final class WebGameHostHardeningTests: XCTestCase {
             html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'none'\">"))
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
             html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'none'\">"))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
+            html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'self'\">"))
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(
             "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'")))
         let directives = try WebGameDocumentPolicy.parse(HardeningGameFixture.samplePolicy)
@@ -1126,6 +1198,8 @@ final class WebGameHostHardeningTests: XCTestCase {
             "remote connect": "default-src 'none'; script-src 'self'; connect-src https://api.example; object-src 'none'",
             "wildcard connect": "default-src 'none'; script-src 'self'; connect-src *; object-src 'none'",
             "ws connect": "default-src 'none'; script-src 'self'; connect-src ws:; object-src 'none'",
+            "wss connect": "default-src 'none'; script-src 'self'; connect-src wss:; object-src 'none'",
+            "connect-src self plus remote": "default-src 'none'; script-src 'self'; connect-src 'self' https://api.example; object-src 'none'",
             "missing default-src": "script-src 'self'; connect-src 'none'; object-src 'none'",
             "permissive default-src": "default-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'",
             "missing script-src": "default-src 'none'; connect-src 'none'; object-src 'none'",

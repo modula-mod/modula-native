@@ -25,7 +25,8 @@ struct GubicGameSource: Identifiable {
 /// Plain Swift type (not NSObject) so it stays out of the generated ObjC header; WebKit sees `makeWebKitHandler()`.
 final class GubicSchemeHandler: @unchecked Sendable {
     static let scheme = "gubic"
-    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    // connect-src 'self' is this player's per-package gubic:// origin only.
+    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     /// Every non-HTML response (SVG, scripts, styles, media) carries a
     /// script-free, sandboxed policy too, so a self-scripting type such as SVG
     /// can never run code or reach the network even if rendered as a document.
@@ -63,8 +64,18 @@ final class GubicSchemeHandler: @unchecked Sendable {
     func makeWebKitHandler() -> any WKURLSchemeHandler { GubicWebKitSchemeHandler(owner: self) }
 
     func serve(_ task: WKURLSchemeTask) {
-        guard let url = task.request.url, allows(url), let bytes = files[String(url.path.dropFirst())] else {
+        guard let url = task.request.url else {
             task.didFailWithError(URLError(.fileDoesNotExist))
+            return
+        }
+        let method = (task.request.httpMethod ?? "GET").uppercased()
+        guard method == "GET" else {
+            finish(task, url: url, status: 405, mime: "text/plain", bytes: Data(), extra: ["Allow": "GET"])
+            return
+        }
+        // Only files listed in this package, on this per-play origin, are served.
+        guard allows(url), let bytes = files[String(url.path.dropFirst())] else {
+            finish(task, url: url, status: 404, mime: "text/plain", bytes: Data())
             return
         }
         let mime: String = switch url.pathExtension.lowercased() {
@@ -82,12 +93,25 @@ final class GubicSchemeHandler: @unchecked Sendable {
         case "woff2": "font/woff2"
         default: "application/octet-stream"
         }
-        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store",
-                       "Content-Security-Policy": mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy]
-        if mime == "text/html" {
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+        finish(task, url: url, status: 200, mime: mime, bytes: bytes)
+    }
+
+    /// Completes a scheme response. Never sets cookies or credential-allowing
+    /// CORS headers; 'self' is this player's per-package gubic:// origin only.
+    private func finish(_ task: WKURLSchemeTask, url: URL, status: Int, mime: String, bytes: Data,
+                        extra: [String: String] = [:]) {
+        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
+                       "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
+        if status == 200 {
+            headers["Content-Security-Policy"] = mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy
+            if mime == "text/html" {
+                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+            }
+        } else {
+            headers["Content-Security-Policy"] = Self.resourceContentSecurityPolicy
         }
-        guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
+        for (name, value) in extra { headers[name] = value }
+        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) else {
             task.didFailWithError(URLError(.badServerResponse))
             return
         }

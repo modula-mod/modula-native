@@ -350,13 +350,19 @@ enum WebGameDocumentPolicy {
                 throw Rejection.policy("remote or non-local source (\(name): \(source))")
             }
         }
+        guard directives["default-src"]?.map({ $0.lowercased() }) == ["'none'"] else {
+            throw Rejection.policy("must set default-src 'none'")
+        }
+        // connect-src may be 'self' (the per-package scheme origin only) or
+        // the tighter 'none'. No ws:/wss:, remote hosts, or other sources.
+        let connect = directives["connect-src"]?.map { $0.lowercased() }
+        guard connect == ["'none'"] || connect == ["'self'"] else {
+            throw Rejection.policy("must set connect-src 'none' or 'self'")
+        }
         // object-src is optional, matching the server (web-game-csp.ts). If
         // present it must still be exactly 'none'.
-        for name in ["default-src", "connect-src", "object-src"] {
-            if name == "object-src" && directives[name] == nil { continue }
-            guard directives[name]?.map({ $0.lowercased() }) == ["'none'"] else {
-                throw Rejection.policy("must set \(name) 'none'")
-            }
+        if let object = directives["object-src"], object.map({ $0.lowercased() }) != ["'none'"] {
+            throw Rejection.policy("must set object-src 'none'")
         }
         guard directives["script-src"]?.map({ $0.lowercased() }) == ["'self'"] else {
             throw Rejection.policy("must set script-src 'self'")

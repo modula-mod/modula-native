@@ -5,12 +5,18 @@ import XCTest
 private final class GubicRecordingSchemeTask: NSObject, WKURLSchemeTask {
     let request: URLRequest
     var response: URLResponse?
+    var body = Data()
     var finished = false
-    init(_ url: URL) { request = URLRequest(url: url) }
+    var failure: Error?
+    init(_ url: URL, method: String = "GET") {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        self.request = request
+    }
     func didReceive(_ response: URLResponse) { self.response = response }
-    func didReceive(_ data: Data) {}
+    func didReceive(_ data: Data) { body.append(data) }
     func didFinish() { finished = true }
-    func didFailWithError(_ error: Error) {}
+    func didFailWithError(_ error: Error) { failure = error }
 }
 
 final class GubicBridgeTests: XCTestCase {
@@ -88,7 +94,7 @@ final class GubicBridgeTests: XCTestCase {
             XCTAssertEqual(response.value(forHTTPHeaderField: "X-Content-Type-Options"), "nosniff", path)
             if path == "index.html" {
                 XCTAssertEqual(csp, GubicSchemeHandler.contentSecurityPolicy)
-                for directive in ["connect-src 'none'", "frame-src 'none'", "worker-src 'none'", "object-src 'none'", "script-src 'self';"] {
+                for directive in ["connect-src 'self'", "frame-src 'none'", "worker-src 'none'", "object-src 'none'", "script-src 'self';"] {
                     XCTAssertTrue(csp.contains(directive), directive)
                 }
                 XCTAssertFalse(csp.contains("unsafe-eval"))
@@ -98,6 +104,40 @@ final class GubicBridgeTests: XCTestCase {
                 XCTAssertTrue(csp.contains("sandbox"), path)
             }
         }
+    }
+
+    func testSameOriginGetOfListedFilesIsAllowedAndPostOrUnlistedIsRejected() throws {
+        let listed = Data("{\"ok\":true}".utf8)
+        let handler = GubicSchemeHandler(files: GubicSampleGame.files.merging(
+            ["level.json": listed]) { $1 })
+        defer { handler.close() }
+        let file = try XCTUnwrap(URL(string: "gubic://\(handler.origin)/level.json"))
+        let missing = try XCTUnwrap(URL(string: "gubic://\(handler.origin)/missing.json"))
+
+        let get = GubicRecordingSchemeTask(file)
+        handler.serve(get)
+        XCTAssertTrue(get.finished)
+        XCTAssertNil(get.failure)
+        let getResponse = try XCTUnwrap(get.response as? HTTPURLResponse)
+        XCTAssertEqual(getResponse.statusCode, 200)
+        XCTAssertEqual(get.body, listed)
+        XCTAssertNil(getResponse.value(forHTTPHeaderField: "Set-Cookie"))
+        XCTAssertNil(getResponse.value(forHTTPHeaderField: "Access-Control-Allow-Credentials"))
+
+        let notFound = GubicRecordingSchemeTask(missing)
+        handler.serve(notFound)
+        XCTAssertTrue(notFound.finished)
+        XCTAssertNil(notFound.failure)
+        XCTAssertEqual((notFound.response as? HTTPURLResponse)?.statusCode, 404)
+
+        let posted = GubicRecordingSchemeTask(file, method: "POST")
+        handler.serve(posted)
+        XCTAssertTrue(posted.finished)
+        XCTAssertNil(posted.failure)
+        let postResponse = try XCTUnwrap(posted.response as? HTTPURLResponse)
+        XCTAssertEqual(postResponse.statusCode, 405)
+        XCTAssertEqual(postResponse.value(forHTTPHeaderField: "Allow"), "GET")
+        XCTAssertNil(postResponse.value(forHTTPHeaderField: "Set-Cookie"))
     }
 
     func testSampleGameDeclaresAStrictCSPAndUsesTheBridge() throws {
