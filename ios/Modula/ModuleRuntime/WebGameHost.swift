@@ -2,6 +2,163 @@ import CryptoKit
 import SwiftUI
 import WebKit
 
+/// Shared serve contract for the native html5 hosts, mirroring GUBIC platform
+/// spec §4.2 (modula-latest PR #204). Origins stay native and stricter:
+/// `modula-game://<sha256(account/module/digest)>/` on WebGameHost and
+/// `gubic://<random per play>/` on the GUBIC player, not `modula-pkg://<packageId>/`.
+enum WebGamePackageServe {
+    /// Exact header CSP from docs/gubic/GUBIC-PLATFORM-SPEC.md §4.2.
+    /// Applied to every handler response (200, 206, 404 and 416).
+    static let headerContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; object-src 'none'; worker-src 'none'; child-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+    static let permissionsPolicy = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+
+    /// Percent-decoded once, then matched exactly to a manifest path.
+    /// An encoded `/` (`%2F`) is never a separator and yields nil (404).
+    /// Spaces and non-ASCII names decode and match the listed member.
+    static func memberPath(of url: URL, scheme: String, origin: String) -> String? {
+        guard url.scheme == scheme, url.host == origin else { return nil }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        if components.percentEncodedQuery != nil || components.percentEncodedFragment != nil { return nil }
+        let encoded = components.percentEncodedPath
+        if encoded.lowercased().contains("%2f") || encoded.contains("\\") { return nil }
+        guard encoded.hasPrefix("/") else { return nil }
+        let body = String(encoded.dropFirst())
+        if body.isEmpty { return nil }
+        var segments: [String] = []
+        for raw in body.split(separator: "/", omittingEmptySubsequences: false) {
+            if raw.isEmpty { return nil }
+            guard let decoded = raw.removingPercentEncoding, !decoded.contains("/") , !decoded.contains("\\") else { return nil }
+            if decoded == "." || decoded == ".." { return nil }
+            segments.append(decoded)
+        }
+        let path = segments.joined(separator: "/")
+        if path == "game.files.json" { return nil }
+        return path
+    }
+
+    static func mimeType(forMemberPath path: String) -> String {
+        switch URL(fileURLWithPath: path).pathExtension.lowercased() {
+        case "html": return "text/html; charset=utf-8"
+        case "js", "mjs": return "text/javascript; charset=utf-8"
+        case "css": return "text/css; charset=utf-8"
+        case "json": return "application/json"
+        case "xml": return "application/xml"
+        case "txt": return "text/plain; charset=utf-8"
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "svg": return "image/svg+xml"
+        case "mp3": return "audio/mpeg"
+        case "ogg": return "audio/ogg"
+        case "m4a": return "audio/mp4"
+        case "wav": return "audio/wav"
+        case "mp4": return "video/mp4"
+        case "webm": return "video/webm"
+        case "woff": return "font/woff"
+        case "woff2": return "font/woff2"
+        case "ttf": return "font/ttf"
+        case "otf": return "font/otf"
+        default: return "application/octet-stream"
+        }
+    }
+
+    static func isHTML(_ mime: String?) -> Bool {
+        guard let mime else { return false }
+        return mime.lowercased().split(separator: ";").first?.trimmingCharacters(in: .whitespaces) == "text/html"
+    }
+
+    enum BytesReply {
+        case complete
+        case partial(Range<Int>)
+        case unsatisfiable
+    }
+
+    /// A single `bytes=` range may be 206. Multi-range or malformed Range
+    /// headers are ignored and the full file is returned with 200 (§4.2).
+    /// An unsatisfiable single range is 416 with `Content-Range: bytes */N`.
+    static func byteRange(header: String?, size: Int) -> BytesReply {
+        guard let raw = header?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return .complete
+        }
+        guard raw.lowercased().hasPrefix("bytes=") else { return .complete }
+        let spec = String(raw.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+        if spec.isEmpty || spec.contains(",") { return .complete }
+        if spec.hasPrefix("-") {
+            guard let suffix = Int(spec.dropFirst()), suffix > 0 else { return .complete }
+            guard size > 0 else { return .unsatisfiable }
+            let length = min(suffix, size)
+            return .partial((size - length)..<size)
+        }
+        let parts = spec.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2, let start = Int(parts[0]), start >= 0 else { return .complete }
+        if parts[1].isEmpty {
+            guard start < size else { return .unsatisfiable }
+            return .partial(start..<size)
+        }
+        guard let end = Int(parts[1]), end >= start else { return .complete }
+        guard start < size else { return .unsatisfiable }
+        return .partial(start..<(min(end, size - 1) + 1))
+    }
+
+    /// Cookie and Authorization are ignored and never influence the response.
+    /// GET only: every other method, and every path that is not a listed
+    /// inventory member, is 404 with no Allow header.
+    static func serve(_ task: WKURLSchemeTask, scheme: String, origin: String, files: [String: Data], isOpen: Bool) {
+        guard let url = task.request.url else {
+            task.didFailWithError(URLError(.badURL))
+            return
+        }
+        let method = (task.request.httpMethod ?? "GET").uppercased()
+        guard isOpen, method == "GET" else {
+            finish(task, url: url, status: 404, mime: "text/plain; charset=utf-8", bytes: Data())
+            return
+        }
+        guard let path = memberPath(of: url, scheme: scheme, origin: origin), let bytes = files[path] else {
+            finish(task, url: url, status: 404, mime: "text/plain; charset=utf-8", bytes: Data())
+            return
+        }
+        let mime = mimeType(forMemberPath: path)
+        switch byteRange(header: task.request.value(forHTTPHeaderField: "Range"), size: bytes.count) {
+        case .complete:
+            finish(task, url: url, status: 200, mime: mime, bytes: bytes)
+        case .partial(let range):
+            let slice = bytes.subdata(in: range)
+            finish(task, url: url, status: 206, mime: mime, bytes: slice, extra: [
+                "Content-Range": "bytes \(range.lowerBound)-\(range.upperBound - 1)/\(bytes.count)",
+            ])
+        case .unsatisfiable:
+            finish(task, url: url, status: 416, mime: mime, bytes: Data(), extra: [
+                "Content-Range": "bytes */\(bytes.count)",
+            ])
+        }
+    }
+
+    static func finish(_ task: WKURLSchemeTask, url: URL, status: Int, mime: String, bytes: Data,
+                       extra: [String: String] = [:]) {
+        var headers = [
+            "Content-Type": mime,
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+            "Cross-Origin-Resource-Policy": "same-origin",
+            "Permissions-Policy": permissionsPolicy,
+            "Content-Security-Policy": headerContentSecurityPolicy,
+        ]
+        for (name, value) in extra { headers[name] = value }
+        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1",
+                                             headerFields: headers) else {
+            task.didFailWithError(URLError(.badServerResponse))
+            return
+        }
+        task.didReceive(response)
+        task.didReceive(bytes)
+        task.didFinish()
+    }
+}
+
+
 /// One host for every verified HTML5 game. Nothing in this view depends on a
 /// particular JavaScript engine or game identity.
 struct WebGameHost: View {
@@ -302,7 +459,7 @@ private struct WebGameSurface: UIViewRepresentable {
         /// WebKit cannot show inline (a download) or any other type is cancelled.
         func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
             guard let handler, navigationResponse.isForMainFrame, navigationResponse.canShowMIMEType,
-                  navigationResponse.response.mimeType?.lowercased() == "text/html",
+                  WebGamePackageServe.isHTML(navigationResponse.response.mimeType),
                   let url = navigationResponse.response.url,
                   url.absoluteString == handler.entryURL.absoluteString else { return .cancel }
             return .allow
@@ -353,13 +510,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     // rule list) is the security boundary: it is never derived from, or
     // relaxed by, the document. A document meta CSP can only add restrictions,
     // because browsers enforce every policy present.
-    // connect-src 'self' is the per-package modula-game:// origin only:
-    // the handler serves listed files, GET only, with no cookies.
-    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
-    // Every non-HTML response (SVG, scripts, styles, media) also carries a
-    // policy, so a document type that can script itself can never run code
-    // or reach the network even if WebKit renders it as a document.
-    static let resourceContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; sandbox"
+    // Exact §4.2 header CSP, including connect-src 'self' and font-src 'self'.
+    // 'self' is this handler's per-package modula-game:// origin only.
+    static let contentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
+    static let resourceContentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
     let digest: String
     let origin: String
     let entryURL: URL
@@ -408,11 +562,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         sessionLock.lock()
         let active = !closed
         sessionLock.unlock()
-        guard active, url.scheme == Self.scheme, url.host == origin else { return false }
-        let path = String(url.path.dropFirst())
-        return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath == "/" + path
-            && files[path] != nil
-            && url.query == nil && url.fragment == nil
+        guard active, let path = WebGamePackageServe.memberPath(of: url, scheme: Self.scheme, origin: origin) else {
+            return false
+        }
+        return files[path] != nil
     }
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
@@ -420,66 +573,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     fileprivate func serve(_ task: WKURLSchemeTask) {
-        guard let url = task.request.url else {
-            task.didFailWithError(WebGamePackageError.invalid("unlisted resource"))
-            return
-        }
-        let method = (task.request.httpMethod ?? "GET").uppercased()
-        guard method == "GET" else {
-            finish(task, url: url, status: 405, mime: "text/plain", bytes: Data(), extra: ["Allow": "GET"])
-            return
-        }
-        // Only manifest-listed package files on this origin are served.
-        guard contains(url), let bytes = files[String(url.path.dropFirst())] else {
-            finish(task, url: url, status: 404, mime: "text/plain", bytes: Data())
-            return
-        }
-        let mime: String
-        switch url.pathExtension.lowercased() {
-        case "html": mime = "text/html"
-        case "js", "mjs": mime = "text/javascript"
-        case "css": mime = "text/css"
-        case "json": mime = "application/json"
-        case "png": mime = "image/png"
-        case "jpg", "jpeg": mime = "image/jpeg"
-        case "webp": mime = "image/webp"
-        case "svg": mime = "image/svg+xml"
-        case "gif": mime = "image/gif"
-        case "mp3": mime = "audio/mpeg"
-        case "ogg": mime = "audio/ogg"
-        case "wav": mime = "audio/wav"
-        case "m4a": mime = "audio/mp4"
-        case "mp4": mime = "video/mp4"
-        case "woff": mime = "font/woff"
-        case "woff2": mime = "font/woff2"
-        case "xml": mime = "application/xml"
-        default: mime = "application/octet-stream"
-        }
-        finish(task, url: url, status: 200, mime: mime, bytes: bytes)
-    }
-
-    /// Completes a scheme response. Never sets cookies or credential-allowing
-    /// CORS headers; 'self' is this handler's per-package origin only.
-    private func finish(_ task: WKURLSchemeTask, url: URL, status: Int, mime: String, bytes: Data,
-                        extra: [String: String] = [:]) {
-        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
-                       "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
-        if status == 200 {
-            headers["Content-Security-Policy"] = mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy
-            if mime == "text/html" {
-                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
-            }
-        } else {
-            headers["Content-Security-Policy"] = Self.resourceContentSecurityPolicy
-        }
-        for (name, value) in extra { headers[name] = value }
-        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) else {
-            task.didFailWithError(WebGamePackageError.invalid("resource response"))
-            return
-        }
-        task.didReceive(response)
-        task.didReceive(bytes)
-        task.didFinish()
+        sessionLock.lock()
+        let open = !closed
+        sessionLock.unlock()
+        WebGamePackageServe.serve(task, scheme: Self.scheme, origin: origin, files: files, isOpen: open)
     }
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}

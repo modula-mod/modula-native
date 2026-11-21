@@ -8,9 +8,10 @@ private final class GubicRecordingSchemeTask: NSObject, WKURLSchemeTask {
     var body = Data()
     var finished = false
     var failure: Error?
-    init(_ url: URL, method: String = "GET") {
+    init(_ url: URL, method: String = "GET", headers: [String: String] = [:]) {
         var request = URLRequest(url: url)
         request.httpMethod = method
+        for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
         self.request = request
     }
     func didReceive(_ response: URLResponse) { self.response = response }
@@ -92,16 +93,15 @@ final class GubicBridgeTests: XCTestCase {
             let response = try XCTUnwrap(task.response as? HTTPURLResponse, path)
             let csp = try XCTUnwrap(response.value(forHTTPHeaderField: "Content-Security-Policy"), "\(path) has no CSP")
             XCTAssertEqual(response.value(forHTTPHeaderField: "X-Content-Type-Options"), "nosniff", path)
+            XCTAssertEqual(csp, WebGamePackageServe.headerContentSecurityPolicy, path)
+            XCTAssertEqual(response.value(forHTTPHeaderField: "Cross-Origin-Resource-Policy"), "same-origin", path)
+            XCTAssertNil(response.value(forHTTPHeaderField: "Set-Cookie"), path)
             if path == "index.html" {
-                XCTAssertEqual(csp, GubicSchemeHandler.contentSecurityPolicy)
-                for directive in ["connect-src 'self'", "frame-src 'none'", "worker-src 'none'", "object-src 'none'", "script-src 'self';"] {
-                    XCTAssertTrue(csp.contains(directive), directive)
-                }
-                XCTAssertFalse(csp.contains("unsafe-eval"))
-            } else {
-                XCTAssertEqual(csp, GubicSchemeHandler.resourceContentSecurityPolicy, path)
-                XCTAssertFalse(csp.contains("script-src"), path)
-                XCTAssertTrue(csp.contains("sandbox"), path)
+                XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Type"), "text/html; charset=utf-8", path)
+            } else if path == "game.js" {
+                XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Type"), "text/javascript; charset=utf-8", path)
+            } else if path == "style.css" {
+                XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Type"), "text/css; charset=utf-8", path)
             }
         }
     }
@@ -135,9 +135,94 @@ final class GubicBridgeTests: XCTestCase {
         XCTAssertTrue(posted.finished)
         XCTAssertNil(posted.failure)
         let postResponse = try XCTUnwrap(posted.response as? HTTPURLResponse)
-        XCTAssertEqual(postResponse.statusCode, 405)
-        XCTAssertEqual(postResponse.value(forHTTPHeaderField: "Allow"), "GET")
+        XCTAssertEqual(postResponse.statusCode, 404)
+        XCTAssertNil(postResponse.value(forHTTPHeaderField: "Allow"))
         XCTAssertNil(postResponse.value(forHTTPHeaderField: "Set-Cookie"))
+
+        for method in ["HEAD", "OPTIONS"] {
+            let task = GubicRecordingSchemeTask(file, method: method)
+            handler.serve(task)
+            XCTAssertTrue(task.finished, method)
+            XCTAssertEqual((task.response as? HTTPURLResponse)?.statusCode, 404, method)
+            XCTAssertNil((task.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Allow"), method)
+        }
+
+        var queried = URLComponents(url: file, resolvingAgainstBaseURL: false)
+        queried?.query = "cache=1"
+        let query = GubicRecordingSchemeTask(try XCTUnwrap(queried?.url))
+        handler.serve(query)
+        XCTAssertEqual((query.response as? HTTPURLResponse)?.statusCode, 404)
+
+        var root = URLComponents()
+        root.scheme = "gubic"
+        root.host = handler.origin
+        root.path = "/"
+        let bare = GubicRecordingSchemeTask(try XCTUnwrap(root.url))
+        handler.serve(bare)
+        XCTAssertEqual((bare.response as? HTTPURLResponse)?.statusCode, 404)
+
+        let inventory = GubicRecordingSchemeTask(try XCTUnwrap(URL(string: "gubic://\(handler.origin)/game.files.json")))
+        handler.serve(inventory)
+        XCTAssertEqual((inventory.response as? HTTPURLResponse)?.statusCode, 404)
+
+        let cookie = GubicRecordingSchemeTask(file, headers: ["Cookie": "session=secret"])
+        handler.serve(cookie)
+        XCTAssertEqual((cookie.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertNil((cookie.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Set-Cookie"))
+        XCTAssertEqual(cookie.body, listed)
+
+        let payload = Data("abcdefgh".utf8)
+        let rangedHandler = GubicSchemeHandler(files: ["index.html": Data("<p></p>".utf8), "clip.bin": payload])
+        defer { rangedHandler.close() }
+        let clip = try XCTUnwrap(URL(string: "gubic://\(rangedHandler.origin)/clip.bin"))
+        let partial = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=0-3"])
+        rangedHandler.serve(partial)
+        let partialResponse = try XCTUnwrap(partial.response as? HTTPURLResponse)
+        XCTAssertEqual(partialResponse.statusCode, 206)
+        XCTAssertEqual(partialResponse.value(forHTTPHeaderField: "Content-Range"), "bytes 0-3/8")
+        XCTAssertEqual(partial.body, Data("abcd".utf8))
+        let multi = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=0-1,2-3"])
+        rangedHandler.serve(multi)
+        XCTAssertEqual((multi.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(multi.body, payload)
+        let unsat = GubicRecordingSchemeTask(clip, headers: ["Range": "bytes=100-101"])
+        rangedHandler.serve(unsat)
+        XCTAssertEqual((unsat.response as? HTTPURLResponse)?.statusCode, 416)
+        XCTAssertEqual((unsat.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Range"), "bytes */8")
+
+        let named = Data("ok".utf8)
+        let nested = Data("nested".utf8)
+        let names = GubicSchemeHandler(files: [
+            "index.html": Data("<p></p>".utf8),
+            "a b.png": named,
+            "café.png": named,
+            "dir/file.png": nested,
+        ])
+        defer { names.close() }
+        func namedURL(_ path: String) throws -> URL {
+            var components = URLComponents()
+            components.scheme = "gubic"
+            components.host = names.origin
+            components.path = path.hasPrefix("/") ? path : "/" + path
+            return try XCTUnwrap(components.url)
+        }
+        let space = GubicRecordingSchemeTask(try namedURL("a b.png"))
+        names.serve(space)
+        XCTAssertEqual((space.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(space.body, named)
+        let accent = GubicRecordingSchemeTask(try namedURL("café.png"))
+        names.serve(accent)
+        XCTAssertEqual((accent.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(accent.body, named)
+        let encodedSlash = try XCTUnwrap(URL(string: "gubic://\(names.origin)/dir%2Ffile.png"))
+        XCTAssertFalse(names.allows(encodedSlash))
+        let slash = GubicRecordingSchemeTask(encodedSlash)
+        names.serve(slash)
+        XCTAssertEqual((slash.response as? HTTPURLResponse)?.statusCode, 404)
+        let nestedOK = GubicRecordingSchemeTask(try namedURL("dir/file.png"))
+        names.serve(nestedOK)
+        XCTAssertEqual((nestedOK.response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(nestedOK.body, nested)
     }
 
     func testSampleGameDeclaresAStrictCSPAndUsesTheBridge() throws {

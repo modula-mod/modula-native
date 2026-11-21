@@ -20,17 +20,16 @@ struct GubicGameSource: Identifiable {
     }
 }
 
-/// Serves one game's files from memory under `gubic://<session-origin>/`. Unlisted paths,
-/// queries and fragments fail, so the page cannot reach anything but its own package.
+/// Serves one game's files from memory under `gubic://<random per play>/`.
+/// That origin is stricter than the `modula-pkg://<packageId>/` name in §4.2;
+/// the handler contract otherwise mirrors the spec. Unlisted paths, queries
+/// and fragments fail, so the page cannot reach anything but its own package.
 /// Plain Swift type (not NSObject) so it stays out of the generated ObjC header; WebKit sees `makeWebKitHandler()`.
 final class GubicSchemeHandler: @unchecked Sendable {
     static let scheme = "gubic"
-    // connect-src 'self' is this player's per-package gubic:// origin only.
-    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-    /// Every non-HTML response (SVG, scripts, styles, media) carries a
-    /// script-free, sandboxed policy too, so a self-scripting type such as SVG
-    /// can never run code or reach the network even if rendered as a document.
-    static let resourceContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; sandbox"
+    // Exact §4.2 header CSP. 'self' is this play's gubic:// origin only.
+    static let contentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
+    static let resourceContentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
 
     let origin: String
     private let files: [String: Data]
@@ -47,8 +46,10 @@ final class GubicSchemeHandler: @unchecked Sendable {
 
     func allows(_ url: URL) -> Bool {
         lock.lock(); defer { lock.unlock() }
-        guard !closed, url.scheme == Self.scheme, url.host == origin, url.query == nil, url.fragment == nil else { return false }
-        return files[String(url.path.dropFirst())] != nil
+        guard !closed, let path = WebGamePackageServe.memberPath(of: url, scheme: Self.scheme, origin: origin) else {
+            return false
+        }
+        return files[path] != nil
     }
 
     func close() { lock.lock(); closed = true; lock.unlock() }
@@ -64,61 +65,12 @@ final class GubicSchemeHandler: @unchecked Sendable {
     func makeWebKitHandler() -> any WKURLSchemeHandler { GubicWebKitSchemeHandler(owner: self) }
 
     func serve(_ task: WKURLSchemeTask) {
-        guard let url = task.request.url else {
-            task.didFailWithError(URLError(.fileDoesNotExist))
-            return
-        }
-        let method = (task.request.httpMethod ?? "GET").uppercased()
-        guard method == "GET" else {
-            finish(task, url: url, status: 405, mime: "text/plain", bytes: Data(), extra: ["Allow": "GET"])
-            return
-        }
-        // Only files listed in this package, on this per-play origin, are served.
-        guard allows(url), let bytes = files[String(url.path.dropFirst())] else {
-            finish(task, url: url, status: 404, mime: "text/plain", bytes: Data())
-            return
-        }
-        let mime: String = switch url.pathExtension.lowercased() {
-        case "html": "text/html"
-        case "js", "mjs": "text/javascript"
-        case "css": "text/css"
-        case "json": "application/json"
-        case "png": "image/png"
-        case "jpg", "jpeg": "image/jpeg"
-        case "webp": "image/webp"
-        case "svg": "image/svg+xml"
-        case "mp3": "audio/mpeg"
-        case "ogg": "audio/ogg"
-        case "wav": "audio/wav"
-        case "woff2": "font/woff2"
-        default: "application/octet-stream"
-        }
-        finish(task, url: url, status: 200, mime: mime, bytes: bytes)
+        lock.lock()
+        let open = !closed
+        lock.unlock()
+        WebGamePackageServe.serve(task, scheme: Self.scheme, origin: origin, files: files, isOpen: open)
     }
 
-    /// Completes a scheme response. Never sets cookies or credential-allowing
-    /// CORS headers; 'self' is this player's per-package gubic:// origin only.
-    private func finish(_ task: WKURLSchemeTask, url: URL, status: Int, mime: String, bytes: Data,
-                        extra: [String: String] = [:]) {
-        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
-                       "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
-        if status == 200 {
-            headers["Content-Security-Policy"] = mime == "text/html" ? Self.contentSecurityPolicy : Self.resourceContentSecurityPolicy
-            if mime == "text/html" {
-                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
-            }
-        } else {
-            headers["Content-Security-Policy"] = Self.resourceContentSecurityPolicy
-        }
-        for (name, value) in extra { headers[name] = value }
-        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) else {
-            task.didFailWithError(URLError(.badServerResponse))
-            return
-        }
-        task.didReceive(response)
-        task.didReceive(bytes)
-        task.didFinish()
-    }
 
 }
 
