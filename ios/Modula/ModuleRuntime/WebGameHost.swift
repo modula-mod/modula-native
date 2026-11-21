@@ -71,7 +71,19 @@ struct WebGameHost: View {
                 } description: {
                     Text("The web rendering process stopped. Reopen the verified game package to continue.")
                 } actions: {
-                    Button("Reopen") { processFailed = false; webView?.reload() }
+                    Button("Reopen") {
+                        // reload() targets the current URL, which the entry-only
+                        // navigation policy cancels once the game has changed its
+                        // path. Load the entry URL through the same fail-closed
+                        // path used on first open.
+                        guard let webView,
+                              let entryURL = (webView.navigationDelegate as? WebGameSurface.Coordinator)?.handler?.entryURL else { return }
+                        processFailed = false
+                        documentReady = false
+                        WebGameSurface.loadGame(entryURL, in: webView) { success in
+                            if !success { processFailed = true }
+                        }
+                    }
                     Button("Exit") { close() }
                 }
                 .foregroundStyle(.white)
@@ -421,9 +433,15 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         case "jpg", "jpeg": mime = "image/jpeg"
         case "webp": mime = "image/webp"
         case "svg": mime = "image/svg+xml"
+        case "gif": mime = "image/gif"
         case "mp3": mime = "audio/mpeg"
         case "ogg": mime = "audio/ogg"
         case "wav": mime = "audio/wav"
+        case "m4a": mime = "audio/mp4"
+        case "mp4": mime = "video/mp4"
+        case "woff": mime = "font/woff"
+        case "woff2": mime = "font/woff2"
+        case "xml": mime = "application/xml"
         default: mime = "application/octet-stream"
         }
         var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",

@@ -858,6 +858,40 @@ final class WebGameHostHardeningTests: XCTestCase {
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: "<!-- build 1 --><!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>"))
     }
 
+    /// Mosaic M1: hygiene must not refuse a game the server publishes.
+    /// Named entities in non-CSP meta attributes are ignored; http-equiv and
+    /// the chosen CSP content are decoded exactly once; object-src is optional.
+    func testDocumentHygieneDecodesOnlyCSPMetaAttributesAndAllowsOptionalObjectSrc() throws {
+        let policy = "default-src 'none'; script-src 'self'; connect-src 'none'"
+        let withObject = policy + "; object-src 'none'"
+
+        // A description (or any non-CSP attribute) with named entities beyond
+        // the five XML names must still install. The server accepts these.
+        let described = "<!doctype html><html><head><meta name=\"description\" content=\"Caf&eacute; &nbsp;&copy; 2026\"><meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\"><title>t</title></head><body></body></html>"
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: described))
+        let describedArchive = try HardeningGameFixture.archive(["index.html": Data(described.utf8)])
+        XCTAssertNoThrow(try WebGamePackage(archive: describedArchive, expectedSha256: WebGamePackage.digest(describedArchive)))
+
+        // http-equiv and CSP content are decoded exactly once.
+        let encoded = try WebGameDocumentPolicy.validate(html: "<!doctype html><html><head><meta http-equiv=\"Content&#45;Security&#45;Policy\" content=\"default-src &#39;none&#39;; script-src &#39;self&#39;; connect-src &#39;none&#39;\"></head></html>")
+        XCTAssertEqual(encoded["default-src"], ["'none'"])
+        XCTAssertEqual(encoded["script-src"], ["'self'"])
+        XCTAssertEqual(encoded["connect-src"], ["'none'"])
+        XCTAssertNil(encoded["object-src"])
+
+        // A second decode would turn &amp;#39; into a quote and accept this.
+        // After one decode the source is still &#39;none&#39;, which is refused.
+        XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src &amp;#39;none&amp;#39;; script-src 'self'; connect-src 'none'\"></head></html>"))
+
+        // object-src may be omitted (server web-game-csp.ts); if present it must be 'none'.
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(policy)))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(withObject)))
+        let optionalArchive = try HardeningGameFixture.archive(["index.html": Data(HardeningGameFixture.document(policy).utf8)])
+        XCTAssertNoThrow(try WebGamePackage(archive: optionalArchive, expectedSha256: WebGamePackage.digest(optionalArchive)))
+        XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(
+            "default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'self'")))
+    }
+
     func testTopNavigationToAnotherListedFileOrRemoteURLIsCancelled() async throws {
         let entry = try install([
             "index.html": Data(HardeningGameFixture.document().utf8),
@@ -947,8 +981,32 @@ final class WebGameHostHardeningTests: XCTestCase {
             "style.css": Data("body { margin: 0 }".utf8),
             "level.json": Data("{}".utf8),
             "pixel.png": Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+            "sprite.gif": Data([0x47, 0x49, 0x46, 0x38]),
             "sound.wav": Data("RIFF".utf8),
+            "clip.mp4": Data("ftyp".utf8),
+            "tone.m4a": Data("ftyp".utf8),
+            "ui.woff": Data("wOFF".utf8),
+            "ui.woff2": Data("wOF2".utf8),
+            "map.xml": Data("<root/>".utf8),
             "blob.bin": Data([0x01, 0x02, 0x03]),
+        ]
+        let expectedType = [
+            "index.html": "text/html",
+            "levels/menu.html": "text/html",
+            "art.svg": "image/svg+xml",
+            "main.js": "text/javascript",
+            "engine.mjs": "text/javascript",
+            "style.css": "text/css",
+            "level.json": "application/json",
+            "pixel.png": "image/png",
+            "sprite.gif": "image/gif",
+            "sound.wav": "audio/wav",
+            "clip.mp4": "video/mp4",
+            "tone.m4a": "audio/mp4",
+            "ui.woff": "font/woff",
+            "ui.woff2": "font/woff2",
+            "map.xml": "application/xml",
+            "blob.bin": "application/octet-stream",
         ]
         let entry = try install(files, id: "digital.modula.qa-headers")
         let url = try WebGameResourceProbe.entryURL(entry: entry)
@@ -960,6 +1018,7 @@ final class WebGameHostHardeningTests: XCTestCase {
             let response = try XCTUnwrap(task.response as? HTTPURLResponse, path)
             let csp = try XCTUnwrap(response.value(forHTTPHeaderField: "Content-Security-Policy"), "\(path) has no CSP")
             XCTAssertEqual(response.value(forHTTPHeaderField: "X-Content-Type-Options"), "nosniff", path)
+            XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Type"), expectedType[path], path)
             XCTAssertTrue(csp.hasPrefix("default-src 'none'"), "\(path): \(csp)")
             if path.hasSuffix(".html") {
                 XCTAssertTrue(csp.contains("script-src 'self'") && csp.contains("connect-src 'none'"), "\(path): \(csp)")
@@ -1046,6 +1105,8 @@ final class WebGameHostHardeningTests: XCTestCase {
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document()))
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
             html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'none'\">"))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
+            html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'none'\">"))
         XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(
             "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'")))
         let directives = try WebGameDocumentPolicy.parse(HardeningGameFixture.samplePolicy)
@@ -1069,6 +1130,7 @@ final class WebGameHostHardeningTests: XCTestCase {
             "permissive default-src": "default-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'",
             "missing script-src": "default-src 'none'; connect-src 'none'; object-src 'none'",
             "missing connect-src": "default-src 'none'; script-src 'self'; object-src 'none'",
+            "object-src not none": "default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'self'",
             "duplicate directive": "\(strict); connect-src *",
             "second policy": "\(strict), script-src *",
             "remote image": "\(strict); img-src https://cdn.example",

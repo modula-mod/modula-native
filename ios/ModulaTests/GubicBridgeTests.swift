@@ -104,6 +104,7 @@ final class GubicBridgeTests: XCTestCase {
         let html = try XCTUnwrap(String(data: XCTUnwrap(GubicSampleGame.files["index.html"]), encoding: .utf8))
         XCTAssertTrue(html.contains("connect-src 'none'"))
         XCTAssertTrue(html.contains("script-src 'self'"))
+        XCTAssertTrue(html.contains("worker-src 'none'"))
         let js = try XCTUnwrap(String(data: XCTUnwrap(GubicSampleGame.files["game.js"]), encoding: .utf8))
         XCTAssertTrue(js.contains("bridge.unlockAchievement"))
         XCTAssertEqual(Set(GubicSampleGame.achievements.map(\.key)), ["first-star", "ten-stars", "orbit-master"])

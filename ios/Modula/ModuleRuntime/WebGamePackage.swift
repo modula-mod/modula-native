@@ -279,7 +279,11 @@ enum WebGameDocumentPolicy {
         let text = markup as NSString
         var metas: [NSRange] = []
         for range in matches("<meta\\b" + tagPattern, in: markup) {
-            guard let equiv = try attributes(of: text.substring(with: range))["http-equiv"]?.lowercased() else { continue }
+            // Decode only http-equiv, once. Other attributes (a description
+            // containing &nbsp; / &eacute;, and so on) are ignored: this
+            // check is hygiene, and the server accepts those entities.
+            guard let rawEquiv = attributes(of: text.substring(with: range))["http-equiv"] else { continue }
+            let equiv = try decodeEntities(rawEquiv).lowercased()
             if equiv == "content-security-policy" {
                 metas.append(range)
             } else if equiv.trimmingCharacters(in: .whitespacesAndNewlines) == "content-security-policy" {
@@ -295,8 +299,12 @@ enum WebGameDocumentPolicy {
         guard replace(allowedBefore, in: prefix, with: "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw Rejection.policy("CSP must be declared in <head> before any other content")
         }
-        guard let content = try attributes(of: text.substring(with: meta))["content"],
-              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        // Decode the chosen CSP content exactly once, never other meta attributes.
+        guard let rawContent = attributes(of: text.substring(with: meta))["content"] else {
+            throw Rejection.policy("empty CSP")
+        }
+        let content = try decodeEntities(rawContent)
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw Rejection.policy("empty CSP")
         }
         let directives = try parse(content)
@@ -342,7 +350,10 @@ enum WebGameDocumentPolicy {
                 throw Rejection.policy("remote or non-local source (\(name): \(source))")
             }
         }
+        // object-src is optional, matching the server (web-game-csp.ts). If
+        // present it must still be exactly 'none'.
         for name in ["default-src", "connect-src", "object-src"] {
+            if name == "object-src" && directives[name] == nil { continue }
             guard directives[name]?.map({ $0.lowercased() }) == ["'none'"] else {
                 throw Rejection.policy("must set \(name) 'none'")
             }
@@ -353,7 +364,9 @@ enum WebGameDocumentPolicy {
     }
 
     /// Attributes of one start tag; duplicates keep the first value, as in HTML.
-    static func attributes(of tag: String) throws -> [String: String] {
+    /// Values are raw. Callers decode only the attributes they interpret
+    /// (http-equiv and the chosen CSP content), exactly once.
+    static func attributes(of tag: String) -> [String: String] {
         let body = replace(#"/?>$"#, in: replace(#"^<[A-Za-z0-9-]+"#, in: tag, with: ""), with: "")
         let text = body as NSString
         var result = [String: String]()
@@ -367,7 +380,7 @@ enum WebGameDocumentPolicy {
                 value = text.substring(with: match.range(at: group))
                 break
             }
-            result[name] = try decodeEntities(value)
+            result[name] = value
         }
         return result
     }
