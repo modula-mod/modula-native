@@ -151,6 +151,10 @@ final class AuthenticationStore {
                 self.error = applyRateLimit(details)
                 return false
             }
+            if case .rejected(_, "VALIDATION_FAILED") = api {
+                self.error = Self.validationMessage(details: details)
+                return false
+            }
             if let pending = pendingSignup, pending.email == PendingSignup.normalizedEmail(email),
                case .rejected(_, let code) = api,
                code == "INVALID_CREDENTIALS" || code == "EMAIL_NOT_VERIFIED" || code == "VERIFICATION_REQUIRED" {
@@ -445,18 +449,36 @@ final class AuthenticationStore {
 
     /// Greenfield has two 429s: the per-route limit (retryable, `retryAfter` "<n> seconds")
     /// and the verification-send limit (5 per 10 min, not retryable, no details).
+    /// Prefer the seconds already resolved by `GreenfieldFailureDetails` (Retry-After
+    /// header, then `details.retryAfterSeconds`, then the legacy `retryAfter` string).
+    /// When no duration is given, fall back to the verification-send 10-minute window.
     static func rateLimitWait(_ details: GreenfieldFailureDetails?) -> TimeInterval {
-        if details?.retryable == true, let seconds = details?.retryAfterSeconds {
+        if let seconds = details?.retryAfterSeconds {
             return TimeInterval(max(1, seconds))
         }
         return PendingSignupStore.rateLimitedCooldown
     }
 
     static func rateLimitMessage(_ details: GreenfieldFailureDetails?) -> String {
-        if details?.retryable == true, let seconds = details?.retryAfterSeconds {
+        if let seconds = details?.retryAfterSeconds {
             return "Too many attempts. Try again in \(max(1, seconds)) seconds."
         }
         return "Too many codes requested. Try again in about 10 minutes."
+    }
+
+    /// Plain-language 400 `VALIDATION_FAILED` copy. Prefers a short server message
+    /// such as "Email required" (#203 / #198). Never invents other sign-in methods.
+    static func validationMessage(details: GreenfieldFailureDetails?, fallback: String? = nil) -> String {
+        if let text = details?.message?.trimmingCharacters(in: .whitespacesAndNewlines),
+           isPlainValidationMessage(text) {
+            return text
+        }
+        return fallback ?? "Check the details you entered and try again."
+    }
+
+    static func isPlainValidationMessage(_ text: String) -> Bool {
+        (2...80).contains(text.count) && !text.contains("{") && !text.contains("
+")
     }
 
     /// Resend copy that never claims the account exists (unknown emails get a decoy reply).
@@ -513,7 +535,7 @@ final class AuthenticationStore {
     static let checkEmailMessage = "Check your email. If you already have an account, you’ll get a message about signing in or resetting your password instead."
 
     /// Plain-language copy for Greenfield's sign-up errors.
-    static func signupMessage(_ api: APIError) -> String {
+    static func signupMessage(_ api: APIError, details: GreenfieldFailureDetails? = nil) -> String {
         if isHandleTaken(api.code ?? "") {
             return "That username is taken. Pick another one."
         }
@@ -522,7 +544,10 @@ final class AuthenticationStore {
         }
         switch api {
         case .rejected(_, "VALIDATION_FAILED"):
-            return "Check your details: a valid email, a display name of 2 to 80 characters and a password of at least 10 characters."
+            return validationMessage(
+                details: details,
+                fallback: "Check your details: a valid email, a display name of 2 to 80 characters and a password of at least 10 characters."
+            )
         case .rejected(_, "FORBIDDEN"):
             return "New accounts aren’t open right now."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"), .rejected(429, _):
@@ -560,8 +585,9 @@ final class AuthenticationStore {
         }
     }
 
-    /// The server ended the session (revoked, or refresh rejected). Tokens are already
-    /// cleared by the client; drop the account so the app returns to Sign In.
+    /// The server ended the session (revoked, or refresh returned 401 UNAUTHENTICATED).
+    /// Tokens are already cleared by the client; drop the account so the app returns to
+    /// Sign In with a neutral notice. The pending sign-up record is kept.
     func sessionInvalidated() {
         guard account != nil else { return }
         account = nil
@@ -569,14 +595,24 @@ final class AuthenticationStore {
     }
 
     func requestPasswordReset(email: String) async -> Bool {
+        let normalized = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !busy else { return false }
+        guard !normalized.isEmpty else {
+            error = "Email required"
+            return false
+        }
         busy = true; error = nil
         defer { busy = false }
         do {
-            _ = try await client.requestPasswordReset(email: email)
+            _ = try await client.requestPasswordReset(email: normalized)
             return true
         } catch let api as APIError {
-            self.error = api.userFacingMessage
+            let details = await client.lastFailureDetails(path: "/v1/accounts/forgot-password")
+            if case .rejected(_, "VALIDATION_FAILED") = api {
+                self.error = Self.validationMessage(details: details, fallback: "Email required")
+            } else {
+                self.error = api.userFacingMessage
+            }
             return false
         } catch {
             self.error = "Unable to request a password reset right now."

@@ -35,31 +35,52 @@ struct ResendVerificationResult: Sendable, Equatable {
 /// Structured details from a Greenfield failure envelope (`error.retryable`, `error.details`).
 /// All optional: servers before modula-latest #190 send none of them.
 struct GreenfieldFailureDetails: Sendable, Equatable {
-    var retryable: Bool?
-    /// `details.retryAfter` ("<n> seconds", or a number) from the per-route 429.
-    var retryAfterSeconds: Int?
+    var retryable: Bool? = nil
+    /// Seconds to wait after a 429. Precedence (GreenField #203): `Retry-After`
+    /// header, then `details.retryAfterSeconds` (number), then `details.retryAfter`
+    /// ("<n> seconds" or a number).
+    var retryAfterSeconds: Int? = nil
     /// `details.challengeId` / `expiresAt` / `delivery.recipient` from 403 EMAIL_VERIFICATION_REQUIRED.
-    var challengeID: String?
-    var expiresAt: Date?
-    var recipient: String?
+    var challengeID: String? = nil
+    var expiresAt: Date? = nil
+    var recipient: String? = nil
+    /// `error.message` from the envelope (for plain-language 400 VALIDATION_FAILED copy).
+    var message: String? = nil
 
-    static func parse(_ data: Data) -> GreenfieldFailureDetails? {
-        guard let root = try? JSONDecoder().decode(JSONValue.self, from: data), let error = root["error"] else { return nil }
-        let details = error["details"]
-        var retryAfter: Int?
-        if let text = details?["retryAfter"]?.string {
-            retryAfter = Int(text.split(separator: " ").first ?? "")
-        } else if let number = details?["retryAfter"]?.number {
-            retryAfter = Int(number)
+    static func parse(_ data: Data, response: HTTPURLResponse? = nil) -> GreenfieldFailureDetails? {
+        let headerSeconds = retryAfterHeaderSeconds(response)
+        let root = try? JSONDecoder().decode(JSONValue.self, from: data)
+        let error = root?["error"]
+        let details = error?["details"]
+        var bodySeconds: Int?
+        if let number = details?["retryAfterSeconds"]?.number {
+            bodySeconds = Int(number)
         }
+        var legacySeconds: Int?
+        if let text = details?["retryAfter"]?.string {
+            legacySeconds = Int(text.split(separator: " ").first ?? "")
+        } else if let number = details?["retryAfter"]?.number {
+            legacySeconds = Int(number)
+        }
+        let seconds = headerSeconds ?? bodySeconds ?? legacySeconds
         let parsed = GreenfieldFailureDetails(
-            retryable: error["retryable"]?.bool,
-            retryAfterSeconds: retryAfter.flatMap { $0 >= 0 ? $0 : nil },
+            retryable: error?["retryable"]?.bool,
+            retryAfterSeconds: seconds.flatMap { $0 >= 0 ? $0 : nil },
             challengeID: details?["challengeId"]?.string,
             expiresAt: GreenfieldTimestamp.parse(details?["expiresAt"]?.string),
-            recipient: details?["delivery"]?["recipient"]?.string
+            recipient: details?["delivery"]?["recipient"]?.string,
+            message: error?["message"]?.string
         )
+        if error == nil, headerSeconds == nil { return nil }
         return parsed
+    }
+
+    /// `Retry-After` as a delta-seconds integer. HTTP-date values are ignored.
+    static func retryAfterHeaderSeconds(_ response: HTTPURLResponse?) -> Int? {
+        guard let raw = response?.value(forHTTPHeaderField: "Retry-After")?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        guard let seconds = Int(raw), seconds >= 0 else { return nil }
+        return seconds
     }
 }
 
@@ -158,9 +179,22 @@ extension GreenfieldClient {
         }
     }
 
+    /// 404 `NOT_FOUND` ("Session not found"), including a session owned by someone else
+    /// (GreenField #203), is treated as already gone.
     func revokeSession(id: String) async throws {
         let path = "/v1/sessions/\(id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id)"
-        let _: JSONValue = try await authenticatedJSON("DELETE", path: path)
+        do {
+            let _: JSONValue = try await authenticatedJSON("DELETE", path: path)
+        } catch let api as APIError where Self.isSessionAlreadyGone(api) {
+            return
+        }
+    }
+
+    static func isSessionAlreadyGone(_ api: APIError) -> Bool {
+        if case .rejected(let status, let code) = api {
+            return status == 404 || code == "NOT_FOUND"
+        }
+        return false
     }
 
     func revokeOtherSessions() async throws {

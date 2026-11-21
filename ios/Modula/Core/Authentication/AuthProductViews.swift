@@ -618,9 +618,10 @@ struct RegisterView: View {
             HapticEngine.shared.play(.success)
             app.navigation.open(.auth(.verify))
         } catch let api as APIError {
+            let details = await app.client.lastFailureDetails(path: "/v1/accounts/register")
             error = AuthenticationStore.isRateLimited(api)
-                ? (app.auth.rateLimitNotice ?? AuthenticationStore.signupMessage(api))
-                : AuthenticationStore.signupMessage(api)
+                ? (app.auth.rateLimitNotice ?? AuthenticationStore.signupMessage(api, details: details))
+                : AuthenticationStore.signupMessage(api, details: details)
             #if DEBUG
             diagnostic = api.diagnosticDescription
             #endif

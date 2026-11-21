@@ -1519,12 +1519,17 @@ final class StoryUploadBudgetTests: XCTestCase {
 private final class SessionRouterProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (Int, String))?
     nonisolated(unsafe) static var log: [String] = []
+    nonisolated(unsafe) static var refreshTokens: [String] = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
     override func startLoading() {
         let path = request.url?.path ?? ""
         Self.log.append("\(request.httpMethod ?? "GET") \(path) \(request.value(forHTTPHeaderField: "Authorization") ?? "-")")
+        if path == "/v1/sessions/refresh", let token = Self.bodyString(request, key: "refreshToken") {
+            Self.refreshTokens.append(token)
+        }
         let (status, body) = Self.handler?(request) ?? (500, "{}")
         if status == 0 {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
@@ -1537,6 +1542,22 @@ private final class SessionRouterProtocol: URLProtocol, @unchecked Sendable {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+
+    static func bodyString(_ request: URLRequest, key: String) -> String? {
+        var data = request.httpBody ?? Data()
+        if data.isEmpty, let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let read = stream.read(&buffer, maxLength: buffer.count)
+                if read <= 0 { break }
+                data.append(buffer, count: read)
+            }
+        }
+        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        return object?[key] as? String
+    }
 }
 
 final class GreenfieldSessionRecoveryTests: XCTestCase {
@@ -1553,12 +1574,14 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [SessionRouterProtocol.self]
         SessionRouterProtocol.log = []
+        SessionRouterProtocol.refreshTokens = []
         return GreenfieldClient(baseURL: baseURL ?? URL(string: "https://session-test-\(UUID().uuidString.prefix(8)).modula.test")!,
                                 transport: URLSession(configuration: config))
     }
 
     override func tearDown() {
         SessionRouterProtocol.handler = nil
+        SessionRouterProtocol.refreshTokens = []
         super.tearDown()
     }
 
@@ -1657,7 +1680,121 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
         let revokedSession = await revoked.hasSession()
         XCTAssertFalse(revokedSession)
     }
+
+    func testConcurrent401sShareOneRefreshAndNeverReplayTheToken() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            let auth = request.value(forHTTPHeaderField: "Authorization")
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("POST", "/v1/sessions/refresh"): return (200, Self.tokens(2))
+            case ("GET", "/v1/stories/rail"):
+                return auth == "Bearer access-2" ? (200, #"{"ok":true,"data":{"items":[]}}"#) : (401, Self.unauthorized)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.log = []
+        SessionRouterProtocol.refreshTokens = []
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 1...8 {
+                group.addTask {
+                    _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail")
+                }
+            }
+            try await group.waitForAll()
+        }
+        XCTAssertEqual(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 1)
+        XCTAssertEqual(SessionRouterProtocol.refreshTokens, ["refresh-1"], "the same refresh token must be presented only once")
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession)
+    }
+
+    func testRefreshReuse401SignsOutOnceWithNoRetryLoop() async throws {
+        let client = makeClient()
+        let reuse = #"{"ok":false,"error":{"code":"UNAUTHENTICATED","message":"Refresh token reuse detected","retryable":false}}"#
+        let notified = expectation(description: "session invalidated once")
+        notified.expectedFulfillmentCount = 1
+        notified.assertForOverFulfill = true
+        await client.setSessionInvalidationHandler { notified.fulfill() }
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("POST", "/v1/sessions/refresh"): return (401, reuse)
+            default: return (401, Self.unauthorized)
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.log = []
+        SessionRouterProtocol.refreshTokens = []
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 1...8 {
+                group.addTask {
+                    do {
+                        _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail")
+                        XCTFail("expected the session to end")
+                    } catch {
+                        XCTAssertEqual(error as? APIError, .unauthenticated)
+                    }
+                }
+            }
+        }
+        await fulfillment(of: [notified], timeout: 2)
+        XCTAssertEqual(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 1)
+        XCTAssertEqual(SessionRouterProtocol.refreshTokens, ["refresh-1"])
+        let hasSession = await client.hasSession()
+        XCTAssertFalse(hasSession)
+        // A later call must not start another refresh.
+        SessionRouterProtocol.log = []
+        do { _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail") } catch { }
+        XCTAssertTrue(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.isEmpty)
+    }
+
+    func testStepUpRequired401DoesNotRefreshOrSignOut() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("DELETE", let path) where path.hasPrefix("/v1/modules/"):
+                return (401, #"{"ok":false,"error":{"code":"STEP_UP_REQUIRED"}}"#)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.log = []
+        do {
+            _ = try await client.authenticatedJSON("DELETE", path: "/v1/modules/modula.example/install", body: .object(["choice": .string("deleteData")]))
+            XCTFail("expected STEP_UP_REQUIRED")
+        } catch let api as APIError {
+            XCTAssertTrue(api.requiresStepUp)
+            XCTAssertEqual(api.code, "STEP_UP_REQUIRED")
+        }
+        XCTAssertTrue(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.isEmpty)
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession, "step-up must not sign the session out")
+    }
+
+    func testRevokeSession404IsTreatedAsAlreadyGone() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("DELETE", "/v1/sessions/sess-missing"):
+                return (404, #"{"ok":false,"error":{"code":"NOT_FOUND","message":"Session not found"}}"#)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        try await client.revokeSession(id: "sess-missing")
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession, "a missing other session must not sign this one out")
+    }
 }
+
 
 // MARK: - Home pagination vs refresh race
 

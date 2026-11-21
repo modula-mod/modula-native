@@ -13,6 +13,8 @@ private final class PendingSignupRouter: URLProtocol, @unchecked Sendable {
 
     nonisolated(unsafe) static var handler: (@Sendable (String, String, [String: String]) -> (Int, String))?
     nonisolated(unsafe) static var log: [Recorded] = []
+    /// Extra response headers (e.g. Retry-After) merged into every mocked reply.
+    nonisolated(unsafe) static var responseHeaders: [String: String] = [:]
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -28,8 +30,10 @@ private final class PendingSignupRouter: URLProtocol, @unchecked Sendable {
             body: body
         ))
         let (status, json) = Self.handler?(method, path, body) ?? (404, #"{"ok":false,"error":{"code":"NOT_FOUND"}}"#)
+        var headers = ["Content-Type": "application/json"]
+        for (field, value) in Self.responseHeaders { headers[field] = value }
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1",
-                                       headerFields: ["Content-Type": "application/json"])!
+                                       headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(json.utf8))
         client?.urlProtocolDidFinishLoading(self)
@@ -82,6 +86,7 @@ final class AuthPendingSignupTests: XCTestCase {
         namespace = "https://\(host)"
         PendingSignupRouter.log = []
         PendingSignupRouter.handler = nil
+        PendingSignupRouter.responseHeaders = [:]
     }
 
     override func tearDown() {
@@ -90,6 +95,7 @@ final class AuthPendingSignupTests: XCTestCase {
             HTTPCookieStorage.shared.deleteCookie(cookie)
         }
         PendingSignupRouter.handler = nil
+        PendingSignupRouter.responseHeaders = [:]
         super.tearDown()
     }
 
@@ -604,5 +610,147 @@ final class AuthPendingSignupTests: XCTestCase {
         let registered = try await client.register(payload: payload())
         XCTAssertEqual(registered.challengeID, "chal-1")
         XCTAssertEqual(registered.recipient, "n•••@example.com")
+    }
+
+    // MARK: GreenField #203 — Retry-After, 400 copy, revoke 404, reuse keeps pending
+
+    func testSignIn429PrefersRetryAfterHeaderThenBodyFallbacks() async throws {
+        let store = makeStore()
+
+        // Header wins over a conflicting body.
+        PendingSignupRouter.responseHeaders = ["Retry-After": "30"]
+        PendingSignupRouter.handler = { _, path, _ in
+            path == "/v1/sessions"
+                ? (429, #"{"ok":false,"error":{"code":"RATE_LIMITED","message":"Too many sign-in attempts. Try again later.","retryable":true,"details":{"retryAfterSeconds":99,"retryAfter":"12 seconds"}}}"#)
+                : (404, "{}")
+        }
+        let first = await store.signIn(email: "someone@example.com", password: "whatever-pw")
+        XCTAssertFalse(first)
+        XCTAssertEqual(store.error, "Too many attempts. Try again in 30 seconds.")
+        XCTAssertEqual(store.rateLimitWait(), 30, accuracy: 0.5)
+
+        // No header: details.retryAfterSeconds (number) wins over the legacy string.
+        PendingSignupRouter.responseHeaders = [:]
+        clock.now = clock.now.addingTimeInterval(60)
+        PendingSignupRouter.handler = { _, path, _ in
+            path == "/v1/sessions"
+                ? (429, #"{"ok":false,"error":{"code":"RATE_LIMITED","retryable":true,"details":{"retryAfterSeconds":45,"retryAfter":"12 seconds"}}}"#)
+                : (404, "{}")
+        }
+        _ = await store.signIn(email: "someone@example.com", password: "whatever-pw")
+        XCTAssertEqual(store.error, "Too many attempts. Try again in 45 seconds.")
+        XCTAssertEqual(store.rateLimitWait(), 45, accuracy: 0.5)
+
+        // No header, no retryAfterSeconds: legacy `details.retryAfter` string.
+        clock.now = clock.now.addingTimeInterval(60)
+        PendingSignupRouter.handler = { _, path, _ in
+            path == "/v1/sessions"
+                ? (429, #"{"ok":false,"error":{"code":"RATE_LIMITED","retryable":true,"details":{"retryAfter":"16 seconds"}}}"#)
+                : (404, "{}")
+        }
+        _ = await store.signIn(email: "someone@example.com", password: "whatever-pw")
+        XCTAssertEqual(store.error, "Too many attempts. Try again in 16 seconds.")
+        XCTAssertEqual(store.rateLimitWait(), 16, accuracy: 0.5)
+
+        // Parser unit: header > seconds > string.
+        let header = HTTPURLResponse(
+            url: URL(string: "https://example.com/v1/sessions")!,
+            statusCode: 429, httpVersion: "HTTP/1.1",
+            headerFields: ["Retry-After": "7"]
+        )!
+        let parsed = GreenfieldFailureDetails.parse(
+            Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","retryable":true,"details":{"retryAfterSeconds":99,"retryAfter":"12 seconds"}}}"#.utf8),
+            response: header
+        )
+        XCTAssertEqual(parsed?.retryAfterSeconds, 7)
+        let bodyOnly = GreenfieldFailureDetails.parse(
+            Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","details":{"retryAfterSeconds":11,"retryAfter":"3 seconds"}}}"#.utf8)
+        )
+        XCTAssertEqual(bodyOnly?.retryAfterSeconds, 11)
+    }
+
+    func testValidationFailedShowsPlainLanguageServerMessage() async throws {
+        let store = makeStore()
+        PendingSignupRouter.handler = { _, path, body in
+            if path == "/v1/sessions" {
+                XCTAssertFalse(body.isEmpty, "sign-in must send a JSON body")
+                return (400, #"{"ok":false,"error":{"code":"VALIDATION_FAILED","message":"Email required","retryable":false}}"#)
+            }
+            return (404, "{}")
+        }
+        let ok = await store.signIn(email: "not-an-email", password: "whatever-pw")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.error, "Email required")
+
+        PendingSignupRouter.handler = { _, path, body in
+            if path == "/v1/accounts/register" {
+                XCTAssertFalse(body.isEmpty)
+                return (400, #"{"ok":false,"error":{"code":"VALIDATION_FAILED","message":"Email required"}}"#)
+            }
+            return (404, "{}")
+        }
+        do {
+            _ = try await store.register(payload: payload())
+            XCTFail("expected VALIDATION_FAILED")
+        } catch let api as APIError {
+            XCTAssertEqual(api, .rejected(400, "VALIDATION_FAILED"))
+            XCTAssertEqual(
+                AuthenticationStore.signupMessage(api, details: GreenfieldFailureDetails.parse(Data(#"{"ok":false,"error":{"code":"VALIDATION_FAILED","message":"Email required"}}"#.utf8))),
+                "Email required"
+            )
+        }
+        XCTAssertEqual(
+            AuthenticationStore.validationMessage(
+                details: GreenfieldFailureDetails.parse(Data(#"{"ok":false,"error":{"code":"VALIDATION_FAILED","message":"Email required"}}"#.utf8))
+            ),
+            "Email required"
+        )
+        XCTAssertEqual(AuthenticationStore.signupMessage(.rejected(400, "VALIDATION_FAILED"), details: GreenfieldFailureDetails(message: "Email required")), "Email required")
+    }
+
+    func testSessionInvalidatedKeepsPendingSignupAndShowsNeutralNotice() async throws {
+        let store = makeStore()
+        responses.tokens = tokens()
+        responses.me = meB
+        let r = responses
+        PendingSignupRouter.handler = { method, path, _ in
+            switch (method, path) {
+            case ("POST", "/v1/sessions"): return (200, r.tokens)
+            case ("GET", "/v1/accounts/me"): return (200, r.me)
+            default: return (404, "{}")
+            }
+        }
+        XCTAssertTrue(await store.signIn(email: "existing@example.com", password: "other-account-pw"))
+        XCTAssertNotNil(store.account)
+
+        let pending = PendingSignup(
+            email: "newbie@example.com",
+            handle: "newbie",
+            accountID: "acct-a",
+            challengeID: "chal-1",
+            createdAt: clock.now,
+            expiresAt: clock.now.addingTimeInterval(3_600),
+            lastCodeSentAt: clock.now,
+            resendAvailableAt: clock.now
+        )
+        try PendingSignupStore(namespace: namespace).save(pending)
+        XCTAssertEqual(store.restorePendingSignup()?.email, "newbie@example.com")
+
+        store.sessionInvalidated()
+        XCTAssertNil(store.account)
+        XCTAssertEqual(store.error, "Your session ended. Sign in again to continue.")
+        XCTAssertEqual(store.pendingSignup?.email, "newbie@example.com")
+        XCTAssertEqual(PendingSignupStore(namespace: namespace).load()?.email, "newbie@example.com")
+        await store.signOut()
+    }
+
+    func testForgotPasswordDoesNotSendAnEmptyBody() async {
+        let store = makeStore()
+        PendingSignupRouter.log = []
+        PendingSignupRouter.handler = { _, _, _ in (200, #"{"ok":true,"data":{"requested":true}}"#) }
+        let sent = await store.requestPasswordReset(email: "   ")
+        XCTAssertFalse(sent)
+        XCTAssertEqual(store.error, "Email required")
+        XCTAssertTrue(PendingSignupRouter.log.isEmpty, "a blank email must not hit the network")
     }
 }
