@@ -1,9 +1,18 @@
 import Foundation
 import CryptoKit
 
+/// Present on `401 STEP_UP_REQUIRED` when the server sends it. Older servers omit both fields.
+struct StepUpRequirement: Equatable, Sendable {
+    var action: String?
+    var maxAgeSeconds: Int?
+}
+
 enum APIError: Error, LocalizedError, Equatable {
     case unconfigured, unauthenticated, secureStorage, invalidResponse, accountChanged
     case rejected(Int, String)
+    /// Session is still valid; the action needs a recent re-auth. Optional `action` and
+    /// `maxAgeSeconds` come from `error.details` when the server provides them.
+    case stepUpRequired(StepUpRequirement)
 
     var errorDescription: String? { userFacingMessage }
 
@@ -23,7 +32,7 @@ enum APIError: Error, LocalizedError, Equatable {
             "Verify your email before signing in."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
-        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"):
+        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"), .stepUpRequired:
             "Confirm your password to continue."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
         case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
@@ -43,29 +52,46 @@ enum APIError: Error, LocalizedError, Equatable {
     var diagnosticDescription: String {
         switch self {
         case .rejected(let status, let code): "Greenfield request failed (\(status), \(code))."
+        case .stepUpRequired(let requirement):
+            let action = requirement.action ?? "unspecified"
+            let age = requirement.maxAgeSeconds.map(String.init) ?? "unspecified"
+            return "Greenfield request failed (401, STEP_UP_REQUIRED, action=\(action), maxAgeSeconds=\(age))."
         default: userFacingMessage
         }
     }
 
     var code: String? {
-        if case .rejected(_, let code) = self { return code }
-        return nil
+        switch self {
+        case .rejected(_, let code): return code
+        case .stepUpRequired: return "STEP_UP_REQUIRED"
+        default: return nil
+        }
     }
 
     /// `401 STEP_UP_REQUIRED` means the session is still valid; the action needs a
     /// recent password / passkey / Apple confirmation. It must not be treated as a
     /// revoked token (refresh + sign-out).
-    var requiresStepUp: Bool {
-        if case .rejected(_, let code) = self { return Self.isStepUpCode(code) }
-        return false
+    ///
+    /// `action` and `maxAgeSeconds` are taken from `error.details` when present and
+    /// are nil on older servers that omit them. Callers must not show `maxAgeSeconds`
+    /// as a countdown.
+    var requiresStepUp: StepUpRequirement? {
+        switch self {
+        case .stepUpRequired(let requirement):
+            return requirement
+        case .rejected(_, let code) where Self.isStepUpCode(code):
+            return StepUpRequirement(action: nil, maxAgeSeconds: nil)
+        default:
+            return nil
+        }
     }
 
     static func isStepUpCode(_ code: String) -> Bool {
         code == "STEP_UP_REQUIRED" || code == "FORBIDDEN_STEP_UP"
     }
 
-    static func requiresStepUp(_ error: Error) -> Bool {
-        (error as? APIError)?.requiresStepUp == true
+    static func requiresStepUp(_ error: Error) -> StepUpRequirement? {
+        (error as? APIError)?.requiresStepUp
     }
 }
 
@@ -185,7 +211,37 @@ private struct Envelope<T: Decodable>: Decodable {
     let ok: Bool
     let data: T?
     let error: Failure?
-    struct Failure: Decodable { let code: String }
+    struct Failure: Decodable {
+        let code: String
+        let details: Details?
+        struct Details: Decodable {
+            var action: String?
+            var maxAgeSeconds: Int?
+
+            enum CodingKeys: String, CodingKey { case action, maxAgeSeconds }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                action = try container.decodeIfPresent(String.self, forKey: .action)
+                if let int = try? container.decodeIfPresent(Int.self, forKey: .maxAgeSeconds) {
+                    maxAgeSeconds = int
+                } else if let double = try? container.decodeIfPresent(Double.self, forKey: .maxAgeSeconds) {
+                    maxAgeSeconds = Int(double)
+                } else {
+                    maxAgeSeconds = nil
+                }
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case code, details }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            code = try container.decode(String.self, forKey: .code)
+            // Older or partial details must not fail the whole envelope.
+            details = try? container.decode(Details.self, forKey: .details)
+        }
+    }
 }
 
 struct PasswordResetRequestResult: Codable, Sendable {
@@ -747,7 +803,7 @@ actor GreenfieldClient {
             let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
-        } catch let error as APIError where error.requiresStepUp && generation == epoch {
+        } catch let error as APIError where error.requiresStepUp != nil && generation == epoch {
             // Session is valid; the action needs a recent re-auth. Do not refresh or sign out.
             throw error
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
@@ -759,7 +815,7 @@ actor GreenfieldClient {
                 let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
-            } catch let error as APIError where error.requiresStepUp && generation == epoch {
+            } catch let error as APIError where error.requiresStepUp != nil && generation == epoch {
                 throw error
             } catch APIError.rejected(401, let code) where generation == epoch {
                 // The refresh just succeeded, so the shell's own session is valid. For
@@ -988,10 +1044,31 @@ actor GreenfieldClient {
                     "Greenfield \(method, privacy: .public) \(path, privacy: .public) failed \(http.statusCode, privacy: .public) \(safeCode, privacy: .public)"
                 )
             }
+            if Self.isStepUpCode(safeCode) {
+                throw APIError.stepUpRequired(StepUpRequirement(
+                    action: envelope.error?.details?.action,
+                    maxAgeSeconds: envelope.error?.details?.maxAgeSeconds
+                ))
+            }
             throw APIError.rejected(http.statusCode, safeCode)
         }
         guard let value = envelope.data else { throw APIError.invalidResponse }
         return value
+    }
+
+    /// Test and client helper: decode a failed envelope into `APIError`, including
+    /// optional `details.action` and `details.maxAgeSeconds` on `STEP_UP_REQUIRED`.
+    nonisolated static func decodedError(from data: Data, status: Int) -> APIError {
+        let url = URL(string: "https://api.modula.test/v1/error")!
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+        do {
+            let _: JSONValue = try decodeEnvelope(data, response: response, method: "POST", path: "/v1/error")
+            return .invalidResponse
+        } catch let error as APIError {
+            return error
+        } catch {
+            return .invalidResponse
+        }
     }
 
     /// Status-only mapping for bodies that are not Greenfield JSON.

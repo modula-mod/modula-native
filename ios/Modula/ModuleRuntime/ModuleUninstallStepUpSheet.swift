@@ -7,7 +7,7 @@ import SwiftUI
 struct ModuleUninstallStepUpSheet: View {
     let email: String
     let moduleName: String
-    let submit: (String) async -> ModuleUninstallOutcome
+    let submit: (String, Bool) async -> ModuleUninstallOutcome
     let onCancel: () -> Void
     let onFinished: (ModuleUninstallOutcome) -> Void
 
@@ -21,6 +21,7 @@ struct ModuleUninstallStepUpSheet: View {
     @State private var retryUntil: Date?
     @State private var now = Date()
     @State private var didFinish = false
+    @State private var hasReprompted = false
     @FocusState private var focus: Field?
     private enum Field: Hashable { case password }
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -188,7 +189,7 @@ struct ModuleUninstallStepUpSheet: View {
         working = true
         defer { working = false }
         let submitted = password
-        let outcome = await submit(submitted)
+        let outcome = await submit(submitted, hasReprompted)
         password = ""
         switch outcome {
         case .passwordRejected(let message), .unavailable(let message):
@@ -205,8 +206,20 @@ struct ModuleUninstallStepUpSheet: View {
                 retryUntil = nil
             }
             focus = .password
-        case .needsPasswordStepUp, .cancelled:
-            // Should not come back from submit; treat as a failure that stays on the sheet.
+        case .needsPasswordStepUp:
+            // Re-prompt once in this sheet. maxAgeSeconds is never shown as a countdown.
+            if hasReprompted {
+                HapticEngine.shared.play(.failure)
+                didFinish = true
+                onFinished(.stillRequiresStepUp(ModuleUninstallFlow.stillRequiresStepUpMessage))
+                dismiss()
+            } else {
+                hasReprompted = true
+                HapticEngine.shared.play(.failure)
+                error = ModuleUninstallFlow.repromptMessage
+                focus = .password
+            }
+        case .cancelled:
             HapticEngine.shared.play(.failure)
             error = "Couldn’t confirm. Try again."
         case .succeeded, .stillRequiresStepUp, .failed:

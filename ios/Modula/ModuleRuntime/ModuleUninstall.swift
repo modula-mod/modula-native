@@ -73,21 +73,26 @@ struct ModuleUninstallFlow: Sendable {
             )
             return .succeeded
         } catch {
-            if APIError.requiresStepUp(error) {
+            if APIError.requiresStepUp(error) != nil {
                 return choice == .deleteData ? .needsPasswordStepUp : .failed(Self.message(error))
             }
             return .failed(Self.message(error))
         }
     }
 
+    static let repromptMessage = "Please confirm your password again."
+
     /// Confirms the password on `POST /v1/auth/step-up/password` (bearer required; body is
-    /// only `{password}`), then retries deleteData once. A second `STEP_UP_REQUIRED` stops
-    /// with `stillRequiresStepUp` and does not loop. The password is not stored.
+    /// only `{password}`), then retries deleteData once. If that retry still returns
+    /// `STEP_UP_REQUIRED`, the outcome is `needsPasswordStepUp` so the sheet can
+    /// re-prompt once (`isReprompt: false`). A failure after that re-prompt
+    /// (`isReprompt: true`) stops with `stillRequiresStepUp`. The password is not stored.
     func submitPasswordAndRetryDelete(
         moduleID: String,
         password: String,
         confirmDelete: Bool,
-        idempotencyKey: String
+        idempotencyKey: String,
+        isReprompt: Bool = false
     ) async -> ModuleUninstallOutcome {
         do {
             _ = try await client.passwordStepUp(password: password)
@@ -115,15 +120,19 @@ struct ModuleUninstallFlow: Sendable {
             )
             return .succeeded
         } catch {
-            if APIError.requiresStepUp(error) {
-                return .stillRequiresStepUp(Self.stillRequiresStepUpMessage)
+            if APIError.requiresStepUp(error) != nil {
+                // Re-prompt the sheet once. Do not silently retry. After that re-prompt,
+                // stop with the still-installed error.
+                return isReprompt
+                    ? .stillRequiresStepUp(Self.stillRequiresStepUpMessage)
+                    : .needsPasswordStepUp
             }
             return .failed(Self.message(error))
         }
     }
 
     private static func message(_ error: Error) -> String {
-        if APIError.requiresStepUp(error) {
+        if APIError.requiresStepUp(error) != nil {
             return "Confirm your password to delete this module’s data."
         }
         if let api = error as? APIError {

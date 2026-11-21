@@ -133,7 +133,7 @@ final class ModuleUninstallStepUpTests: XCTestCase {
         XCTAssertTrue(second.leavesModuleInstalled)
     }
 
-    func testSecondStepUpRequiredStopsWithoutLooping() async throws {
+    func testSecondStepUpRequiredRePromptsOnceThenStops() async throws {
         let client = makeClient()
         nonisolated(unsafe) var deleteAttempts = 0
         nonisolated(unsafe) var stepUpAttempts = 0
@@ -143,7 +143,12 @@ final class ModuleUninstallStepUpTests: XCTestCase {
             case ("GET", "/v1/accounts/me"): return Self.ok(Self.me)
             case ("DELETE", "/v1/modules/digital.modula.notes/install"):
                 deleteAttempts += 1
-                return Self.failure(401, "STEP_UP_REQUIRED", message: "Recent stronger authentication required")
+                return Self.failure(
+                    401,
+                    "STEP_UP_REQUIRED",
+                    message: "Recent stronger authentication required",
+                    details: #"{"action":"delete_module_data","maxAgeSeconds":900}"#
+                )
             case ("POST", "/v1/auth/step-up/password"):
                 stepUpAttempts += 1
                 return Self.ok(#"{"ok":true,"data":{"stepUp":true,"authenticationStrength":"medium","validForSeconds":600}}"#)
@@ -158,18 +163,25 @@ final class ModuleUninstallStepUpTests: XCTestCase {
             await flow.requestUninstall(moduleID: moduleID, choice: .deleteData, confirmDelete: true, idempotencyKey: "ios-uninstall-notes-dddddddd"),
             .needsPasswordStepUp
         )
-        let second = await flow.submitPasswordAndRetryDelete(
-            moduleID: moduleID, password: "correct-horse", confirmDelete: true, idempotencyKey: "ios-uninstall-notes-dddddddd"
+        let afterFirstSubmit = await flow.submitPasswordAndRetryDelete(
+            moduleID: moduleID, password: "correct-horse", confirmDelete: true, idempotencyKey: "ios-uninstall-notes-dddddddd", isReprompt: false
         )
-        guard case .stillRequiresStepUp(let message) = second else {
-            return XCTFail("expected stillRequiresStepUp, got \(second)")
+        XCTAssertEqual(afterFirstSubmit, .needsPasswordStepUp, "A second STEP_UP_REQUIRED re-prompts the sheet once; it does not loop silently")
+        XCTAssertEqual(deleteAttempts, 2)
+        XCTAssertEqual(stepUpAttempts, 1)
+
+        let afterReprompt = await flow.submitPasswordAndRetryDelete(
+            moduleID: moduleID, password: "correct-horse", confirmDelete: true, idempotencyKey: "ios-uninstall-notes-dddddddd", isReprompt: true
+        )
+        guard case .stillRequiresStepUp(let message) = afterReprompt else {
+            return XCTFail("expected stillRequiresStepUp after the re-prompt, got \(afterReprompt)")
         }
         XCTAssertEqual(message, ModuleUninstallFlow.stillRequiresStepUpMessage)
-        XCTAssertEqual(deleteAttempts, 2, "deleteData is retried once")
-        XCTAssertEqual(stepUpAttempts, 1, "step-up must not be called again")
-        XCTAssertTrue(second.leavesModuleInstalled)
+        XCTAssertEqual(deleteAttempts, 3, "deleteData is retried once per confirmed password, then stops")
+        XCTAssertEqual(stepUpAttempts, 2, "the re-prompt may step up once more; it must not continue after that")
+        XCTAssertTrue(afterReprompt.leavesModuleInstalled)
         let hasSession = await client.hasSession()
-        XCTAssertTrue(hasSession, "A second STEP_UP_REQUIRED must not invalidate the session")
+        XCTAssertTrue(hasSession, "A repeated STEP_UP_REQUIRED must not invalidate the session")
     }
 
     func testRateLimitedRespectsRetryAfter() async throws {
@@ -228,7 +240,7 @@ final class ModuleUninstallStepUpTests: XCTestCase {
             )
             XCTFail("expected STEP_UP_REQUIRED")
         } catch {
-            XCTAssertTrue(APIError.requiresStepUp(error), "\(error)")
+            XCTAssertNotNil(APIError.requiresStepUp(error), "\(error)")
         }
         XCTAssertEqual(UninstallRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 0)
         let hasSession = await client.hasSession()
@@ -290,11 +302,43 @@ final class ModuleUninstallStepUpTests: XCTestCase {
         _ code: String,
         message: String = "Rejected",
         fieldErrors: String? = nil,
+        details: String? = nil,
         headers: [String: String] = [:]
     ) -> (Int, String, [String: String]) {
         let fields = fieldErrors.map { #","fieldErrors":\#($0)"# } ?? ""
-        return (status, #"{"ok":false,"error":{"code":"\#(code)","message":"\#(message)"\#(fields)}}"#, headers)
+        let detail = details.map { #","details":\#($0)"# } ?? ""
+        return (status, #"{"ok":false,"error":{"code":"\#(code)","message":"\#(message)"\#(fields)\#(detail)}}"#, headers)
     }
+
+    func testStepUpRequiredDecodesActionAndMaxAgeSeconds() {
+        let body = Data(#"{"ok":false,"error":{"code":"STEP_UP_REQUIRED","message":"Recent stronger authentication required","details":{"action":"delete_module_data","maxAgeSeconds":900}}}"#.utf8)
+        let error = GreenfieldClient.decodedError(from: body, status: 401)
+        let requirement = error.requiresStepUp
+        XCTAssertNotNil(requirement)
+        XCTAssertEqual(requirement?.action, "delete_module_data")
+        XCTAssertEqual(requirement?.maxAgeSeconds, 900)
+        XCTAssertEqual(error.code, "STEP_UP_REQUIRED")
+        if case .stepUpRequired(let value) = error {
+            XCTAssertEqual(value, requirement)
+        } else {
+            XCTFail("expected stepUpRequired, got \(error)")
+        }
+    }
+
+    func testStepUpRequiredDecodesWithoutDetailsOnOlderServers() {
+        let body = Data(#"{"ok":false,"error":{"code":"STEP_UP_REQUIRED","message":"Recent stronger authentication required"}}"#.utf8)
+        let error = GreenfieldClient.decodedError(from: body, status: 401)
+        let requirement = error.requiresStepUp
+        XCTAssertNotNil(requirement, "Older servers still produce a step-up error")
+        XCTAssertNil(requirement?.action)
+        XCTAssertNil(requirement?.maxAgeSeconds)
+        if case .stepUpRequired(let value) = error {
+            XCTAssertEqual(value, StepUpRequirement(action: nil, maxAgeSeconds: nil))
+        } else {
+            XCTFail("expected stepUpRequired, got \(error)")
+        }
+    }
+
 }
 
 private final class UninstallRouterProtocol: URLProtocol, @unchecked Sendable {

@@ -606,11 +606,14 @@ final class ProductHubStore {
     }
 
     /// After the step-up sheet confirms the password: one password step-up, then one
-    /// deleteData retry. A second `STEP_UP_REQUIRED` is returned and is not retried.
+    /// deleteData retry. If that retry still requires step-up, `needsPasswordStepUp` is
+    /// returned so the sheet can re-prompt once. A failure after that re-prompt stops
+    /// with the still-installed error.
     func completeDeleteDataAfterStepUp(
         _ id: String,
         password: String,
-        idempotencyKey: String
+        idempotencyKey: String,
+        isReprompt: Bool = false
     ) async -> ModuleUninstallOutcome {
         guard operations[id] == nil else { return .failed("This module is already being updated. Try again in a moment.") }
         operations[id] = .uninstalling
@@ -620,23 +623,24 @@ final class ProductHubStore {
             moduleID: id,
             password: password,
             confirmDelete: true,
-            idempotencyKey: idempotencyKey
+            idempotencyKey: idempotencyKey,
+            isReprompt: isReprompt
         )
         switch outcome {
         case .succeeded:
             let removed = await finishUninstall(id)
             return removed == .removed ? .succeeded : .failed("The module was uninstalled on the server, but this device couldn’t finish removing it. Pull to refresh and try again.")
-        case .passwordRejected, .rateLimited, .unavailable:
+        case .passwordRejected, .rateLimited, .unavailable, .needsPasswordStepUp:
             await refreshInstallations()
             return outcome
         case .stillRequiresStepUp(let message), .failed(let message):
             lifecycleErrors[id] = message
             await refreshInstallations()
             return outcome
-        case .needsPasswordStepUp, .cancelled:
-            lifecycleErrors[id] = ModuleUninstallFlow.stillRequiresStepUpMessage
+        case .cancelled:
+            lifecycleErrors[id] = ModuleUninstallFlow.cancelledNotice
             await refreshInstallations()
-            return .stillRequiresStepUp(ModuleUninstallFlow.stillRequiresStepUpMessage)
+            return outcome
         }
     }
 

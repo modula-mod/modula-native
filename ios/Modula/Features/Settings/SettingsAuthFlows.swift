@@ -7,7 +7,7 @@ import UIKit
 // shared PasswordStepUpSheet and the step retries once confirmed. Nothing is simulated.
 
 enum SettingsAuthStepUp {
-    static func isRequired(_ error: Error) -> Bool { APIError.requiresStepUp(error) }
+    static func isRequired(_ error: Error) -> Bool { APIError.requiresStepUp(error) != nil }
 }
 
 enum Base64URL {

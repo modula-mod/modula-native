@@ -131,11 +131,12 @@ struct ModuleDetailV2View: View {
             ModuleUninstallStepUpSheet(
                 email: app.auth.account?.email ?? "",
                 moduleName: product?.name ?? "this module",
-                submit: { password in
+                submit: { password, isReprompt in
                     await app.catalogue.completeDeleteDataAfterStepUp(
                         moduleID,
                         password: password,
-                        idempotencyKey: context.idempotencyKey
+                        idempotencyKey: context.idempotencyKey,
+                        isReprompt: isReprompt
                     )
                 },
                 onCancel: {
