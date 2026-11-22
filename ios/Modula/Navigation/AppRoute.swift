@@ -2,6 +2,8 @@ import Foundation
 
 enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     case home, discover, modules, activity, profile
+    /// Optional bar destinations (Settings › Appearance › Custom navigation).
+    case messages, search, reels, saved, drafts, communities, teams
     var id: Self { self }
     var title: String { rawValue.capitalized }
     var icon: String {
@@ -11,6 +13,13 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .modules: "shippingbox"
         case .activity: "bell"
         case .profile: "person.crop.circle"
+        case .messages: "bubble.left.and.bubble.right"
+        case .search: "magnifyingglass"
+        case .reels: "play.rectangle"
+        case .saved: "bookmark"
+        case .drafts: "doc.text"
+        case .communities: "person.3"
+        case .teams: "person.2.badge.gearshape"
         }
     }
     var selectedIcon: String {
@@ -20,6 +29,13 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .modules: "shippingbox.fill"
         case .activity: "bell.fill"
         case .profile: "person.crop.circle.fill"
+        case .messages: "bubble.left.and.bubble.right.fill"
+        case .search: "magnifyingglass"
+        case .reels: "play.rectangle.fill"
+        case .saved: "bookmark.fill"
+        case .drafts: "doc.text.fill"
+        case .communities: "person.3.fill"
+        case .teams: "person.2.badge.gearshape.fill"
         }
     }
     var defaultRoute: AppRoute {
@@ -29,6 +45,43 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .modules: .productHub(.featured)
         case .activity: .activity(.all)
         case .profile: .me(.overview)
+        case .messages: .messages(.inbox)
+        case .search: .search(.root(nil))
+        case .reels: .reels(.feed)
+        case .saved: .saved(.root)
+        case .drafts: .drafts(.root)
+        case .communities: .community(.hub)
+        case .teams: .teams(.root)
+        }
+    }
+
+    /// Default bottom bar. Profile is not a tab any more: it opens from the right-edge swipe,
+    /// the sidebar, or the VoiceOver "Open Profile" action.
+    static let defaultBar: [AppTab] = [.home, .discover, .modules, .activity]
+    /// Everything the user can put in the bar, in picker order (Home always first).
+    static let barCandidates: [AppTab] = [.home, .discover, .modules, .activity, .messages, .search, .reels, .saved, .drafts, .communities, .teams]
+    static let minBarCount = 2
+    static let maxBarCount = 5
+
+    /// Valid bar: known candidates, no duplicates, Home first, 2…5 items.
+    static func sanitizedBar(_ tabs: [AppTab]) -> [AppTab] {
+        var out: [AppTab] = [.home]
+        for tab in tabs where tab != .home && barCandidates.contains(tab) && !out.contains(tab) {
+            out.append(tab)
+        }
+        if out.count > maxBarCount { out = Array(out.prefix(maxBarCount)) }
+        if out.count < minBarCount { return defaultBar }
+        return out
+    }
+
+    /// True when `route` is this optional tab's own screen family (so it opens in that tab).
+    func hosts(_ route: AppRoute) -> Bool {
+        switch (self, route) {
+        case (.messages, .messages), (.search, .search), (.reels, .reels), (.saved, .saved),
+             (.drafts, .drafts), (.communities, .community), (.teams, .teams):
+            true
+        default:
+            false
         }
     }
 }
@@ -64,6 +117,8 @@ enum AccountSettingsRoute: String, CaseIterable, Codable, Hashable {
 }
 enum AppearanceSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, theme, darkStyle = "dark-style", accent, typography, fontFamily = "font-family", textSize = "text-size"
+    /// Custom navigation: which destinations sit in the bottom tab bar.
+    case tabBar = "tab-bar"
     case appIcon = "app-icon", density, motion, haptics, contrastTransparency = "contrast-transparency"
     case iconStyle = "icon-style", interfaceShape = "interface-shape", moduleBranding = "module-branding"
     case preview
@@ -246,7 +301,7 @@ enum AppRoute: Hashable {
 }
 
 enum RouteRegistry {
-    static let globalTabs = AppTab.allCases
+    static let globalTabs = AppTab.barCandidates
     static func canonicalPath(for route: AppRoute) -> String { RouteSerializer.serialize(route) }
     static func parse(_ value: String) -> AppRoute? { RouteParser.parse(value) }
 }

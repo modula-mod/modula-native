@@ -173,6 +173,7 @@ enum SettingsRegistry {
             item(.appearance(.iconStyle), "Icon Style", "Outline, balanced or filled", "circle.grid.cross", .implemented, terms: ["icons"]),
             item(.appearance(.interfaceShape), "Interface Shape", "Soft, balanced or precise", "rectangle.roundedtop", .implemented, terms: ["shape"]),
             item(.appearance(.moduleBranding), "Module Branding", "How modules use their colour", "paintbrush", .implemented, terms: ["branding"]),
+            item(.appearance(.tabBar), "Custom navigation", "Choose your tab bar destinations", "dock.rectangle", .implemented, terms: ["tab bar", "tabs", "navigation", "bottom bar", "customise", "customize"]),
             item(.appearance(.preview), "Appearance Preview", "Live contract preview", "rectangle.inset.filled", .implemented, terms: ["preview"]),
             item(.personalisation(.root), "Personalisation", "Recommendations, stories and captions", "slider.horizontal.3", .implemented, terms: ["personalisation", "personalization", "recommendations", "stories", "captions"]),
             item(.personalisation(.recommendations), "Recommendations", "Suggested people and modules", "sparkles", .implemented, terms: ["suggested", "recommendations"]),

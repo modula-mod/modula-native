@@ -29,7 +29,7 @@ final class N4DRouteTests: XCTestCase {
     }
 
     func testFiveRootTabsUnchanged() {
-        XCTAssertEqual(AppTab.allCases.map(\.rawValue), ["home", "discover", "modules", "activity", "profile"])
+        XCTAssertEqual(AppTab.defaultBar.map(\.rawValue), ["home", "discover", "modules", "activity"])
         XCTAssertNil(AppRoute.command.tab)
         XCTAssertEqual(AppRoute.saved(.root).tab, .profile)
     }

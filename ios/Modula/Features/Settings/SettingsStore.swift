@@ -51,6 +51,8 @@ final class AppearanceStore {
     var customAccentHex: String? { didSet { save() } }
     /// Edge Picker personalization. Nested under Appearance; reset separately via `resetEdgePicker()`.
     var edgePicker: EdgePickerPreferences { didSet { save() } }
+    /// Custom navigation: bottom tab bar destinations, in order (Home always first, 2…5).
+    var tabBar: [AppTab] { didSet { save() } }
 
     var colorScheme: ColorScheme? { switch theme { case .system: nil; case .light: .light; case .dark: .dark } }
     /// Named swatch, or the wheel colour when one is stored.
@@ -129,6 +131,7 @@ final class AppearanceStore {
         brandWordmark = saved?.brandWordmark ?? .modula
         customAccentHex = saved?.customAccentHex.flatMap(Self.normalizedHex)
         edgePicker = saved?.edgePicker ?? .default
+        tabBar = AppTab.sanitizedBar((saved?.tabBar ?? []).compactMap(AppTab.init(rawValue:)))
         if saved == nil, let legacy = LegacyAppearance(rawValue: defaults.string(forKey: "modula.native.appearance.v1") ?? "") { appearance = legacy }
     }
 
@@ -140,6 +143,12 @@ final class AppearanceStore {
         brandWordmark = .modula
         customAccentHex = nil
         edgePicker = .default
+        tabBar = AppTab.defaultBar
+    }
+
+    /// Custom navigation › Restore to default.
+    func resetTabBar() {
+        tabBar = AppTab.defaultBar
     }
 
     /// Resets only Edge Picker preferences to canonical defaults.
@@ -153,7 +162,8 @@ final class AppearanceStore {
             appIcon: appIcon, density: density, motion: motion, haptics: haptics,
             contrastTransparency: contrastTransparency, iconStyle: iconStyle,
             interfaceShape: interfaceShape, moduleBranding: moduleBranding,
-            brandWordmark: brandWordmark, customAccentHex: customAccentHex, edgePicker: edgePicker
+            brandWordmark: brandWordmark, customAccentHex: customAccentHex, edgePicker: edgePicker,
+            tabBar: tabBar.map(\.rawValue)
         )
         defaults.set(try? JSONEncoder().encode(value), forKey: key)
     }
@@ -168,12 +178,15 @@ final class AppearanceStore {
         var customAccentHex: String?
         /// Optional so existing v2 blobs without this field decode to defaults.
         var edgePicker: EdgePickerPreferences?
+        /// Optional so older blobs decode to the default bar.
+        var tabBar: [String]?
 
         init(
             theme: Theme, darkStyle: DarkStyle, accent: Accent, fontFamily: FontFamily, textSize: TextSize,
             appIcon: AppIcon, density: Density, motion: MotionPersonality, haptics: HapticIntensity,
             contrastTransparency: ContrastTransparency, iconStyle: IconStyle, interfaceShape: InterfaceShape,
-            moduleBranding: ModuleBranding, brandWordmark: BrandWordmark, customAccentHex: String?, edgePicker: EdgePickerPreferences
+            moduleBranding: ModuleBranding, brandWordmark: BrandWordmark, customAccentHex: String?, edgePicker: EdgePickerPreferences,
+            tabBar: [String]? = nil
         ) {
             self.theme = theme; self.darkStyle = darkStyle; self.accent = accent
             self.fontFamily = fontFamily; self.textSize = textSize; self.appIcon = appIcon
@@ -182,6 +195,7 @@ final class AppearanceStore {
             self.interfaceShape = interfaceShape; self.moduleBranding = moduleBranding; self.brandWordmark = brandWordmark
             self.customAccentHex = customAccentHex
             self.edgePicker = edgePicker
+            self.tabBar = tabBar
         }
     }
 }

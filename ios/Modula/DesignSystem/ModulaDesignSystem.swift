@@ -664,7 +664,7 @@ final class ProfileTabBarAvatarHook: UIView {
 }
 
 /// Shared, RTL- and localization-safe lookup for the system `UITabBar`.
-/// Tabs are matched by their logical index in `AppTab.allCases`, never by
+/// Tabs are matched by their logical index in the visible bar (`ShellTabBarLayout`), never by
 /// English titles or left-to-right screen position. The bar is cached weakly
 /// so repeated SwiftUI updates do not walk every window.
 @MainActor
@@ -691,15 +691,17 @@ enum TabBarIntrospection {
     }
 
     static func item(for tab: AppTab, in bar: UITabBar) -> UITabBarItem? {
-        guard let items = bar.items, items.count == AppTab.allCases.count,
-              let index = AppTab.allCases.firstIndex(of: tab) else { return nil }
+        let visible = ShellTabBarLayout.visible
+        guard let items = bar.items, items.count == visible.count,
+              let index = visible.firstIndex(of: tab) else { return nil }
         return items[index]
     }
 
     static func button(for tab: AppTab, in bar: UITabBar) -> UIView? {
         let buttons = logicalTabButtons(in: bar)
-        guard buttons.count == AppTab.allCases.count,
-              let index = AppTab.allCases.firstIndex(of: tab) else { return nil }
+        let visible = ShellTabBarLayout.visible
+        guard buttons.count == visible.count,
+              let index = visible.firstIndex(of: tab) else { return nil }
         return buttons[index]
     }
 

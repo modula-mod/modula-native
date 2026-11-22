@@ -993,6 +993,7 @@ struct AppearanceSettingsView: View {
                 themeSection(store)
                 accentSection(store)
                 brandingSection(store)
+                navigationSection(store)
                 advancedSection(store)
 
                 Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")
@@ -1170,6 +1171,36 @@ struct AppearanceSettingsView: View {
             Text("The wordmark at the top of Home. It only changes how Modula looks to you.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
+    }
+
+    /// Settings › Appearance › Custom navigation (tab bar destinations).
+    private func navigationSection(_ store: AppearanceStore) -> some View {
+        Button {
+            app.navigation.open(.settings(.appearance(.tabBar)))
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "dock.rectangle")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Custom navigation").font(.headline)
+                    Text(store.tabBar.map(\.title).joined(separator: " · "))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityHint("Choose the tabs in your bottom bar")
+        .accessibilityIdentifier("appearance.custom-navigation")
     }
 
     private func advancedSection(_ store: AppearanceStore) -> some View {
@@ -2113,5 +2144,233 @@ enum SettingsV5Category {
         case .developer, .labs: "Developer & Labs"
         default: "Settings"
         }
+    }
+}
+
+
+// MARK: - Custom navigation (tab bar)
+
+/// Settings › Appearance › Custom navigation. Pick 2…5 bar destinations in a 3-column grid of
+/// glass tiles; Home is pinned first. Tap toggles, long-press-drag a selected tile onto another to
+/// reorder. Changes save to `AppearanceStore.tabBar` and the bar updates live.
+struct CustomNavigationSettingsView: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var notice: String?
+    @State private var noticeToken = 0
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+
+    var body: some View {
+        let bar = app.appearance.tabBar
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Tab bar").font(.title2.bold())
+                    Text("Choose \(AppTab.minBarCount)–\(AppTab.maxBarCount) destinations. Home stays first. Long-press and drag a selected tile to reorder. Profile is always a swipe from the right edge.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(AppTab.barCandidates) { tab in
+                        tile(tab, bar: bar)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Preview").font(.headline)
+                    CustomNavigationPreviewBar(tabs: bar)
+                }
+
+                Button {
+                    restore()
+                } label: {
+                    Label("Restore to default", systemImage: "arrow.counterclockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .disabled(bar == AppTab.defaultBar)
+                .opacity(bar == AppTab.defaultBar ? 0.5 : 1)
+                .accessibilityIdentifier("custom-navigation.restore")
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+        }
+        .overlay(alignment: .bottom) {
+            if let notice {
+                Text(notice)
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .modulaGlass(in: Capsule(), interactive: false)
+                    .padding(.bottom, 16)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+        }
+        .modulaSoftScrollEdge()
+        .modulaCanvas()
+        .navigationTitle("Custom navigation")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func tile(_ tab: AppTab, bar: [AppTab]) -> some View {
+        let index = bar.firstIndex(of: tab)
+        let selected = index != nil
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let base = Button {
+            toggle(tab)
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: selected ? tab.selectedIcon : tab.icon)
+                    .font(.system(size: 24, weight: selected ? .semibold : .regular))
+                    .symbolEffect(.bounce, value: selected)
+                    .contentTransition(.symbolEffect(.replace))
+                Text(tab.title)
+                    .font(.footnote.weight(selected ? .semibold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(selected ? Color.primary : Color.secondary)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: shape, interactive: true)
+        .overlay {
+            shape.strokeBorder(Color.primary.opacity(selected ? 0.9 : 0), lineWidth: 2)
+        }
+        .overlay(alignment: .topTrailing) {
+            if let index {
+                Group {
+                    if tab == .home {
+                        Image(systemName: "pin.fill").font(.system(size: 10, weight: .bold))
+                    } else {
+                        Text("\(index + 1)").font(.caption2.weight(.bold)).monospacedDigit()
+                    }
+                }
+                .foregroundStyle(Color(uiColor: .systemBackground))
+                .frame(width: 22, height: 22)
+                .background(Color.primary, in: Circle())
+                .padding(8)
+                .accessibilityHidden(true)
+            }
+        }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: selected)
+        .accessibilityLabel(tab.title)
+        .accessibilityValue(selected ? "selected, \((index ?? 0) + 1) of \(bar.count)" : "not selected")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityHint(tab == .home ? "Always first in the tab bar" : (selected ? "Double-tap to remove from the tab bar" : "Double-tap to add to the tab bar"))
+        .accessibilityActions {
+            if let index, tab != .home {
+                if index > 1 { Button("Move earlier") { move(tab, to: index - 1) } }
+                if index < bar.count - 1 { Button("Move later") { move(tab, to: index + 1) } }
+            }
+        }
+        .accessibilityIdentifier("custom-navigation.tile.\(tab.rawValue)")
+
+        if selected, tab != .home {
+            base
+                .draggable(tab.rawValue)
+                .dropDestination(for: String.self) { items, _ in
+                    guard let raw = items.first, let dragged = AppTab(rawValue: raw),
+                          let target = app.appearance.tabBar.firstIndex(of: tab) else { return false }
+                    move(dragged, to: target)
+                    return true
+                }
+        } else {
+            base
+        }
+    }
+
+    private func toggle(_ tab: AppTab) {
+        var bar = app.appearance.tabBar
+        if tab == .home {
+            flash("Home is always in the tab bar")
+            return
+        }
+        if let index = bar.firstIndex(of: tab) {
+            guard bar.count > AppTab.minBarCount else {
+                flash("Keep at least \(AppTab.minBarCount) tabs")
+                return
+            }
+            bar.remove(at: index)
+        } else {
+            guard bar.count < AppTab.maxBarCount else {
+                flash("Up to \(AppTab.maxBarCount) tabs — remove one first")
+                return
+            }
+            bar.append(tab)
+        }
+        HapticEngine.shared.play(.selection)
+        commit(bar)
+    }
+
+    private func move(_ tab: AppTab, to target: Int) {
+        var bar = app.appearance.tabBar
+        guard tab != .home, let from = bar.firstIndex(of: tab), from != target else { return }
+        bar.remove(at: from)
+        bar.insert(tab, at: min(max(target, 1), bar.count))
+        HapticEngine.shared.play(.selection)
+        commit(bar)
+    }
+
+    private func restore() {
+        HapticEngine.shared.play(.selection)
+        commit(AppTab.defaultBar)
+    }
+
+    private func commit(_ bar: [AppTab]) {
+        let clean = AppTab.sanitizedBar(bar)
+        if reduceMotion { app.appearance.tabBar = clean } else { withAnimation(.snappy) { app.appearance.tabBar = clean } }
+    }
+
+    private func flash(_ message: String) {
+        HapticEngine.shared.play(.warning)
+        noticeToken += 1
+        let token = noticeToken
+        withAnimation(.snappy) { notice = message }
+        UIAccessibility.post(notification: .announcement, argument: message)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            guard token == noticeToken else { return }
+            withAnimation(.snappy) { notice = nil }
+        }
+    }
+}
+
+/// Live, non-interactive copy of the bottom bar for the Custom navigation page.
+private struct CustomNavigationPreviewBar: View {
+    let tabs: [AppTab]
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { offset, tab in
+                VStack(spacing: 3) {
+                    Image(systemName: offset == 0 ? tab.selectedIcon : tab.icon)
+                        .font(.system(size: 17, weight: offset == 0 ? .semibold : .medium))
+                    Text(tab.title)
+                        .font(.caption2.weight(offset == 0 ? .semibold : .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .foregroundStyle(offset == 0 ? Color.primary : Color.secondary)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .modulaGlass(in: Capsule(), interactive: false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Tab bar preview: \(tabs.map(\.title).joined(separator: ", "))")
     }
 }

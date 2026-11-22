@@ -224,7 +224,7 @@ struct RootView: View {
             }
         )
         return TabView(selection: reselectable) {
-            ForEach(AppTab.allCases) { tab in
+            ForEach(navigation.visibleTabs) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
                     Group {
                         // Lazy tabs: TabView builds every tab's root at launch; Messages,
@@ -262,18 +262,22 @@ struct RootView: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                 }
-                .badge(tab == .activity ? activityBadge : (tab == .profile ? draftsBadge : 0))
+                .badge(tab == .activity ? activityBadge : (tab == .drafts ? draftsBadge : 0))
                 .tag(tab)
             }
         }
         .onChange(of: navigation.selectedTab, initial: true) { _, selected in
             if !visitedTabs.contains(selected) { visitedTabs.insert(selected) }
         }
+        // Custom navigation (Settings › Appearance): the bar follows the saved list live.
+        .onChange(of: app.appearance.tabBar, initial: true) { _, bar in
+            if navigation.visibleTabs != bar { navigation.visibleTabs = bar }
+        }
+        // Profile left the tab bar: keep a direct VoiceOver route to it (also: right-edge swipe, sidebar).
+        .accessibilityAction(named: Text("Open Profile")) {
+            navigation.select(.profile)
+        }
         .overlay {
-            ProfileTabBarAvatarApplicator(image: app.profile.tabBarAvatar)
-                .frame(width: 0, height: 0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
             TabBarIconMotionApplicator(
                 selectedTab: navigation.selectedTab,
                 reduceMotion: reduceMotion
@@ -289,7 +293,7 @@ struct RootView: View {
         return false
     }
 
-    /// Unsent drafts (posts + stories) on the Profile tab, so a half-written post isn't forgotten.
+    /// Unsent drafts (posts + stories), shown on the Drafts tab when it's in the bar.
     private var draftsBadge: Int { app.drafts.posts.count + app.drafts.stories.count }
 
     /// Unread Activity, quietened by an iOS Focus filter per Settings → Focus.

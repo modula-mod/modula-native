@@ -935,7 +935,7 @@ struct ModulaTabBar: View {
     var body: some View {
         @Bindable var navigation = app.navigation
         HStack(spacing: 2) {
-            ForEach(AppTab.allCases) { tab in
+            ForEach(navigation.visibleTabs) { tab in
                 let selected = navigation.selectedTab == tab
                 Button {
                     navigation.select(tab)
@@ -989,7 +989,7 @@ struct ModulaTabBar: View {
 
 extension ModulaTabBar {
     fileprivate func tabIndex(_ tab: AppTab) -> CGFloat {
-        CGFloat(AppTab.allCases.firstIndex(of: tab) ?? 0)
+        CGFloat(app.navigation.visibleTabs.firstIndex(of: tab) ?? 0)
     }
 
     fileprivate func morphBlob(from: CGFloat, to: CGFloat) {
@@ -1015,10 +1015,10 @@ extension ModulaTabBar {
         let lead = blobLead < 0 ? selectedIndex : blobLead
         let trail = blobTrail < 0 ? selectedIndex : blobTrail
         let accent = app.appearance.liveAccent
-        ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(AppTab.allCases.count))
+        ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(max(app.navigation.visibleTabs.count, 1)))
             .fill(accent.opacity(0.15))
             .overlay {
-                ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(AppTab.allCases.count))
+                ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(max(app.navigation.visibleTabs.count, 1)))
                     .stroke(
                         LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom),
                         lineWidth: 0.75
