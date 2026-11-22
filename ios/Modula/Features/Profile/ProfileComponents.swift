@@ -1686,13 +1686,23 @@ struct ProfilePreviewHeader: View {
 struct ProfileAvatarContent: View {
     let profile: ModulaProfile
     let size: CGFloat
+    @Environment(AppEnvironment.self) private var app
     @AppStorage(MascotProfileSettings.useAsAvatarKey) private var useMascot = false
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+
+    /// The mascot is a local, signed-in-user setting: it may stand in for *your* missing photo,
+    /// never for another account's (they get the shared initials monogram instead).
+    private var isOwnProfile: Bool {
+        guard let account = app.auth.account else { return false }
+        if profile.id == account.accountId { return true }
+        let handle = account.primaryHandle
+        return !handle.isEmpty && profile.handle.caseInsensitiveCompare(handle) == .orderedSame
+    }
 
     var body: some View {
         let selection = MascotSelection.resolve(raw: kindRaw)
         // The real photo wins wherever one exists, so the profile matches posts/Settings.
-        if useMascot, selection != .off, profile.avatarURL == nil {
+        if isOwnProfile, useMascot, selection != .off, profile.avatarURL == nil {
             MascotAvatarView(size: size)
         } else {
             ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)

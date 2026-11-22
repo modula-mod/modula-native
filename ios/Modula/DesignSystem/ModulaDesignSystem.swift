@@ -530,10 +530,22 @@ struct ModulaAvatar: View {
         .accessibilityAddTraits(.isImage)
     }
 
+    /// No-photo fallback, shared by every avatar (profile hero, header, comments, chats, people
+    /// cards): a neutral tinted-glass monogram. Same look everywhere and never the accent, so it
+    /// can't turn coral and the big and small avatars of one person always match.
     private var initialsView: some View {
         Circle()
-            .fill(app.appearance.liveAccent.gradient)
-            .overlay(Text(initials).font(.headline).foregroundStyle(.white))
+            .fill(Color(uiColor: .tertiarySystemFill))
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .overlay(
+                Text(initials)
+                    .font(.system(size: max(9, size * 0.38), weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .padding(size * 0.12)
+            )
     }
 
     private var loadingView: some View {
