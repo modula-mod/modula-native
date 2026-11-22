@@ -137,6 +137,10 @@ struct ImmersivePostCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    /// Global Y of the screen's top chrome bottom edge (nav bar + safe area), measured by the feed.
+    @Environment(\.modulaTopChromeBottom) private var topChromeBottom
+    /// True while the action rail would sit under the header's search/bell/chat cluster.
+    @State private var railUnderHeader = false
     @Environment(\.openURL) private var openURL
     /// The app's real scheme. Media stages force `.dark` for legibility over photos, but the
     /// post menu must present in the app scheme so it reads like the accessory Options menu.
@@ -292,6 +296,16 @@ struct ImmersivePostCard: View {
                     if showsCommentAffordances { mediaCommentStrip(isVideo: isVideo) }
                 }
             rail(expandable: expandable, gallery: pages)
+                // Keep the floating rail out of the header: while its top edge is above the
+                // header's bottom edge (measured, not hard-coded) it fades out and stops taking
+                // touches, so it never overlaps the search/bell/chat cluster. Bool output: this
+                // only updates state when the answer flips, not on every scroll frame.
+                .onGeometryChange(for: Bool.self) { proxy in
+                    topChromeBottom > 0 && proxy.frame(in: .global).minY < topChromeBottom + 6
+                } action: { railUnderHeader = $0 }
+                .opacity(railUnderHeader ? 0 : 1)
+                .allowsHitTesting(!railUnderHeader)
+                .animation(calm ? nil : .easeOut(duration: 0.15), value: railUnderHeader)
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay { if !isDetail { mediaCardStroke } }
@@ -1887,4 +1901,11 @@ struct ModulaOutsideRoundedRect: Shape {
         path.addRoundedRect(in: rect, cornerSize: CGSize(width: radius, height: radius), style: .continuous)
         return path
     }
+}
+
+
+extension EnvironmentValues {
+    /// Global Y of the bottom edge of the current screen's top chrome (navigation bar incl. the
+    /// safe area). 0 = unknown. Set by scrolling feeds so floating card chrome can stay below it.
+    @Entry var modulaTopChromeBottom: CGFloat = 0
 }
