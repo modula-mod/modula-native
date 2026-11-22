@@ -1932,14 +1932,15 @@ extension MessagingStore {
         }
     }
 
-    func loadReceipts(_ message: Message) async {
+    /// `quiet`: background loads (the avatar stack under your last message) never raise an error toast.
+    func loadReceipts(_ message: Message, quiet: Bool = false) async {
         guard capabilities.groupReadReceipts, message.isOwn, !message.id.hasPrefix("local-") else { return }
         do {
             receiptsByMessage[message.id] = try await repository.receipts(conversation: message.conversationID, message: message.id)
         } catch APIError.rejected(403, _) {
             receiptsByMessage[message.id] = MessageReceipts(readBy: [], notYet: [], hiddenCount: 0, receiptsDisabled: true)
         } catch {
-            actionError = "Couldn't load who has read this."
+            if !quiet { actionError = "Couldn't load who has read this." }
         }
     }
 
