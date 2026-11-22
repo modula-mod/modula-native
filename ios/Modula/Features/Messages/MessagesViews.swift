@@ -1,4 +1,5 @@
 import AVFoundation
+import PhotosUI
 import SwiftUI
 import Translation
 import UIKit
@@ -1331,9 +1332,11 @@ struct ConversationView: View {
                 if let theme = app.messaging.theme(for: conversationID), !ChatThemePalette.background(theme).isEmpty {
                     ChatThemeBackground(theme: theme)
                 } else {
-                    MessagesWallpaper(theme: app.messaging.wallpaper(for: conversationID))
+                    MessagesWallpaper(conversationID: conversationID)
                 }
             }
+            .environment(\.messagesWallpaperActive, app.messaging.wallpaper(for: conversationID) != .none
+                         || !(app.messaging.theme(for: conversationID).map { ChatThemePalette.background($0).isEmpty } ?? true))
             .safeAreaInset(edge: .top, spacing: 0) {
                 if app.messaging.capabilities.features4.pinnedMessages, !searching,
                    let pins = app.messaging.pinnedMessages[conversationID], !pins.isEmpty {
@@ -2701,6 +2704,7 @@ struct MessageBubble: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @Environment(\.chatThemeAccent) private var themeAccent
+    @Environment(\.messagesWallpaperActive) private var wallpaperActive
     // Plain reference box: the row's on-screen frame is only needed when a long-press
     // opens the focus menu, so writing it every scroll frame must not re-render the bubble.
     @State private var rowFrameBox = ModulaFrameBox()
@@ -2990,7 +2994,7 @@ struct MessageBubble: View {
     private var bubbleBackground: some View {
         if message.isOwn {
             bubbleShape.fill(ownGradient)
-        } else if reduceTransparency || !ModulaGlassSettings.shared.glassBubbles {
+        } else if reduceTransparency || (!ModulaGlassSettings.shared.glassBubbles && !wallpaperActive) {
             // Default: a flat fill + hairline. A live glass effect per received bubble
             // re-sampled the wallpaper on every scroll frame.
             bubbleShape.fill(bubbleFill)
@@ -4232,6 +4236,7 @@ struct ChatInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var nickname = ""
+    @State private var showsWallpaper = false
     @State private var confirmBlock = false
     @State private var blocked = false
 
@@ -4323,14 +4328,13 @@ struct ChatInfoSheet: View {
                         }
                         .frame(minHeight: 50)
                         infoDivider
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 12) {
-                                rowIcon("paintpalette")
-                                Text("Wallpaper").font(.body)
-                            }
-                            wallpaperPicker
+                        Button { showsWallpaper = true } label: {
+                            infoRow("Wallpaper", symbol: "photo.artframe",
+                                    value: app.messaging.wallpaperOverride(for: conversationID) == nil
+                                        ? "Default" : app.messaging.wallpaper(for: conversationID).title)
                         }
-                        .padding(.vertical, 10)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("messages.info.wallpaper")
                         if !app.messaging.capabilities.features4.chatThemes.isEmpty {
                             infoDivider
                             ChatThemePicker(conversationID: conversationID)
@@ -4412,6 +4416,7 @@ struct ChatInfoSheet: View {
         }
         .presentationDetents([.large])
         .modulaSheetStyle()
+        .sheet(isPresented: $showsWallpaper) { ChatWallpaperPickerSheet(conversationID: conversationID) }
         .onAppear { nickname = app.messaging.nicknames[conversationID] ?? "" }
         .onDisappear { app.messaging.setNickname(nickname, for: conversationID) }
         .accessibilityIdentifier("messages.info")
@@ -4458,29 +4463,6 @@ struct ChatInfoSheet: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private var wallpaperPicker: some View {
-        HStack(spacing: 10) {
-            ForEach(MessagesWallpaperTheme.allCases) { theme in
-                let on = app.messaging.wallpaper(for: conversationID) == theme
-                Button {
-                    app.messaging.setWallpaper(theme, for: conversationID)
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Circle()
-                        .fill(theme.swatch(accent: app.appearance.liveAccent))
-                        .frame(width: 36, height: 36)
-                        .overlay(Circle().strokeBorder(on ? Color.primary : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
-                        .padding(2)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
-                .accessibilityLabel(theme.title)
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
-        }
-        .padding(.leading, 44)
     }
 
     private func circleAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
@@ -4835,56 +4817,408 @@ struct MessagesTypingBubble: View {
 
 /// Per-chat wallpaper (device only). Soft, low-contrast washes so bubbles always stay legible.
 enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
-    case none, accent, dusk, ocean, meadow, ember
+    /// `accent` (coral glow) was retired; stored values of it read as no wallpaper.
+    case none, graphite, dusk, ocean, meadow, sand, ember, spectral, photo
+
+    static let defaultKey = "__default"
+    static let stills: [MessagesWallpaperTheme] = [.none, .graphite, .dusk, .ocean, .meadow, .sand, .ember]
+
+    init?(stored: String?) {
+        guard let stored, let value = MessagesWallpaperTheme(rawValue: stored) else { return nil }
+        self = value
+    }
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .none: "No wallpaper"
-        case .accent: "Accent glow"
+        case .none: "None"
+        case .graphite: "Graphite"
         case .dusk: "Dusk"
-        case .ocean: "Ocean"
+        case .ocean: "Tide"
         case .meadow: "Meadow"
+        case .sand: "Dune"
         case .ember: "Ember"
+        case .spectral: "Spectral Drape"
+        case .photo: "Photo"
         }
     }
 
-    func colors(accent: Color) -> [Color] {
-        switch self {
-        case .none: []
-        case .accent: [accent, accent.opacity(0.2)]
-        case .dusk: [.purple, .pink]
-        case .ocean: [.blue, .teal]
-        case .meadow: [.green, .mint]
-        case .ember: [.orange, .red]
+    /// 3×3 mesh palettes, muted, with separate light and dark variants so bubbles stay legible.
+    func mesh(dark: Bool) -> [Color] {
+        func h(_ hex: String) -> Color { Color(hex: hex) }
+        switch (self, dark) {
+        case (.graphite, true): return ["#101113", "#16181C", "#0D0E10", "#1A1D22", "#22262C", "#15171B", "#0B0C0E", "#14161A", "#0F1013"].map(h)
+        case (.graphite, false): return ["#F2F3F5", "#E7E9ED", "#F6F7F8", "#E2E5EA", "#D9DDE3", "#ECEEF1", "#F7F8F9", "#E9EBEF", "#F1F2F4"].map(h)
+        case (.dusk, true): return ["#120E1C", "#1E1430", "#140F22", "#251838", "#33204A", "#1B1329", "#0E0B16", "#1A1228", "#120E1D"].map(h)
+        case (.dusk, false): return ["#F3EEF8", "#EADFF4", "#F6F1FA", "#E5D6F1", "#DCC8EC", "#EEE4F6", "#F7F3FB", "#EBE1F4", "#F2EDF8"].map(h)
+        case (.ocean, true): return ["#08131A", "#0C1E28", "#071118", "#0F2733", "#143444", "#0B1C25", "#060E13", "#0B1A22", "#08121A"].map(h)
+        case (.ocean, false): return ["#ECF4F7", "#DDEDF3", "#F1F7F9", "#D5E8F0", "#C8E1EB", "#E3F0F5", "#F3F8FA", "#E0EEF3", "#EBF4F7"].map(h)
+        case (.meadow, true): return ["#0B130E", "#122016", "#0A110C", "#16291C", "#1D3524", "#111D15", "#080E0A", "#101A13", "#0B130E"].map(h)
+        case (.meadow, false): return ["#EEF5EF", "#E1EEE3", "#F3F8F3", "#D9E9DC", "#CDE2D1", "#E6F0E8", "#F5F9F5", "#E3EFE5", "#EDF4EE"].map(h)
+        case (.sand, true): return ["#15120E", "#211B14", "#13100C", "#2A2219", "#352B1F", "#1E1913", "#0F0D0A", "#1C1712", "#15120E"].map(h)
+        case (.sand, false): return ["#F8F4EE", "#F1E9DD", "#FAF7F2", "#ECE2D2", "#E5D8C4", "#F3ECE2", "#FBF8F4", "#EFE7DA", "#F7F3ED"].map(h)
+        case (.ember, true): return ["#160F0C", "#241711", "#140D0A", "#2D1C14", "#3A2418", "#21150F", "#100B09", "#1F140F", "#160F0C"].map(h)
+        case (.ember, false): return ["#F9F1EC", "#F3E3D9", "#FBF5F1", "#EFDBCE", "#E9CFBF", "#F5E8DF", "#FCF7F4", "#F1E1D6", "#F8F0EB"].map(h)
+        default: return []
         }
-    }
-
-    func swatch(accent: Color) -> AnyShapeStyle {
-        self == .none
-            ? AnyShapeStyle(Color.primary.opacity(0.08))
-            : AnyShapeStyle(LinearGradient(colors: colors(accent: accent), startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 }
 
-struct MessagesWallpaper: View {
+/// Photo wallpapers live in Application Support, one file per key (chat id or the default).
+enum ChatWallpaperPhotoStore {
+    static func url(key: String) -> URL? {
+        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        let folder = base.appendingPathComponent("ChatWallpapers", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let safe = key.replacingOccurrences(of: "/", with: "_")
+        return folder.appendingPathComponent("\(safe).jpg")
+    }
+
+    /// Downsamples to ≤ 2400 px and stores as JPEG (off the main thread).
+    static func save(_ data: Data, key: String) async -> Bool {
+        await Task.detached(priority: .userInitiated) {
+            guard let image = ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: 2400),
+                  let jpeg = image.jpegData(compressionQuality: 0.85),
+                  let url = url(key: key) else { return false }
+            return (try? jpeg.write(to: url, options: .atomic)) != nil
+        }.value
+    }
+
+    static func remove(key: String) {
+        guard let url = url(key: key) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    static func exists(key: String) -> Bool {
+        guard let url = url(key: key) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+}
+
+/// Draws one wallpaper choice (used by the thread background, the picker tiles and the preview).
+struct MessagesWallpaperSurface: View {
     let theme: MessagesWallpaperTheme
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var photoKey: String = MessagesWallpaperTheme.defaultKey
+    var dim: Double = 0.25
+    var blur: Double = 0
+    var revision = 0
+    /// Picker tiles show the drape still, so a grid of them doesn't run several shaders.
+    var animated = true
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        if theme != .none {
-            let strength = reduceTransparency ? 0.08 : (scheme == .dark ? 0.22 : 0.16)
-            LinearGradient(
-                colors: theme.colors(accent: app.appearance.liveAccent).map { $0.opacity(strength) },
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
+        let dark = scheme == .dark
+        ZStack {
+            switch theme {
+            case .none:
+                Color.clear
+            case .spectral:
+                if animated {
+                    ModulaAuthBackdrop(calm: true)
+                } else {
+                    LinearGradient(colors: dark ? [Color(hex: "#05090D"), Color(hex: "#1B2A3A"), Color(hex: "#2A1838")]
+                                                : [Color(hex: "#EEF1F8"), Color(hex: "#D9E4F5"), Color(hex: "#EBDDF3")],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            case .photo:
+                ChatWallpaperPhoto(key: photoKey, revision: revision)
+                    .blur(radius: blur, opaque: true)
+                Color.black.opacity(max(0.1, dim))
+            default:
+                MeshGradient(width: 3, height: 3,
+                             points: [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.55, 0.45], [1, 0.5], [0, 1], [0.5, 1], [1, 1]],
+                             colors: theme.mesh(dark: dark))
+            }
+            // Reduce Transparency: a flat veil so text never sits on busy art.
+            if reduceTransparency, theme != .none {
+                Color(uiColor: .systemBackground).opacity(0.55)
+            }
         }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Loads a stored wallpaper photo downsampled to the screen, off the main thread.
+struct ChatWallpaperPhoto: View {
+    let key: String
+    var revision = 0
+    @State private var image: UIImage?
+    @Environment(\.displayScale) private var displayScale
+
+    var body: some View {
+        GeometryReader { geo in
+            Group {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Color(uiColor: .secondarySystemBackground)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+        .task(id: "\(key)#\(revision)") {
+            let pixels = 1400 * max(displayScale, 1) / 2
+            image = await Task.detached(priority: .utility) {
+                guard let url = ChatWallpaperPhotoStore.url(key: key), let data = try? Data(contentsOf: url) else { return nil }
+                return ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: pixels)
+            }.value
+        }
+    }
+}
+
+/// The thread background for a chat (or the global default when `conversationID` is nil).
+struct MessagesWallpaper: View {
+    let conversationID: ConversationID?
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let store = app.messaging
+        let theme = conversationID.map { store.wallpaper(for: $0) } ?? store.defaultWallpaper
+        if theme != .none {
+            let key = store.wallpaperKey(for: conversationID)
+            let style = store.wallpaperStyle(key: key)
+            MessagesWallpaperSurface(theme: theme, photoKey: key, dim: style.dim, blur: style.blur, revision: store.wallpaperRevision)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// True while the thread sits on a wallpaper: received bubbles switch to glass for legibility.
+    @Entry var messagesWallpaperActive = false
+}
+
+/// Wallpaper picker: stills (mesh art, light/dark), the animated Spectral Drape, or your own photo
+/// with dim/blur, previewed live behind sample bubbles. `conversationID == nil` edits the default.
+struct ChatWallpaperPickerSheet: View {
+    let conversationID: ConversationID?
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var photoItem: PhotosPickerItem?
+    @State private var importing = false
+    @State private var importFailed = false
+    @State private var dim = 0.25
+    @State private var blur = 0.0
+
+    private var store: MessagingStore { app.messaging }
+    private var followsDefault: Bool { conversationID.map { store.wallpaperOverride(for: $0) == nil } ?? false }
+    private var current: MessagesWallpaperTheme {
+        conversationID.map { store.wallpaper(for: $0) } ?? store.defaultWallpaper
+    }
+    private var key: String { store.wallpaperKey(for: conversationID) }
+    /// Where a newly picked photo is stored: the chat's own key when editing a chat.
+    private var targetKey: String { conversationID ?? MessagesWallpaperTheme.defaultKey }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    preview
+                    if let conversationID {
+                        Button {
+                            store.setWallpaper(nil, for: conversationID)
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: followsDefault ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Use default").font(.body.weight(.semibold))
+                                    Text(store.defaultWallpaper.title).font(.footnote).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(14)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+                        .accessibilityAddTraits(followsDefault ? .isSelected : [])
+                    }
+                    section("Wallpapers") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            ForEach(MessagesWallpaperTheme.stills) { theme in tile(theme) }
+                        }
+                    }
+                    section("Animated") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            tile(.spectral)
+                        }
+                        Text("Pauses with Reduce Motion, Low Power Mode and when the chat isn't on screen.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    section("Your photo") {
+                        PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                            Label(importing ? "Importing…" : "Choose Photo", systemImage: "photo.on.rectangle")
+                                .font(.body.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.modulaSecondary)
+                        .disabled(importing)
+                        .accessibilityIdentifier("messages.wallpaper.photo")
+                        if importFailed {
+                            Text("That photo couldn't be used. Try another one.").font(.caption).foregroundStyle(.secondary)
+                        }
+                        if current == .photo {
+                            slider("Dim", value: $dim, range: 0...0.8)
+                            slider("Blur", value: $blur, range: 0...30)
+                        }
+                    }
+                    Text(conversationID == nil
+                         ? "Used in every chat that doesn't have its own wallpaper. Stored on this device only."
+                         : "Only you see this wallpaper. Stored on this device only.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.bottom, 28)
+            }
+            .navigationTitle(conversationID == nil ? "Default Wallpaper" : "Wallpaper")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
+        }
+        .presentationDetents([.large])
+        .modulaSheetStyle()
+        .onAppear {
+            let style = store.wallpaperStyle(key: key)
+            dim = style.dim
+            blur = style.blur
+        }
+        .onChange(of: dim) { _, _ in store.setWallpaperStyle(key: key, dim: dim, blur: blur) }
+        .onChange(of: blur) { _, _ in store.setWallpaperStyle(key: key, dim: dim, blur: blur) }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            importing = true
+            importFailed = false
+            Task { @MainActor in
+                defer { importing = false; photoItem = nil }
+                guard let data = try? await item.loadTransferable(type: Data.self),
+                      await ChatWallpaperPhotoStore.save(data, key: targetKey) else {
+                    importFailed = true
+                    return
+                }
+                store.setWallpaper(.photo, for: conversationID)
+                store.setWallpaperStyle(key: targetKey, dim: dim, blur: blur)
+                store.noteWallpaperPhotoChanged()
+                HapticEngine.shared.play(.success)
+            }
+        }
+        .accessibilityIdentifier("messages.wallpaper.picker")
+    }
+
+    /// Live preview behind two sample bubbles (glass received, black/white sent).
+    private var preview: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return ZStack {
+            Color(uiColor: .systemBackground)
+            MessagesWallpaperSurface(theme: current, photoKey: key, dim: dim, blur: blur, revision: store.wallpaperRevision)
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Love this wallpaper")
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                    Spacer(minLength: 40)
+                }
+                HStack {
+                    Spacer(minLength: 40)
+                    Text("Same! Still easy to read.")
+                        .foregroundStyle(Color.modulaOnPrimary)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.modulaPrimaryFill))
+                }
+            }
+            .font(.subheadline)
+            .padding(16)
+        }
+        .frame(height: 220)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Preview: \(current.title)")
+    }
+
+    private func tile(_ theme: MessagesWallpaperTheme) -> some View {
+        // While a chat follows the default, "Use default" carries the checkmark instead of a tile.
+        let on = current == theme && !followsDefault
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        return Button {
+            store.setWallpaper(theme, for: conversationID)
+            HapticEngine.shared.play(.selection)
+        } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    Color(uiColor: .secondarySystemBackground)
+                    MessagesWallpaperSurface(theme: theme, animated: false)
+                    if theme == .none {
+                        Image(systemName: "circle.slash").font(.title3).foregroundStyle(.secondary)
+                    } else if theme == .spectral {
+                        Image(systemName: "sparkles").font(.title3).foregroundStyle(.primary.opacity(0.8))
+                    }
+                }
+                .frame(height: 120)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(on ? Color.primary : Color.primary.opacity(0.1), lineWidth: on ? 2.5 : 0.5))
+                Text(theme.title)
+                    .font(.caption.weight(on ? .semibold : .regular))
+                    .foregroundStyle(on ? .primary : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+        .accessibilityLabel(theme.title)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary).accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: 12) {
+            Text(title).font(.subheadline).frame(width: 44, alignment: .leading)
+            Slider(value: value, in: range).tint(.primary)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 48)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+    }
+}
+
+/// Settings › Appearance › Chat wallpaper (global default).
+struct ChatWallpaperSettingsRow: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var showsPicker = false
+
+    var body: some View {
+        Button { showsPicker = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "photo.artframe")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Chat wallpaper").font(.headline)
+                    Text(app.messaging.defaultWallpaper.title).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .sheet(isPresented: $showsPicker) { ChatWallpaperPickerSheet(conversationID: nil) }
+        .accessibilityHint("Default background for your chats")
+        .accessibilityIdentifier("appearance.chat-wallpaper")
     }
 }
 
