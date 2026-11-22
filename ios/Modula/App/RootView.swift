@@ -2,6 +2,8 @@ import SwiftUI
 
 struct RootView: View {
     @State private var visitedTabs: Set<AppTab> = []
+    /// Custom navigation › Double-tap "Refresh": bumping a tab's token rebuilds its root screen.
+    @State private var tabRefreshTokens: [AppTab: Int] = [:]
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -166,7 +168,7 @@ struct RootView: View {
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
                     ShellAccessorySystemSlot(route: navigation.currentRoute)
                 }
-                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab) ? .onScrollDown : .never)
+                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab, size: TabBarCustomization.shared.size) ? .onScrollDown : .never)
         } else if #available(iOS 26.0, *) {
             tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
@@ -175,7 +177,7 @@ struct RootView: View {
                         ShellAccessorySystemSlot(route: navigation.currentRoute)
                     }
                 }
-                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab) ? .onScrollDown : .never)
+                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab, size: TabBarCustomization.shared.size) ? .onScrollDown : .never)
         } else {
             tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -190,6 +192,15 @@ struct RootView: View {
     /// which read as a stray notifications button. On Discover it collapses to a lone compass
     /// bubble with the Tools pill squeezed in beside it, both floating over the rails —
     /// keep the bar expanded on those tabs so the bottom chrome has one stable shape.
+    /// Custom navigation › Size: Compact always shrinks on scroll, Regular never does.
+    static func tabBarMinimizes(on tab: AppTab, size: TabBarSize) -> Bool {
+        switch size {
+        case .compact: true
+        case .regular: false
+        case .automatic: tabBarMinimizes(on: tab)
+        }
+    }
+
     static func tabBarMinimizes(on tab: AppTab) -> Bool {
         switch tab {
         case .activity, .discover: false
@@ -206,12 +217,19 @@ struct RootView: View {
         let reselectable = Binding<AppTab>(
             get: { navigation.selectedTab },
             set: { tab in
+                let custom = TabBarCustomization.shared
                 if tab == navigation.selectedTab {
                     if navigation.path(for: tab).isEmpty {
-                        ModulaTabReselect.post(tab)
-                    } else {
+                        switch custom.reselect {
+                        case .scrollToTop: ModulaTabReselect.post(tab)
+                        case .refresh:
+                            tabRefreshTokens[tab, default: 0] += 1
+                            if custom.haptics { HapticEngine.shared.play(.selection) }
+                        case .backToStart, .nothing: break
+                        }
+                    } else if custom.reselect != .nothing {
                         navigation.binding(for: tab).wrappedValue = []
-                        HapticEngine.shared.play(.selection)
+                        if custom.haptics { HapticEngine.shared.play(.selection) }
                     }
                 } else if tab == .profile, navigation.spatialEnabled {
                     // Profile is a sheet from the right over the current tab, not a tab swap.
@@ -220,6 +238,7 @@ struct RootView: View {
                 } else {
                     navigation.selectedTab = tab
                     navigation.spatial.close()
+                    if custom.haptics { HapticEngine.shared.play(.selection) }
                 }
             }
         )
@@ -232,6 +251,7 @@ struct RootView: View {
                         if tab == navigation.selectedTab || visitedTabs.contains(tab) {
                             RouteView(route: navigation.root(for: tab))
                                 .environment(\.modulaTabRoot, true)
+                                .id(tabRefreshTokens[tab, default: 0])
                         } else {
                             Color.clear
                         }
@@ -259,12 +279,23 @@ struct RootView: View {
                         .renderingMode(.original)
                         Text(tab.title)
                     } else {
-                        Label(tab.title, systemImage: navigation.selectedTab == tab ? tab.selectedIcon : tab.icon)
-                            .symbolEffect(.bounce, value: navigation.selectedTab == tab)
-                            .contentTransition(.symbolEffect(.replace))
+                        // Inline (not a helper view) so the system bar reads the Image + Text pair.
+                        let selected = navigation.selectedTab == tab
+                        let symbol = TabBarCustomization.shared.symbol(for: tab, selected: selected)
+                        if let color = TabBarCustomization.shared.tint(for: tab).uiColor {
+                            Image(uiImage: TabIconRenderer.image(symbol, color: color, selected: selected))
+                                .renderingMode(.original)
+                        } else {
+                            Image(systemName: symbol)
+                                .symbolEffect(.bounce, value: selected)
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        if TabBarCustomization.shared.showLabels {
+                            Text(tab.title)
+                        }
                     }
                 }
-                .badge(tab == .activity ? activityBadge : (tab == .drafts ? draftsBadge : 0))
+                .badge(badgeText(for: tab))
                 .tag(tab)
             }
         }
@@ -293,6 +324,26 @@ struct RootView: View {
     private static func hidesTabBar(on route: AppRoute) -> Bool {
         if case .settings = route { return true }
         return false
+    }
+
+    /// Badge per Custom navigation › Badges (count / dot / off).
+    private func badgeText(for tab: AppTab) -> Text? {
+        let count = Self.badgeCount(for: tab, activity: activityBadge, drafts: draftsBadge, chats: app.messaging.accountUnreadCount ?? 0)
+        guard count > 0 else { return nil }
+        switch TabBarCustomization.shared.badgeStyle {
+        case .count: return Text(count > 99 ? "99+" : "\(count)")
+        case .dot: return Text(" ")
+        case .off: return nil
+        }
+    }
+
+    static func badgeCount(for tab: AppTab, activity: Int, drafts: Int, chats: Int) -> Int {
+        switch tab {
+        case .activity: activity
+        case .drafts: drafts
+        case .messages: chats
+        default: 0
+        }
     }
 
     /// Unsent drafts (posts + stories), shown on the Drafts tab when it's in the bar.

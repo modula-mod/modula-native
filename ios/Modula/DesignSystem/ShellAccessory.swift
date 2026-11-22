@@ -937,9 +937,12 @@ struct ModulaTabBar: View {
         HStack(spacing: 2) {
             ForEach(navigation.visibleTabs) { tab in
                 let selected = navigation.selectedTab == tab
+                let custom = TabBarCustomization.shared
+                let tint = custom.tint(for: tab).color
+                let compact = custom.size == .compact
                 Button {
                     navigation.select(tab)
-                    HapticEngine.shared.play(.navigation)
+                    if custom.haptics { HapticEngine.shared.play(.navigation) }
                 } label: {
                     VStack(spacing: 2) {
                         if tab == .profile {
@@ -947,22 +950,37 @@ struct ModulaTabBar: View {
                                 .scaleEffect(selected && !reduceMotion ? 1.06 : 1)
                                 .animation(.spring(duration: 0.34, bounce: 0.28), value: selected)
                         } else {
-                            Image(systemName: selected ? tab.selectedIcon : tab.icon)
-                                .font(.system(size: 16, weight: selected ? .semibold : .medium))
+                            Image(systemName: custom.symbol(for: tab, selected: selected))
+                                .font(.system(size: custom.showLabels ? 16 : 19, weight: selected ? .semibold : .medium))
                                 .symbolEffect(.bounce, value: selected)
                                 .contentTransition(.symbolEffect(.replace))
-                                .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
+                                .foregroundStyle(tint ?? (selected ? app.appearance.liveAccent : .secondary))
+                                .opacity(tint != nil && !selected ? 0.75 : 1)
                         }
-                        Text(tab.title)
-                            .font(.caption2.weight(selected ? .semibold : .medium))
-                            .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.78)
+                        if custom.showLabels && !compact {
+                            Text(tab.title)
+                                .font(.caption2.weight(selected ? .semibold : .medium))
+                                .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .frame(maxWidth: .infinity, minHeight: compact ? 36 : 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    if custom.longPressMenu {
+                        Button { navigation.select(tab) } label: { Label("Open \(tab.title)", systemImage: tab.icon) }
+                        Button {
+                            navigation.select(tab)
+                            navigation.binding(for: tab).wrappedValue = []
+                        } label: { Label("Back to start", systemImage: "arrow.uturn.backward") }
+                        Button { ModulaTabReselect.post(tab) } label: { Label("Scroll to top", systemImage: "arrow.up.to.line") }
+                        Divider()
+                        Button { navigation.open(.settings(.appearance(.tabBar))) } label: { Label("Customise tab bar", systemImage: "slider.horizontal.3") }
+                    }
+                }
                 .accessibilityLabel(tab.title)
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
