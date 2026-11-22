@@ -977,6 +977,7 @@ struct AppearanceSettingsView: View {
                 brandingSection(store)
                 navigationSection(store)
                 ChatWallpaperSettingsRow()
+                CallIDSettingsRow()
                 advancedSection(store)
 
                 Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")

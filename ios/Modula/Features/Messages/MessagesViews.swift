@@ -38,6 +38,8 @@ struct MessagesRootView: View {
                     MessageRequestsView()
                 case .saved:
                     SavedMessagesView()
+                case .calls:
+                    CallsHomeView()
                 case .inMail(let mail):
                     InMailRouteView(route: mail)
                 case .new:
@@ -1087,7 +1089,7 @@ extension View {
 }
 
 enum MessagesScope: Hashable {
-    case inbox, inMail, requests
+    case inbox, inMail, requests, calls
 }
 
 struct MessagesScopePicker: View {
@@ -1096,12 +1098,14 @@ struct MessagesScopePicker: View {
 
     var body: some View {
         ModulaSegmentedControl("Message sections", selection: Binding(get: { selection }, set: navigate),
-                               segments: [(MessagesScope.inbox, "Chats"), (MessagesScope.inMail, "In-Mail"), (MessagesScope.requests, "Requests")],
+                               segments: [(MessagesScope.inbox, "Chats"), (MessagesScope.inMail, "In-Mail"),
+                                          (MessagesScope.requests, "Requests"), (MessagesScope.calls, "Calls")],
                                identifier: { scope in
                                    switch scope {
                                    case .inbox: "messages.scope.Chats"
                                    case .inMail: "messages.scope.In-Mail"
                                    case .requests: "messages.scope.Requests"
+                                   case .calls: "messages.scope.Calls"
                                    }
                                })
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -1114,6 +1118,7 @@ struct MessagesScopePicker: View {
         case .inbox: app.navigation.replaceTop(with: .messages(.inbox))
         case .inMail: app.navigation.replaceTop(with: .messages(.inMail(.inbox)))
         case .requests: app.navigation.replaceTop(with: .messages(.requests))
+        case .calls: app.navigation.replaceTop(with: .messages(.calls))
         }
     }
 }
@@ -1654,7 +1659,8 @@ struct ConversationView: View {
     /// Calls only in an accepted 1:1 chat, and only when the server reports calls enabled.
     /// The server re-checks blocks, privacy and acceptance on every start.
     private var showsCallButtons: Bool {
-        guard app.calls.capabilities.canCall, let conversation, conversation.kind == .direct,
+        // Shown (disabled, "coming soon") even before the server enables calls.
+        guard let conversation, conversation.kind == .direct,
               !conversationID.hasPrefix("pending-direct:") else { return false }
         return !app.messaging.requests.contains { $0.conversationID == conversationID }
     }
@@ -4559,11 +4565,23 @@ struct ChatInfoSheet: View {
     }
 
     private var quickActions: some View {
-        HStack(alignment: .top, spacing: 18) {
+        HStack(alignment: .top, spacing: 12) {
             if let person = conversation?.participants.first {
                 circleAction("Profile", symbol: "person.fill") {
                     dismiss()
                     app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
+                }
+            }
+            if conversation?.kind == .direct {
+                // Calls: disabled with "coming soon" until the server enables them.
+                ForEach([CallMediaKind.audio, .video], id: \.self) { kind in
+                    let allowed = app.calls.canStartCall(kind)
+                    circleAction(kind == .video ? "Video" : "Call", symbol: kind == .video ? "video.fill" : "phone.fill") {
+                        dismiss()
+                        CallsActions.call(conversationID, kind: kind, app: app)
+                    }
+                    .opacity(allowed ? 1 : 0.4)
+                    .accessibilityHint(allowed ? "" : "Calling is coming soon")
                 }
             }
             if app.messaging.capabilities.mute {
@@ -4572,18 +4590,31 @@ struct ChatInfoSheet: View {
                     Task { await app.messaging.toggleMute(conversationID) }
                 }
             }
-            circleAction(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
-                         symbol: app.messaging.isPinned(conversationID) ? "pin.slash.fill" : "pin.fill") {
-                app.messaging.togglePin(conversationID)
+            Menu {
+                Button(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
+                       systemImage: app.messaging.isPinned(conversationID) ? "pin.slash" : "pin") {
+                    app.messaging.togglePin(conversationID)
+                }
+                Button("Search in Chat", systemImage: "magnifyingglass") {
+                    showsSearch = true
+                    searchFocused = true
+                }
+                Button("Nudge", systemImage: "hand.wave") {
+                    HapticEngine.shared.play(.confirmation)
+                    Task { _ = await app.messaging.sendPrepared(text: "👋", conversation: conversationID) }
+                }
+            } label: {
+                VStack(spacing: 6) {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 50, height: 50)
+                        .modulaGlass(in: Circle(), interactive: true)
+                    Text("More").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(width: 58)
             }
-            circleAction("Search", symbol: "magnifyingglass") {
-                showsSearch = true
-                searchFocused = true
-            }
-            circleAction("Nudge", symbol: "hand.wave.fill") {
-                HapticEngine.shared.play(.confirmation)
-                Task { _ = await app.messaging.sendPrepared(text: "👋", conversation: conversationID) }
-            }
+            .accessibilityLabel("More actions")
         }
         .frame(maxWidth: .infinity)
     }

@@ -286,6 +286,64 @@ final class CallManager {
 
     func history(for conversationID: String) -> [CallRecord] { historyByConversation[conversationID] ?? [] }
 
+    // MARK: Calls tab (Recents / Favourites / call IDs)
+
+    /// Account-wide history (`GET /v1/me/calls`), minus rows deleted on this device.
+    private(set) var recents: [CallRecord] = []
+    private(set) var recentsLoading = false
+    /// Device-local favourites: conversation ids of 1:1 chats.
+    private(set) var favourites: [String] = UserDefaults.standard.stringArray(forKey: "calls.favourites.v1") ?? []
+    private(set) var myCallID: String?
+    @ObservationIgnored private var hiddenRecents: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "calls.recents.hidden.v1") ?? [])
+
+    func loadRecents() async {
+        guard capabilities.enabled, let repository else { return }
+        recentsLoading = true
+        defer { recentsLoading = false }
+        guard let page = try? await repository.history(conversationID: nil) else { return }
+        recents = page.items.filter { !hiddenRecents.contains($0.id) }
+    }
+
+    /// Swipe-to-delete in Recents: hides the row on this device (no server delete endpoint).
+    func hideRecent(_ id: CallID) {
+        hiddenRecents.insert(id)
+        defaults.set(Array(hiddenRecents), forKey: "calls.recents.hidden.v1")
+        recents.removeAll { $0.id == id }
+    }
+
+    func isFavourite(_ conversationID: String) -> Bool { favourites.contains(conversationID) }
+
+    func toggleFavourite(_ conversationID: String) {
+        if let index = favourites.firstIndex(of: conversationID) { favourites.remove(at: index) } else { favourites.append(conversationID) }
+        defaults.set(favourites, forKey: "calls.favourites.v1")
+    }
+
+    func loadMyCallID() async {
+        guard capabilities.callIDs, let repository else { return }
+        myCallID = try? await repository.myCallID()
+    }
+
+    /// Returns an error message, or nil on success.
+    func claimCallID(_ id: String) async -> String? {
+        guard capabilities.callIDs, let repository else { return "Modula call IDs are coming soon." }
+        guard CallIDFormat.isValid(id, caps: capabilities) else {
+            return "Use \(capabilities.callIDMinLength)–\(capabilities.callIDMaxLength) digits."
+        }
+        do {
+            myCallID = try await repository.claimCallID(id) ?? id
+            return nil
+        } catch APIError.rejected(_, "CONFLICT") {
+            return "That ID is taken. Try another."
+        } catch {
+            return CallCopy.errorMessage(error)
+        }
+    }
+
+    func lookupCallID(_ id: String) async -> CallIDLookup? {
+        guard capabilities.callIDs, let repository else { return nil }
+        return try? await repository.lookupCallID(id)
+    }
+
     func loadHistory(_ conversationID: String, force: Bool = false) async {
         guard capabilities.enabled, let repository else { return }
         if !force, let loaded = historyLoadedAt[conversationID], Date().timeIntervalSince(loaded) < 30 { return }
