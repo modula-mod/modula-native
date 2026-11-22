@@ -2939,13 +2939,34 @@ struct MessageBubble: View {
                         }
                         .accessibilityAddTraits(app.messaging.capabilities.groupReadReceipts && message.isOwn ? .isButton : [])
                         .accessibilityHint(app.messaging.capabilities.groupReadReceipts && message.isOwn ? "Shows who has read this" : "")
+                        // Read receipt avatar: the reader's tiny face under your last read message (1:1 chats).
+                        if showsStatus, message.delivery == .read,
+                           app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts,
+                           let chat = app.messaging.conversation(id: message.conversationID),
+                           chat.kind == .direct, let reader = chat.participants.first {
+                            ModulaAvatar(initials: reader.initials, url: reader.avatarURL, size: 14, name: reader.displayName)
+                                .accessibilityLabel("Read by \(reader.displayName)")
+                                .transition(.scale.combined(with: .opacity))
+                        }
                     }
                 }
             }
             if !message.isOwn { Spacer(minLength: sideGutter) }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: message.reactions)
-        .offset(x: replyOffset)
+        .offset(x: replyOffset + timeReveal)
+        // Swipe left: the exact send time slides in at the trailing edge (iMessage-style).
+        .overlay(alignment: .trailing) {
+            if timeReveal < -8 {
+                Text(message.sentAt, format: .dateTime.hour().minute())
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                    .opacity(min(1, -timeReveal / Self.timeRevealMax))
+                    .offset(x: Self.timeRevealMax + timeReveal + 4)
+                    .accessibilityHidden(true)
+            }
+        }
         .background(alignment: .leading) {
             if replyOffset > 8 {
                 Image(systemName: "arrowshape.turn.up.left.fill")
@@ -2961,7 +2982,9 @@ struct MessageBubble: View {
             actions: actions,
             onDoubleTap: {
                 guard app.messaging.capabilities.reactions, !message.isDeleted, !message.id.hasPrefix("local-") else { return }
-                let emoji = MessageRecentTokenStore.lastReaction() ?? "❤️"
+                let chosen = UserDefaults.standard.string(forKey: "messages.doubleTapReaction") ?? ""
+                let emoji = chosen.isEmpty ? (MessageRecentTokenStore.lastReaction() ?? "❤️") : chosen
+                HapticEngine.shared.play(.reactionSelect)
                 onAction(.init(id: "react:\(emoji)", title: emoji))
             },
             onTap: {
@@ -2991,8 +3014,10 @@ struct MessageBubble: View {
     }
 
     @State private var replyOffset: CGFloat = 0
+    @State private var timeReveal: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private static let replyThreshold: CGFloat = 64
+    private static let timeRevealMax: CGFloat = 56
 
     private func requestFocus() {
         guard let onFocus, !message.isDeleted, rowFrame != .zero else { return }
@@ -3013,12 +3038,18 @@ struct MessageBubble: View {
     private var swipeToReply: some Gesture {
         DragGesture(minimumDistance: 18)
             .onChanged { value in
-                guard ModulaPreferences.swipeToReply,
-                      value.translation.width > 0,
-                      abs(value.translation.width) > abs(value.translation.height) * 1.6 else { return }
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.6 else { return }
+                if value.translation.width < 0 {
+                    timeReveal = max(value.translation.width, -Self.timeRevealMax)
+                    return
+                }
+                guard ModulaPreferences.swipeToReply else { return }
                 if !reduceMotion { replyOffset = min(value.translation.width, Self.replyThreshold * 1.3) }
             }
             .onEnded { value in
+                if timeReveal != 0 {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { timeReveal = 0 }
+                }
                 let triggered = ModulaPreferences.swipeToReply
                     && value.translation.width >= Self.replyThreshold
                     && abs(value.translation.width) > abs(value.translation.height) * 1.6
@@ -4885,31 +4916,51 @@ struct MessageReactionsRow: View {
 struct MessagesTypingBubble: View {
     let people: [ConversationParticipant]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var bounce = false
+
+    /// "Ana is typing", "Ana and Ben are typing", "Ana and 3 others are typing".
+    private var caption: String {
+        let names = people.map { $0.displayName.split(separator: " ").first.map(String.init) ?? $0.displayName }
+        switch names.count {
+        case 0: return "Someone is typing"
+        case 1: return "\(names[0]) is typing"
+        case 2: return "\(names[0]) and \(names[1]) are typing"
+        default: return "\(names[0]) and \(names.count - 1) others are typing"
+        }
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            ModulaAvatar(initials: people.first?.initials ?? "?", url: people.first?.avatarURL, size: 28)
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(Color.secondary)
-                        .frame(width: 7, height: 7)
-                        .offset(y: bounce && !reduceMotion ? -3 : 0)
-                        .animation(
-                            reduceMotion ? nil : .easeInOut(duration: 0.45).repeatForever().delay(Double(index) * 0.15),
-                            value: bounce
-                        )
+            ZStack {
+                ForEach(Array(people.prefix(2).enumerated().reversed()), id: \.offset) { index, person in
+                    ModulaAvatar(initials: person.initials, url: person.avatarURL, size: 28)
+                        .offset(x: CGFloat(index) * 10, y: CGFloat(index) * -6)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
-            .modulaGlass(in: Capsule(), interactive: false)
+            .frame(width: people.count > 1 ? 38 : 28, height: 28, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                if people.count > 1 {
+                    Text(caption).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                }
+                // One phase-driven wave (cheaper than three repeatForever animations).
+                PhaseAnimator(reduceMotion ? [0] : [0, 1, 2]) { phase in
+                    HStack(spacing: 5) {
+                        ForEach(0..<3, id: \.self) { index in
+                            Circle()
+                                .fill(Color.secondary)
+                                .frame(width: 7, height: 7)
+                                .opacity(reduceMotion ? 0.7 : (phase == index ? 1 : 0.4))
+                                .offset(y: !reduceMotion && phase == index ? -3 : 0)
+                        }
+                    }
+                } animation: { _ in .easeInOut(duration: 0.3) }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+                .modulaGlass(in: Capsule(), interactive: false)
+            }
             Spacer(minLength: 48)
         }
-        .onAppear { bounce = true }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(people.first?.displayName ?? "Someone") is typing")
+        .accessibilityLabel(caption)
     }
 }
 
