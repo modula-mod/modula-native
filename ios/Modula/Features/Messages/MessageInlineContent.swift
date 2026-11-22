@@ -87,6 +87,8 @@ struct MessageLinkPreview: View {
     let url: URL
     @State private var metadata: LPLinkMetadata?
     @State private var failed = false
+    @State private var hero: UIImage?
+    @State private var icon: UIImage?
 
     var body: some View {
         Group {
@@ -94,11 +96,25 @@ struct MessageLinkPreview: View {
                 // A compact card in the app's own style (title + domain) instead of LPLinkView,
                 // which truncated long addresses mid-host ("https://www.kl-cc.co…").
                 Link(destination: url) {
+                  VStack(alignment: .leading, spacing: 0) {
+                    if let hero {
+                        Image(uiImage: hero)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: 280, maxHeight: 140)
+                            .clipped()
+                            .accessibilityHidden(true)
+                    }
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "safari")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28)
+                        Group {
+                            if let icon {
+                                Image(uiImage: icon).resizable().scaledToFit()
+                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            } else {
+                                Image(systemName: "safari").font(.title3).foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(width: 28, height: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(metadata.title?.isEmpty == false ? metadata.title! : MessagePreviewText.displayHost(url))
                                 .font(.subheadline.weight(.semibold))
@@ -113,9 +129,12 @@ struct MessageLinkPreview: View {
                         Spacer(minLength: 0)
                     }
                     .padding(12)
+                  }
                     .frame(maxWidth: 280, alignment: .leading)
-                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    // Glass card with an optional hero image (t217u #16).
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Link: \(metadata.title ?? MessagePreviewText.displayHost(url))")
@@ -133,6 +152,7 @@ struct MessageLinkPreview: View {
         .task(id: url) {
             if let cached = MessageLinkMetadataCache.shared.metadata(for: url) {
                 metadata = cached
+                await loadImages(cached)
                 return
             }
             let provider = LPMetadataProvider()
@@ -141,8 +161,25 @@ struct MessageLinkPreview: View {
                 let fetched = try await provider.startFetchingMetadata(for: url)
                 MessageLinkMetadataCache.shared.store(fetched, for: url)
                 metadata = fetched
+                await loadImages(fetched)
             } catch {
                 failed = true
+            }
+        }
+    }
+
+    private func loadImages(_ metadata: LPLinkMetadata) async {
+        let heroProvider = metadata.imageProvider
+        let iconProvider = metadata.iconProvider
+        if let heroProvider { hero = await Self.image(from: heroProvider) }
+        if let iconProvider, hero == nil || icon == nil { icon = await Self.image(from: iconProvider) }
+    }
+
+    private static func image(from provider: NSItemProvider) async -> UIImage? {
+        guard provider.canLoadObject(ofClass: UIImage.self) else { return nil }
+        return await withCheckedContinuation { cont in
+            _ = provider.loadObject(ofClass: UIImage.self) { object, _ in
+                cont.resume(returning: object as? UIImage)
             }
         }
     }

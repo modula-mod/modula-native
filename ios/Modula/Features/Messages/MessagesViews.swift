@@ -45,8 +45,9 @@ struct MessagesRootView: View {
                 case .direct(let person):
                     DirectMessageView(person: person)
                 case .conversation(let id):
+                    // Plain push (t217u #10): the zoom morph snapshotted the whole thread, which read
+                    // as a coloured flash plus a lag on open. A standard push starts drawing at once.
                     ConversationView(conversationID: id)
-                        .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
                 }
             }
         }
@@ -88,6 +89,7 @@ struct ConversationListView: View {
     /// Server chat folder chip (`chatFolders`); nil = no folder filter.
     @State private var serverFolderID: String?
     @State private var managingFolders = false
+    @State private var titleCollapsed = false
 
     private enum InboxDestination: Hashable, Identifiable {
         case archived, hidden, folder(String)
@@ -141,10 +143,20 @@ struct ConversationListView: View {
         content
             .modulaSoftScrollEdge()
             .navigationTitle("Messages")
-            .navigationBarTitleDisplayMode(.large)
+            // One title: the big "Messages" is the first row of the list, and the small bar title
+            // only fades in once it has scrolled away (the system large title showed both at once
+            // during scroll/back-swipe and stretched on pull-down).
+            .navigationBarTitleDisplayMode(.inline)
             // Select mode: plain "Done" text button, no back chevron beside it.
             .navigationBarBackButtonHidden(selecting)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Messages")
+                        .font(.headline)
+                        .opacity(titleCollapsed ? 1 : 0)
+                        .animation(.easeOut(duration: 0.15), value: titleCollapsed)
+                        .accessibilityHidden(!titleCollapsed)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     if selecting {
                         Button("Done") {
@@ -345,6 +357,13 @@ struct ConversationListView: View {
     /// collapses normally instead of starting half-faded under a tall pinned bar.
     private func header(matches: Int) -> some View {
         VStack(spacing: 8) {
+            Text("Messages")
+                .font(.largeTitle.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .accessibilityAddTraits(.isHeader)
             if circleOpen && !circle.isEmpty && app.messaging.conversationQuery.isEmpty {
                 circleRow
                     .transition(.opacity)
@@ -570,6 +589,12 @@ struct ConversationListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
+            // Bool output: only flips state when the title crosses the bar, not per frame.
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y + geo.contentInsets.top > 44
+            } action: { _, collapsed in
+                titleCollapsed = collapsed
+            }
             .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
         }
     }
@@ -1519,8 +1544,10 @@ struct ConversationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
+            // t217u #21: no shared glass slab behind the avatar/name (it showed as a blank grey
+            // capsule beside the back button while the push animated).
+            .messagesPrincipalToolbar { header }
             .toolbar {
-                ToolbarItem(placement: .principal) { header }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
                         if showsCallButtons {
@@ -1722,8 +1749,8 @@ struct ConversationView: View {
                             ForEach(calls.before[message.id] ?? []) { record in callRow(record) }
                             if let label = MessageTimeline.separator(at: index, in: items) {
                                 MessageTimeSeparator(label: label)
-                                    .padding(.top, index == 0 ? 0 : 14)
-                                    .padding(.bottom, 6)
+                                    .padding(.top, index == 0 ? 0 : 12)
+                                    .padding(.bottom, 8)
                             }
                             if message.id == firstUnreadID {
                                 MessageUnreadSeparator()
@@ -1775,7 +1802,7 @@ struct ConversationView: View {
                                 }
                             }
                             // Tight spacing inside a run of messages, roomier between senders.
-                            .padding(.top, index == 0 ? 0 : (position.startsGroup ? 10 : 2))
+                            .padding(.top, index == 0 ? 0 : (position.startsGroup ? 8 : 2))
                             .id(message.id)
                             // New bubbles rise in from the composer; plain fade under Reduce Motion.
                             .transition(reduceMotion
@@ -1803,8 +1830,9 @@ struct ConversationView: View {
                 // Only pin to the newest message while the reader is already there.
                 // Leaving this on while scrolling history yanks the thread when content size changes.
                 .modifier(BottomAnchorIfNeeded(pinned: isAtBottom))
-                // Room under the newest bubble so the perched mascot and the jump button never cover it.
-                .contentMargins(.bottom, 40, for: .scrollContent)
+                // A little room under the newest bubble; the composer's safe-area inset (which tracks
+                // the keyboard) does the rest, so no big dead gap above the composer.
+                .contentMargins(.bottom, 12, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
                 // Hold-to-react: the thread must not scroll under the focused bubble / reaction bar.
@@ -6202,6 +6230,24 @@ struct MessageRecentTokenLabel: View {
                 .frame(width: 28, height: 28)
         } else {
             Text(token).font(.title3)
+        }
+    }
+}
+
+extension View {
+    /// Principal toolbar item without iOS 26's shared glass background (older iOS: plain item).
+    /// Uses `sharedBackgroundVisibility` (iOS 26 SDK); not yet verified on device.
+    @ViewBuilder
+    func messagesPrincipalToolbar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            toolbar {
+                ToolbarItem(placement: .principal) { content() }
+                    .sharedBackgroundVisibility(.hidden)
+            }
+        } else {
+            toolbar {
+                ToolbarItem(placement: .principal) { content() }
+            }
         }
     }
 }
