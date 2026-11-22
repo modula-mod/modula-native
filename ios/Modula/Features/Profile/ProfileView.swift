@@ -67,7 +67,10 @@ struct ProfileView: View {
 
     private var isOwnProfile: Bool {
         if identity == .me { return true }
-        guard let profile, let accountHandle else { return false }
+        guard let profile else { return false }
+        // Same account id also counts (profile opened by id after a handle change).
+        if let accountID = app.auth.account?.accountId, profile.id == accountID { return true }
+        guard let accountHandle, !accountHandle.isEmpty else { return false }
         return profile.handle.caseInsensitiveCompare(accountHandle) == .orderedSame
     }
 

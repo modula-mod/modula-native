@@ -1292,7 +1292,10 @@ struct PostCommentsView: View {
     }
 
     private func isOwn(_ comment: SocialComment) -> Bool {
-        comment.author?.handle.caseInsensitiveCompare(app.auth.account?.primaryHandle ?? "") == .orderedSame
+        // Empty handles (deleted authors, signed out) must never read as "mine".
+        guard let handle = comment.author?.handle, !handle.isEmpty,
+              let own = app.auth.account?.primaryHandle, !own.isEmpty else { return false }
+        return handle.caseInsensitiveCompare(own) == .orderedSame
     }
 
     private func isOP(_ comment: SocialComment) -> Bool {
