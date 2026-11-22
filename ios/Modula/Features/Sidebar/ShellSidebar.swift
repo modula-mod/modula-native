@@ -984,7 +984,9 @@ struct ShellSidebarView: View {
                         Text(profile?.displayName ?? "Profile")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
+                            // One line in the capsule; shrink before truncating.
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                             .truncationMode(.tail)
                         if let handle = profile?.handle, !handle.isEmpty, !typeSize.isAccessibilitySize {
                             Text("@\(handle)")

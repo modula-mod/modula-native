@@ -467,7 +467,9 @@ struct SettingsView: View {
                         Text(identityDisplayName)
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.white)
-                            .lineLimit(1)
+                            // Long names wrap/scale instead of truncating.
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
                         if let identityHandle {
                             Text(identityHandle)
                                 .font(.subheadline)
