@@ -10,6 +10,11 @@ struct ProfileCover: View {
     var tint: Color? = nil
     var scrollProgress: CGFloat = 0
     var safeAreaTop: CGFloat = ProfileFullBleedMetrics.windowSafeAreaTop
+    /// Cover's resting minY in `.scrollView` space is `-scrollRestOffset` (0 for plain scroll
+    /// views like Edit Profile; header height when the scroll view uses top contentMargins).
+    /// Without it the parallax treated "at rest" as "scrolled" and slid the image down,
+    /// leaving a black strip above the cover.
+    var scrollRestOffset: CGFloat = 0
     var pocketCenterX: CGFloat? = nil
     var pocketRadius: CGFloat? = nil
     var onTap: (() -> Void)? = nil
@@ -110,8 +115,8 @@ struct ProfileCover: View {
             // Only the image layer moves: on pull-down it stretches up from its bottom edge
             // (filling the gap above), on scroll-up it drifts at ~40% speed. The notch mask and
             // the avatar sitting in it are untouched, so the avatar never scales or shifts.
-            .visualEffect { [reduceMotion, coverHeight] content, proxy in
-                let minY = proxy.frame(in: .scrollView).minY
+            .visualEffect { [reduceMotion, coverHeight, scrollRestOffset] content, proxy in
+                let minY = proxy.frame(in: .scrollView).minY + scrollRestOffset
                 let pull = max(0, minY)
                 let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
                 return content
@@ -145,8 +150,8 @@ struct ProfileCover: View {
         // Stretchy header: on pull-down the cover scales from its bottom edge to fill the gap
         // (no blank strip). On scroll-up it stays sharp until it slides under the header bar,
         // then blurs progressively.
-        .visualEffect { [reduceMotion, coverHeight, safeAreaTop] content, proxy in
-            let minY = proxy.frame(in: .scrollView).minY
+        .visualEffect { [reduceMotion, coverHeight, safeAreaTop, scrollRestOffset] content, proxy in
+            let minY = proxy.frame(in: .scrollView).minY + scrollRestOffset
             let headerBottom = safeAreaTop + 44
             let under = max(0, -minY - (coverHeight - headerBottom - 40))
             let radius = reduceMotion ? 0 : min(under / 80 * 14, 14)

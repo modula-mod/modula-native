@@ -18,11 +18,6 @@ struct ProfileView: View {
     /// Raw content offset: drives the top-bar title so it only appears once the big name is under it.
     @State private var scrollOffset: CGFloat = 0
     @State private var heroAvatarFrame: CGRect = .zero
-    /// Spatial side sheet only: measured gap between the sheet's top edge and the cover at
-    /// rest, pulled out so the cover always starts at the very top of the card.
-    @State private var sheetTopCorrection: CGFloat = 0
-    @State private var restProbe = ProfileRestProbe()
-    @Environment(\.spatialSheetContext) private var spatialSheet
     @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var navReduceMotion
     @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
@@ -245,7 +240,7 @@ struct ProfileView: View {
                     ModulaScrollProgressReader()
                         .modulaScrollsToTopOnReselect(.profile)
                     content
-                        .padding(.top, -(ProfileFullBleedMetrics.windowSafeAreaTop + 44) - sheetTopCorrection)
+                        .padding(.top, -(ProfileFullBleedMetrics.windowSafeAreaTop + 44))
                         // Clear the tab bar + home indicator so the last post never hides under chrome.
                         .padding(.bottom, shellChromeMetrics.contentBottomInset + 64)
                 }
@@ -257,7 +252,6 @@ struct ProfileView: View {
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.contentOffset.y + geometry.contentInsets.top
             } action: { _, newOffset in
-                restProbe.rawOffset = newOffset
                 // Speed: both values saturate (header at 96 pt, nav title past the name band), so
                 // stop writing state once saturated — scrolling the post grid used to re-run this
                 // whole body every frame.
@@ -334,7 +328,6 @@ struct ProfileView: View {
         }
         .animation(.easeOut(duration: 0.15), value: shelfPinned)
         .ignoresSafeArea(edges: .top)
-        .coordinateSpace(.named(ProfileRestProbe.space))
         .modulaCanvas()
         .environment(\.profileAccentColor, profile?.presentation.accent?.color)
         .modulaImmersiveSystemNavigation()
@@ -603,17 +596,15 @@ struct ProfileView: View {
                 coverColour: profile.coverColour,
                 tint: heroTint,
                 scrollProgress: headerProgress,
+                // This scroll view insets its content by the header (contentMargins) and pulls it
+                // back up, so at rest the cover sits at -(safeTop + 44) in `.scrollView` space.
+                scrollRestOffset: ProfileFullBleedMetrics.windowSafeAreaTop + 44,
                 pocketCenterX: ModulaLayout.contentInset + avatarSize / 2,
                 pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(ProfileRestProbe.space)).minY } action: { minY in
-                // In the floating side sheet the cover must touch the card's top edge (no strip).
-                guard spatialSheet != nil, abs(restProbe.rawOffset) < 0.5, abs(minY) > 0.5 else { return }
-                sheetTopCorrection = min(max(sheetTopCorrection + minY, -140), 140)
-            }
             ProfileAvatarPocket(
                 profile: profile,
                 tint: heroTint,
@@ -2015,11 +2006,4 @@ private struct ProfileTopEdgeEffectHidden: ViewModifier {
             content
         }
     }
-}
-
-
-/// Non-observed scroll value shared with geometry callbacks (no per-frame re-render).
-final class ProfileRestProbe {
-    static let space = "profile.chrome"
-    var rawOffset: CGFloat = 0
 }
