@@ -74,7 +74,7 @@ struct ModuleHost: View {
                 } description: {
                     Text(app.runtime.unavailableReason(for: moduleID) ?? "This module can’t be opened right now.")
                 } actions: {
-                    Button("Close") { app.navigation.close() }.buttonStyle(.bordered)
+                    Button("Close") { app.navigation.close() }.buttonStyle(.modulaSecondary)
                 }
                 .accessibilityIdentifier("module.host.unavailable")
             }

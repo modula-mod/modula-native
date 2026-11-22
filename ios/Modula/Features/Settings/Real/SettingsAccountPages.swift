@@ -196,7 +196,7 @@ struct RelationshipListView: View {
                 ProgressView()
             } else {
                 Button(kind.actionTitle) { pendingUndo = item }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                     .controlSize(.small)
             }
         }

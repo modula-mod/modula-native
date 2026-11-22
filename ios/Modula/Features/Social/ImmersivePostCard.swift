@@ -1388,7 +1388,7 @@ struct SmartCropImage: View {
                                 .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.7))
                             Button("Retry", systemImage: "arrow.clockwise") { retryID += 1 }
                                 .font(.caption.weight(.semibold))
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.modulaSecondary)
                         }
                     }
                 case .loading:

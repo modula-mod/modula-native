@@ -326,7 +326,7 @@ struct PhotosSettingsHost: View {
                         UIApplication.shared.open(url)
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 SettingsAPIFootnote(text: "Modula picks photos through the iOS picker, so it never needs your whole library. Saving Stories asks for add-only access the first time.")
             }
             .navigationTitle("Photos")

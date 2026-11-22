@@ -1295,7 +1295,7 @@ struct ComposerMascotSettingsSection: View {
                 Spacer()
                 Button(previewBusy ? "Stop" : "Try thinking") { withAnimation(.snappy) { previewBusy.toggle() } }
                     .font(.caption.weight(.semibold))
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                     .controlSize(.small)
                     .disabled(kind == nil)
             }

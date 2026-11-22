@@ -94,10 +94,10 @@ struct AppLockView: View {
                     } label: {
                         Label(lock.biometricAvailability.kind.unlockLabel, systemImage: lock.biometricAvailability.kind.systemImage)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                 }
                 Button("Forgot?") { confirmsForgot = true }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
             }
             Spacer(minLength: 0)
         }

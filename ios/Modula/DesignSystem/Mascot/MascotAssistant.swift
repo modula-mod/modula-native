@@ -229,7 +229,7 @@ struct MascotAssistantDraftSheet: View {
                     onDiscard()
                     dismiss()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .buttonBorderShape(.capsule)
 
                 Spacer()

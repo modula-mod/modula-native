@@ -675,7 +675,7 @@ struct ModuleDetailV2View: View {
             Label("Uninstall \(product?.name ?? "Module")", systemImage: "trash")
                 .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.modulaSecondary)
         .tint(.red)
         .accessibilityIdentifier("module.uninstall")
     }

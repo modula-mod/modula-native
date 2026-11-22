@@ -850,7 +850,7 @@ struct SettingsIdentityHero: View {
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 44)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             .buttonBorderShape(.capsule)
             .accessibilityIdentifier("settings.identity.edit")
         }

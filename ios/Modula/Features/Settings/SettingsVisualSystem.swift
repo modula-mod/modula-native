@@ -93,7 +93,7 @@ struct SettingsCoverHeader: View {
                     .frame(minHeight: 44)
                     .padding(.horizontal, 18)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             .buttonBorderShape(.capsule)
             .accessibilityIdentifier("settings.identity.edit")
         }

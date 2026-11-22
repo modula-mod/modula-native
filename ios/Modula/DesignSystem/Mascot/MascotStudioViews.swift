@@ -812,7 +812,7 @@ struct MascotStudioView: View {
                 Button("Reset progress (Debug)", role: .destructive) { progress.debugReset() }
             }
             .font(.caption)
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             #endif
         }
     }
@@ -1367,7 +1367,7 @@ struct MascotAssistantSettingsSection: View {
                         TextField("Add keyword", text: $newKeyword)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit(addKeyword)
-                        Button("Add", action: addKeyword).buttonStyle(.bordered)
+                        Button("Add", action: addKeyword).buttonStyle(.modulaSecondary)
                     }
                 }
 

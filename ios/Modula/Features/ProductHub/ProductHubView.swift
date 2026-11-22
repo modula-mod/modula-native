@@ -1251,12 +1251,12 @@ struct InstallStateButton: View {
                 .accessibilityIdentifier("module.open")
         } else if product.installable {
             Button("Available to install", systemImage: "arrow.down.circle") {}
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .disabled(true)
                 .frame(maxWidth: .infinity, minHeight: 44)
         } else {
             Button("Coming Soon", systemImage: "clock") {}
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .disabled(true)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }

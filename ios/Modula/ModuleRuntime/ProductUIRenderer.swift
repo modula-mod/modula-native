@@ -411,7 +411,7 @@ struct ProductUINode: View {
         .tint(.primary)
         .accessibilityIdentifier("product-ui.button.\(node["action"]?.string ?? "none")")
         if compact {
-            button.buttonStyle(.bordered).controlSize(.small)
+            button.buttonStyle(.modulaSecondary).controlSize(.small)
         } else {
             button.buttonStyle(.modulaPrimary)
         }
@@ -604,7 +604,7 @@ struct ProductUIEditorToolbar: View {
         HStack(spacing: 8) {
             ForEach(["bold", "italic", "heading", "list", "link"], id: \.self) { command in
                 Button(command.capitalized) { onCommand("ui.richText.commands@1.\(command)") }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
             }
         }
         .accessibilityIdentifier("product-ui.editor-toolbar")

@@ -296,7 +296,7 @@ struct ModulaButton: View {
         Button(action: action) {
             HStack(spacing: ModulaSpacing.xs) {
                 if isLoading {
-                    ProgressView().tint(.white).controlSize(.regular)
+                    ProgressView().controlSize(.regular)
                     Text(loadingTitle ?? title)
                 } else if let symbol {
                     Label(title, systemImage: symbol)
@@ -311,7 +311,8 @@ struct ModulaButton: View {
             .frame(minHeight: max(ModulaLayout.minimumTouch, height))
             .contentShape(Capsule())
         }
-        .buttonStyle(ModulaAccentPrimaryButtonStyle(accent: app.appearance.liveAccent, isLoading: isLoading))
+        // Black/white primary (Andy's rule: action buttons are never accent/coral).
+        .buttonStyle(ModulaPrimaryButtonStyle(fullWidth: true))
         .accessibilityValue(isLoading ? (loadingTitle ?? "In progress") : "")
     }
 }
@@ -1044,12 +1045,17 @@ struct ModulaChip: View {
     var title: String; var selected = false; var action: () -> Void
     @Environment(AppEnvironment.self) private var app
     var body: some View {
-        Button(title, action: action)
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(selected ? app.appearance.liveAccent : .secondary)
-            .frame(minHeight: ModulaLayout.minimumTouch)
-            .accessibilityAddTraits(selected ? .isSelected : [])
+        // Glass chip; selected = black/white fill (never accent).
+        Group {
+            if selected {
+                Button(title, action: action).buttonStyle(.modulaPrimary)
+            } else {
+                Button(title, action: action).buttonStyle(.modulaSecondary)
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .frame(minHeight: ModulaLayout.minimumTouch)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { ModulaGlassGroup(spacing: 8) { HStack(spacing: 8) { content }.padding(6).modulaGlass(in: Capsule(), interactive: false) } } }

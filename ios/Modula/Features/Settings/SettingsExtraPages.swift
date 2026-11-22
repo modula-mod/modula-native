@@ -469,7 +469,7 @@ private struct MigrationOverviewPage: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                     .disabled(true)
                     .accessibilityLabel("Move My Account, unavailable")
                     .accessibilityHint("Not available yet. It needs portable identity and a secure node handoff.")
