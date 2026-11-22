@@ -3777,6 +3777,7 @@ struct MessagesFriendlyEmpty: View {
         case .inbox: ("Your chats will bloom here", "Say hi to someone — a little hello goes a long way.", "bubble.left.and.bubble.right.fill")
         case .inMail: ("Your In-Mail is clear", "Longer, thoughtful messages live here. Tap the pencil to write one.", "envelope.open.fill")
         case .requests: ("No requests right now", "When someone new wants to chat, you’ll decide here first.", "person.crop.circle.badge.checkmark")
+        case .calls: ("No calls yet", "Your voice and video calls will show up here.", "phone.fill")
         }
     }
 
