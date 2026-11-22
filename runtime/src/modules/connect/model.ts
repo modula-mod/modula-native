@@ -114,9 +114,43 @@ export type ConnectApi = {
   plans(): Promise<Plan[]>;
   submitCompliance(form: ComplianceForm): Promise<VerificationStatus>;
   complianceStatus(): Promise<VerificationStatus>;
-  provision(numberID: string, planID: string): Promise<OwnedNumber>;
+  /** Inventory revalidation right before review/activation (backend owns the real check). */
+  revalidate(numberID: string): Promise<boolean>;
+  provision(numberID: string, planID: string, options?: {simulateFailure?: boolean}): Promise<OwnedNumber>;
   numbers(): Promise<OwnedNumber[]>;
+  updateSettings(id: string, settings: Partial<OwnedNumber['settings']>): Promise<OwnedNumber>;
+  cancel(id: string): Promise<OwnedNumber>;
 };
+
+/** Mock inventory: the 6th number of every batch is "taken" by the time you pick it (demo of the gone state). */
+export function isMockTaken(numberID: string): boolean {
+  return /-5$/.test(numberID);
+}
+
+export type Step =
+  | 'welcome' | 'connection' | 'country' | 'find' | 'details' | 'plan' | 'verify' | 'status'
+  | 'review' | 'progress' | 'activated' | 'dashboard' | 'settings';
+
+export const STEP_TITLES: Record<Step, string> = {
+  welcome: 'Modula Connect', connection: 'Choose connection', country: 'Choose country', find: 'Find your number',
+  details: 'Number details', plan: 'Your number plan', verify: 'Verify identity', status: 'Verification status',
+  review: 'Review & activate', progress: 'Activating', activated: 'Number ready', dashboard: 'My numbers', settings: 'Number settings',
+};
+
+export function capabilityLabel(capability: Capability): string {
+  return capability === 'sms' ? 'SMS' : capability === 'mms' ? 'MMS' : 'Voice';
+}
+
+export function typeLabel(type: NumberType | 'all'): string {
+  return type === 'all' ? 'All' : type === 'mobile' ? 'Mobile' : type === 'local' ? 'Local' : 'Free-phone';
+}
+
+/** Full recurring price line shown before activation (plan + any number fee). */
+export function recurringTotal(plan: Plan, number: AvailableNumber): string {
+  if (plan.monthlyPence === null && number.monthlyPence === 0) return 'Free';
+  const pence = (plan.monthlyPence ?? 0) + number.monthlyPence;
+  return formatPrice(pence, plan.fromPrice);
+}
 
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
@@ -169,8 +203,10 @@ export function createMockConnectApi(latencyMs = 450): ConnectApi {
       if (status === 'underReview') status = 'approved';
       return status;
     },
-    async provision(numberID, planID) {
+    async revalidate(numberID) { await wait(latencyMs); return !isMockTaken(numberID); },
+    async provision(numberID, planID, options) {
       await wait(latencyMs * 3);
+      if (options?.simulateFailure) throw new Error('provisioningFailed');
       const number = mockNumbers(0).concat(mockNumbers(1), mockNumbers(2)).find(n => n.id === numberID) ?? mockNumbers(0)[0];
       const record: OwnedNumber = {id: `owned-${numberID}`, number, planID, state: 'active',
         settings: {smsNotifications: true, callNotifications: true, voicemail: false, forwarding: false}};
@@ -178,5 +214,19 @@ export function createMockConnectApi(latencyMs = 450): ConnectApi {
       return record;
     },
     async numbers() { await wait(latencyMs); return [...owned]; },
+    async updateSettings(id, settings) {
+      await wait(latencyMs / 3);
+      const index = owned.findIndex(n => n.id === id);
+      if (index < 0) throw new Error('notFound');
+      owned[index] = {...owned[index], settings: {...owned[index].settings, ...settings}};
+      return owned[index];
+    },
+    async cancel(id) {
+      await wait(latencyMs);
+      const index = owned.findIndex(n => n.id === id);
+      if (index < 0) throw new Error('notFound');
+      owned[index] = transition(owned[index], 'cancellationPending');
+      return owned[index];
+    },
   };
 }

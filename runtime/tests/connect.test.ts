@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canTransition, displayUK, filterNumbers, formatPrice, isIllustrativeNumber, mockNumbers, transition, validateCompliance,
-  MOCK_PLAN_CONFIG, type OwnedNumber} from '../src/modules/connect/model.ts';
+import {canTransition, createMockConnectApi, recurringTotal, displayUK, filterNumbers, formatPrice, isIllustrativeNumber, mockNumbers, transition, validateCompliance,
+  MOCK_PLAN_CONFIG, type OwnedNumber} from '../src/modules/connect/model';
 
 test('mock numbers are only fictional 07700 900xxx', () => {
   for (let seed = 0; seed < 20; seed++) {
@@ -39,4 +39,23 @@ test('compliance validation and number filter', () => {
   const numbers = mockNumbers(3);
   assert.ok(filterNumbers(numbers, numbers[0].e164.slice(-3), 'all').some(n => n.id === numbers[0].id));
   assert.ok(filterNumbers(numbers, '', 'tollFree').every(n => n.type === 'tollFree'));
+});
+
+test('mock inventory revalidation marks the 6th number taken; recurring total adds the number fee', async () => {
+  const api = createMockConnectApi(0);
+  assert.equal(await api.revalidate('mock-0-5'), false);
+  assert.equal(await api.revalidate('mock-0-1'), true);
+  const plan = MOCK_PLAN_CONFIG.find(p => p.id === 'personal')!;
+  assert.equal(recurringTotal(plan, mockNumbers(0)[4]), '£19.98/month');
+  assert.equal(recurringTotal(MOCK_PLAN_CONFIG[0], mockNumbers(0)[0]), 'Free');
+});
+
+test('mock provisioning can fail without creating a number, and cancel moves to cancellationPending', async () => {
+  const api = createMockConnectApi(0);
+  await assert.rejects(api.provision('mock-0-0', 'personal', {simulateFailure: true}));
+  assert.equal((await api.numbers()).length, 0);
+  const record = await api.provision('mock-0-0', 'personal');
+  assert.ok(isIllustrativeNumber(record.number.e164));
+  assert.equal((await api.cancel(record.id)).state, 'cancellationPending');
+  assert.equal((await api.updateSettings(record.id, {voicemail: true})).settings.voicemail, true);
 });
