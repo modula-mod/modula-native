@@ -351,8 +351,18 @@ struct ProfileView: View {
                 .accessibilityHidden(t < 0.5)
                 .accessibilityLabel(compactTitle)
             }
-            // Own profile: Edit gets its own glass circle beside "…".
+            // Own profile: QR (My Code) and Edit get their own glass circles beside "…".
             if profile != nil, isOwnProfile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("My Modula Code", systemImage: "qrcode") {
+                        showsModulaCode = true
+                        HapticEngine.shared.play(.selection)
+                    }
+                    .accessibilityIdentifier("profile.qr.toolbar")
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Edit Profile", systemImage: "pencil") {
                         openSection(.edit)
@@ -1995,48 +2005,8 @@ private enum ProfileShelfTab: String, Hashable, Identifiable {
 }
 
 
-/// Profile's top progressive blur (replaces the old clipped header fade, the progress-driven nav
-/// background and the separate pinned-tabs backing, which stacked into a hard, uneven edge).
-/// Stacked materials, each masked to end lower down, so blur is strongest at the very top and
-/// ramps smoothly to fully clear; no slab edge at any height.
-private struct ProfileTopProgressiveBlur: View {
-    /// Fade below the 44pt bar while the tabs are not pinned.
-    static let restingFade: CGFloat = 34
-    /// Pinned tabs (8 + 38 + 8) plus a fade below them.
-    static let pinnedShelfExtent: CGFloat = 54 + 30
-
-    let height: CGFloat
-    let tint: Color
-    let reduceTransparency: Bool
-
-    var body: some View {
-        Group {
-            if reduceTransparency {
-                tint.mask(ramp(solidUntil: 0.6, end: 1))
-            } else {
-                ZStack {
-                    Rectangle().fill(.ultraThinMaterial).mask(ramp(solidUntil: 0.5, end: 1.0))
-                    Rectangle().fill(.thinMaterial).mask(ramp(solidUntil: 0.3, end: 0.72))
-                    Rectangle().fill(.regularMaterial).mask(ramp(solidUntil: 0.12, end: 0.45))
-                    tint.opacity(0.42).mask(ramp(solidUntil: 0.25, end: 0.85))
-                }
-            }
-        }
-        .frame(height: height)
-        .frame(maxWidth: .infinity)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    private func ramp(solidUntil: CGFloat, end: CGFloat) -> LinearGradient {
-        LinearGradient(stops: [
-            .init(color: .black, location: 0),
-            .init(color: .black, location: solidUntil),
-            .init(color: .black.opacity(0.5), location: solidUntil + (end - solidUntil) * 0.45),
-            .init(color: .black.opacity(0), location: end)
-        ], startPoint: .top, endPoint: .bottom)
-    }
-}
+/// Profile uses the shared top progressive blur.
+private typealias ProfileTopProgressiveBlur = ModulaTopProgressiveBlur
 
 
 /// The system top scroll-edge blur also covered the pinned tabs (they sit right under the
@@ -2058,11 +2028,12 @@ struct ProfileMoreMenuLayout {
     let sections: [[ModulaContextAction]]
 
     init(actions: [ModulaContextAction], isOwn: Bool) {
-        let rowIDs = isOwn ? ["share", "modula-code", "copy-link"] : ["share", "copy-link", "mute"]
+        // My Code has its own top-bar button, so the own row is Share · Saved · Copy Link.
+        let rowIDs = isOwn ? ["share", "saved", "copy-link"] : ["share", "copy-link", "mute"]
         row = rowIDs.compactMap { id in actions.first { $0.id == id } }
-        let rest = actions.filter { !rowIDs.contains($0.id) && $0.id != "edit" }
+        let rest = actions.filter { !rowIDs.contains($0.id) && $0.id != "edit" && !(isOwn && $0.id == "modula-code") }
         let groups: [[String]] = isOwn
-            ? [["saved", "drafts"], ["preview-visitor", "settings"]]
+            ? [["drafts"], ["preview-visitor", "settings"]]
             : [["block", "report"]]
         var sections = groups.map { ids in rest.filter { ids.contains($0.id) } }
         let grouped = Set(groups.flatMap { $0 })

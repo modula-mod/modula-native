@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ModulaTabItem<ID: Hashable & Sendable>: Identifiable, Hashable, Sendable {
     let id: ID
@@ -78,6 +79,10 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
     @Namespace private var thumb
+    /// Scrolling rows run to the screen edge: how far past each side to bleed (measured).
+    @State private var bleed = ModulaRailBleed()
+    /// Edge fades, each shown only while there is more content in that direction.
+    @State private var fade = ModulaRailFade()
 
     static var maxFixedSegments: Int { 5 }
 
@@ -127,14 +132,43 @@ struct ModulaSegmentedControl<ID: Hashable>: View {
         .accessibilityIdentifier("modula.segmented")
     }
 
+    /// Full-bleed scrolling row: spans the screen edge to edge, first/last segment still line up
+    /// with the page margin at rest, soft fades on the sides only where more content is hidden.
     private var scrollingRow: some View {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         row(scrolling: true).padding(.horizontal, 2)
                     }
-                    .contentMargins(.horizontal, scrollContentInset, for: .scrollContent)
+                    .contentMargins(.leading, scrollContentInset + bleed.leading, for: .scrollContent)
+                    .contentMargins(.trailing, scrollContentInset + bleed.trailing, for: .scrollContent)
                     .modulaHorizontalRail()
                     .scrollClipDisabled()
+                    .onScrollGeometryChange(for: ModulaRailFade.self) { geo in
+                        let start = -geo.contentInsets.leading
+                        let end = geo.contentSize.width + geo.contentInsets.trailing - geo.containerSize.width
+                        return ModulaRailFade(leading: geo.contentOffset.x > start + 1,
+                                              trailing: geo.contentOffset.x < end - 1)
+                    } action: { _, value in
+                        if value != fade { fade = value }
+                    }
+                    .mask {
+                        HStack(spacing: 0) {
+                            LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                                .frame(width: fade.leading ? ModulaRailFade.width : 0)
+                            Color.black
+                            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                                .frame(width: fade.trailing ? ModulaRailFade.width : 0)
+                        }
+                        // Room for the glass edge/shadow above and below the track.
+                        .padding(.vertical, -12)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: fade)
+                    }
+                    .padding(.leading, -bleed.leading)
+                    .padding(.trailing, -bleed.trailing)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                        let next = ModulaRailBleed.measure(frame: frame, screenWidth: UIScreen.main.bounds.width)
+                        if next != bleed { bleed = next }
+                    }
                     .onAppear { proxy.scrollTo(selection, anchor: .center) }
                     .onChange(of: selection) { _, value in
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { proxy.scrollTo(value, anchor: .center) }
@@ -207,6 +241,31 @@ extension ModulaSegmentedControl where ID: Sendable {
         }, selection: selection, forceScroll: layout == .scrollable, compact: compact,
            accessibilityLabel: accessibilityLabel, onSelection: onSelection)
     }
+}
+
+/// How far a scrolling segmented row bleeds past its frame to reach the screen edges. Only an
+/// edge that sits within a page margin (plus a little) of the screen bleeds, so a row sharing
+/// its line with other buttons (Discover's collapsed bar) never runs under them.
+struct ModulaRailBleed: Equatable {
+    var leading: CGFloat = 0
+    var trailing: CGFloat = 0
+    static let maxBleed: CGFloat = ModulaLayout.contentInset + 40
+
+    static func measure(frame: CGRect, screenWidth: CGFloat) -> ModulaRailBleed {
+        let lead = frame.minX.rounded()
+        let trail = (screenWidth - frame.maxX).rounded()
+        return ModulaRailBleed(
+            leading: lead > 0 && lead <= maxBleed ? lead : 0,
+            trailing: trail > 0 && trail <= maxBleed ? trail : 0
+        )
+    }
+}
+
+/// Which sides of a scrolling row currently hide more content.
+struct ModulaRailFade: Equatable {
+    var leading = false
+    var trailing = false
+    static let width: CGFloat = 28
 }
 
 /// Neutral raised thumb (white on light, graphite on dark) — never the accent.

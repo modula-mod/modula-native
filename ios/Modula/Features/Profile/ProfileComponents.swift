@@ -1107,11 +1107,9 @@ struct ProfileHeroActions: View {
         ModulaGlassGroup(spacing: 10) {
             HStack(spacing: 10) {
                 if isOwn {
-                    // Edit moved to the top bar (pencil beside "…"): one wide Share + QR here.
+                    // Edit and QR live in the top bar now: one wide Share here.
                     pill("Share profile", symbol: "square.and.arrow.up", prominent: true, id: "share", action: onShare)
                         .accessibilityIdentifier("profile.share")
-                    icon("Profile QR code", symbol: "qrcode", id: "qr", action: onCode)
-                        .accessibilityIdentifier("profile.qr")
                 } else {
                     followPill
                         .accessibilityIdentifier("profile.follow.cta")

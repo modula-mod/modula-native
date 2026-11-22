@@ -420,3 +420,35 @@ extension View {
         modifier(ModulaPageEntranceModifier(delay: delay))
     }
 }
+
+// MARK: Media placeholder
+
+/// Shared stand-in for media without a thumbnail yet (reels, mosaic tiles): a muted, glassy
+/// tint of the media's colour with a soft highlight and a faint symbol, instead of a flat slab.
+/// Static (no per-tile animation) so long rails stay cheap.
+struct ModulaMediaPlaceholder: View {
+    var hex: String?
+    var symbol: String = "play.rectangle.fill"
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let base = Color(hex: hex ?? "#2A2F36")
+        ZStack {
+            Color(white: scheme == .dark ? 0.09 : 0.9)
+            LinearGradient(
+                colors: [base.opacity(scheme == .dark ? 0.55 : 0.45), base.opacity(scheme == .dark ? 0.18 : 0.2)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(colors: [Color.white.opacity(scheme == .dark ? 0.14 : 0.35), .clear],
+                           center: .topLeading, startRadius: 2, endRadius: 220)
+            LinearGradient(colors: [Color.white.opacity(0.16), .clear, Color.black.opacity(0.12)],
+                           startPoint: .top, endPoint: .bottom)
+            Image(systemName: symbol)
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(.white.opacity(scheme == .dark ? 0.22 : 0.5))
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}

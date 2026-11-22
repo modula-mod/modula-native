@@ -494,7 +494,7 @@ private struct DiscoverMosaicTileView: View {
         ZStack(alignment: .bottomLeading) {
             switch item {
             case .post(let post):
-                Rectangle().fill(Color(hex: post.media?.colour ?? "#1F2933"))
+                ModulaMediaPlaceholder(hex: post.media?.colour, symbol: "photo.fill")
                 if let url = post.media?.url {
                     ModulaRemoteImage(url: url, cacheKey: "mosaic:\(post.id)", maximumPixelSize: 600) { phase in
                         if case .success(let image) = phase {
@@ -503,7 +503,7 @@ private struct DiscoverMosaicTileView: View {
                     }
                 }
             case .reel(let reel):
-                Rectangle().fill(Color(hex: reel.posterColor ?? "#222222"))
+                ModulaMediaPlaceholder(hex: reel.posterColor)
                 if let poster = reel.media?.posterURL {
                     ModulaRemoteImage(url: poster, cacheKey: "reel-poster:\(reel.id)", maximumPixelSize: 600) { phase in
                         if case .success(let image) = phase {

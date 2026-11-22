@@ -744,9 +744,9 @@ struct DiscoverReelsShelf: View {
                             onOpen(reel)
                         } label: {
                             ZStack(alignment: .bottomLeading) {
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color(hex: reel.posterColor ?? "#222222"))
+                                ModulaMediaPlaceholder(hex: reel.posterColor)
                                     .frame(width: 132, height: 196)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                 if let url = reel.media?.posterURL {
                                     ModulaRemoteImage(url: url, cacheKey: "reel-poster:\(reel.id)", maximumPixelSize: 480) { phase in
                                         if case .success(let image) = phase {

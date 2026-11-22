@@ -4,6 +4,8 @@ struct DiscoverScreen: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
     /// Only flips at the threshold, so scrolling doesn't storm state every frame.
     @State private var collapsed = false
     /// Expanded header height, reserved in both states so collapsing never changes the
@@ -36,6 +38,18 @@ struct DiscoverScreen: View {
         .modulaSoftScrollEdge()
         .navigationTitle("Discover")
         .navigationBarTitleDisplayMode(.inline)
+        // One title: the large "Discover" lives in the page; the small bar title only fades in
+        // once the large title has scrolled away (same as Profile).
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Discover")
+                    .font(.headline.weight(.semibold))
+                    .opacity(collapsed ? 1 : 0)
+                    .offset(y: collapsed || reduceMotion ? 0 : 6)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: collapsed)
+                    .accessibilityHidden(!collapsed)
+            }
+        }
         .modulaSidebarTrigger()
         // Overlay (not safeAreaInset): the scroll views reserve the expanded header's height
         // as fixed top padding, so collapsing never changes their insets, and the collapsed
@@ -122,19 +136,17 @@ struct DiscoverScreen: View {
         .padding(.top, 4)
         .padding(.bottom, 10)
         .background {
-            // Opaque behind the whole header (the old fade reached 0 inside the chip row, so
-            // "Trending topics" and cards showed through it); fade only in a short lip below.
-            VStack(spacing: 0) {
-                Color(uiColor: .systemBackground)
-                LinearGradient(
-                    colors: [Color(uiColor: .systemBackground), Color(uiColor: .systemBackground).opacity(0)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 14)
-            }
-            .padding(.bottom, -14)
+            // Shared progressive blur (as on Profile): content shows through, strongest at the
+            // top and fading out below the bar. Only once the title has scrolled away; at rest
+            // nothing sits behind the header.
+            ModulaTopProgressiveBlur(
+                tint: ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas,
+                reduceTransparency: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+            )
+            .padding(.bottom, -ModulaTopProgressiveBlur.restingFade)
             .ignoresSafeArea(edges: .top)
+            .opacity(collapsed ? 1 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: collapsed)
             .allowsHitTesting(false)
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.height.rounded() } action: { height in
@@ -166,6 +178,8 @@ struct DiscoverScreen: View {
             collapsed = isCollapsed
         }
         .modulaSoftScrollEdge()
+        // Our own progressive blur sits behind the header; the system top edge effect would stack on it.
+        .modifier(DiscoverTopEdgeEffectHidden())
         .modulaFreezesScrollDuringReactions()
         .environment(\.modulaHeroScope, "discover.\(scope.rawValue)")
         .modulaShellPullActions(liftsAboveContent: false) {
@@ -443,5 +457,15 @@ enum DiscoverHeaderCollapse {
 
     static func isCollapsed(offset: CGFloat, current: Bool) -> Bool {
         current ? offset >= expandBelow : offset > collapseAbove
+    }
+}
+
+private struct DiscoverTopEdgeEffectHidden: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
     }
 }

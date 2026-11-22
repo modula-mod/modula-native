@@ -318,3 +318,47 @@ private struct ModulaReactionScrollLock: ViewModifier {
             }
     }
 }
+
+/// Shared top progressive blur (Profile, Discover…) (replaces the old clipped header fade, the progress-driven nav
+/// background and the separate pinned-tabs backing, which stacked into a hard, uneven edge).
+/// Stacked materials, each masked to end lower down, so blur is strongest at the very top and
+/// ramps smoothly to fully clear; no slab edge at any height.
+struct ModulaTopProgressiveBlur: View {
+    /// Fade below the 44pt bar while the tabs are not pinned.
+    static let restingFade: CGFloat = 34
+    /// Pinned tabs (8 + 38 + 8) plus a fade below them.
+    static let pinnedShelfExtent: CGFloat = 54 + 30
+
+    /// nil = fill the space it's given (e.g. as a header background).
+    var height: CGFloat?
+    let tint: Color
+    let reduceTransparency: Bool
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                tint.mask(ramp(solidUntil: 0.6, end: 1))
+            } else {
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial).mask(ramp(solidUntil: 0.5, end: 1.0))
+                    Rectangle().fill(.thinMaterial).mask(ramp(solidUntil: 0.3, end: 0.72))
+                    Rectangle().fill(.regularMaterial).mask(ramp(solidUntil: 0.12, end: 0.45))
+                    tint.opacity(0.42).mask(ramp(solidUntil: 0.25, end: 0.85))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: height == nil ? .infinity : nil)
+        .frame(height: height)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func ramp(solidUntil: CGFloat, end: CGFloat) -> LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: solidUntil),
+            .init(color: .black.opacity(0.5), location: solidUntil + (end - solidUntil) * 0.45),
+            .init(color: .black.opacity(0), location: end)
+        ], startPoint: .top, endPoint: .bottom)
+    }
+}
