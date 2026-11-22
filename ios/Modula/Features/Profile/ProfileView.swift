@@ -17,7 +17,6 @@ struct ProfileView: View {
     @State private var editingHighlight: StoryHighlightRef?
     /// Raw content offset: drives the top-bar title so it only appears once the big name is under it.
     @State private var scrollOffset: CGFloat = 0
-    @State private var heroAvatarFrame: CGRect = .zero
     @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
     @Environment(\.accessibilityReduceMotion) private var navReduceMotion
     @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
@@ -337,8 +336,10 @@ struct ProfileView: View {
                 let t = navBarProgress
                 HStack(spacing: 8) {
                     if let profile {
-                        // Avatar "lands" in the bar: grows from 18pt to 28pt as the hero avatar shrinks away.
-                        ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
+                        // Same picture source as the hero avatar (photo, same image cache key, or the
+                        // mascot when that's what the hero shows) so the bar never falls back to initials
+                        // while the big avatar shows a picture. Grows 18 → 28 pt as it lands.
+                        ProfileAvatarContent(profile: profile, size: 28)
                             .scaleEffect(navReduceMotion ? 1 : 0.64 + 0.36 * t)
                     }
                     Text(compactTitle)
@@ -410,6 +411,17 @@ struct ProfileView: View {
         let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
         let start = cover - (safeTop + 44)
         return min(max((scrollOffset - start) / 24, 0), 1)
+    }
+
+    /// 1 at rest → 0 as the hero avatar's top half passes under the header bar. Opacity only:
+    /// no geometry, so the avatar can't leave its notch.
+    private var heroAvatarOpacity: Double {
+        let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
+        let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
+        let avatar = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
+        let avatarTop = cover - ProfileIdentityMetrics.overlap(avatarSize: avatar)
+        let start = avatarTop - (safeTop + 44)
+        return Double(min(max(1 - (scrollOffset - start) / (avatar * 0.6), 0), 1))
     }
 
     /// Offset past which `navBarProgress` is fully 1 (nothing above it changes the header).
@@ -644,12 +656,12 @@ struct ProfileView: View {
                     contextActions: avatarActions(profile),
                     onContextAction: { handleContextAction($0, profile: profile) }
                 )
-                // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
-                // as it scrolls up (the bar avatar takes over), so it never floats over the details.
-                .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
-                // Gone well before it reaches the bar (no ghost behind the title).
-                .opacity(Double(max(0, 1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) * 2.2)))
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
+                // Rigid, like Edit Profile: the avatar never scales or shifts, so it stays seated in
+                // its notch on pull-down and scroll for own and other profiles alike. The old
+                // bottom-anchored shrink (driven by a `.global` frame) slid the photo down out of the
+                // cut-out. It only fades as it slides under the header (the bar avatar takes over),
+                // driven by the scroll offset, so it behaves the same pushed or in the sheet.
+                .opacity(heroAvatarOpacity)
 
                 ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile, part: .name)
                     .padding(.leading, ModulaLayout.contentInset + avatarSize + 12)
