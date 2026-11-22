@@ -1126,3 +1126,62 @@ struct CallIDClaimSheet: View {
         .modulaSheetStyle()
     }
 }
+
+
+// MARK: - Modula Connect (preview) entry points
+
+enum ConnectPreview {
+    /// Bundled React Native module (runtime/src/modules/connect), mock data only.
+    static let moduleID = "digital.modula.connect"
+}
+
+/// Settings › Connect › Phone Numbers: opens the Connect preview module.
+struct ConnectPhoneNumbersRow: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Button { app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil)) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "simcard").font(.body.weight(.semibold)).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Phone Numbers").font(.headline)
+                    Text("Modula Connect · Preview").font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityIdentifier("settings.connect.phoneNumbers")
+    }
+}
+
+/// Modules Dock: a built-in tile for the Connect preview (it isn't a catalogue product).
+struct ConnectDockTile: View {
+    var open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 12) {
+                Image(systemName: "phone.connection.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Modula Connect").font(.subheadline.weight(.semibold))
+                    Text("Get your Modula Number · Preview").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityIdentifier("accessory.module.connect")
+    }
+}
