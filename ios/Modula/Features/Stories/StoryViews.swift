@@ -4427,9 +4427,9 @@ private struct StoryDraftsGallery: View {
     private func tile(_ draft: StoryDraft) -> some View {
         ZStack(alignment: .bottomLeading) {
             Group {
-                if let media = draft.media,
-                   let image = UIImage(contentsOfFile: app.draftMedia.fileURL(media).path) {
-                    Image(uiImage: image).resizable().scaledToFill()
+                // Downsampled off the main thread (was a full-resolution decode per tile, per render).
+                if let media = draft.media, media.kind == .image {
+                    LocalMediaThumbnail(url: app.draftMedia.fileURL(media), pointSize: 220)
                 } else {
                     LinearGradient(colors: [Color(hex: "#667EEA"), Color(hex: "#764BA2")], startPoint: .topLeading, endPoint: .bottomTrailing)
                         .overlay(Image(systemName: "textformat").font(.title2).foregroundStyle(.white.opacity(0.8)))

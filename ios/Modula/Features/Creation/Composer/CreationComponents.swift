@@ -467,7 +467,7 @@ struct MediaAttachmentGrid: View {
             if item.kind == .image {
                 // Downsampled off the main thread: AsyncImage decoded the full camera-resolution
                 // file for a 168 pt card (tens of MB per photo).
-                ComposerLocalThumbnail(url: url, pointSize: 168)
+                LocalMediaThumbnail(url: url, pointSize: 168)
                     .frame(width: 168, height: 168).clipped()
             } else {
                 VStack(spacing: 8) {
@@ -733,8 +733,8 @@ struct CreationTextPollEditor: View {
 }
 
 
-/// Small, off-main-thread thumbnail for a local media file (composer attachment cards).
-struct ComposerLocalThumbnail: View {
+/// Small, off-main-thread thumbnail for a local media file (composer cards, story drafts).
+struct LocalMediaThumbnail: View {
     let url: URL?
     let pointSize: CGFloat
     @Environment(\.displayScale) private var displayScale
