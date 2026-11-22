@@ -58,7 +58,7 @@ struct WebGameHost: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Button("Exit game", action: close)
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.modulaSecondary)
                 }
                 .foregroundStyle(.white)
                 .padding(32)
@@ -84,7 +84,7 @@ struct WebGameHost: View {
                     Button("Resume") { setPaused(false) }
                         .buttonStyle(.modulaPrimary)
                         .accessibilityIdentifier("game.host.resume")
-                    Button("Exit game") { close() }.buttonStyle(.bordered)
+                    Button("Exit game") { close() }.buttonStyle(.modulaSecondary)
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -240,22 +240,24 @@ private struct WebGameSurface: UIViewRepresentable {
 
         // Downloaded games receive no device-data capability from the host.
         // WebKit otherwise prompts for these APIs when the delegate is absent.
+        // Handler types must match the SDK's `@MainActor @Sendable` exactly, or these were
+        // only "near matches" that WebKit never called (so games could still prompt).
         func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
                      initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
-                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+                     decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void) {
             decisionHandler(.deny)
         }
 
         func webView(_ webView: WKWebView, requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin,
                      initiatedByFrame frame: WKFrameInfo,
-                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+                     decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void) {
             decisionHandler(.deny)
         }
 
         @available(iOS 27.0, *)
         func webView(_ webView: WKWebView, requestGeolocationPermissionFor origin: WKSecurityOrigin,
                      initiatedByFrame frame: WKFrameInfo,
-                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+                     decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void) {
             decisionHandler(.deny)
         }
 
