@@ -465,13 +465,10 @@ struct MediaAttachmentGrid: View {
         let url = fileURL(item)
         return ZStack(alignment: .bottomLeading) {
             if item.kind == .image {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image): image.resizable().scaledToFill()
-                    default: Rectangle().fill(.secondary.opacity(0.15))
-                    }
-                }
-                .frame(width: 168, height: 168).clipped()
+                // Downsampled off the main thread: AsyncImage decoded the full camera-resolution
+                // file for a 168 pt card (tens of MB per photo).
+                ComposerLocalThumbnail(url: url, pointSize: 168)
+                    .frame(width: 168, height: 168).clipped()
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: symbol(item.kind)).font(.title)
@@ -732,5 +729,32 @@ struct CreationTextPollEditor: View {
         }
         lines.append("(Text poll — reply with a number. Native polls coming later.)")
         return lines.joined(separator: "\n")
+    }
+}
+
+
+/// Small, off-main-thread thumbnail for a local media file (composer attachment cards).
+struct ComposerLocalThumbnail: View {
+    let url: URL?
+    let pointSize: CGFloat
+    @Environment(\.displayScale) private var displayScale
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Rectangle().fill(.secondary.opacity(0.15))
+            }
+        }
+        .task(id: url) {
+            guard let url else { image = nil; return }
+            let pixels = pointSize * max(displayScale, 1)
+            image = await Task.detached(priority: .userInitiated) {
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: pixels)
+            }.value
+        }
     }
 }
