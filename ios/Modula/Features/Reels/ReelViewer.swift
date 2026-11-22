@@ -301,17 +301,27 @@ struct ReelPageView: View {
 
     var body: some View {
         ZStack {
-            poster
-            // KEEP: module/video permission gate — do not remove or "fix".
-            if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
-                ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
-                                   height: nil, cornerRadius: 0, allowsPlayback: isActive,
-                                   controlsTopInset: controlsTopInset, immersive: true,
-                                   externalController: playback)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(false ? 0.72 : 1, anchor: .top)
-                    .clipShape(RoundedRectangle(cornerRadius: false ? 18 : 0, style: .continuous))
+            // Video layer only: double-tap like, tap pause and hold live HERE, not on the page.
+            // On the page container they sat above the rail/top bar Buttons, so every tap had to
+            // wait for the double-tap and long-press recognisers to fail (taps felt like they needed
+            // a hard/long press). The overlay controls are siblings now and respond instantly.
+            ZStack {
+                poster
+                // KEEP: module/video permission gate — do not remove or "fix".
+                if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
+                    ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
+                                       height: nil, cornerRadius: 0, allowsPlayback: isActive,
+                                       controlsTopInset: controlsTopInset, immersive: true,
+                                       externalController: playback)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
+            .contentShape(Rectangle())
+            .gesture(videoTapGesture)
+            .onLongPressGesture(minimumDuration: 0.45, perform: {
+                HapticEngine.shared.play(.contextOpen)
+                showsQuickMenu = true
+            }, onPressingChanged: handleHold)
             if !clearDisplay, !holdPaused {
                 // Legibility scrims: top (tabs/Create), right edge (rail) and bottom (caption),
                 // so overlays stay readable over busy video such as screen recordings.
@@ -336,6 +346,8 @@ struct ReelPageView: View {
                 .allowsHitTesting(false)
             }
             DoubleTapHeartBurst(trigger: heartBurst, point: heartPoint)
+                .allowsHitTesting(false)
+            playbackStatus
             if !clearDisplay, !holdPaused {
                 HStack(alignment: .bottom, spacing: 0) {
                     ReelCaptionBlock(reel: reel, showsCaption: captionsOn)
@@ -448,41 +460,6 @@ struct ReelPageView: View {
                 )
             }
         }
-        .contentShape(Rectangle())
-        // Double tap = like with a heart at the finger; single tap = pause/resume.
-        .gesture(
-            SpatialTapGesture(count: 2).onEnded { event in
-                guard ModulaPreferences.doubleTapToLike else { return }
-                heartPoint = event.location
-                let post = resolved
-                if !post.liked { Task { await app.postActions.toggleLike(post) } }
-                HapticEngine.shared.play(.reactionSelect) // same haptic as picking a reaction
-                heartBurst += 1
-            }
-            .exclusively(before: TapGesture().onEnded {
-                guard reel.attachment != nil, !showsQuickMenu else { return }
-                playback.toggle()
-                HapticEngine.shared.play(.selection)
-            })
-        )
-        .onLongPressGesture(minimumDuration: 0.45, perform: {
-            HapticEngine.shared.play(.contextOpen)
-            showsQuickMenu = true
-        }, onPressingChanged: { pressing in
-            holdTask?.cancel()
-            if pressing {
-                guard reel.attachment != nil, playback.state == .playing else { return }
-                holdTask = Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(180))
-                    guard !Task.isCancelled else { return }
-                    playback.pause()
-                    holdPaused = true
-                }
-            } else if holdPaused {
-                holdPaused = false
-                if !showsQuickMenu { playback.play() }
-            }
-        })
         .animation(.easeOut(duration: 0.18), value: holdPaused)
         .onReceive(NotificationCenter.default.publisher(for: .modulaReelKey)) { note in
             guard isActive, reel.attachment != nil else { return }
@@ -551,11 +528,83 @@ struct ReelPageView: View {
         app.posts.resolved(reel.asSocialPost())
     }
 
+    /// Double tap = like with a heart at the finger; single tap = pause/resume. Video layer only.
+    private var videoTapGesture: some Gesture {
+        SpatialTapGesture(count: 2).onEnded { event in
+            guard ModulaPreferences.doubleTapToLike else { return }
+            heartPoint = event.location
+            let post = resolved
+            if !post.liked { Task { await app.postActions.toggleLike(post) } }
+            HapticEngine.shared.play(.reactionSelect) // same haptic as picking a reaction
+            heartBurst += 1
+        }
+        .exclusively(before: TapGesture().onEnded {
+            guard reel.attachment != nil, !showsQuickMenu else { return }
+            playback.toggle()
+            HapticEngine.shared.play(.selection)
+        })
+    }
+
+    /// Press-and-hold on the video pauses it while held (the quick menu opens at 0.45 s).
+    private func handleHold(_ pressing: Bool) {
+        holdTask?.cancel()
+        if pressing {
+            guard reel.attachment != nil, playback.state == .playing else { return }
+            holdTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(180))
+                guard !Task.isCancelled else { return }
+                playback.pause()
+                holdPaused = true
+            }
+        } else if holdPaused {
+            holdPaused = false
+            if !showsQuickMenu { playback.play() }
+        }
+    }
+
     /// Share the backing post when there is one; otherwise the reel itself
     /// (a reel id is not a post id).
     private var shareRoute: AppRoute {
         if let postID = reel.postID { return .post(postID, .root) }
         return .reels(.reel(reel.id))
+    }
+
+    /// Loading spinner while the first frame is coming, an error card with Retry when the item
+    /// fails, and a quiet note when this reel has no playable video (instead of a blank 0:00 page).
+    @ViewBuilder private var playbackStatus: some View {
+        if reel.attachment == nil || !app.reels.capabilities.videoPlayback {
+            if isActive {
+                Label("Video isn't available", systemImage: "video.slash")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 36)
+                    .modulaGlass(in: Capsule(), interactive: false, tint: .black.opacity(0.3))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, controlsTopInset + 60)
+                    .allowsHitTesting(false)
+            }
+        } else if isActive, playback.state == .failed {
+            VStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle").font(.title2)
+                Text("Couldn't play this video").font(.subheadline.weight(.semibold))
+                Button("Try again") {
+                    playback.retry()
+                    HapticEngine.shared.play(.selection)
+                }
+                .buttonStyle(.modulaPrimary)
+                .accessibilityIdentifier("reels.retry")
+            }
+            .foregroundStyle(.white)
+            .padding(20)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, tint: .black.opacity(0.35))
+        } else if isActive, playback.state == .playing, playback.duration == 0 {
+            ProgressView()
+                .tint(.white)
+                .controlSize(.large)
+                .allowsHitTesting(false)
+                .accessibilityLabel("Loading video")
+        }
     }
 
     private var poster: some View {
