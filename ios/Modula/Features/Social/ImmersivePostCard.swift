@@ -160,7 +160,6 @@ struct ImmersivePostCard: View {
     @State private var showsTranslation = false
     /// Finger position (card space) while the reaction picker is open — drives dock magnification.
     @State private var fingerPoint: CGPoint?
-    @State private var pickerStagger = false
     @State private var barSize: CGSize = .zero
     @State private var bursts: [ReactionBurst] = []
 
@@ -836,7 +835,8 @@ struct ImmersivePostCard: View {
 
     @ViewBuilder
     private func heartCount(onMedia: Bool) -> some View {
-        if let text = ModulaCountFormat.compact(reactionCount) {
+        // The summary chip carries the total when it's visible, so the number never shows twice.
+        if !(reactionCount > 0 && !topReactionEmojis.isEmpty), let text = ModulaCountFormat.compact(reactionCount) {
             Text(text)
                 .font(.system(size: onMedia ? 10 : 12, weight: .semibold, design: font).monospacedDigit())
                 .foregroundStyle(onMedia ? .white.opacity(0.9) : .secondary)
@@ -907,26 +907,9 @@ struct ImmersivePostCard: View {
         let emojis = topReactionEmojis
         if reactionCount > 0, !emojis.isEmpty {
             Button(action: openReactors) {
-                HStack(spacing: 5) {
-                    HStack(spacing: -5) {
-                        ForEach(Array(emojis.enumerated()), id: \.element) { index, emoji in
-                            Text(emoji)
-                                .font(.system(size: 12))
-                                .frame(width: 20, height: 20)
-                                .background(Circle().fill(onMedia ? Color.black.opacity(0.45) : Color(uiColor: .secondarySystemBackground)))
-                                .overlay(Circle().strokeBorder(onMedia ? Color.white.opacity(0.18) : Color.primary.opacity(0.08), lineWidth: 0.5))
-                                .zIndex(Double(3 - index))
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                    }
-                    // The heart beside this already shows the count; the chip is just the stacked
-                    // top reactions, so the same number never appears twice.
-                }
-                .padding(.leading, 4)
-                .padding(.trailing, 4)
-                .padding(.vertical, 3)
-                .modulaGlass(in: Capsule(), interactive: true)
-                .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
+                // Stacked top emoji + total, one glass element (the heart drops its own count).
+                ModulaReactionSummaryLabel(emojis: emojis, count: reactionCount, onMedia: onMedia)
+                    .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
             }
             .buttonStyle(.modulaPress)
             .accessibilityLabel("\(reactionCount) reactions: \(emojis.joined(separator: " "))")
@@ -988,31 +971,17 @@ struct ImmersivePostCard: View {
     }
 
     private var reactionBar: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(PostEmojiReaction.quick.enumerated()), id: \.element.id) { index, option in
-                reactionItem(id: option.emoji, index: index, title: option.title) {
-                    Text(option.emoji).font(.system(size: 27))
-                }
-                .accessibilityLabel(option.title)
-                .onTapGesture { apply(option) }
-            }
-            reactionItem(id: "+", index: PostEmojiReaction.quick.count, title: "More") {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 32, height: 32)
-                    .background(Color.primary.opacity(0.1), in: Circle())
-            }
-            .accessibilityLabel("More reactions")
-            .onTapGesture { openGrid() }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .modulaGlass(in: Capsule(), specular: true)
-        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
-        .onAppear { withAnimation { pickerStagger = true } }
-        .onDisappear { pickerStagger = false }
-        .accessibilityElement(children: .contain)
+        // Shared strip (same component as the comments sheet and Reels).
+        ModulaEmojiReactionStrip(
+            options: PostEmojiReaction.quick.map { ModulaEmojiReactionOption(id: $0.emoji, emoji: $0.emoji, title: $0.title) },
+            selectedID: reacted ? (PostEmojiReactionStore.shared.emoji(for: post.id) ?? post.viewerReaction?.emoji ?? PostEmojiReaction.heart.emoji) : nil,
+            hoveredID: hoveredReaction,
+            coordinateSpace: space,
+            onFrame: { id, frame in reactionFrames[id] = frame },
+            magnification: { magnification(for: $0) },
+            onPick: { apply(.custom($0.emoji)) },
+            onMore: { openGrid() }
+        )
         .accessibilityIdentifier("post.reaction.picker")
     }
 
@@ -1022,41 +991,6 @@ struct ImmersivePostCard: View {
         guard let finger = fingerPoint, let frame = reactionFrames[id], reactionBand?.contains(finger) == true else { return 1 }
         let distance = abs(finger.x - frame.midX)
         return 1 + 0.75 * max(0, 1 - distance / 70)
-    }
-
-    private func reactionItem<Content: View>(id: String, index: Int, title: String, @ViewBuilder content: () -> Content) -> some View {
-        let hovered = hoveredReaction == id
-        let scale = magnification(for: id)
-        // Fixed slot is measured (not the scaled glyph) so hit-testing stays stable while magnifying.
-        return Color.clear
-            .frame(width: 42, height: 42)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(space)) } action: { reactionFrames[id] = $0 }
-            .overlay {
-                content()
-                    .scaleEffect(scale, anchor: .bottom)
-                    .offset(y: hovered && !calm ? -12 : 0)
-                    .scaleEffect(pickerStagger || calm ? 1 : 0.3)
-                    .opacity(pickerStagger || calm ? 1 : 0)
-                    .animation(calm ? nil : .spring(response: 0.34, dampingFraction: 0.62).delay(Double(index) * 0.03), value: pickerStagger)
-                    .animation(calm ? nil : .interactiveSpring(response: 0.2, dampingFraction: 0.62), value: scale)
-            }
-            .overlay(alignment: .top) {
-                if hovered {
-                    Text(title)
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .modulaGlass(in: Capsule(), interactive: false)
-                        .offset(y: calm ? -30 : -62)
-                        .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(calm ? nil : .snappy(duration: 0.18), value: hovered)
-            .zIndex(hovered ? 2 : 0)
-            .contentShape(Rectangle())
     }
 
     private func perform(_ action: ModulaContextAction) {

@@ -435,29 +435,21 @@ struct CommentActionOverlay<Actions: View>: View {
             .accessibilityLabel("Close menu")
 
             VStack(alignment: .leading, spacing: 8) {
-                // Glass emoji row attached to the preview (the server's reaction set).
-                HStack(spacing: 0) {
-                    ForEach(Array(CommentReactionCount.allTypes.enumerated()), id: \.element) { index, type in
-                        Button {
-                            onReact(type)
-                            HapticEngine.shared.play(.selection)
-                            onDismiss()
-                        } label: {
-                            Text(CommentReactionCount(type: type, count: 0).emoji)
-                                .font(.system(size: 26))
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(Circle().fill(Color.primary.opacity(viewerReaction == type ? 0.16 : 0)).padding(2))
-                                .scaleEffect(appeared || reduceMotion ? 1 : 0.4)
-                                .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.62).delay(Double(index) * 0.02), value: appeared)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(type.capitalized)
-                        .accessibilityAddTraits(viewerReaction == type ? .isSelected : [])
+                // Shared glass emoji strip (same component as posts and Reels), server reaction set.
+                ModulaEmojiReactionStrip(
+                    options: CommentReactionCount.allTypes.map {
+                        ModulaEmojiReactionOption(id: $0, emoji: CommentReactionCount(type: $0, count: 0).emoji, title: $0.capitalized)
+                    },
+                    selectedID: viewerReaction,
+                    emojiSize: 24,
+                    slotWidth: 38,
+                    onPick: { option in
+                        onReact(option.id)
+                        onDismiss()
                     }
-                }
-                .padding(.horizontal, 6)
-                .modulaGlass(in: Capsule(), interactive: false)
+                )
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("comment.reaction.strip")
 
                 // One preview card: avatar + name + time on one line, then the content (text,
                 // or the sticker itself; never a name-only card).

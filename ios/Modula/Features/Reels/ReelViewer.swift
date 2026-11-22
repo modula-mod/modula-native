@@ -288,6 +288,8 @@ struct ReelPageView: View {
     @AppStorage("reels.playbackRate") private var savedRate = 1.0
     @State private var heartBurst = 0
     @State private var heartPoint: CGPoint? = nil
+    /// Global frame of the Like button while the reaction strip is open.
+    @State private var reactionAnchor: CGRect?
     @State private var clearDisplay = false
     @State private var showsQuickMenu = false
     /// Quick menu "Captions": was toggled but never read. Persisted and drives the caption text.
@@ -348,6 +350,9 @@ struct ReelPageView: View {
             DoubleTapHeartBurst(trigger: heartBurst, point: heartPoint)
                 .allowsHitTesting(false)
             playbackStatus
+            if let anchor = reactionAnchor {
+                reactionLayer(anchor: anchor)
+            }
             if !clearDisplay, !holdPaused {
                 HStack(alignment: .bottom, spacing: 0) {
                     ReelCaptionBlock(reel: reel, showsCaption: captionsOn)
@@ -366,6 +371,11 @@ struct ReelPageView: View {
                                 excerpt: resolved.text,
                                 hasMedia: true
                             ))
+                        },
+                        onReactionsRequested: { frame in
+                            withAnimation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
+                                reactionAnchor = frame
+                            }
                         }
                     )
                 }
@@ -487,6 +497,7 @@ struct ReelPageView: View {
                     .padding(.bottom, 30)
             }
         }
+        .onChange(of: isActive) { _, active in if !active { reactionAnchor = nil } }
         .onAppear {
             // Speed chosen in the quick menu sticks across reels and launches.
             if abs(Double(playback.rate) - savedRate) > 0.01 { playback.setRate(Float(savedRate)) }
@@ -567,6 +578,48 @@ struct ReelPageView: View {
     private var shareRoute: AppRoute {
         if let postID = reel.postID { return .post(postID, .root) }
         return .reels(.reel(reel.id))
+    }
+
+    /// Shared reaction strip (same component as posts/comments), opened by long-pressing Like.
+    /// Sits to the left of the button; tapping anywhere else closes it.
+    private func reactionLayer(anchor: CGRect) -> some View {
+        GeometryReader { geo in
+            let origin = geo.frame(in: .global).origin
+            let width = CGFloat(PostEmojiReaction.quick.count) * 42 + 12
+            let x = min(max(anchor.minX - origin.x - 8 - width / 2, width / 2 + 8), geo.size.width - width / 2 - 8)
+            ZStack {
+                Color.black.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { closeReactions() }
+                    .accessibilityHidden(true)
+                ModulaEmojiReactionStrip(
+                    options: PostEmojiReaction.quick.map { ModulaEmojiReactionOption(id: $0.emoji, emoji: $0.emoji, title: $0.title) },
+                    selectedID: resolved.liked ? (PostEmojiReactionStore.shared.emoji(for: resolved.id) ?? PostEmojiReaction.heart.emoji) : nil,
+                    onPick: { option in react(option.emoji) },
+                    onMore: nil
+                )
+                .environment(\.colorScheme, .dark)
+                .position(x: x, y: anchor.midY - origin.y)
+                .transition(.scale(scale: 0.3, anchor: .trailing).combined(with: .opacity))
+                .accessibilityIdentifier("reels.reaction.strip")
+            }
+        }
+        .ignoresSafeArea()
+        .accessibilityAction(.escape) { closeReactions() }
+    }
+
+    private func closeReactions() {
+        withAnimation(.easeOut(duration: 0.16)) { reactionAnchor = nil }
+    }
+
+    private func react(_ emoji: String) {
+        let option = PostEmojiReaction.custom(emoji)
+        let post = resolved
+        PostEmojiReactionStore.shared.set(emoji == PostEmojiReaction.heart.emoji ? nil : emoji, for: post.id)
+        heartPoint = nil
+        heartBurst += 1
+        closeReactions()
+        Task { await app.postActions.setReaction(post, reaction: option.reaction) }
     }
 
     /// Loading spinner while the first frame is coming, an error card with Retry when the item

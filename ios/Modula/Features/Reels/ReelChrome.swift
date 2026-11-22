@@ -8,7 +8,11 @@ struct ReelTikTokRail: View {
     var isPlaying: Bool = true
     var onComment: () -> Void
     var onShare: () -> Void
+    /// Long-press on Like: opens the shared reaction strip next to it (global frame of the heart).
+    var onReactionsRequested: ((CGRect) -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @State private var heartFrame: CGRect = .zero
+    @State private var suppressLikeTap = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var following = false
     @State private var followBusy = false
@@ -19,9 +23,24 @@ struct ReelTikTokRail: View {
         VStack(spacing: 14) {
             creator
             railButton("heart.fill", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .red, label: post.liked ? "Unlike" : "Like") {
+                // The release after a long-press (strip opened) must not also toggle the like.
+                if suppressLikeTap { suppressLikeTap = false; return }
                 Task { await app.postActions.toggleLike(post) }
                 HapticEngine.shared.play(.lightImpact)
             }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heartFrame = $0 }
+            // Quick taps finish long before 0.4 s, so this never delays a normal like.
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                guard let onReactionsRequested else { return }
+                suppressLikeTap = true
+                HapticEngine.shared.play(.contextOpen)
+                onReactionsRequested(heartFrame)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    suppressLikeTap = false
+                }
+            })
+            .accessibilityAction(named: "React") { onReactionsRequested?(heartFrame) }
             railButton("bubble.right.fill", count: post.replyCount, active: false, label: "Comments", id: "ellipsis.bubble.fill") { onComment() }
             railButton(post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, label: post.saved ? "Unsave" : "Save", id: "bookmark.fill") {
                 Task { await app.postActions.toggleSave(post) }

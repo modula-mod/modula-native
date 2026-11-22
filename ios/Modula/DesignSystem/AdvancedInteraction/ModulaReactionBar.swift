@@ -154,3 +154,162 @@ struct ModulaReactionBar<ID: Hashable & Sendable>: View {
         onSelect(replacement)
     }
 }
+
+// MARK: - Shared emoji reaction strip + summary
+
+/// One emoji option in a reaction strip (`id` is what the caller applies; usually the emoji itself
+/// or a server reaction type).
+struct ModulaEmojiReactionOption: Identifiable, Hashable, Sendable {
+    let id: String
+    let emoji: String
+    let title: String
+}
+
+/// The shared glass emoji reaction strip: post cards (long-press the heart), the comments sheet
+/// (long-press a comment) and Reels (long-press the like button) all use this one component.
+///
+/// Every emoji is a plain Button (instant tap). Callers that drive a press-and-slide scrub pass
+/// `hoveredID`, `magnification` and `onFrame`, and the strip renders the hover lift + name label.
+struct ModulaEmojiReactionStrip: View {
+    let options: [ModulaEmojiReactionOption]
+    var selectedID: String? = nil
+    var hoveredID: String? = nil
+    var emojiSize: CGFloat = 27
+    var slotWidth: CGFloat = 42
+    /// Named coordinate space used for `onFrame` (scrub hit-testing); nil skips measuring.
+    var coordinateSpace: String? = nil
+    var onFrame: ((String, CGRect) -> Void)? = nil
+    var magnification: (String) -> CGFloat = { _ in 1 }
+    var onPick: (ModulaEmojiReactionOption) -> Void
+    /// Shows the trailing "+" (full emoji grid). Nil hides it.
+    var onMore: (() -> Void)? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var appeared = false
+
+    static let moreID = "+"
+
+    private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
+                slot(id: option.id, index: index, title: option.title) {
+                    Button {
+                        HapticEngine.shared.play(.reactionSelect)
+                        onPick(option)
+                    } label: {
+                        Text(option.emoji)
+                            .font(.system(size: emojiSize))
+                            .frame(width: slotWidth, height: 44)
+                            .background {
+                                if selectedID == option.id {
+                                    Circle().fill(Color.primary.opacity(0.14)).frame(width: 38, height: 38)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(option.title)
+                    .accessibilityAddTraits(selectedID == option.id ? .isSelected : [])
+                }
+            }
+            if let onMore {
+                slot(id: Self.moreID, index: options.count, title: "More") {
+                    Button {
+                        HapticEngine.shared.play(.contextOpen)
+                        onMore()
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary.opacity(0.1), in: Circle())
+                            .frame(width: slotWidth, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("More reactions")
+                }
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .modulaGlass(in: Capsule(), specular: true)
+        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
+        // The presenter plays the open haptic (once); picks play `.reactionSelect`.
+        .onAppear { withAnimation { appeared = true } }
+        .onDisappear { appeared = false }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Reactions")
+    }
+
+    @ViewBuilder
+    private func slot<Content: View>(id: String, index: Int, title: String, @ViewBuilder content: () -> Content) -> some View {
+        let hovered = hoveredID == id
+        let scale = magnification(id)
+        content()
+            .scaleEffect(scale, anchor: .bottom)
+            .offset(y: hovered && !calm ? -12 : 0)
+            .scaleEffect(appeared || calm ? 1 : 0.3)
+            .opacity(appeared || calm ? 1 : 0)
+            .animation(calm ? nil : .spring(response: 0.34, dampingFraction: 0.62).delay(Double(index) * 0.03), value: appeared)
+            .animation(calm ? nil : .interactiveSpring(response: 0.2, dampingFraction: 0.62), value: scale)
+            .background {
+                if let coordinateSpace, let onFrame {
+                    // The fixed slot is measured (not the scaled glyph) so scrub hit-testing is stable.
+                    Color.clear.onGeometryChange(for: CGRect.self) { $0.frame(in: .named(coordinateSpace)) } action: { onFrame(id, $0) }
+                }
+            }
+            .overlay(alignment: .top) {
+                if hovered {
+                    Text(title)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                        .offset(y: calm ? -30 : -62)
+                        .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(calm ? nil : .snappy(duration: 0.18), value: hovered)
+            .zIndex(hovered ? 2 : 0)
+    }
+}
+
+/// Shared glass reaction summary: up to three stacked top emoji plus the total count.
+struct ModulaReactionSummaryLabel: View {
+    let emojis: [String]
+    let count: Int
+    var onMedia = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            HStack(spacing: -6) {
+                ForEach(Array(emojis.prefix(3).enumerated()), id: \.element) { index, emoji in
+                    Text(emoji)
+                        .font(.system(size: 12))
+                        .frame(width: 20, height: 20)
+                        .background(Circle().fill(onMedia ? Color.black.opacity(0.4) : Color(uiColor: .secondarySystemBackground)))
+                        .overlay(Circle().strokeBorder(onMedia ? Color.white.opacity(0.18) : Color.primary.opacity(0.08), lineWidth: 0.5))
+                        .zIndex(Double(3 - index))
+                }
+            }
+            if let text = ModulaCountFormat.compact(count) {
+                Text(text)
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(onMedia ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                    .contentTransition(.numericText(value: Double(count)))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+        }
+        .padding(.leading, 4)
+        .padding(.trailing, 8)
+        .frame(minHeight: 28)
+        .modulaGlass(in: Capsule(), interactive: true)
+    }
+}
