@@ -10,6 +10,8 @@ struct MessagesRootView: View {
     @Environment(\.routeTransitionNamespace) private var routeTransitions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// True when Chats / Phone / In-Mail is a tab root (Custom navigation): keep the tab bar.
+    @Environment(\.modulaTabRoot) private var isTabRoot
 
     var body: some View {
         Group {
@@ -55,7 +57,7 @@ struct MessagesRootView: View {
         }
         .modulaCanvas()
         .navigationBarBackButtonHidden(false)
-        .toolbar(.hidden, for: .tabBar)
+        .toolbar(isTabRoot ? .automatic : .hidden, for: .tabBar)
     }
 
     /// Inbox and an open thread share a sidebar on iPad; requests, In-Mail and new-chat stay full screen.

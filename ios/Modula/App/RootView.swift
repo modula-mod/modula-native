@@ -231,12 +231,14 @@ struct RootView: View {
                         // Activity, Profile… now build on first visit instead.
                         if tab == navigation.selectedTab || visitedTabs.contains(tab) {
                             RouteView(route: navigation.root(for: tab))
+                                .environment(\.modulaTabRoot, true)
                         } else {
                             Color.clear
                         }
                     }
                         .navigationDestination(for: AppRoute.self) {
                             RouteView(route: $0)
+                                .environment(\.modulaTabRoot, false)
                                 // Pushed Settings / Premium pages: no minimised tab bubble (the profile avatar
                                 // floated bottom-left over plan cards). Back is the one way out.
                                 .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar || Self.hidesTabBar(on: $0)))
@@ -528,4 +530,15 @@ struct ModulaActivityShareView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+
+/// True for a tab's root screen (not a pushed page). Screens that normally hide the tab bar
+/// (Messages) keep it when they are a Custom navigation tab root.
+private struct ModulaTabRootKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var modulaTabRoot: Bool {
+        get { self[ModulaTabRootKey.self] }
+        set { self[ModulaTabRootKey.self] = newValue }
+    }
 }
