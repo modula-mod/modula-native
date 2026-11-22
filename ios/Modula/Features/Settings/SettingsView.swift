@@ -146,6 +146,7 @@ struct SettingsView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Namespace private var identityNamespace
     @State private var query = ""
     @State private var searchPresented = false
@@ -208,7 +209,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.heading")
 
-                    settingsCover
+                    settingsHeader
 
                     if identityAvatarURL == nil, app.auth.account != nil {
                         TelegramSettingsCard {
@@ -219,8 +220,6 @@ struct SettingsView: View {
                     // Atlas v5 08.01 / 09.001: one pinned 2D Moliboo feature card, launch shortcuts,
                     // then the numbered categories, each destination listed once.
                     molibooHero
-
-                    quickActions
 
                     settingsSection("Account & Membership") {
                         TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
@@ -249,18 +248,16 @@ struct SettingsView: View {
                             .accessibilityIdentifier("settings.privacy-dashboard.open")
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        sectionHeader("Appearance & Accessibility")
-                        TelegramSettingsCard {
-                            SettingsLiveAppearanceCard { app.navigation.open(.settings(.appearance(.root))) }
-                        }
-                        TelegramSettingsCard {
+                    settingsSection("Appearance & Accessibility") {
+                            // A plain row into the Appearance page (the inline preview block is gone).
+                            TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
+                                .accessibilityIdentifier("settings.appearance")
+                            TelegramDivider()
                             TelegramRow(title: "Personalisation", symbol: "slider.horizontal.3", tint: .indigo) { app.navigation.open(.settings(.personalisation(.root))) }
                             TelegramDivider()
                             TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
                             TelegramDivider()
                             TelegramRow(title: "Language", symbol: "globe", tint: .blue) { app.navigation.open(.settings(.language(.root))) }
-                        }
                     }
 
                     settingsSection("Notifications & Communication") {
@@ -360,7 +357,22 @@ struct SettingsView: View {
             if abs(clamped - scrollY) >= 0.5 { scrollY = clamped }
         }
         .modulaSoftScrollEdge()
-        .background(SettingsAmbientBackdrop().ignoresSafeArea())
+        // Shared progressive blur instead of the system's opaque band (as on Profile / Discover):
+        // hidden at rest, fades in once rows start sliding under the search bar.
+        .modifier(SettingsTopEdgeEffectHidden())
+        .overlay(alignment: .top) {
+            ModulaTopProgressiveBlur(
+                height: ProfileFullBleedMetrics.windowSafeAreaTop + 44 + SettingsTopBlur.searchBarHeight + ModulaTopProgressiveBlur.restingFade,
+                tint: ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas,
+                reduceTransparency: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+            )
+            .ignoresSafeArea(edges: .top)
+            .opacity(Double(min(max(scrollY / 24, 0), 1)))
+        }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        // Login's Spectral Drape world, dimmed for the glass cards (static under Reduce Motion,
+        // solid under Reduce Transparency, paused off-screen by the drape itself).
+        .background(SettingsDrapeBackdrop())
         .overlay {
             if !isSearching {
                 IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }
@@ -385,15 +397,8 @@ struct SettingsView: View {
                     .offset(y: reduceMotion ? 0 : (1 - collapse) * 8)
                     .accessibilityHidden(collapse < 0.6)
             }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if collapse > 0.85 || scrollY < -40 {
-                    Button { searchPresented = true } label: { Image(systemName: "magnifyingglass") }
-                        .transition(.opacity)
-                        .accessibilityLabel("Search Settings")
-                }
-            }
+            // No toolbar search icon: the pinned search bar is the one search affordance.
         }
-        .animation(.easeOut(duration: 0.18), value: collapse > 0.85 || scrollY < -40)
         .sheet(isPresented: $showsPrivacyDashboard) {
             SettingsPrivacyDashboard()
                 .presentationDetents([.large])
@@ -442,66 +447,79 @@ struct SettingsView: View {
         ModulaAvatar(initials: identityInitials, url: identityAvatarURL, size: size)
     }
 
-    /// Cover banner: real profile cover when the account has one, otherwise the accent gradient.
-    /// Counts come from `GET /v1/profiles/:handle` via the profile store. Missing profile hides the chips.
-    private var settingsCover: some View {
+    /// Centred identity header: cover banner across the top of a glass card, the avatar centred on
+    /// its lower edge (fully inside the card, never clipped), name and handle centred below, then
+    /// Edit profile and tidy stats. Counts come from the profile store; signed out shows a hint.
+    private var settingsHeader: some View {
         let profile = app.profile.ownProfile
         let merge = IslandAvatarMerge<EmptyView>.progress(for: avatarFrame)
-        return VStack(alignment: .leading, spacing: 12) {
-            ZStack(alignment: .bottomLeading) {
-                settingsCoverArt
-                    .frame(height: 156)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-                LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
-                    .allowsHitTesting(false)
-                HStack(alignment: .center, spacing: 12) {
-                    heroAvatar(size: 64)
-                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                        .scaleEffect(reduceMotion ? 1 : 1 + min(max(0, -scrollY) / 280, 0.25), anchor: .bottom)
-                        .opacity(merge > 0 ? 0 : 1)
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
-                        .onTapGesture { openProfileEdit() }
-                        .accessibilityLabel("Profile photo")
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(identityDisplayName)
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                            // Long names wrap/scale instead of truncating.
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.8)
-                        if let identityHandle {
-                            Text(identityHandle)
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.88))
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    Button("Edit profile") { openProfileEdit() }
+        let avatarSize: CGFloat = 92
+        let card = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return VStack(spacing: 0) {
+            settingsCoverArt
+                .frame(height: 132)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .overlay(LinearGradient(colors: [.clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom))
+                .contentShape(Rectangle())
+                .onTapGesture { openProfileEdit() }
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
+                heroAvatar(size: avatarSize)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.92), lineWidth: 3))
+                    .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+                    .opacity(merge > 0 ? 0 : 1)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+                    .onTapGesture { openProfileEdit() }
+                    .accessibilityLabel("Profile photo")
+                    .accessibilityAddTraits(.isButton)
+                    .padding(.top, -avatarSize / 2)
+                    .padding(.bottom, 6)
+                Text(identityDisplayName)
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .accessibilityAddTraits(.isHeader)
+                if let identityHandle {
+                    Text(identityHandle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                Button { openProfileEdit() } label: {
+                    Label("Edit profile", systemImage: "pencil")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .frame(height: 36)
-                        .background(.white.opacity(0.22), in: Capsule())
-                        .accessibilityIdentifier("settings.edit.cover")
                 }
-                .padding(14)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .buttonStyle(.modulaSecondary)
+                .padding(.top, 10)
+                .accessibilityIdentifier("settings.edit.cover")
 
-            if app.auth.account != nil, let profile {
-                HStack(spacing: 8) {
-                    settingsStat(profile.postCount, "Posts", "square.and.pencil")
-                    settingsStat(profile.followerCount, "Followers", "person.fill")
-                    settingsStat(profile.followingCount, "Following", "person.2.fill")
+                if app.auth.account != nil, let profile {
+                    HStack(spacing: 0) {
+                        settingsStat(profile.postCount, "Posts")
+                        Divider().frame(height: 28)
+                        settingsStat(profile.followerCount, "Followers")
+                        Divider().frame(height: 28)
+                        settingsStat(profile.followingCount, "Following")
+                    }
+                    .padding(.top, 14)
+                } else if app.auth.account == nil {
+                    Text("Sign in to see your posts, followers and following.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 12)
                 }
-            } else if app.auth.account == nil {
-                Text("Sign in to see your posts, followers and following.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
+        .clipShape(card)
+        .modulaGlass(in: card, interactive: false, specular: true)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings.cover")
     }
 
@@ -529,18 +547,15 @@ struct SettingsView: View {
         )
     }
 
-    private func settingsStat(_ count: Int, _ label: String, _ symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(count.formatted(), systemImage: symbol)
-                .font(.subheadline.weight(.semibold))
-                .labelStyle(.titleAndIcon)
+    private func settingsStat(_ count: Int, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(count.formatted())
+                .font(.headline.monospacedDigit())
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label), \(count.formatted())")
     }
@@ -689,7 +704,8 @@ struct SettingsView: View {
                     Text("MOLIBOO · YOUR COMPANION")
                         .font(.caption2.weight(.bold))
                         .tracking(0.6)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        // Secondary label colour: the accent (dark red on dark glass) failed contrast.
+                        .foregroundStyle(.secondary)
                     Text(kind.name)
                         .font(.title3.weight(.bold))
                         .foregroundStyle(.primary)
@@ -714,42 +730,6 @@ struct SettingsView: View {
         .accessibilityLabel("Moliboo, your companion: \(kind.name)")
         .accessibilityHint("Opens Moliboo settings")
         .accessibilityIdentifier("settings.moliboo.hero")
-    }
-
-    /// Launch shortcuts (Atlas v5 09.001). Each opens an existing, working destination.
-    private var quickActions: some View {
-        HStack(spacing: 10) {
-            quickAction("Privacy", "checkmark.shield.fill", .indigo, id: "privacy") { showsPrivacyDashboard = true }
-            quickAction("Account", "person.crop.circle.fill", .blue, id: "account") { openAccountOrLogin() }
-            quickAction("Appearance", "paintbrush.fill", .cyan, id: "appearance") { app.navigation.open(.settings(.appearance(.root))) }
-            quickAction("Modules", "shippingbox.fill", .green, id: "modules") { app.navigation.open(.settings(.modules(.root))) }
-        }
-        .accessibilityIdentifier("settings.quick-actions")
-    }
-
-    private func quickAction(_ title: String, _ symbol: String, _ tint: Color, id: String, action: @escaping () -> Void) -> some View {
-        Button {
-            HapticEngine.shared.play(.selection)
-            action()
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .frame(maxWidth: .infinity, minHeight: 76)
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .accessibilityIdentifier("settings.quick.\(id)")
     }
 
     /// Shown while the search field is focused and empty (Atlas v5 09.002 "suggested searches").
@@ -2374,5 +2354,44 @@ private struct CustomNavigationPreviewBar: View {
         .modulaGlass(in: Capsule(), interactive: false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Tab bar preview: \(tabs.map(\.title).joined(separator: ", "))")
+    }
+}
+
+
+/// Settings root: hide the system top scroll-edge band; the shared progressive blur replaces it.
+private struct SettingsTopEdgeEffectHidden: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
+    }
+}
+
+enum SettingsTopBlur {
+    /// Pinned glass search bar: 44pt field + 4pt top + 8pt bottom padding.
+    static let searchBarHeight: CGFloat = 56
+}
+
+/// Settings root background: the login screen's Spectral Drape, dimmed so glass cards stay
+/// readable. Reduce Transparency (system setting) gets the solid canvas instead; Reduce Motion
+/// and off-screen pausing are handled by `SpectralDrapeView`.
+struct SettingsDrapeBackdrop: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                ModulaPalette.resolve(app.appearance, scheme: scheme).canvas
+            } else {
+                ModulaAuthBackdrop(calm: true)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
