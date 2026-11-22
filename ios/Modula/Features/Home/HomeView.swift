@@ -693,9 +693,9 @@ struct HomeView: View {
                                 Task { await app.home.toggleSave(resolved, mode: mode) }
                             },
                             onShare: {
-                                // Settings → Sharing decides copy / iOS sheet / Modula sheet.
+                                // Send button: always a sheet (Settings → Sharing picks Modula or iOS).
                                 ModulaMascotEvent.post(.share)
-                                PostSharing.share(resolved, app: app)
+                                PostSharing.send(resolved, app: app)
                             },
                             onContextAction: { action in
                                 handlePostContext(action, post: resolved)

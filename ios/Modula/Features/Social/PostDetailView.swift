@@ -166,10 +166,10 @@ struct PostDetailView: View {
             },
             onShare: {
                 ModulaMascotEvent.post(.share)
-                if PostSharing.method() == .modulaSheet {
+                if PostSharing.method(copyAsLink: false) == .modulaSheet {
                     showsShareSheet = true
                 } else {
-                    PostSharing.share(post, app: app)
+                    PostSharing.send(post, app: app)
                 }
             },
             onContextAction: { handleContext($0, post: post) },

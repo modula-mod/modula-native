@@ -157,7 +157,6 @@ struct ImmersivePostCard: View {
     @State private var pinchScale: CGFloat = 1
     @State private var pinchBase: CGFloat = 1
     @State private var saveBounce = 0
-    @State private var railPressed: String?
     @State private var showsTranslation = false
     /// Finger position (card space) while the reaction picker is open — drives dock magnification.
     @State private var fingerPoint: CGPoint?
@@ -675,7 +674,7 @@ struct ImmersivePostCard: View {
                 }
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
             }
-            railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
+            railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .white) {
                 saveBounce += 1
                 HapticEngine.shared.play(.confirmation)
                 onSave()
@@ -721,10 +720,9 @@ struct ImmersivePostCard: View {
             VStack(spacing: 1) {
                 Image(systemName: symbol)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(active ? (tint ?? app.appearance.liveAccent) : .white)
+                    .foregroundStyle(active ? (tint ?? .white) : .white)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: symbol.contains("bookmark") ? saveBounce : 0)
-                    .scaleEffect(railPressed == title ? 0.82 : 1)
                 if let text = ModulaCountFormat.compact(count) {
                     Text(text)
                         .font(.system(size: 10, weight: .semibold, design: font).monospacedDigit())
@@ -734,14 +732,11 @@ struct ImmersivePostCard: View {
             }
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
-            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in if railPressed != title { railPressed = title } }
-                .onEnded { _ in railPressed = nil }
-        )
+        // Press scale from the button style. A zero-distance DragGesture used to sit on every
+        // button: it raced the tap (taps felt like they needed a hard press), blocked scroll
+        // starts, and rewrote card state on every touch.
+        .buttonStyle(ModulaPressStyle(scale: 0.82, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityValue(count > 0 ? "\(count)" : "")
     }
@@ -1315,19 +1310,13 @@ struct ImmersivePostCard: View {
                         .contentTransition(.numericText())
                 }
             }
-            .foregroundStyle(active ? app.appearance.liveAccent : .secondary)
+            // Active state never uses the accent (no coral): Repost goes green, others primary.
+            .foregroundStyle(active ? (title == "Repost" ? Color.green : Color.primary) : Color.secondary)
             .frame(minWidth: 40, minHeight: 40)
             .padding(.horizontal, 2)
             .contentShape(Rectangle())
-            .scaleEffect(railPressed == title ? 0.9 : 1)
-            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in railPressed = title }
-                .onEnded { _ in railPressed = nil }
-        )
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityValue(count > 0 ? "\(count)" : "")
     }
