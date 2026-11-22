@@ -351,21 +351,37 @@ struct ProfileView: View {
                 .accessibilityHidden(t < 0.5)
                 .accessibilityLabel(compactTitle)
             }
-            // Edit profile / Share profile live in-page as Liquid Glass buttons.
+            // Own profile: Edit gets its own glass circle beside "…".
+            if profile != nil, isOwnProfile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit Profile", systemImage: "pencil") {
+                        openSection(.edit)
+                        HapticEngine.shared.play(.navigation)
+                    }
+                    .accessibilityIdentifier("profile.edit.toolbar")
+                }
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                }
+            }
             if let profile {
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Notes-style: a row of three icon actions on top, then grouped lists.
                     Menu {
-                        ForEach(ProfileContextActions.moreMenu(isOwn: isOwnProfile)) { action in
-                            Button(role: action.role == .destructive ? .destructive : nil) {
-                                handleContextAction(action, profile: profile)
-                            } label: {
-                                if let systemImage = action.systemImage {
-                                    Label(action.title, systemImage: systemImage)
-                                } else {
-                                    Text(action.title)
+                        let menu = ProfileMoreMenuLayout(actions: ProfileContextActions.moreMenu(isOwn: isOwnProfile), isOwn: isOwnProfile)
+                        if !menu.row.isEmpty {
+                            ControlGroup {
+                                ForEach(menu.row) { action in
+                                    moreMenuButton(action, profile: profile, short: true)
                                 }
                             }
-                            .disabled(action.role == .disabled)
+                        }
+                        ForEach(menu.sections.indices, id: \.self) { index in
+                            Section {
+                                ForEach(menu.sections[index]) { action in
+                                    moreMenuButton(action, profile: profile, short: false)
+                                }
+                            }
                         }
                     } label: {
                         Image(systemName: "ellipsis")
@@ -391,7 +407,7 @@ struct ProfileView: View {
         let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
         let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
         let avatar = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
-        return cover + avatar * 0.5 + 24 - (safeTop + 44) + 36
+        return cover + 24 + 0 * avatar - (safeTop + 44) + 36
     }
 
     /// 0 → 1 as the name moves into the nav bar (eased so the bar fades in with the title).
@@ -401,7 +417,8 @@ struct ProfileView: View {
         let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
         let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
         let avatar = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
-        let nameY = cover + avatar * 0.5 + 24
+        // Name now sits beside the avatar, just under the cover edge.
+        let nameY = cover + 24 + 0 * avatar
         let headerBottom = safeTop + 44
         let x = min(max((scrollOffset - (nameY - headerBottom)) / 36, 0), 1)
         return x * x * (3 - 2 * x)
@@ -493,7 +510,7 @@ struct ProfileView: View {
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             hero(profile)
 
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 14) {
                 if app.profile.visitorPreviewActive, isOwnProfile {
                     ProfileVisitorPreviewBanner {
                         app.profile.setVisitorPreview(false)
@@ -574,7 +591,7 @@ struct ProfileView: View {
     private func hero(_ profile: ModulaProfile) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             heroMedia(profile)
-            ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile)
+            ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile, part: .details)
                 .padding(.horizontal, ModulaLayout.contentInset)
                 .padding(.leading, leadingInteractionInset)
                 .padding(.trailing, trailingInteractionInset)
@@ -605,21 +622,31 @@ struct ProfileView: View {
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            ProfileAvatarPocket(
-                profile: profile,
-                tint: heroTint,
-                onTap: { openAvatarViewer(profile) },
-                onStoryTap: { openProfileStory(profile) },
-                storyRing: storyRing(for: profile),
-                contextActions: avatarActions(profile),
-                onContextAction: { handleContextAction($0, profile: profile) }
-            )
-            // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
-            // as it scrolls up (the bar avatar takes over), so it never floats over the details.
-            .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
-            // Gone well before it reaches the bar (no ghost behind the title).
-            .opacity(Double(max(0, 1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) * 2.2)))
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
+            // Avatar in the notch at bottom-left; name, badges and @handle sit to its right,
+            // just under the cover edge (compact header).
+            ZStack(alignment: .topLeading) {
+                ProfileAvatarPocket(
+                    profile: profile,
+                    tint: heroTint,
+                    onTap: { openAvatarViewer(profile) },
+                    onStoryTap: { openProfileStory(profile) },
+                    storyRing: storyRing(for: profile),
+                    contextActions: avatarActions(profile),
+                    onContextAction: { handleContextAction($0, profile: profile) }
+                )
+                // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
+                // as it scrolls up (the bar avatar takes over), so it never floats over the details.
+                .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
+                // Gone well before it reaches the bar (no ghost behind the title).
+                .opacity(Double(max(0, 1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) * 2.2)))
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
+
+                ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile, part: .name)
+                    .padding(.leading, ModulaLayout.contentInset + avatarSize + 12)
+                    .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                    .padding(.top, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 
@@ -1367,7 +1394,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 0) {
             heroMedia(profile)
             VStack(alignment: .leading, spacing: 16) {
-                ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile)
+                ProfileIdentityBlock(profile: profile, showsFollowsYou: !isOwnProfile, part: .details)
                 ProfileActionsRow(
                     profile: profile,
                     selected: section,
@@ -1791,6 +1818,22 @@ struct ProfileView: View {
         }
     }
 
+    @ViewBuilder
+    private func moreMenuButton(_ action: ModulaContextAction, profile: ModulaProfile, short: Bool) -> some View {
+        Button(role: action.role == .destructive ? .destructive : nil) {
+            handleContextAction(action, profile: profile)
+        } label: {
+            let title = short ? ProfileMoreMenuLayout.shortTitle(action) : action.title
+            if let systemImage = action.systemImage {
+                Label(title, systemImage: systemImage)
+            } else {
+                Text(title)
+            }
+        }
+        .disabled(action.role == .disabled)
+        .accessibilityLabel(action.resolvedAccessibilityLabel)
+    }
+
     private func handleContextAction(_ action: ModulaContextAction, profile: ModulaProfile) {
         switch action.id {
         case "share":
@@ -2004,6 +2047,37 @@ private struct ProfileTopEdgeEffectHidden: ViewModifier {
             content.scrollEdgeEffectHidden(true, for: .top)
         } else {
             content
+        }
+    }
+}
+
+
+/// "…" menu layout (Apple Notes style): three short icon actions in a row, then sections.
+struct ProfileMoreMenuLayout {
+    let row: [ModulaContextAction]
+    let sections: [[ModulaContextAction]]
+
+    init(actions: [ModulaContextAction], isOwn: Bool) {
+        let rowIDs = isOwn ? ["share", "modula-code", "copy-link"] : ["share", "copy-link", "mute"]
+        row = rowIDs.compactMap { id in actions.first { $0.id == id } }
+        let rest = actions.filter { !rowIDs.contains($0.id) && $0.id != "edit" }
+        let groups: [[String]] = isOwn
+            ? [["saved", "drafts"], ["preview-visitor", "settings"]]
+            : [["block", "report"]]
+        var sections = groups.map { ids in rest.filter { ids.contains($0.id) } }
+        let grouped = Set(groups.flatMap { $0 })
+        let leftovers = rest.filter { !grouped.contains($0.id) }
+        if !leftovers.isEmpty { sections.append(leftovers) }
+        self.sections = sections.filter { !$0.isEmpty }
+    }
+
+    static func shortTitle(_ action: ModulaContextAction) -> String {
+        switch action.id {
+        case "share": "Share"
+        case "modula-code": "My Code"
+        case "copy-link": "Copy Link"
+        case "mute": "Mute"
+        default: action.title
         }
     }
 }

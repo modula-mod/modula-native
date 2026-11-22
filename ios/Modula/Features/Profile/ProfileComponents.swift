@@ -534,6 +534,9 @@ struct ProfileIdentityBlock: View {
     let profile: ModulaProfile
     /// Others' profiles: small "Follows you" tag beside the name when the API says so.
     var showsFollowsYou: Bool = false
+    /// `.name` = name, badges and @handle (beside the avatar); `.details` = headline + bio.
+    var part: Part = .all
+    enum Part { case all, name, details }
     @Environment(AppEnvironment.self) private var app
     @Environment(\.profileAccentColor) private var profileAccent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -552,10 +555,15 @@ struct ProfileIdentityBlock: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: part == .name ? 2 : 6) {
+            if part != .details {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 ModulaText(text: profile.displayName, role: .title)
+                    // Long names wrap to two lines and scale down a little; never a mid-word cut.
                     .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
                 if showsOwnPremiumBadge {
                     PremiumProfileBadge(plan: premiumStore.plan)
                 }
@@ -607,8 +615,9 @@ struct ProfileIdentityBlock: View {
                 }
             }
             .accessibilityIdentifier("profile.handle")
+            }
 
-            if let headline = profile.headline, !headline.isEmpty {
+            if part != .name, let headline = profile.headline, !headline.isEmpty {
                 Text(headline)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
@@ -617,7 +626,7 @@ struct ProfileIdentityBlock: View {
                     .accessibilityIdentifier("profile.headline")
             }
 
-            if !profile.bio.isEmpty {
+            if part != .name, !profile.bio.isEmpty {
                 // Links, #hashtags and @mentions in the bio are live.
                 Text(PostTextLinks.attributed(profile.bio))
                     .font(.body)
@@ -1098,9 +1107,8 @@ struct ProfileHeroActions: View {
         ModulaGlassGroup(spacing: 10) {
             HStack(spacing: 10) {
                 if isOwn {
-                    pill("Edit profile", symbol: "pencil", prominent: true, id: "edit", action: onEdit)
-                        .accessibilityIdentifier("profile.edit.cta")
-                    pill("Share profile", symbol: "square.and.arrow.up", prominent: false, id: "share", action: onShare)
+                    // Edit moved to the top bar (pencil beside "…"): one wide Share + QR here.
+                    pill("Share profile", symbol: "square.and.arrow.up", prominent: true, id: "share", action: onShare)
                         .accessibilityIdentifier("profile.share")
                     icon("Profile QR code", symbol: "qrcode", id: "qr", action: onCode)
                         .accessibilityIdentifier("profile.qr")

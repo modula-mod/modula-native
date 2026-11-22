@@ -45,9 +45,10 @@ struct ProfileShowcaseShelf: View {
                     slot(index < picks.count ? picks[index] : nil)
                 }
             }
-            Text("Only shown on your profile on this device until profiles can sync a showcase.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Label("Saved on this device for now", systemImage: "iphone")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .accessibilityLabel("Showcase is saved on this device until profiles can sync it")
         }
         .sheet(isPresented: $editing) {
             ProfileShowcasePicker(selection: Binding(
