@@ -164,7 +164,11 @@ struct ConversationListView: View {
                                     circleOpen.toggle()
                                 }
                             } label: {
-                                MessagesCircleStack(people: Array(circle.prefix(3)))
+                                // A single glyph: the overlapping avatar stack read as a broken "AN P6" pill.
+                                Image(systemName: circleOpen ? "person.2.fill" : "person.2")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 36, height: 36)
+                                    .contentShape(Circle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(circleOpen ? "Hide your circle" : "Show your circle")
@@ -1168,7 +1172,7 @@ struct ConversationRow: View {
 
     private var previewText: Text {
         if let draft {
-            return Text("Draft · ").fontWeight(.semibold).foregroundStyle(.secondary) + Text(draft)
+            return Text("Draft · ").fontWeight(.semibold).foregroundStyle(.secondary) + Text(MessagePreviewText.plain(draft))
         }
         if conversation.lastMessage?.kind == .voice {
             let raw = "Voice note"
@@ -2231,6 +2235,10 @@ struct ConversationView: View {
 
     private func handle(_ action: ModulaContextAction, message: Message) {
         switch action.id {
+        case "transcript":
+            if let attachment = message.voiceAttachment {
+                MessageVoiceTranscripts.shared.show(attachment, client: app.client)
+            }
         case "translate":
             // On-device Translation popover (iOS 17.4+); nothing is sent to Modula.
             let text = message.body.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2798,7 +2806,9 @@ struct MessageBubble: View {
                         .accessibilityLabel("Quoting: \(MessagePreviewText.plain(quote))")
                 }
                 if !message.isDeleted, message.kind == .voice, let attachment = message.voiceAttachment {
-                    MessageVoicePlayer(attachment: attachment, accent: message.isOwn ? ownInk : Color.primary)
+                    MessageVoicePlayer(attachment: attachment,
+                                       accent: message.isOwn ? ownInk : Color.primary,
+                                       glyph: message.isOwn ? (themeAccent ?? Color.modulaPrimaryFill) : Color.modulaOnPrimary)
                         .padding(6)
                         .background { bubbleBackground }
                 }
@@ -3065,6 +3075,10 @@ struct MessageBubble: View {
             items.insert(.init(id: "star", title: starred ? "Unsave" : "Save", systemImage: starred ? "bookmark.slash" : "bookmark"), at: min(1, items.count))
         } else {
             items.insert(.init(id: "star", title: starred ? "Unstar" : "Star", systemImage: starred ? "star.slash" : "star"), at: min(1, items.count))
+        }
+        if message.kind == .voice, message.voiceAttachment != nil {
+            items.removeAll { $0.id == "copy" || $0.id == "translate" || $0.id == "speak" }
+            items.insert(.init(id: "transcript", title: "View Transcript", systemImage: "text.quote"), at: 0)
         }
         if f4.pinnedMessages, !local {
             let pinned = app.messaging.isMessagePinned(message)
