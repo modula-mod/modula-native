@@ -201,6 +201,8 @@ struct ModulaComposer: View {
     var onTrayChange: ((Bool) -> Void)? = nil
     /// Long-press Send offers "Schedule Message…" (chats with `scheduledMessages`). Nil = no menu.
     var onSchedule: (() -> Void)? = nil
+    /// Tells the host when a voice recording starts/stops (to hide rows and floating buttons).
+    var onRecordingChange: ((Bool) -> Void)? = nil
     var onSend: () -> Void
 
     @FocusState private var plainFocused: Bool
@@ -330,6 +332,7 @@ struct ModulaComposer: View {
         .animation(motion, value: hashtagSuggestions)
         .animation(motion, value: recorder.isRecording)
         .onChange(of: wantsFormatBar, initial: true) { _, wants in syncFormatBar(wants) }
+        .onChange(of: recorder.isRecording || handsFreeRecording) { _, value in onRecordingChange?(value) }
         .animation(motion, value: focused)
         .translationPresentation(isPresented: $showTranslate, text: text) { translated in
             text = translated

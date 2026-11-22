@@ -502,8 +502,8 @@ enum MessagePreviewText {
         let split = MessageQuoteText.split(raw)
         let parsed = ModulaLocalSticker.extract(split.body)
         var text = parsed.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty, let first = parsed.stickers.first {
-            return "Sticker · \(first.label)"
+        if text.isEmpty, !parsed.stickers.isEmpty {
+            return parsed.stickers.count == 1 ? "Sticker" : "\(parsed.stickers.count) stickers"
         }
         if text.isEmpty, let quote = split.quote, !quote.isEmpty {
             return "Reply: " + plain(quote)

@@ -373,11 +373,7 @@ struct MessageRecentTokensRow: View {
 
     @ViewBuilder
     private func recentLabel(_ token: String) -> some View {
-        if let sticker = ModulaLocalSticker.extract(token).stickers.first {
-            Text(sticker.label).font(.caption)
-        } else {
-            Text(token).font(.title3)
-        }
+        MessageRecentTokenLabel(token: token)
     }
 }
 

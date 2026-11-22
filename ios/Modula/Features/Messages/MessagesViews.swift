@@ -1323,6 +1323,8 @@ struct ConversationView: View {
     @State private var selectedMessageIDs: Set<MessageID> = []
     @State private var prefetchingOlder = false
     @State private var replyStackFor: MessageID?
+    /// Sticker drawer open or a voice note recording: floating thread controls step aside.
+    @State private var composerBusy = false
 
     var body: some View {
         thread
@@ -1430,6 +1432,7 @@ struct ConversationView: View {
                             reply: reply,
                             onCancelReply: cancelReply,
                             focus: $composerFocused,
+                            busy: $composerBusy,
                             onSend: sendNow
                         )
                     }
@@ -1788,7 +1791,8 @@ struct ConversationView: View {
                                 .transition(.opacity)
                         }
                     }
-                    .padding(.horizontal, ModulaLayout.contentInset)
+                    // 16 pt side margins (bubbles keep their own max width, so nothing clips).
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .scrollTargetLayout()
                 }
@@ -2008,7 +2012,7 @@ struct ConversationView: View {
     /// Jump-to-latest button; becomes a "N new messages" pill when replies arrive off-screen.
     @ViewBuilder
     private func jumpControl(items: [Message], proxy: ScrollViewProxy) -> some View {
-        if !isAtBottom {
+        if !isAtBottom && !composerBusy {
             Button {
                 HapticEngine.shared.play(.selection)
                 unseenCount = 0
@@ -2455,9 +2459,11 @@ struct ConversationComposerDock: View {
     var reply: ModulaComposerReply?
     var onCancelReply: () -> Void
     var focus: Binding<Bool>
+    var busy: Binding<Bool> = .constant(false)
     var onSend: () -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var text = ""
     @State private var showGif = false
     @State private var recent = MessageRecentTokenStore.load()
@@ -2472,9 +2478,11 @@ struct ConversationComposerDock: View {
         VStack(spacing: 0) {
             scheduledChip
             quickReplyStrip
-            smartReplies
-            MessageRecentTokensRow(tokens: recent) { token in
-                insert(token)
+            // One row attached to the composer: GIF · recent stickers · suggested replies.
+            // Stickers/recording own the dock, so the row steps away; suggestions also hide while typing.
+            if !busy.wrappedValue {
+                accessoryRow
+                    .transition(.opacity)
             }
             MessageComposer(
                 text: $text,
@@ -2485,7 +2493,6 @@ struct ConversationComposerDock: View {
                 reply: reply,
                 onCancelReply: onCancelReply,
                 focus: focus,
-                onGif: { showGif = true },
                 mentionSuggestions: app.messaging.mentionCandidates(in: conversationID, query: mentionQuery),
                 onMentionQuery: app.messaging.capabilities.mentions ? { mentionQuery = $0 } : nil,
                 onVoiceNote: app.messaging.capabilities.voiceNotes ? { note in
@@ -2493,6 +2500,9 @@ struct ConversationComposerDock: View {
                 } : nil,
                 onSchedule: f4.scheduled ? { schedulingText = text } : nil,
                 showsMascot: app.messaging.messages(for: conversationID).isEmpty,
+                onBusyChange: { value in
+                    withAnimation(.easeOut(duration: reduceMotion ? 0.1 : 0.2)) { busy.wrappedValue = value }
+                },
                 onSend: flushAndSend
             )
         }
@@ -2544,41 +2554,67 @@ struct ConversationComposerDock: View {
         }
     }
 
-    @ViewBuilder
-    private var smartReplies: some View {
-        let items = app.messaging.messages(for: conversationID)
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let last = items.last, !last.isOwn {
-            let options = MessageSmartReplies.suggestions(for: last.body.text)
-            if !options.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    ModulaGlassGroup(spacing: 8) {
-                        HStack(spacing: 8) {
-                            ForEach(options, id: \.self) { option in
-                                Button {
-                                    text = option
-                                    focus.wrappedValue = true
-                                    HapticEngine.shared.play(.selection)
-                                } label: {
-                                    Text(option)
-                                        .font(.subheadline.weight(.medium))
-                                        .padding(.horizontal, 14)
-                                        .frame(minHeight: 36)
-                                        .contentShape(Capsule())
-                                }
-                                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
-                                .modulaGlass(in: Capsule(), interactive: true)
-                                .accessibilityHint("Puts this reply in the message box")
-                            }
+    /// Suggested replies only while the field is empty and the keyboard is down.
+    private var replySuggestions: [String] {
+        guard !focus.wrappedValue, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let last = app.messaging.messages(for: conversationID).last, !last.isOwn else { return [] }
+        return MessageSmartReplies.suggestions(for: last.body.text)
+    }
+
+    private var accessoryRow: some View {
+        let suggestions = replySuggestions
+        let tokens = focus.wrappedValue ? [] : recent
+        return ScrollView(.horizontal, showsIndicators: false) {
+            ModulaGlassGroup(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button { showGif = true } label: {
+                        Text("GIF")
+                            .font(.subheadline.weight(.bold))
+                            .padding(.horizontal, 14)
+                            .frame(minWidth: 52, minHeight: 36)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityLabel("GIFs")
+                    .accessibilityIdentifier("messages.composer.gif")
+                    ForEach(tokens, id: \.self) { token in
+                        Button { insert(token) } label: {
+                            MessageRecentTokenLabel(token: token)
+                                .frame(minWidth: 36, minHeight: 36)
+                                .padding(.horizontal, 6)
+                                .contentShape(Capsule())
                         }
-                        .padding(.horizontal, ModulaLayout.contentInset)
+                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: .selection))
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityLabel("Insert \(token)")
+                    }
+                    ForEach(suggestions, id: \.self) { option in
+                        Button {
+                            text = option
+                            focus.wrappedValue = true
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Text(option)
+                                .font(.subheadline.weight(.medium))
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 36)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityHint("Puts this reply in the message box")
                     }
                 }
-                .modulaHorizontalRail()
-                .scrollClipDisabled()
-                .padding(.top, 6)
-                .accessibilityIdentifier("messages.smartReplies")
+                .padding(.horizontal, ModulaLayout.contentInset)
             }
         }
+        .modulaHorizontalRail()
+        .scrollClipDisabled()
+        .padding(.top, 6)
+        .padding(.bottom, -2)
+        .animation(.easeOut(duration: reduceMotion ? 0.1 : 0.2), value: suggestions)
+        .accessibilityIdentifier("messages.smartReplies")
     }
 
     /// "2 scheduled" glass chip above the composer; opens the per-chat list.
@@ -3137,7 +3173,12 @@ struct MessageComposer: View {
     var onSchedule: (() -> Void)? = nil
     /// Chats: the mascot only perches on an empty thread so it never covers message bubbles.
     var showsMascot = true
+    /// Sticker drawer open or recording (host hides suggestion rows and floating buttons).
+    var onBusyChange: ((Bool) -> Void)? = nil
     var onSend: () -> Void
+    @State private var recording = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @Environment(AppEnvironment.self) private var app
@@ -3182,21 +3223,30 @@ struct MessageComposer: View {
                 hidesMascotWhileComposing: true,
                 hidesMascot: !showsMascot,
                 onSchedule: onSchedule,
+                onRecordingChange: { recording = $0 },
                 onSend: onSend
             )
             if showStickers {
+                // Glass drawer about a keyboard's height, so swapping keyboard ⇄ stickers doesn't jump.
+                let drawer = RoundedRectangle(cornerRadius: 28, style: .continuous)
                 ModulaStickerPicker(client: app.client, initialSection: "sprout") { sticker in
                     insert(sticker)
                     showStickers = false
                 }
+                .padding(.top, 10)
                 .frame(height: 300)
+                .background { drawer.fill(Color(uiColor: .systemBackground).opacity(reduceTransparency ? 1 : 0.55)) }
+                .clipShape(drawer)
+                .modulaGlass(in: drawer, interactive: false)
                 .padding(.top, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .offset(y: 40).combined(with: .opacity))
                 .accessibilityIdentifier("messages.stickers")
             }
         }
+        .animation(.smooth(duration: reduceMotion ? 0.12 : 0.28), value: showStickers)
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.vertical, 8)
+        .onChange(of: showStickers || recording) { _, value in onBusyChange?(value) }
         .accessibilityIdentifier("messages.composer")
     }
 
@@ -4743,6 +4793,12 @@ struct MessageReplyQuote: View {
                 Text(preview.deleted ? "Unsent message" : MessagePreviewText.plain(preview.body))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
+            // A quoted sticker shows the sticker itself, not its internal name.
+            if !preview.deleted, let sticker = ModulaLocalSticker.extract(MessageQuoteText.split(preview.body).body).stickers.first {
+                ModulaLocalStickerView(sticker: sticker, size: 30)
+                    .frame(width: 32, height: 32)
+                    .accessibilityHidden(true)
+            }
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 10)
@@ -6119,5 +6175,19 @@ struct MessagesDoneButton: View {
             .font(.body.weight(.semibold))
             .buttonStyle(.modulaPrimary)
             .accessibilityIdentifier("messages.sheet.done")
+    }
+}
+
+/// A recent emoji/sticker in the composer row: the sticker artwork, never its internal name.
+struct MessageRecentTokenLabel: View {
+    let token: String
+
+    var body: some View {
+        if let sticker = ModulaLocalSticker.extract(token).stickers.first {
+            ModulaLocalStickerView(sticker: sticker, size: 26)
+                .frame(width: 28, height: 28)
+        } else {
+            Text(token).font(.title3)
+        }
     }
 }
