@@ -141,6 +141,8 @@ struct ConversationListView: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Messages")
             .navigationBarTitleDisplayMode(.large)
+            // Select mode: plain "Done" text button, no back chevron beside it.
+            .navigationBarBackButtonHidden(selecting)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if selecting {
@@ -183,45 +185,64 @@ struct ConversationListView: View {
                         .opacity(selecting ? 0 : 1)
                         .disabled(selecting)
                         if selecting {
+                            // Notes-style: a row of three icon actions, then a short list. Outline
+                            // SF Symbols throughout (no filled/outlined mix).
                             Menu {
-                                Button("Mark as read", systemImage: "checkmark.message") {
-                                    Task { await markSelectedRead() }
-                                }
-                                Button("Pin or unpin", systemImage: "pin") {
-                                    for id in selectedIDs { app.messaging.togglePin(id) }
-                                    selectedIDs = []
-                                    selecting = false
-                                }
-                                if app.messaging.capabilities.mute {
-                                    Button("Mute…", systemImage: "bell.slash") { muteSheetIDs = Array(selectedIDs) }
-                                }
-                                if app.messaging.capabilities.archive {
-                                    Button("Archive", systemImage: "archivebox") {
-                                        Task { await archiveSelected() }
+                                ControlGroup {
+                                    Button("Read", systemImage: "checkmark.message") {
+                                        Task { await markSelectedRead() }
+                                    }
+                                    Button("Pin", systemImage: "pin") {
+                                        for id in selectedIDs { app.messaging.togglePin(id) }
+                                        selectedIDs = []
+                                        selecting = false
+                                    }
+                                    if app.messaging.capabilities.archive {
+                                        Button("Archive", systemImage: "archivebox") {
+                                            Task { await archiveSelected() }
+                                        }
+                                    } else {
+                                        Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
                                     }
                                 }
-                                Button("Move to folder…", systemImage: "folder") { folderSheetIDs = Array(selectedIDs) }
-                                Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
+                                .controlGroupStyle(.compactMenu)
+                                Section {
+                                    if app.messaging.capabilities.mute {
+                                        Button("Mute…", systemImage: "bell.slash") { muteSheetIDs = Array(selectedIDs) }
+                                    }
+                                    Button("Move to Folder…", systemImage: "folder") { folderSheetIDs = Array(selectedIDs) }
+                                    if app.messaging.capabilities.archive {
+                                        Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
+                                    }
+                                }
                             } label: {
-                                Image(systemName: "ellipsis.circle")
-                                    .font(.body.weight(.bold))
+                                Image(systemName: "ellipsis")
+                                    .font(.body.weight(.semibold))
                                     .frame(width: 36, height: 36)
+                                    .contentShape(Circle())
                             }
                             .disabled(selectedIDs.isEmpty)
                             .accessibilityLabel("Actions for selected chats")
                         } else {
                             Menu {
+                                ControlGroup {
+                                    Button("Select", systemImage: "checkmark.circle") { selecting = true }
+                                    Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
+                                    Button("Hidden", systemImage: "eye.slash") { Task { await openHidden() } }
+                                }
+                                .controlGroupStyle(.compactMenu)
                                 if app.messaging.capabilities.markRead {
-                                    Button("Mark all as read", systemImage: "checkmark.message") {
-                                        Task { await app.messaging.markAllVisibleRead() }
+                                    Section {
+                                        Button("Mark All as Read", systemImage: "checkmark.message") {
+                                            Task { await app.messaging.markAllVisibleRead() }
+                                        }
                                     }
                                 }
-                                Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
-                                Button("Hidden", systemImage: "eye.slash") { Task { await openHidden() } }
                             } label: {
-                                Image(systemName: "ellipsis.circle")
+                                Image(systemName: "ellipsis")
                                     .font(.body.weight(.semibold))
                                     .frame(width: 36, height: 36)
+                                    .contentShape(Circle())
                             }
                             .accessibilityLabel("Inbox options")
                             .accessibilityIdentifier("messages.inbox.menu")
@@ -345,11 +366,32 @@ struct ConversationListView: View {
     }
 
     private var folderRow: some View {
-        // Device-local folders (older servers): shared control, no thumb — a tap opens the folder.
-        ModulaSegmentedControl("Folders", selection: Binding(get: { "" }, set: { inboxDestination = .folder($0) }),
-                               options: app.messaging.folderNames) { $0 }
+        // Device-local folders (older servers). These used to render as a thumb-less segmented
+        // control: one folder became a full-width "Hello" bar that looked like a stray chat row.
+        // Now: small labelled glass folder chips, leading-aligned, that open the folder.
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(app.messaging.folderNames, id: \.self) { name in
+                    Button {
+                        inboxDestination = .folder(name)
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Label(name, systemImage: "folder")
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 34)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityLabel("Folder \(name)")
+                }
+            }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .accessibilityIdentifier("messages.inbox.folders")
+        }
+        .modulaHorizontalRail()
+        .accessibilityIdentifier("messages.inbox.folders")
     }
 
     /// Roadmap #07: say exactly what a search covered, so a partial local search is never
@@ -541,7 +583,7 @@ struct ConversationListView: View {
                             if selecting {
                                 Image(systemName: selectedIDs.contains(conversation.id) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
-                                    .foregroundStyle(selectedIDs.contains(conversation.id) ? app.appearance.liveAccent : Color.secondary)
+                                    .foregroundStyle(selectedIDs.contains(conversation.id) ? Color.primary : Color.secondary)
                                     .accessibilityHidden(true)
                             }
                             // Speed: a new message in one chat re-renders that row only — the others
@@ -932,12 +974,12 @@ struct MessageUnreadSeparator: View {
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         HStack(spacing: 8) {
-            Rectangle().fill(app.appearance.liveAccent.opacity(0.5)).frame(height: 1)
+            Rectangle().fill(Color.primary.opacity(0.5)).frame(height: 1)
             Text("New messages")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(Color.primary)
                 .fixedSize()
-            Rectangle().fill(app.appearance.liveAccent.opacity(0.5)).frame(height: 1)
+            Rectangle().fill(Color.primary.opacity(0.5)).frame(height: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("New messages start here")
@@ -1064,7 +1106,7 @@ struct ConversationRow: View {
 
     var body: some View {
         let unread = conversation.isUnread
-        let accent = app.appearance.liveAccent
+        let accent = Color.primary
         HStack(alignment: .center, spacing: 12) {
             ConversationAvatar(participants: conversation.participants, unread: unread, size: dynamicTypeSize.isAccessibilitySize ? 40 : 50)
                 .modulaZoomSource(id: "conversation.\(conversation.id)", namespace: routeTransitions)
@@ -1125,7 +1167,7 @@ struct ConversationRow: View {
 
     private var previewText: Text {
         if let draft {
-            return Text("Draft: ").fontWeight(.semibold).foregroundStyle(.primary) + Text(draft)
+            return Text("Draft · ").fontWeight(.semibold).foregroundStyle(.secondary) + Text(draft)
         }
         if conversation.lastMessage?.kind == .voice {
             let raw = "Voice note"
@@ -1136,7 +1178,7 @@ struct ConversationRow: View {
         let raw = MessagePreviewText.plain(conversation.lastMessage?.body ?? "")
         if raw.isEmpty { return Text("No messages yet").italic() }
         // Roadmap #07: matched words are highlighted while searching.
-        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: app.appearance.liveAccent))
+        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: Color.primary))
         if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
         if isGroup, let senderID = conversation.lastMessage?.senderID,
            let sender = conversation.participants.first(where: { $0.id == senderID }) {
@@ -1217,9 +1259,8 @@ struct ConversationAvatar: View {
         // Unread = an accent ring around the avatar (pre-attentive, no extra dot to parse).
         .overlay {
             if unread {
-                let accent = app.appearance.liveAccent
                 Circle()
-                    .strokeBorder(AngularGradient(colors: [accent, accent.mix(with: .white, by: 0.35), accent], center: .center), lineWidth: 2.5)
+                    .strokeBorder(Color.primary.opacity(0.85), lineWidth: 2.5)
                     .padding(-4)
                     .accessibilityHidden(true)
             }
@@ -1709,7 +1750,7 @@ struct ConversationView: View {
                             .overlay {
                                 if searching, searchMatches.contains(where: { $0.id == message.id }) {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                        .stroke(app.appearance.liveAccent.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
+                                        .stroke(Color.primary.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
                                         .padding(-3)
                                         .allowsHitTesting(false)
                                 }
@@ -1718,7 +1759,7 @@ struct ConversationView: View {
                             .background {
                                 if highlightedID == message.id {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                        .fill(app.appearance.liveAccent.opacity(0.18))
+                                        .fill(Color.primary.opacity(0.18))
                                         .padding(-6)
                                         .transition(.opacity)
                                 }
@@ -1982,10 +2023,10 @@ struct ConversationView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-            .foregroundStyle(unseenCount > 0 ? Color.white : Color.primary)
+            .foregroundStyle(unseenCount > 0 ? Color.modulaOnPrimary : Color.primary)
             .background {
                 if unseenCount > 0 {
-                    Capsule().fill(app.appearance.liveAccent)
+                    Capsule().fill(Color.modulaPrimaryFill)
                 } else {
                     Circle().fill(.clear).modulaGlass(in: Circle(), interactive: true)
                 }
@@ -2127,10 +2168,10 @@ struct ConversationView: View {
             Text(flyText)
                 .font(.body)
                 .lineLimit(3)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(app.appearance.liveAccent))
+                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.modulaPrimaryFill))
                 .frame(maxWidth: 280, alignment: .trailing)
                 .scaleEffect(reduceMotion || flyUp ? 1 : 0.9, anchor: .bottomTrailing)
                 .offset(y: reduceMotion ? 0 : (flyUp ? -96 : 0))
@@ -2717,7 +2758,7 @@ struct MessageBubble: View {
                         .accessibilityLabel("Quoting: \(MessagePreviewText.plain(quote))")
                 }
                 if !message.isDeleted, message.kind == .voice, let attachment = message.voiceAttachment {
-                    MessageVoicePlayer(attachment: attachment, accent: message.isOwn ? Color.white : app.appearance.liveAccent)
+                    MessageVoicePlayer(attachment: attachment, accent: message.isOwn ? ownInk : Color.primary)
                         .padding(6)
                         .background { bubbleBackground }
                 }
@@ -2740,11 +2781,11 @@ struct MessageBubble: View {
                             .opacity(0.85)
                         }
                     }
-                    .tint(message.isOwn ? Color.white : app.appearance.liveAccent)
+                    .tint(message.isOwn ? ownInk : Color.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background { bubbleBackground }
-                    .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                    .foregroundStyle(message.isOwn ? ownInk : Color.primary)
                 }
                 if !parsed.stickers.isEmpty {
                     ModulaLocalStickerRow(stickers: parsed.stickers)
@@ -2770,7 +2811,7 @@ struct MessageBubble: View {
                     if selecting {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(isSelected ? app.appearance.liveAccent : Color.secondary)
+                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     }
                     if app.messaging.isStarred(message.id) {
                         Image(systemName: "star.fill").font(.caption2).foregroundStyle(.primary)
@@ -2811,7 +2852,7 @@ struct MessageBubble: View {
                         MessageDeliveryTicks.view(
                             for: message.delivery,
                             showRead: app.messaging.capabilities.readReceipts && ModulaPreferences.chatShowReadReceipts,
-                            accent: app.appearance.liveAccent
+                            accent: Color.primary
                         )
                         .onTapGesture {
                             if app.messaging.capabilities.groupReadReceipts, message.isOwn, !message.id.hasPrefix("local-") {
@@ -2935,9 +2976,14 @@ struct MessageBubble: View {
 
     /// Sent: a soft top-lit accent gradient (one strong colour = "mine", Gestalt similarity).
     private var ownGradient: LinearGradient {
-        let accent = themeAccent ?? app.appearance.liveAccent
-        return LinearGradient(colors: [accent.mix(with: .white, by: 0.14), accent], startPoint: .top, endPoint: .bottom)
+        // No accent/coral: black/white by appearance (t217u). A shared server chat theme
+        // still colours sent bubbles when one is set.
+        let fill = themeAccent ?? Color.modulaPrimaryFill
+        return LinearGradient(colors: [fill.mix(with: .gray, by: themeAccent == nil ? 0.04 : 0.14), fill], startPoint: .top, endPoint: .bottom)
     }
+
+    /// Text/icon colour on a sent bubble.
+    private var ownInk: Color { themeAccent == nil ? Color.modulaOnPrimary : .white }
 
     /// Received: Liquid Glass; a solid tint under Reduce Transparency.
     @ViewBuilder
@@ -2956,7 +3002,7 @@ struct MessageBubble: View {
 
     private var bubbleFill: Color {
         if message.isOwn {
-            return app.appearance.liveAccent
+            return themeAccent ?? Color.modulaPrimaryFill
         }
         let oled = scheme == .dark && app.appearance.darkStyle == .oled
         return oled ? Color.white.opacity(0.08) : Color.primary.opacity(0.08)
@@ -3618,7 +3664,7 @@ struct MessagesFriendlyEmpty: View {
                 .font(.system(size: 40, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 92, height: 92)
-                .messagesGlass(Circle(), tint: app.appearance.liveAccent.opacity(0.18))
+                .messagesGlass(Circle(), tint: Color.primary.opacity(0.18))
                 .offset(y: float ? -4 : 4)
                 .accessibilityHidden(true)
             }
@@ -4168,7 +4214,7 @@ struct ForwardMessageSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(.primary)
+                    MessagesDoneButton { dismiss() }
                 }
             }
         }
@@ -4262,12 +4308,18 @@ struct ChatInfoSheet: View {
                         }
                     }
                     infoGroup("Customise", footer: "Only you see your nickname and wallpaper.") {
+                        // Labelled Nickname row (the bare field used to read as a stray "Hello" row).
                         HStack(spacing: 12) {
                             rowIcon("character.cursor.ibeam")
-                            TextField(conversation?.title ?? "Nickname", text: $nickname)
+                            Text("Nickname").font(.body).foregroundStyle(.primary).fixedSize()
+                            Spacer(minLength: 8)
+                            TextField("Add", text: $nickname)
+                                .multilineTextAlignment(.trailing)
+                                .foregroundStyle(.secondary)
                                 .submitLabel(.done)
                                 .onSubmit { app.messaging.setNickname(nickname, for: conversationID) }
                                 .accessibilityLabel("Nickname")
+                                .accessibilityValue(nickname.isEmpty ? "None" : nickname)
                         }
                         .frame(minHeight: 50)
                         infoDivider
@@ -4354,7 +4406,7 @@ struct ChatInfoSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(.primary)
+                    MessagesDoneButton { dismiss() }
                 }
             }
         }
@@ -4419,7 +4471,7 @@ struct ChatInfoSheet: View {
                     Circle()
                         .fill(theme.swatch(accent: app.appearance.liveAccent))
                         .frame(width: 36, height: 36)
-                        .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
+                        .overlay(Circle().strokeBorder(on ? Color.primary : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
                         .padding(2)
                         .contentShape(Circle())
                 }
@@ -4482,9 +4534,10 @@ struct ChatInfoSheet: View {
     private func rowIcon(_ symbol: String, tint: Color? = nil) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(tint ?? app.appearance.liveAccent)
+            // Neutral monochrome symbol in a grey tile (destructive rows pass red).
+            .foregroundStyle(tint ?? Color.primary)
             .frame(width: 32, height: 32)
-            .background(Circle().fill((tint ?? app.appearance.liveAccent).opacity(0.14)))
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill((tint ?? Color.primary).opacity(0.1)))
             .accessibilityHidden(true)
     }
 
@@ -4702,9 +4755,9 @@ struct MessageReplyQuote: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Capsule().fill(app.appearance.liveAccent).frame(width: 3)
+            Capsule().fill(Color.primary).frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
-                Text(preview.senderName).font(.caption.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                Text(preview.senderName).font(.caption.weight(.semibold)).foregroundStyle(Color.primary)
                 Text(preview.deleted ? "Unsent message" : MessagePreviewText.plain(preview.body))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
@@ -4739,7 +4792,7 @@ struct MessageReactionsRow: View {
                     .padding(.horizontal, 8)
                     .frame(minHeight: 26)
                     .modulaGlass(in: Capsule(), interactive: true)
-                    .overlay { if reaction.mine { Capsule().strokeBorder(app.appearance.liveAccent, lineWidth: 1.2) } }
+                    .overlay { if reaction.mine { Capsule().strokeBorder(Color.primary, lineWidth: 1.2) } }
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
             }
@@ -4845,12 +4898,12 @@ struct MessagesComposerWave: View {
 
     var body: some View {
         MessagesLiquidEdge(amplitude: idle ? 1 : 0, phase: drift ? 1 : 0)
-            .fill(app.appearance.liveAccent.opacity(reduceTransparency ? 0.35 : 0.22))
+            .fill(Color.primary.opacity(reduceTransparency ? 0.35 : 0.22))
             .frame(width: 30)
             .padding(.vertical, 4)
             .offset(x: idle ? 14 : -6)
             .opacity(idle ? 1 : 0)
-            .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 6, y: 2)
+            .shadow(color: Color.primary.opacity(0.25), radius: 6, y: 2)
             .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.7), value: idle)
             .onAppear {
                 guard !reduceMotion else { return }
@@ -5120,7 +5173,7 @@ struct ScheduledMessagesSheet: View {
             }
             .navigationTitle("Scheduled")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
             .refreshable { await app.messaging.loadScheduled(conversationID) }
             .alert("Edit message", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
                 TextField("Message", text: $draftText)
@@ -5170,7 +5223,7 @@ struct PinnedMessagesBanner: View {
                 VStack(spacing: 2) {
                     ForEach(Array(pins.prefix(4).indices), id: \.self) { i in
                         Capsule()
-                            .fill(i == index % min(pins.count, 4) ? app.appearance.liveAccent : Color.secondary.opacity(0.3))
+                            .fill(i == index % min(pins.count, 4) ? Color.primary : Color.secondary.opacity(0.3))
                             .frame(width: 3)
                     }
                 }
@@ -5178,7 +5231,7 @@ struct PinnedMessagesBanner: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(pins.count > 1 ? "Pinned message \(index % pins.count + 1) of \(pins.count)" : "Pinned message")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(Color.primary)
                     Text(MessagePreviewText.plain(current.text).isEmpty ? "Message" : MessagePreviewText.plain(current.text))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
@@ -5264,7 +5317,7 @@ struct ChatThemePicker: View {
                             Circle()
                                 .fill(swatch(id))
                                 .frame(width: 36, height: 36)
-                                .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
+                                .overlay(Circle().strokeBorder(on ? Color.primary : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
                                 .padding(2)
                                 .contentShape(Circle())
                         }
@@ -5287,7 +5340,7 @@ struct ChatThemePicker: View {
 
     private func swatch(_ id: String) -> AnyShapeStyle {
         let colors = ChatThemePalette.background(id)
-        if colors.isEmpty { return AnyShapeStyle(app.appearance.liveAccent.opacity(0.35)) }
+        if colors.isEmpty { return AnyShapeStyle(Color.primary.opacity(0.35)) }
         return AnyShapeStyle(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 }
@@ -5328,7 +5381,7 @@ struct MultiForwardSheet: View {
                         Spacer(minLength: 8)
                         Image(systemName: result?.ok == true ? "checkmark.circle.fill" : (on ? "checkmark.circle.fill" : "circle"))
                             .font(.title3)
-                            .foregroundStyle(on || result?.ok == true ? app.appearance.liveAccent : Color.secondary)
+                            .foregroundStyle(on || result?.ok == true ? Color.primary : Color.secondary)
                     }
                     .contentShape(Rectangle())
                 }
@@ -5359,7 +5412,7 @@ struct MultiForwardSheet: View {
             .navigationTitle("Forward")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) }
+                ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } }
             }
         }
         .presentationDetents([.medium, .large])
@@ -5451,7 +5504,7 @@ struct ManageChatFoldersSheet: View {
             .environment(\.editMode, .constant(.active))
             .navigationTitle("Chat Folders")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
             .alert(creating ? "New folder" : "Rename folder",
                    isPresented: Binding(get: { creating || naming != nil }, set: { if !$0 { creating = false; naming = nil } })) {
                 TextField("Name", text: $name)
@@ -5491,7 +5544,7 @@ struct FolderChatsPicker: View {
                     Text(conversation.title).lineLimit(1)
                     Spacer()
                     Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(on ? app.appearance.liveAccent : Color.secondary)
+                        .foregroundStyle(on ? Color.primary : Color.secondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -5545,7 +5598,7 @@ struct QuickRepliesManageSheet: View {
             }
             .navigationTitle("Quick Replies")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
             .sheet(isPresented: Binding(get: { adding || editing != nil }, set: { if !$0 { adding = false; editing = nil } })) {
                 Group {
                     QuickReplyEditor(shortcut: $shortcut, text: $text, isNew: editing == nil) {
@@ -5720,5 +5773,17 @@ struct ConversationJumpToDateSheet: View {
                 }
             }
         }
+    }
+}
+
+
+/// The one Done button for messaging sheets: black/white primary glass capsule (no accent).
+struct MessagesDoneButton: View {
+    var action: () -> Void
+    var body: some View {
+        Button("Done", action: action)
+            .font(.body.weight(.semibold))
+            .buttonStyle(.modulaPrimary)
+            .accessibilityIdentifier("messages.sheet.done")
     }
 }

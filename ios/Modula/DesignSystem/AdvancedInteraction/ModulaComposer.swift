@@ -450,11 +450,11 @@ struct ModulaComposer: View {
             .overlay {
                 Capsule()
                     .strokeBorder(
-                        reduceTransparency ? Color.primary.opacity(0.35) : app.appearance.liveAccent.opacity(0.7),
+                        Color.primary.opacity(reduceTransparency ? 0.35 : 0.22),
                         lineWidth: 1.15
                     )
                     .shadow(
-                        color: reduceTransparency ? .clear : app.appearance.liveAccent.opacity(0.5),
+                        color: .clear,
                         radius: reduceTransparency ? 0 : 7
                     )
                     .allowsHitTesting(false)
@@ -594,7 +594,7 @@ struct ModulaComposer: View {
                 } label: {
                     Image(systemName: "textformat")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(formatBarRequested ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                        .foregroundStyle(formatBarRequested ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.secondary))
                         .frame(width: 32, height: ModulaLayout.minimumTouch)
                         .contentShape(Rectangle())
                 }
@@ -636,7 +636,7 @@ struct ModulaComposer: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(attachMenuOpen ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                .foregroundStyle(attachMenuOpen ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.secondary))
                 .rotationEffect(.degrees(attachMenuOpen ? 45 : 0))
                 .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
                 .contentShape(Rectangle())
@@ -683,7 +683,7 @@ struct ModulaComposer: View {
                 } label: {
                     Image(systemName: dictation.isListening ? "stop.fill" : "mic")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(dictation.isListening ? Color.red : Color.secondary)
+                        .foregroundStyle(dictation.isListening ? Color.primary : Color.secondary)
                         .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
                         .contentShape(Rectangle())
                 }
@@ -722,7 +722,7 @@ struct ModulaComposer: View {
     private var voiceMicButton: some View {
         Image(systemName: recorder.isRecording ? "mic.fill" : (dictation.isListening ? "stop.fill" : "mic"))
             .font(.body.weight(.semibold))
-            .foregroundStyle(recorder.isRecording ? Color.white : (dictation.isListening ? Color.red : Color.primary))
+            .foregroundStyle(recorder.isRecording ? Color.modulaOnPrimary : Color.primary)
             .symbolEffect(.bounce, value: recorder.isRecording)
             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
             .modifier(ComposerRecordingGlass(recording: recorder.isRecording))
@@ -816,7 +816,7 @@ struct ModulaComposer: View {
     @ViewBuilder
     private var trailingButton: some View {
         if handsFreeRecording && recorder.isRecording {
-            ModulaGlassSendButton(title: "Send voice note", systemImage: "arrow.up", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: app.appearance.liveAccent) {
+            ModulaGlassSendButton(title: "Send voice note", systemImage: "arrow.up", ready: true, busy: false, size: ModulaLayout.minimumTouch, tint: Color.modulaPrimaryFill) {
                 handsFreeRecording = false
                 if let note = recorder.finish() {
                     onVoiceNote?(note)
@@ -845,7 +845,7 @@ struct ModulaComposer: View {
             .modulaGlassID("composer.trailing", in: glass)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
         } else {
-            ModulaGlassSendButton(ready: state.canSend, busy: sending, size: ModulaLayout.minimumTouch, tint: app.appearance.liveAccent, action: send)
+            ModulaGlassSendButton(ready: state.canSend, busy: sending, size: ModulaLayout.minimumTouch, tint: Color.modulaPrimaryFill, action: send)
             .modulaGlassID("composer.trailing", in: glass)
             .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
             .accessibilityLabel(sending ? "Sending" : "Send")
@@ -1147,7 +1147,7 @@ private struct ComposerRecordingGlass: ViewModifier {
     let recording: Bool
     func body(content: Content) -> some View {
         if recording {
-            content.modulaGlass(in: Circle(), tint: .red, prominent: true, specular: true)
+            content.background(Circle().fill(Color.modulaPrimaryFill)).modulaGlass(in: Circle(), prominent: true, specular: true)
         } else {
             content
         }
