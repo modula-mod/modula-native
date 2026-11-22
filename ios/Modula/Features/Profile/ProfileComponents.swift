@@ -107,19 +107,30 @@ struct ProfileCover: View {
             }
             .frame(width: width, height: coverHeight + stretch, alignment: .top)
             // Parallax: the hero drifts at ~40% of the scroll speed while the page scrolls up.
-            .visualEffect { [reduceMotion] content, proxy in
+            // Only the image layer moves: on pull-down it stretches up from its bottom edge
+            // (filling the gap above), on scroll-up it drifts at ~40% speed. The notch mask and
+            // the avatar sitting in it are untouched, so the avatar never scales or shifts.
+            .visualEffect { [reduceMotion, coverHeight] content, proxy in
                 let minY = proxy.frame(in: .scrollView).minY
-                return content.offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
+                let pull = max(0, minY)
+                let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
+                return content
+                    .scaleEffect(x: scale, y: scale, anchor: .bottom)
+                    .offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
             }
             .mask {
-                if let pocketCenterX, let pocketRadius {
-                    // Inverted pocket: a concave notch carved up into the banner's bottom edge.
-                    ProfileCoverNotchShape(centerX: pocketCenterX, radius: pocketRadius)
-                } else {
-                    Rectangle()
+                // Mask reaches far above the frame so the stretched image can fill the pull gap;
+                // the bottom edge (and its notch) stays fixed.
+                Group {
+                    if let pocketCenterX, let pocketRadius {
+                        // Inverted pocket: a concave notch carved up into the banner's bottom edge.
+                        ProfileCoverNotchShape(centerX: pocketCenterX, radius: pocketRadius)
+                    } else {
+                        Rectangle()
+                    }
                 }
+                .padding(.top, -1200)
             }
-            .clipped()
             .overlay {
                 if let pocketCenterX, let pocketRadius {
                     ProfileCoverNotchRim(
@@ -136,14 +147,10 @@ struct ProfileCover: View {
         // then blurs progressively.
         .visualEffect { [reduceMotion, coverHeight, safeAreaTop] content, proxy in
             let minY = proxy.frame(in: .scrollView).minY
-            let pull = max(0, minY)
-            let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
             let headerBottom = safeAreaTop + 44
             let under = max(0, -minY - (coverHeight - headerBottom - 40))
             let radius = reduceMotion ? 0 : min(under / 80 * 14, 14)
-            return content
-                .scaleEffect(x: scale, y: scale, anchor: .bottom)
-                .blur(radius: radius, opaque: true)
+            return content.blur(radius: radius)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -415,6 +422,10 @@ struct ProfileAvatarPocket: View {
                     .offset(y: -intersection)
                     .padding(.leading, inset)
             }
+            // One rigid unit (photo, ring, banner, badge), drawn above the cover and isolated
+            // from the cover's stretch / parallax geometry.
+            .geometryGroup()
+            .zIndex(1)
             .onAppear {
                 overlayStore.bind(accountID: app.auth.account?.accountId)
                 if isOwnProfile { overlayStore.noteOwnAvatar(profile.avatarURL) }
@@ -1885,6 +1896,9 @@ struct ProfileAvatarFrame: Identifiable, Hashable, Sendable {
         .init(id: "dashed.mint", title: "Dashed Mint", kind: .dashed(Color(hex: "#34C759"))),
         .init(id: "grad.aurora", title: "Aurora", kind: .gradient([.purple, .pink, .orange, .yellow, .purple])),
         .init(id: "grad.ice", title: "Ice", kind: .gradient([.cyan, .blue, .indigo, .cyan])),
+        .init(id: "grad.holo", title: "Holo", kind: .gradient([Color(hex: "#7CF7E4"), Color(hex: "#9EA8FF"), Color(hex: "#FF9BE5"), Color(hex: "#FFE29A")])),
+        .init(id: "grad.ember", title: "Ember", kind: .gradient([Color(hex: "#FF3B30"), Color(hex: "#FF9F0A"), Color(hex: "#FFD60A")])),
+        .init(id: "dual.mono", title: "Mono", kind: .dualRing(Color.white, Color(hex: "#8E8E93"))),
         .init(id: "pixels.lime", title: "Pixels", kind: .pixels(Color(hex: "#A8E10C"))),
         .init(id: "laurels.gold", title: "Laurels", kind: .laurels(Color(hex: "#C9A227"))),
         .init(id: "hex.teal", title: "Hex", kind: .hex(Color(hex: "#369CAA"))),
@@ -2057,10 +2071,9 @@ struct ModulaDecoratedAvatar<Content: View>: View {
 
     private var ringPad: CGFloat {
         switch frame.kind {
+        // One pad for every ring so all frames read the same size in the grid and on the profile.
         case .none: 0
-        case .softRing, .dashed: 4
-        case .dualRing, .gradient, .neon, .sparkle, .shimmer, .neonPulse: 6
-        case .pixels, .laurels, .hex, .mascotPaw, .orbit, .auroraPulse, .flame, .seasonal: 8
+        default: 6
         }
     }
 
@@ -2110,14 +2123,19 @@ struct ModulaDecoratedAvatar<Content: View>: View {
             Circle().strokeBorder(color.opacity(0.35), lineWidth: 3)
         case .dualRing(let a, let b):
             Circle().strokeBorder(
-                AngularGradient(colors: [a, b, a], center: .center),
+                AngularGradient(colors: [a, b, a], center: .center, angle: .degrees(-90)),
                 lineWidth: 3.5
             )
+            .blur(radius: 3)
+            .opacity(0.6)
         case .gradient(let colors):
+            // Soft glow under the crisp gradient ring.
             Circle().strokeBorder(
-                AngularGradient(colors: colors, center: .center),
+                AngularGradient(colors: Self.seamless(colors), center: .center, angle: .degrees(-90)),
                 lineWidth: 4
             )
+            .blur(radius: 4)
+            .opacity(0.7)
         case .shimmer(let color), .neonPulse(let color), .orbit(let color):
             Circle().strokeBorder(color.opacity(0.3), lineWidth: 3)
         case .auroraPulse:
@@ -2138,7 +2156,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
             Circle().strokeBorder(color.opacity(0.85), lineWidth: 2.5)
         case .dualRing(let a, let b):
             Circle()
-                .strokeBorder(AngularGradient(colors: [a, b, a], center: .center), lineWidth: 3)
+                .strokeBorder(AngularGradient(colors: [a, b, a], center: .center, angle: .degrees(-90)), lineWidth: 3)
                 .padding(2)
             Circle()
                 .strokeBorder(b.opacity(0.5), lineWidth: 1)
@@ -2148,8 +2166,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 .strokeBorder(color, style: StrokeStyle(lineWidth: 2.5, dash: [5, 4]))
         case .gradient(let colors):
             Circle()
-                .strokeBorder(AngularGradient(colors: colors, center: .center), lineWidth: 3.5)
-                .shadow(color: colors.first?.opacity(reduceMotion ? 0 : 0.45) ?? .clear, radius: 8)
+                .strokeBorder(AngularGradient(colors: Self.seamless(colors), center: .center, angle: .degrees(-90)), lineWidth: 3.5)
         case .pixels(let color):
             Circle().strokeBorder(color, lineWidth: 2)
             ForEach(0..<8, id: \.self) { i in
@@ -2285,6 +2302,12 @@ struct ModulaDecoratedAvatar<Content: View>: View {
 
     private var pipSize: CGFloat { max(12, min(size * 0.2, 26)) }
 
+    /// Closes an angular gradient so it has no hard seam at the start angle.
+    static func seamless(_ colors: [Color]) -> [Color] {
+        guard let first = colors.first, colors.count > 1 else { return colors }
+        return colors.last == first ? colors : colors + [first]
+    }
+
     private var presencePip: some View {
         Circle()
             .fill(presence.color)
@@ -2354,7 +2377,9 @@ struct ProfileAvatarOverlayEditor: View {
                 .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-            .safeAreaInset(edge: .bottom) { applyBar }
+            // Last row (rings / presence) always scrolls clear of the Done bar.
+            .contentMargins(.bottom, 48, for: .scrollContent)
+            .safeAreaInset(edge: .bottom, spacing: 0) { applyBar }
             .modulaCanvas()
             .navigationTitle("Frames")
             .navigationBarTitleDisplayMode(.inline)
@@ -2440,8 +2465,11 @@ struct ProfileAvatarOverlayEditor: View {
                     }
                 }
                 .padding(.vertical, 6)
-                .padding(.horizontal, 2)
             }
+            // Rail runs edge to edge of the sheet with a 16pt inset at both ends, so the last
+            // label ("Freelance", "Custom") is never clipped.
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .padding(.horizontal, -16)
             .modulaHorizontalRail()
             .spatialGesturePriority()
             .scrollIndicators(.hidden)
@@ -2479,7 +2507,8 @@ struct ProfileAvatarOverlayEditor: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: 80, alignment: .top)
+                    .frame(minWidth: 80, alignment: .top)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .contentShape(Rectangle())
         }
@@ -2569,8 +2598,9 @@ struct ProfileAvatarOverlayEditor: View {
                             }
                             Text(item.title)
                                 .font(.caption2.weight(.semibold))
-                                .foregroundStyle(selected ? accent : Color.secondary)
+                                .foregroundStyle(selected ? Color.primary : Color.secondary)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                             Text(item.rarity.title)
                                 .font(.caption2.weight(.bold))
                                 .foregroundStyle(item.rarity.tint)
@@ -2578,10 +2608,7 @@ struct ProfileAvatarOverlayEditor: View {
                         }
                         .padding(8)
                         .frame(maxWidth: .infinity)
-                        .background {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(selected ? Color.primary.opacity(0.10) : Color.primary.opacity(0.04))
-                        }
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
                         .overlay {
                             if selected {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -2615,15 +2642,17 @@ struct ProfileAvatarOverlayEditor: View {
                             }
                             .padding(.horizontal, 12)
                             .frame(height: 36)
-                            .background(
-                                Capsule().fill(presence == status ? status.color.opacity(0.18) : Color.primary.opacity(0.05))
-                            )
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(presence == status ? 0.6 : 0), lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(presence == status ? .isSelected : [])
                     }
                 }
+                .padding(.vertical, 2)
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .padding(.horizontal, -16)
             .modulaHorizontalRail()
             .spatialGesturePriority()
             .scrollIndicators(.hidden)
@@ -2636,14 +2665,14 @@ struct ProfileAvatarOverlayEditor: View {
         Button(action: apply) {
             Text(hasChanges ? "Apply" : "Done")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-        .background(accent, in: Capsule())
-        .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
+        // Plain black/white glass action (never accent).
+        .modulaGlass(in: Capsule(), interactive: true)
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
@@ -2790,8 +2819,10 @@ struct ProfileArcBanner: View {
                     AngularGradient(
                         stops: [
                             .init(color: color.opacity(0), location: 0),
+                            .init(color: color.opacity(0.75), location: 0.12),
                             .init(color: color, location: 0.22),
                             .init(color: color, location: 0.84),
+                            .init(color: color.opacity(0.75), location: 0.92),
                             .init(color: color.opacity(0), location: 1)
                         ],
                         center: .center,
@@ -2840,7 +2871,7 @@ struct ProfileArcText: View {
     var size: CGFloat
     var fontSize: CGFloat
     /// Middle of the label on the circle (lower-left).
-    var centerDegrees: Double = 132
+    var centerDegrees: Double = 131
 
     private struct Glyph: Identifiable {
         let id: Int
@@ -2856,7 +2887,7 @@ struct ProfileArcText: View {
                 Text(glyph.character)
                     .font(.system(size: layout.font, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.22), radius: 0.6, y: 0.4)
+                    .shadow(color: .black.opacity(0.28), radius: 0.8, y: 0.5)
                     .fixedSize()
                     .rotationEffect(.degrees(glyph.degrees - 90))
                     .position(
@@ -2872,20 +2903,20 @@ struct ProfileArcText: View {
     private func glyphLayout() -> (glyphs: [Glyph], font: CGFloat) {
         let characters = Array(text).map(String.init)
         guard !characters.isEmpty, radius > 0 else { return ([], fontSize) }
-        let tracking: CGFloat = 0.06
+        // Even, slightly open tracking reads best on a curve (letters fan out on the outside).
+        let tracking: CGFloat = 0.1
+        // Real advances from the rounded heavy face (no per-letter guesses), so #HIRING and
+        // #OPENTOCOLLAB get the same optical spacing.
+        let base = UIFont.systemFont(ofSize: 100, weight: .heavy)
+        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 100) } ?? base
         func advance(_ character: String) -> CGFloat {
-            switch character {
-            case "I", "1", "!", ".", ",", "'": return 0.34
-            case "M", "W": return 0.9
-            case "#": return 0.72
-            default: return 0.7
-            }
+            (character as NSString).size(withAttributes: [.font: rounded]).width / 100
         }
         var font = fontSize
         var widths = characters.map { advance($0) * font }
         var total = widths.reduce(0, +) + CGFloat(characters.count - 1) * font * tracking
-        // Keep the label inside the visible part of the band (~150° of arc).
-        let maxSpan = radius * CGFloat(150 * Double.pi / 180)
+        // Fit inside the solid (non-fading) part of the band: ~112° centred on it.
+        let maxSpan = radius * CGFloat(112 * Double.pi / 180)
         if total > maxSpan {
             let scale = maxSpan / total
             font *= scale

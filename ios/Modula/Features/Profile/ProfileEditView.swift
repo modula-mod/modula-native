@@ -103,13 +103,16 @@ struct ProfileEditView: View {
                     save()
                 } label: {
                     if editing.status == .saving {
-                        ProgressView().controlSize(.small).tint(.white)
+                        ProgressView().controlSize(.small)
                     } else {
-                        Text("Save").fontWeight(.semibold)
+                        Text("Save")
+                            .fontWeight(.semibold)
+                            // Disabled stays legible on the glass (no grey slab).
+                            .foregroundStyle(canSave ? Color.primary : Color.primary.opacity(0.45))
                     }
                 }
-                .buttonStyle(.modulaPrimary)
-                .tint(accent)
+                // Plain toolbar button = system Liquid Glass, black/white like Cancel (never accent).
+                .tint(.primary)
                 .disabled(!canSave && editing.status != .saving)
                 .animation(spring, value: canSave)
                 .accessibilityIdentifier("profile.edit.save")
@@ -256,7 +259,7 @@ struct ProfileEditView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         }
     }
 

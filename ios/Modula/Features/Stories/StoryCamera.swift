@@ -802,9 +802,10 @@ struct StoryCaptureStage: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14).frame(height: 34)
-                        .modulaGlass(in: Capsule(), interactive: false)
                 }
                 .buttonStyle(.plain)
+                // Glass on the picker itself: its label closure is nonisolated (Debug strict concurrency).
+                .modulaGlass(in: Capsule(), interactive: false)
             }
         }
         .padding(.bottom, 6)
