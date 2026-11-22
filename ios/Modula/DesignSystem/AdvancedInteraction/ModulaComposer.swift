@@ -984,12 +984,14 @@ struct ModulaComposer: View {
 
     private func replyPreview(_ reply: ModulaComposerReply) -> some View {
         HStack(spacing: 8) {
-            Capsule().fill(app.appearance.liveAccent).frame(width: 3, height: 22).accessibilityHidden(true)
+            // Neutral glass context bar (no accent/red), sits above the field.
+            Capsule().fill(Color.primary.opacity(0.35)).frame(width: 3, height: 22).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
                 Text(reply.title)
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 if !reply.excerpt.isEmpty {
                     Text(reply.excerpt)
                         .font(.caption)

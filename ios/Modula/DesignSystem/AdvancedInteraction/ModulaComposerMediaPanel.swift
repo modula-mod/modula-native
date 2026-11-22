@@ -663,7 +663,7 @@ struct ModulaStickerView: View {
             .shadow(color: .white, radius: 0, x: -1.5, y: -1.5)
             .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
             .frame(width: size, height: size)
-            .background(Circle().fill(Color.primary.opacity(0.04)))
+            // No circle: big-emoji comments render as just the emoji.
     }
 }
 
