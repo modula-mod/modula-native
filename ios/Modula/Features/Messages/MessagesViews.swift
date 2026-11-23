@@ -5213,9 +5213,28 @@ struct MessagesTypingBubble: View {
 enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
     /// `accent` (coral glow) was retired; stored values of it read as no wallpaper.
     case none, graphite, dusk, ocean, meadow, sand, ember, spectral, photo
+    /// Nature scenes (t237u), drawn procedurally with gentle motion.
+    case aurora, waves, forest, rain, snow, starry, sunset, fireflies, sakura
+    /// Changes through the day: sunrise/sunset, waves by day, aurora or stars at night.
+    case timeOfDay
 
     static let defaultKey = "__default"
     static let stills: [MessagesWallpaperTheme] = [.none, .graphite, .dusk, .ocean, .meadow, .sand, .ember]
+    static let natureScenes: [MessagesWallpaperTheme] = [.aurora, .waves, .forest, .rain, .snow, .starry, .sunset, .fireflies, .sakura]
+
+    /// The nature scene this theme draws (time of day resolves to the scene for the current hour).
+    func natureKind(at date: Date = Date()) -> NatureWallpaperView.Kind? {
+        if self == .timeOfDay {
+            let hour = Calendar.current.component(.hour, from: date)
+            switch hour {
+            case 6..<8, 18..<21: return .sunset
+            case 8..<18: return .waves
+            case 21..<24: return .aurora
+            default: return .starry
+            }
+        }
+        return NatureWallpaperView.Kind(rawValue: rawValue)
+    }
 
     init?(stored: String?) {
         guard let stored, let value = MessagesWallpaperTheme(rawValue: stored) else { return nil }
@@ -5235,6 +5254,16 @@ enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
         case .ember: "Ember"
         case .spectral: "Spectral Drape"
         case .photo: "Photo"
+        case .aurora: "Aurora"
+        case .waves: "Ocean Waves"
+        case .forest: "Forest"
+        case .rain: "Rain"
+        case .snow: "Snow"
+        case .starry: "Starry Night"
+        case .sunset: "Sunset"
+        case .fireflies: "Fireflies"
+        case .sakura: "Sakura"
+        case .timeOfDay: "Time of Day"
         }
     }
 
@@ -5330,6 +5359,10 @@ struct MessagesWallpaperSurface: View {
                 ChatWallpaperPhoto(key: photoKey, revision: revision)
                     .blur(radius: blur, opaque: true)
                 Color.black.opacity(max(0.1, dim))
+            case _ where theme.natureKind() != nil:
+                if let kind = theme.natureKind() {
+                    NatureWallpaperView(kind: kind, animated: animated)
+                }
             default:
                 MeshGradient(width: 3, height: 3,
                              points: [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.55, 0.45], [1, 0.5], [0, 1], [0.5, 1], [1, 1]],
@@ -5450,14 +5483,20 @@ struct ChatWallpaperPickerSheet: View {
                         .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
                         .accessibilityAddTraits(followsDefault ? .isSelected : [])
                     }
-                    section("Wallpapers") {
+                    section("Stills") {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
                             ForEach(MessagesWallpaperTheme.stills) { theme in tile(theme) }
+                        }
+                    }
+                    section("Nature") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            ForEach(MessagesWallpaperTheme.natureScenes) { theme in tile(theme) }
                         }
                     }
                     section("Animated") {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
                             tile(.spectral)
+                            tile(.timeOfDay)
                         }
                         Text("Pauses with Reduce Motion, Low Power Mode and when the chat isn't on screen.")
                             .font(.caption).foregroundStyle(.secondary)
@@ -5567,6 +5606,8 @@ struct ChatWallpaperPickerSheet: View {
                         Image(systemName: "circle.slash").font(.title3).foregroundStyle(.secondary)
                     } else if theme == .spectral {
                         Image(systemName: "sparkles").font(.title3).foregroundStyle(.primary.opacity(0.8))
+                    } else if theme == .timeOfDay {
+                        Image(systemName: "clock.arrow.2.circlepath").font(.title3).foregroundStyle(.primary.opacity(0.85))
                     }
                 }
                 .frame(height: 120)
@@ -5579,6 +5620,8 @@ struct ChatWallpaperPickerSheet: View {
                     .minimumScaleFactor(0.8)
             }
             .contentShape(Rectangle())
+            .scaleEffect(on ? 1 : 0.97)
+            .animation(.spring(response: 0.32, dampingFraction: 0.7), value: on)
         }
         .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
         .accessibilityLabel(theme.title)
@@ -6560,6 +6603,282 @@ extension View {
             toolbar {
                 ToolbarItem(placement: .principal) { content() }
             }
+        }
+    }
+}
+
+// MARK: - Nature wallpapers (procedural, t237u)
+
+/// Procedural nature scenes for chat wallpapers. Canvas-drawn at 15 fps, a still frame for
+/// Reduce Motion, Low Power, background, off-screen and picker tiles. Each has light and dark
+/// palettes and a soft readability veil so bubbles stay legible.
+struct NatureWallpaperView: View {
+    enum Kind: String, CaseIterable, Sendable {
+        case aurora, waves, forest, rain, snow, starry, sunset, fireflies, sakura
+    }
+
+    let kind: Kind
+    var animated = true
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var phase
+    @State private var visible = false
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    private var running: Bool { animated && !reduceMotion && !lowPower && phase == .active && visible }
+
+    var body: some View {
+        let dark = scheme == .dark
+        ZStack {
+            LinearGradient(colors: Self.base(kind, dark: dark), startPoint: .top, endPoint: .bottom)
+            if animated {
+                TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: !running)) { context in
+                    scene(time: running ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600) : 30, dark: dark)
+                }
+            } else {
+                scene(time: 30, dark: dark)
+            }
+            // Readability veil + soft edge falloff.
+            EllipticalGradient(colors: [.clear, (dark ? Color.black : Color.white).opacity(dark ? 0.35 : 0.25)],
+                               center: .center, startRadiusFraction: 0.2, endRadiusFraction: 0.85)
+        }
+        .clipped()
+        .onAppear { visible = true }
+        .onDisappear { visible = false }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func scene(time t: Double, dark: Bool) -> some View {
+        Canvas(rendersAsynchronously: true) { ctx, size in
+            guard size.width > 1, size.height > 1 else { return }
+            switch kind {
+            case .aurora: Self.aurora(&ctx, size, t, dark)
+            case .waves: Self.waves(&ctx, size, t, dark)
+            case .forest: Self.forest(&ctx, size, t, dark)
+            case .rain: Self.rain(&ctx, size, t, dark)
+            case .snow: Self.snow(&ctx, size, t, dark)
+            case .starry: Self.starry(&ctx, size, t, dark)
+            case .sunset: Self.sunset(&ctx, size, t, dark)
+            case .fireflies: Self.fireflies(&ctx, size, t, dark)
+            case .sakura: Self.sakura(&ctx, size, t, dark)
+            }
+        }
+    }
+
+    // MARK: Palettes
+
+    static func base(_ kind: Kind, dark: Bool) -> [Color] {
+        func h(_ s: String) -> Color { Color(hex: s) }
+        switch (kind, dark) {
+        case (.aurora, true): return [h("#020814"), h("#04182A"), h("#061F2A")]
+        case (.aurora, false): return [h("#DDEBF5"), h("#E8F3F1"), h("#F2F6F4")]
+        case (.waves, true): return [h("#04121F"), h("#072B45"), h("#0A3A5C")]
+        case (.waves, false): return [h("#EAF5FB"), h("#CFE8F5"), h("#B6DDF0")]
+        case (.forest, true): return [h("#07110C"), h("#0D2016"), h("#08140E")]
+        case (.forest, false): return [h("#EEF4EC"), h("#DCE9D8"), h("#C9DEC4")]
+        case (.rain, true): return [h("#0A0F16"), h("#121A24"), h("#0D131B")]
+        case (.rain, false): return [h("#E6EBF0"), h("#D9E0E8"), h("#E3E8ED")]
+        case (.snow, true): return [h("#0B1220"), h("#16223A"), h("#1E2C45")]
+        case (.snow, false): return [h("#F3F6FA"), h("#E6EDF5"), h("#DCE5EF")]
+        case (.starry, true): return [h("#01030A"), h("#060B1E"), h("#0C1230")]
+        case (.starry, false): return [h("#DCE2F5"), h("#E8E6F5"), h("#F3EEF5")]
+        case (.sunset, true): return [h("#1A0E2A"), h("#4A1F3A"), h("#8A3B2E")]
+        case (.sunset, false): return [h("#FCE3D3"), h("#F9CBB8"), h("#F2B5B8")]
+        case (.fireflies, true): return [h("#030805"), h("#08140D"), h("#0B1A10")]
+        case (.fireflies, false): return [h("#E9F1E6"), h("#D8E6D2"), h("#CBDDC3")]
+        case (.sakura, true): return [h("#1A0F17"), h("#2A1624"), h("#1E1220")]
+        case (.sakura, false): return [h("#FDF0F4"), h("#FAE3EB"), h("#F6D8E3")]
+        }
+    }
+
+    /// Stable pseudo-random in 0…1.
+    private static func rnd(_ i: Int, _ salt: Double = 0) -> Double {
+        let v = sin(Double(i) * 12.9898 + salt * 78.233) * 43758.5453
+        return v - v.rounded(.down)
+    }
+
+    // MARK: Scenes
+
+    private static func aurora(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        if dark { ctx.blendMode = .plusLighter }
+        let bands: [(Color, Double, Double)] = [(Color(hex: "#3DFFB0"), 0.28, 0), (Color(hex: "#7B5CFF"), 0.36, 2.1), (Color(hex: "#2FD3FF"), 0.22, 4.0)]
+        for (color, yBase, phase) in bands {
+            let cols = 70
+            let w = s.width / Double(cols)
+            for c in 0..<cols {
+                let u = Double(c) / Double(cols)
+                let y = s.height * (yBase + 0.06 * sin(u * 5 + t * 0.25 + phase) + 0.03 * sin(u * 13 - t * 0.4))
+                let height = s.height * (0.18 + 0.10 * (0.5 + 0.5 * sin(u * 9 + t * 0.3 + phase)))
+                let rect = CGRect(x: Double(c) * w, y: y, width: w + 0.6, height: height)
+                let op = (0.25 + 0.35 * (0.5 + 0.5 * sin(u * 7 + t * 0.5 + phase))) * (dark ? 1 : 0.55)
+                ctx.fill(Path(rect), with: .linearGradient(
+                    Gradient(colors: [color.opacity(0), color.opacity(op), color.opacity(0)]),
+                    startPoint: CGPoint(x: rect.midX, y: rect.minY), endPoint: CGPoint(x: rect.midX, y: rect.maxY)))
+            }
+        }
+        stars(&ctx, s, t, count: dark ? 50 : 0, maxY: 0.5)
+    }
+
+    private static func waves(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let layers = 5
+        for l in 0..<layers {
+            let f = Double(l) / Double(layers - 1)
+            let baseY = s.height * (0.45 + 0.12 * f)
+            var p = Path()
+            p.move(to: CGPoint(x: 0, y: s.height))
+            let steps = 40
+            for i in 0...steps {
+                let u = Double(i) / Double(steps)
+                let y = baseY + s.height * 0.025 * sin(u * (6 + f * 3) + t * (0.6 + f * 0.4) + Double(l))
+                    + s.height * 0.012 * sin(u * 17 - t * 0.9)
+                p.addLine(to: CGPoint(x: u * s.width, y: y))
+            }
+            p.addLine(to: CGPoint(x: s.width, y: s.height))
+            p.closeSubpath()
+            let c = dark ? Color(hex: "#2E9BD6") : Color(hex: "#1E7FB8")
+            ctx.fill(p, with: .color(c.opacity(dark ? 0.10 + 0.06 * f : 0.07 + 0.05 * f)))
+            // Foam crest.
+            ctx.stroke(p, with: .color(Color.white.opacity(dark ? 0.10 : 0.35)), lineWidth: 0.8)
+        }
+    }
+
+    private static func forest(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let ranks: [(Double, Double, Int)] = [(0.62, 0.22, 9), (0.72, 0.26, 7), (0.84, 0.30, 6)]
+        for (r, rank) in ranks.enumerated() {
+            let shade = dark ? Color(hex: ["#12301F", "#0E2618", "#091A10"][r]) : Color(hex: ["#A9C9A0", "#8DB585", "#6E9C68"][r])
+            for i in 0..<rank.2 {
+                let x = s.width * (Double(i) + rnd(i, Double(r))) / Double(rank.2 - 1) - s.width * 0.05
+                let h = s.height * rank.1 * (0.7 + 0.5 * rnd(i, Double(r) + 3))
+                let w = h * 0.42
+                let baseY = s.height * rank.0 + s.height * 0.2
+                var tree = Path()
+                tree.move(to: CGPoint(x: x, y: baseY - h))
+                tree.addLine(to: CGPoint(x: x - w / 2, y: baseY))
+                tree.addLine(to: CGPoint(x: x + w / 2, y: baseY))
+                tree.closeSubpath()
+                ctx.fill(tree, with: .color(shade.opacity(0.9)))
+            }
+            ctx.fill(Path(CGRect(x: 0, y: s.height * rank.0 + s.height * 0.2, width: s.width, height: s.height)), with: .color(shade))
+        }
+        // Drifting fog band.
+        let fogY = s.height * (0.58 + 0.02 * sin(t * 0.2))
+        ctx.fill(Path(CGRect(x: 0, y: fogY - s.height * 0.08, width: s.width, height: s.height * 0.16)),
+                 with: .linearGradient(Gradient(colors: [.clear, Color.white.opacity(dark ? 0.06 : 0.35), .clear]),
+                                       startPoint: CGPoint(x: 0, y: fogY - s.height * 0.08), endPoint: CGPoint(x: 0, y: fogY + s.height * 0.08)))
+        // A few falling leaves.
+        for i in 0..<10 {
+            let speed = 0.02 + 0.02 * rnd(i, 5)
+            let y = ((rnd(i, 6) + t * speed).truncatingRemainder(dividingBy: 1.1) - 0.05) * s.height
+            let x = rnd(i, 7) * s.width + 18 * sin(t * 0.8 + Double(i))
+            var leaf = ctx
+            leaf.translateBy(x: x, y: y)
+            leaf.rotate(by: .radians(t * 0.9 + Double(i)))
+            leaf.fill(Path(ellipseIn: CGRect(x: -4, y: -2, width: 8, height: 4)),
+                      with: .color((dark ? Color(hex: "#C98B3A") : Color(hex: "#B8742A")).opacity(0.7)))
+        }
+    }
+
+    private static func rain(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let c = dark ? Color(hex: "#9FB7D4") : Color(hex: "#5B7593")
+        for i in 0..<90 {
+            let speed = 0.5 + 0.4 * rnd(i, 1)
+            let y = ((rnd(i, 2) + t * speed).truncatingRemainder(dividingBy: 1.2) - 0.1) * s.height
+            let x = rnd(i, 3) * s.width * 1.1 - y * 0.12
+            let len = 10 + 14 * rnd(i, 4)
+            var p = Path()
+            p.move(to: CGPoint(x: x, y: y))
+            p.addLine(to: CGPoint(x: x - len * 0.18, y: y + len))
+            ctx.stroke(p, with: .color(c.opacity(0.18 + 0.25 * rnd(i, 5))), lineWidth: 0.9)
+        }
+    }
+
+    private static func snow(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let c = dark ? Color.white : Color(hex: "#9DB2CC")
+        for i in 0..<80 {
+            let size = 1.5 + 3.5 * rnd(i, 1)
+            let speed = 0.015 + 0.03 * rnd(i, 2) * (size / 5)
+            let y = ((rnd(i, 3) + t * speed).truncatingRemainder(dividingBy: 1.05) - 0.02) * s.height
+            let x = rnd(i, 4) * s.width + 14 * sin(t * (0.3 + rnd(i, 5) * 0.5) + Double(i))
+            ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: size, height: size)),
+                     with: .color(c.opacity(0.35 + 0.45 * rnd(i, 6))))
+        }
+    }
+
+    private static func stars(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, count: Int, maxY: Double) {
+        for i in 0..<count {
+            let x = rnd(i, 11) * s.width
+            let y = rnd(i, 12) * s.height * maxY
+            let r = 0.6 + 1.4 * rnd(i, 13)
+            let tw = 0.35 + 0.65 * (0.5 + 0.5 * sin(t * (0.6 + rnd(i, 14) * 1.4) + Double(i)))
+            ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)), with: .color(Color.white.opacity(0.8 * tw)))
+        }
+    }
+
+    private static func starry(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        // Milky Way haze.
+        var haze = Path()
+        haze.move(to: CGPoint(x: -s.width * 0.1, y: s.height * 0.75))
+        haze.addQuadCurve(to: CGPoint(x: s.width * 1.1, y: s.height * 0.1), control: CGPoint(x: s.width * 0.4, y: s.height * 0.35))
+        ctx.stroke(haze, with: .color((dark ? Color(hex: "#9C8CFF") : Color(hex: "#7E75C9")).opacity(dark ? 0.10 : 0.16)), lineWidth: s.width * 0.22)
+        ctx.stroke(haze, with: .color(Color.white.opacity(dark ? 0.05 : 0.2)), lineWidth: s.width * 0.08)
+        if dark {
+            stars(&ctx, s, t, count: 160, maxY: 1)
+        } else {
+            for i in 0..<70 {
+                let x = rnd(i, 11) * s.width, y = rnd(i, 12) * s.height
+                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 1.4, height: 1.4)), with: .color(Color(hex: "#5A5FA8").opacity(0.35)))
+            }
+        }
+    }
+
+    private static func sunset(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let sun = CGPoint(x: s.width * 0.5, y: s.height * 0.62)
+        let r = min(s.width, s.height) * 0.16
+        ctx.fill(Path(ellipseIn: CGRect(x: sun.x - r * 3, y: sun.y - r * 3, width: r * 6, height: r * 6)),
+                 with: .radialGradient(Gradient(colors: [Color(hex: "#FFB36B").opacity(dark ? 0.35 : 0.45), .clear]), center: sun, startRadius: 0, endRadius: r * 3))
+        ctx.fill(Path(ellipseIn: CGRect(x: sun.x - r, y: sun.y - r, width: r * 2, height: r * 2)),
+                 with: .color(Color(hex: dark ? "#FF9A5A" : "#FFB47A").opacity(0.85)))
+        for i in 0..<7 {
+            let speed = 0.004 + 0.006 * rnd(i, 1)
+            let x = ((rnd(i, 2) + t * speed).truncatingRemainder(dividingBy: 1.4) - 0.2) * s.width
+            let y = s.height * (0.15 + 0.5 * rnd(i, 3))
+            let w = s.width * (0.3 + 0.3 * rnd(i, 4)), h = w * 0.18
+            ctx.fill(Path(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerRadius: h / 2),
+                     with: .color((dark ? Color(hex: "#3A1E3A") : Color.white).opacity(dark ? 0.55 : 0.45)))
+        }
+    }
+
+    private static func fireflies(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        if dark { ctx.blendMode = .plusLighter }
+        let glow = dark ? Color(hex: "#E8FF7A") : Color(hex: "#9BB82A")
+        for i in 0..<34 {
+            let x = s.width * (rnd(i, 1) + 0.06 * sin(t * (0.2 + 0.3 * rnd(i, 2)) + Double(i)))
+            let y = s.height * (0.25 + 0.7 * rnd(i, 3) + 0.05 * cos(t * (0.25 + 0.2 * rnd(i, 4)) + Double(i) * 1.7))
+            let pulse = 0.25 + 0.75 * max(0, sin(t * (0.8 + rnd(i, 5)) + Double(i) * 2.3))
+            let r = 10.0 * (0.6 + 0.6 * rnd(i, 6))
+            ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
+                     with: .radialGradient(Gradient(colors: [glow.opacity(0.55 * pulse), .clear]), center: CGPoint(x: x, y: y), startRadius: 0, endRadius: r))
+            ctx.fill(Path(ellipseIn: CGRect(x: x - 1.2, y: y - 1.2, width: 2.4, height: 2.4)), with: .color(glow.opacity(0.9 * pulse)))
+        }
+    }
+
+    private static func sakura(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let petal = dark ? Color(hex: "#F3A6C4") : Color(hex: "#E889AE")
+        for i in 0..<40 {
+            let speed = 0.02 + 0.025 * rnd(i, 1)
+            let y = ((rnd(i, 2) + t * speed).truncatingRemainder(dividingBy: 1.1) - 0.05) * s.height
+            let x = (rnd(i, 3) * 1.2 - 0.1) * s.width + 26 * sin(t * 0.5 + Double(i)) + y * 0.15
+            let size = 5 + 5 * rnd(i, 4)
+            var p = ctx
+            p.translateBy(x: x, y: y)
+            p.rotate(by: .radians(t * (0.5 + rnd(i, 5)) + Double(i)))
+            p.scaleBy(x: 1, y: 0.55 + 0.45 * abs(sin(t * 1.3 + Double(i))))
+            p.fill(Path(ellipseIn: CGRect(x: -size / 2, y: -size / 3, width: size, height: size * 0.66)),
+                   with: .color(petal.opacity(0.55 + 0.3 * rnd(i, 6))))
         }
     }
 }
