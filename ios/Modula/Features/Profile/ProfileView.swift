@@ -721,7 +721,7 @@ struct ProfileView: View {
         // A lone "+ New" isn't a highlights row; show it only beside real stories.
         Group {
             if items.contains(where: { $0.id != "new" }) {
-                ProfileHighlightsRow(items: items, tint: heroTint)
+                ProfileHighlightsRow(items: items, tint: heroTint, reorderable: isOwnProfile, orderKey: profile.handle)
             }
         }
         .task(id: profile.handle) { await app.stories.loadHighlights(handle: profile.handle) }

@@ -1252,6 +1252,44 @@ struct ProfileHighlightItem: Identifiable {
 struct ProfileHighlightsRow: View {
     let items: [ProfileHighlightItem]
     var tint: Color
+    /// Own profile: hold a highlight to move it. The order is kept on this iPhone.
+    var reorderable = false
+    var orderKey = ""
+    @AppStorage("profile.highlightOrder.v1") private var orderRaw = ""
+
+    private var savedOrder: [String] {
+        guard !orderKey.isEmpty,
+              let data = orderRaw.data(using: .utf8),
+              let map = try? JSONDecoder().decode([String: [String]].self, from: data) else { return [] }
+        return map[orderKey] ?? []
+    }
+
+    private var ordered: [ProfileHighlightItem] {
+        let order = savedOrder
+        guard reorderable, !order.isEmpty else { return items }
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        // "+ New" stays first; known highlights follow your order; new ones go after.
+        return items.enumerated().sorted { a, b in
+            let ra = a.element.id == "new" ? -1 : (rank[a.element.id] ?? order.count + a.offset)
+            let rb = b.element.id == "new" ? -1 : (rank[b.element.id] ?? order.count + b.offset)
+            return ra == rb ? a.offset < b.offset : ra < rb
+        }.map(\.element)
+    }
+
+    private func move(_ id: String, by delta: Int) {
+        var ids = ordered.map(\.id).filter { $0 != "new" }
+        guard let i = ids.firstIndex(of: id) else { return }
+        let j = delta == .min ? 0 : min(max(i + delta, 0), ids.count - 1)
+        guard i != j else { return }
+        let moved = ids.remove(at: i)
+        ids.insert(moved, at: j)
+        var map = (orderRaw.data(using: .utf8)).flatMap { try? JSONDecoder().decode([String: [String]].self, from: $0) } ?? [:]
+        map[orderKey] = ids
+        if let data = try? JSONEncoder().encode(map), let text = String(data: data, encoding: .utf8) {
+            withAnimation(.snappy) { orderRaw = text }
+        }
+        HapticEngine.shared.play(.selection)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1259,7 +1297,7 @@ struct ProfileHighlightsRow: View {
                 .font(.headline)
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 14) {
-                    ForEach(items) { item in
+                    ForEach(ordered) { item in
                         Button {
                             HapticEngine.shared.play(.selection)
                             item.action()
@@ -1274,6 +1312,13 @@ struct ProfileHighlightsRow: View {
                             }
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                        .contextMenu {
+                            if reorderable, item.id != "new", items.count > 2 {
+                                Button("Move to Front", systemImage: "arrow.left.to.line") { move(item.id, by: .min) }
+                                Button("Move Left", systemImage: "arrow.left") { move(item.id, by: -1) }
+                                Button("Move Right", systemImage: "arrow.right") { move(item.id, by: 1) }
+                            }
+                        }
                         .accessibilityLabel(item.title)
                         .accessibilityIdentifier("profile.highlight.\(item.id)")
                     }
