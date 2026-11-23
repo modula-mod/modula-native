@@ -484,6 +484,9 @@ enum DiscoverSearchRecents {
         UserDefaults.standard.set(Array(items.prefix(12)), forKey: key)
     }
     static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+    static func remove(_ query: String) {
+        UserDefaults.standard.set(load().filter { $0 != query }, forKey: key)
+    }
 }
 
 struct DiscoverSearchIdle: View {
@@ -516,7 +519,30 @@ struct DiscoverSearchIdle: View {
                             Text(item).font(.body).foregroundStyle(.primary); Spacer()
                             Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(.tertiary)
                         }.padding(.vertical, 6).contentShape(Rectangle())
-                    }.buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .selection))
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .selection))
+                    .overlay(alignment: .trailing) {
+                        Button {
+                            DiscoverSearchRecents.remove(item)
+                            withAnimation(.snappy) { recentsVersion += 1 }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .modulaGlass(in: Circle(), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 26)
+                        .accessibilityLabel("Remove \(item) from recent searches")
+                    }
+                    .contextMenu {
+                        Button("Remove", systemImage: "trash", role: .destructive) {
+                            DiscoverSearchRecents.remove(item)
+                            withAnimation(.snappy) { recentsVersion += 1 }
+                        }
+                    }
                 }
             }
             Text("Suggested").font(.title3.bold())

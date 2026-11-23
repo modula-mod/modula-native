@@ -117,6 +117,9 @@ enum NetworkSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum DigestsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum HelpSettingsRoute: String, CaseIterable, Codable, Hashable { case root, guides, contact, status }
 enum WhatsNewSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+/// Settings › Migration (Atlas v5.0 extension M-01). MX-00 "Explain" only: overview, My
+/// GreenField Node, Data Portability, Identity & Recovery, Help. No transfer routes exist.
+enum MigrationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, node, data, identity, help }
 enum CreatorSettingsRoute: String, CaseIterable, Codable, Hashable { case root, studio, insights }
 enum FocusSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum PasskeysSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
@@ -157,6 +160,7 @@ enum SettingsRoute: Hashable {
     case digests(DigestsSettingsRoute)
     case help(HelpSettingsRoute)
     case whatsNew(WhatsNewSettingsRoute)
+    case migration(MigrationSettingsRoute)
     case creator(CreatorSettingsRoute)
     case focus(FocusSettingsRoute)
     case passkeys(PasskeysSettingsRoute)
@@ -449,6 +453,7 @@ enum RouteParser {
         case "digests": return DigestsSettingsRoute(rawValue: tail).map { .settings(.digests($0)) }
         case "help": return HelpSettingsRoute(rawValue: tail).map { .settings(.help($0)) }
         case "whats-new": return WhatsNewSettingsRoute(rawValue: tail).map { .settings(.whatsNew($0)) }
+        case "migration": return MigrationSettingsRoute(rawValue: tail).map { .settings(.migration($0)) }
         case "creator": return CreatorSettingsRoute(rawValue: tail).map { .settings(.creator($0)) }
         case "focus": return FocusSettingsRoute(rawValue: tail).map { .settings(.focus($0)) }
         case "passkeys": return PasskeysSettingsRoute(rawValue: tail).map { .settings(.passkeys($0)) }
@@ -631,6 +636,7 @@ enum RouteSerializer {
         case .digests(let r): setting("digests", r.rawValue)
         case .help(let r): setting("help", r.rawValue)
         case .whatsNew(let r): setting("whats-new", r.rawValue)
+        case .migration(let r): setting("migration", r.rawValue)
         case .creator(let r): setting("creator", r.rawValue)
         case .focus(let r): setting("focus", r.rawValue)
         case .passkeys(let r): setting("passkeys", r.rawValue)

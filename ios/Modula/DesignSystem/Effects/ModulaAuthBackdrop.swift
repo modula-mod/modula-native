@@ -6,22 +6,35 @@ import SwiftUI
 /// like one continuous place. A soft top/bottom scrim keeps forms and copy legible.
 /// Decorative only; the drape already pauses off-screen, in Low Power and with Reduce Motion.
 struct ModulaAuthBackdrop: View {
+    /// Forms sit on a quieter version of the same world: the wave dims and a soft veil
+    /// settles over it. Only opacities change, so the wave keeps its clock (no reset).
+    var calm = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let dark = scheme == .dark
         let ink = Color(hex: dark ? "#0A0A0A" : "#FAFAFC")
+        let drape: Double = reduceTransparency ? 0.45 : (calm ? (dark ? 0.55 : 0.32) : 1)
         ZStack {
-            Color(hex: dark ? "#030608" : "#F6F8FF")
+            // Light mode: a faintly tinted base instead of near-white, so glass fields read.
+            LinearGradient(
+                colors: dark ? [Color(hex: "#030608"), Color(hex: "#05090D")]
+                             : [Color(hex: "#EEF1F8"), Color(hex: "#E4E9F3")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
             SpectralDrapeView(interactive: false)
-                .opacity(reduceTransparency ? 0.45 : 1)
+                .opacity(drape)
             LinearGradient(
                 colors: [ink.opacity(0.35), .clear, .clear, ink.opacity(0.8)],
                 startPoint: .top,
                 endPoint: .bottom
             )
+            ink.opacity(calm ? (dark ? 0.28 : 0.38) : 0)
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: calm)
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
@@ -53,7 +66,7 @@ private struct AuthBackdropModifier: ViewModifier {
         } else {
             content
                 .scrollContentBackground(.hidden)
-                .background { ModulaAuthBackdrop() }
+                .background { ModulaAuthBackdrop(calm: true) }
         }
     }
 }
