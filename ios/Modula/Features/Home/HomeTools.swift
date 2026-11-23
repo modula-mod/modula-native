@@ -3791,8 +3791,10 @@ struct BoardPhotoPickerButton: View {
                 if working { ProgressView() }
             }
             .font(.body.weight(.semibold)).foregroundStyle(.primary)
-            .padding(14).modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+            .padding(14)
         }
+        // Glass applied outside the picker's nonisolated label closure (Swift 6 region isolation).
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
         .disabled(working)
         .onChange(of: item) { _, new in
             guard let new else { return }
