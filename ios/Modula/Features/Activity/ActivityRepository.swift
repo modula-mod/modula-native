@@ -337,10 +337,7 @@ enum ActivityPayloadDecoder {
 
     private static func decodeDate(_ raw: String?) -> Date? {
         guard let raw else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: raw) { return date }
-        return ISO8601DateFormatter().date(from: raw)
+        return ModulaISODate.parse(raw)
     }
 
     private static func defaultDescription(for kind: ActivityEventKind) -> String {

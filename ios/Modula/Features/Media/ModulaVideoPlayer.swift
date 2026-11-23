@@ -10,6 +10,8 @@ final class ModulaVideoPlaybackController {
     private(set) var state: MediaPlaybackState = .idle
     private(set) var player: AVPlayer?
     private(set) var progress: Double = 0
+    /// Fraction of the item buffered ahead (0…1), published in ~2% steps.
+    private(set) var buffered: Double = 0
     private(set) var duration: TimeInterval = 0
     /// Settings → Media → Video → "Start muted", then last in-session mute choice.
     private(set) var isMuted: Bool
@@ -41,8 +43,15 @@ final class ModulaVideoPlaybackController {
             guard let self, let next else { return }
             Task { @MainActor in
                 let total = next.currentItem?.duration.seconds ?? 0
-                self.duration = total.isFinite ? max(0, total) : 0
-                self.progress = self.duration > 0 ? min(max(time.seconds / self.duration, 0), 1) : 0
+                let duration = total.isFinite ? max(0, total) : 0
+                // Only publish real changes: duration is constant once known.
+                if duration != self.duration { self.duration = duration }
+                let progress = duration > 0 ? min(max(time.seconds / duration, 0), 1) : 0
+                if progress != self.progress { self.progress = progress }
+                if duration > 0, let range = next.currentItem?.loadedTimeRanges.last?.timeRangeValue {
+                    let end = min(max((range.start.seconds + range.duration.seconds) / duration, 0), 1)
+                    if abs(end - self.buffered) >= 0.02 || (end >= 0.999 && self.buffered < 0.999) { self.buffered = end }
+                }
             }
         }
     }

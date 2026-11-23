@@ -346,7 +346,8 @@ struct PostBody: View {
     var body: some View {
         if let text = post.text, !text.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text(PostTextLinks.attributed(displayedText(text)))
+                // Rich markup (<mark>, **bold**, links…) like comments, never raw tags.
+                Text(ModulaRichText.attributed(displayedText(text), revealSpoilers: false))
                     .font(bodyFont)
                     .foregroundStyle(.primary)
                     .lineSpacing(captionSize.lineSpacing)
@@ -404,8 +405,22 @@ struct PostBody: View {
 
 /// Interactive social text uses canonical Search/Profile routes, not a new feed.
 enum PostTextLinks {
+    // Compiled once: building an NSDataDetector/NSRegularExpression per call ran on every
+    // post/comment body evaluation while scrolling. Both are safe to share across threads.
+    private static let tokenRegex = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/@])(?:#[\p{L}\p{N}_]{1,64}|@[\p{L}\p{N}_]+(?:\.[\p{L}\p{N}_]+)*)"#)
+    private static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    private final class Box { let value: AttributedString; init(_ v: AttributedString) { value = v } }
+    nonisolated(unsafe) private static let cache: NSCache<NSString, Box> = { let c = NSCache<NSString, Box>(); c.countLimit = 600; return c }()
+
     static func attributed(_ text: String) -> AttributedString {
-        guard let regex = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/@])(?:#[\p{L}\p{N}_]{1,64}|@[\p{L}\p{N}_]+(?:\.[\p{L}\p{N}_]+)*)"#) else {
+        if let hit = cache.object(forKey: text as NSString) { return hit.value }
+        let value = build(text)
+        cache.setObject(Box(value), forKey: text as NSString)
+        return value
+    }
+
+    private static func build(_ text: String) -> AttributedString {
+        guard let regex = tokenRegex else {
             return AttributedString(text)
         }
         var result = AttributedString()
@@ -413,7 +428,7 @@ enum PostTextLinks {
         let whole = NSRange(text.startIndex..., in: text)
         // Web links (opened in the Modula browser) plus #hashtags and @mentions.
         var tokens: [(Range<String.Index>, URL?)] = []
-        if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
+        if let detector = linkDetector {
             for match in detector.matches(in: text, range: whole) {
                 guard let range = Range(match.range, in: text), let url = match.url,
                       ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { continue }

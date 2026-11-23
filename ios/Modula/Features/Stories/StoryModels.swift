@@ -96,6 +96,8 @@ struct StoryBackendCapabilities: Sendable, Equatable {
     var privacy = false
     var video = false
 
+    // Replies (into DMs) and deleting your own story item are live on GreenField
+    // (`POST /v1/stories/:itemId/replies`, `DELETE /v1/stories/items/:itemId`).
     static let production = StoryBackendCapabilities(list: true, create: true, reply: true)
 
     enum Paths {
@@ -103,34 +105,16 @@ struct StoryBackendCapabilities: Sendable, Equatable {
         static func group(_ id: String) -> String { "/v1/stories/\(escape(id))" }
         static let create = "/v1/stories"
         static func viewed(_ id: String) -> String { "/v1/stories/items/\(escape(id))/viewed" }
-        static func reply(_ id: String) -> String { "/v1/stories/\(escape(id))/replies" }
+        static func replies(_ id: String) -> String { "/v1/stories/\(escape(id))/replies" }
+        static func item(_ id: String) -> String { "/v1/stories/items/\(escape(id))" }
 
         private static func escape(_ value: String) -> String {
-            let segment = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~:"))
-            return value.addingPercentEncoding(withAllowedCharacters: segment) ?? value
+            value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
         }
     }
 }
 
-struct StoryReplyResult: Equatable, Sendable {
-    let conversationID: ConversationID
-    let messageID: MessageID
-    let conversationCreated: Bool
-    let created: Bool
-}
-
 enum StoryPayloadDecoder {
-    static func replyResult(_ value: JSONValue) -> StoryReplyResult? {
-        guard let conversationID = value["conversationId"]?.string,
-              let messageID = value["messageId"]?.string else { return nil }
-        return StoryReplyResult(
-            conversationID: conversationID,
-            messageID: messageID,
-            conversationCreated: value["conversationCreated"]?.bool ?? false,
-            created: value["created"]?.bool ?? true
-        )
-    }
-
     static func rail(from value: JSONValue) -> [StoryGroup] {
         let items = value["items"]?.array ?? value["groups"]?.array ?? []
         return items.compactMap(railEntry)
@@ -441,6 +425,22 @@ struct StoryBackendRepository: Sendable {
         return .object(body)
     }
 
+    func reply(itemID: StoryID, text: String) async throws {
+        guard capabilities.reply else { throw APIError.unavailable("Story replies aren’t available.") }
+        let key = "story-reply-\(UUID().uuidString.lowercased())"
+        _ = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.replies(itemID),
+            body: .object(["text": .string(text), "idempotencyKey": .string(key)]),
+            idempotencyKey: key
+        )
+    }
+
+    func delete(itemID: StoryID) async throws {
+        guard capabilities.create else { throw APIError.unavailable("Deleting stories isn’t available.") }
+        _ = try await client.authenticatedJSON("DELETE", path: StoryBackendCapabilities.Paths.item(itemID))
+    }
+
     func markViewed(itemID: StoryID) async throws {
         guard capabilities.list else { return }
         _ = try await client.authenticatedJSON(
@@ -448,22 +448,6 @@ struct StoryBackendRepository: Sendable {
             path: StoryBackendCapabilities.Paths.viewed(itemID),
             body: .object([:])
         )
-    }
-
-    func reply(storyID: StoryID, text: String, idempotencyKey: String) async throws -> StoryReplyResult {
-        guard capabilities.reply, GreenfieldClient.isSafeIdempotencyKey(idempotencyKey) else {
-            throw APIError.unavailable("Story replies aren’t available.")
-        }
-        let value: JSONValue = try await client.authenticatedJSON(
-            "POST",
-            path: StoryBackendCapabilities.Paths.reply(storyID),
-            body: .object([
-                "text": .string(text),
-                "idempotencyKey": .string(idempotencyKey),
-            ])
-        )
-        guard let result = StoryPayloadDecoder.replyResult(value) else { throw APIError.invalidResponse }
-        return result
     }
 }
 
@@ -529,6 +513,31 @@ final class StoryStore {
         }
     }
 
+    /// Sends a story reply into the author's DMs. Returns false (and sets `actionError`) on failure.
+    func reply(to itemID: StoryID, text: String) async -> Bool {
+        do {
+            try await repository.reply(itemID: itemID, text: text)
+            return true
+        } catch {
+            actionError = "Couldn’t send your reply."
+            return false
+        }
+    }
+
+    /// Deletes one of your own story items and drops it from the rail locally.
+    func delete(itemID: StoryID) async -> Bool {
+        do {
+            try await repository.delete(itemID: itemID)
+            for index in groups.indices {
+                groups[index].items.removeAll { $0.id == itemID }
+            }
+            return true
+        } catch {
+            actionError = "Couldn’t delete this story."
+            return false
+        }
+    }
+
     func group(containing storyID: StoryID) -> StoryGroup? {
         groups.first { group in group.items.contains { $0.id == storyID } || group.id == storyID }
     }
@@ -587,24 +596,6 @@ final class StoryStore {
         applySeen(storyID: storyID)
         Task {
             try? await repository.markViewed(itemID: storyID)
-        }
-    }
-
-    func reply(storyID: StoryID, text: String, idempotencyKey: String) async -> StoryReplyResult? {
-        guard capabilities.reply else {
-            actionError = "Story replies aren’t available."
-            return nil
-        }
-        do {
-            let result = try await repository.reply(storyID: storyID, text: text, idempotencyKey: idempotencyKey)
-            actionError = nil
-            return result
-        } catch let api as APIError {
-            actionError = api.userFacingMessage
-            return nil
-        } catch {
-            actionError = "Couldn’t send your reply. Your text is still here."
-            return nil
         }
     }
 

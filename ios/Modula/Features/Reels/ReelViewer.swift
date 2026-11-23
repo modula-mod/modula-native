@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -34,6 +35,7 @@ struct ReelFeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var videoCoordinator = FeedVideoCoordinator()
     @State private var showsComments = false
+    @State private var commentsDetent: PresentationDetent = .medium
     @State private var expandedVideo: ModulaAttachment?
     /// Bottom edge of the top bar in screen space, so page controls
     /// (full-screen button) are laid out below it instead of under it.
@@ -158,7 +160,7 @@ struct ReelFeedView: View {
         .sheet(isPresented: $showsComments) {
             if let reel = current, reel.postID != nil {
                 PostCommentsSheet(postID: reel.postID ?? reel.id)
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.medium, .large], selection: $commentsDetent)
                     .presentationDragIndicator(.visible)
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
@@ -183,15 +185,19 @@ struct ReelFeedView: View {
                 ForEach(app.reels.items) { reel in
                     ReelPageView(
                         reel: reel,
-                        isActive: app.reels.activeID == reel.id && !showsComments && expandedVideo == nil && scenePhase == .active,
+                        isActive: app.reels.activeID == reel.id && expandedVideo == nil && scenePhase == .active,
                         coordinator: videoCoordinator,
                         reduceMotion: reduceMotion,
                         controlsTopInset: topBarBottom,
                         onComment: {
                             guard reel.postID != nil else { return }
+                            commentsDetent = .medium
                             showsComments = true
                         },
-                        onExpand: { expandedVideo = reel.attachment }
+                        onExpand: { expandedVideo = reel.attachment },
+                        onFinished: {
+                            withAnimation(.easeOut(duration: 0.25)) { move(1) }
+                        }
                     )
                     .containerRelativeFrame(.vertical)
                     .modifier(ReelPageTransition(reduceMotion: reduceMotion))
@@ -243,7 +249,10 @@ struct ReelPageView: View {
     var controlsTopInset: CGFloat = 0
     var onComment: () -> Void
     var onExpand: () -> Void
+    var onFinished: () -> Void = {}
     @Environment(AppEnvironment.self) private var app
+    @AppStorage("reels.autoScroll") private var autoScroll = false
+    @AppStorage("reels.playbackRate") private var savedRate = 1.0
     @State private var heartBurst = 0
     @State private var heartPoint: CGPoint? = nil
     @State private var clearDisplay = false
@@ -331,6 +340,27 @@ struct ReelPageView: View {
                 .padding(.top, controlsTopInset + 10)
                 .padding(.trailing, 14)
             }
+            if !clearDisplay, !edgeBoost, abs(savedRate - 1) > 0.01, reel.attachment != nil {
+                Button {
+                    playback.setRate(1)
+                    savedRate = 1
+                    HapticEngine.shared.play(.selection)
+                    app.navigation.flash("Speed 1×", symbol: "gauge.with.needle")
+                } label: {
+                    Text(String(format: "%.2g×", savedRate))
+                        .font(.caption.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 36, minHeight: 36)
+                        .padding(.horizontal, 4)
+                        .modulaGlass(in: Capsule(), tint: .black.opacity(0.25))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Playback speed \(String(format: "%.2g", savedRate)) times. Tap to reset")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.top, controlsTopInset + 10)
+                .padding(.trailing, 58)
+            }
             if edgeBoost {
                 Text("2×")
                     .font(.title2.weight(.bold))
@@ -349,6 +379,7 @@ struct ReelPageView: View {
                     clearDisplay: clearDisplay,
                     onRate: { rate in
                         playback.setRate(rate)
+                        savedRate = Double(rate)
                         app.navigation.flash(String(format: "Speed %.2g×", rate), symbol: "gauge.with.needle")
                     },
                     onNotInterested: {
@@ -358,6 +389,16 @@ struct ReelPageView: View {
                     onSave: { Task { await app.postActions.toggleSave(resolved) } },
                     onToggleCaptions: { captionsOn.toggle() },
                     onToggleClear: { clearDisplay.toggle() },
+                    autoScroll: autoScroll,
+                    onToggleAutoScroll: {
+                        autoScroll.toggle()
+                        app.navigation.flash(autoScroll ? "Auto-scroll on" : "Auto-scroll off", symbol: "arrow.down.to.line.circle")
+                    },
+                    onCopyLink: reel.postID == nil ? nil : {
+                        UIPasteboard.general.url = ModulaShareLink.post(resolved.id)
+                        HapticEngine.shared.play(.success)
+                        app.navigation.flash("Link copied", symbol: "link")
+                    },
                     onDismiss: { showsQuickMenu = false }
                 )
             }
@@ -383,6 +424,24 @@ struct ReelPageView: View {
             HapticEngine.shared.play(.contextOpen)
             showsQuickMenu = true
         }
+        // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
+        // re-render four times a second just to watch for the end).
+        .overlay(alignment: .bottom) {
+            if reel.attachment != nil, !clearDisplay {
+                ReelProgressBar(playback: playback)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 30)
+            }
+        }
+        .onAppear {
+            // Speed chosen in the quick menu sticks across reels and launches.
+            if abs(Double(playback.rate) - savedRate) > 0.01 { playback.setRate(Float(savedRate)) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)) { note in
+            guard autoScroll, isActive, !showsQuickMenu,
+                  let item = note.object as? AVPlayerItem, item === playback.player?.currentItem else { return }
+            onFinished()
+        }
         // Hold the LEFT edge for 2× speed. This used to be a page-wide DragGesture(minimumDistance: 0),
         // which claimed every touch-down and left every button in Reels dead. Now it is a thin
         // left strip (mid-height only) so the right-hand rail, top bar and caption stay tappable.
@@ -397,7 +456,7 @@ struct ReelPageView: View {
                         playback.setRate(2)
                         HapticEngine.shared.play(.selection)
                     } else if !pressing, edgeBoost {
-                        playback.setRate(1)
+                        playback.setRate(Float(savedRate))
                         edgeBoost = false
                     }
                 })
@@ -720,5 +779,50 @@ struct ReelsInstallModuleCard: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("reels.install-module")
+    }
+}
+
+
+/// Thin played / buffered bar. Its own view so 4 Hz progress updates re-render only
+/// this strip, not the reel page. Drag along it to scrub.
+struct ReelProgressBar: View {
+    let playback: ModulaVideoPlaybackController
+    @State private var scrubbing: Double?
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let played = scrubbing ?? playback.progress
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.18))
+                Capsule().fill(.white.opacity(0.36)).frame(width: width * max(playback.buffered, played))
+                Capsule().fill(.white.opacity(0.95)).frame(width: width * played)
+            }
+            .frame(height: scrubbing == nil ? 2.5 : 5)
+            .frame(maxHeight: .infinity, alignment: .center)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in scrubbing = min(max(value.location.x / max(width, 1), 0), 1) }
+                    .onEnded { value in
+                        playback.seek(to: min(max(value.location.x / max(width, 1), 0), 1))
+                        scrubbing = nil
+                        HapticEngine.shared.play(.selection)
+                    }
+            )
+            .animation(.easeOut(duration: 0.15), value: scrubbing == nil)
+        }
+        .frame(height: 22)
+        .accessibilityElement()
+        .accessibilityLabel("Playback position")
+        .accessibilityValue("\(Int((playback.progress * 100).rounded())) percent, \(Int((playback.buffered * 100).rounded())) percent loaded")
+        .accessibilityAdjustableAction { direction in
+            let step = 0.1
+            switch direction {
+            case .increment: playback.seek(to: min(playback.progress + step, 1))
+            case .decrement: playback.seek(to: max(playback.progress - step, 0))
+            @unknown default: break
+            }
+        }
     }
 }

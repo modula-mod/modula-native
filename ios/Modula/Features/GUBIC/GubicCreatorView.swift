@@ -44,7 +44,7 @@ struct GubicCreatorView: View {
 
     static let rules = [
         "Engine: HTML5 canvas, Phaser or PlayCanvas, entry index.html",
-        "Strict CSP: no network (connect-src 'none'), no remote scripts",
+        "Strict CSP: same-origin package files only (connect-src 'self' or 'none'), no remote scripts or WebSockets",
         "Bridge v1: lifecycle, plus score, achievements or lobby if used",
         "Up to 100 achievements, 1,000 points in total",
         "Multiplayer through GUBIC lobbies only, 2 to 16 players",

@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Slots
 
 enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
-    case hat, hair, face, top, outerwear, bottom, shoes, accessory, held, back, aura, pet, background, seasonal
+    case hat, hair, face, top, outerwear, bottom, shoes, accessory, held, back, aura, pet, background, seasonal, costume
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -21,6 +21,7 @@ enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
         case .pet: "Pets"
         case .background: "Scenes"
         case .seasonal: "Seasonal"
+        case .costume: "Costumes"
         }
     }
     var symbol: String {
@@ -39,6 +40,7 @@ enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
         case .pet: "pawprint.fill"
         case .background: "photo.fill"
         case .seasonal: "leaf.fill"
+        case .costume: "theatermasks.fill"
         }
     }
     var defaultNeed: MascotNeed {
@@ -55,6 +57,7 @@ enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
         case .aura: .aura
         case .pet: .ground
         case .background: .scene
+        case .costume: .body
         }
     }
 }
@@ -455,6 +458,7 @@ enum MascotWardrobeCatalog {
             it("bg.cloudtop", .background, "Cloud kingdom", "High above, where the clouds live.", .rare, "cloudtop", .coins(200), dyes: [c(0.70, 0.80, 1.0)]),
             it("bg.lavender", .background, "Lavender field", "Purple rows to the horizon.", .uncommon, "lavender", .coins(140), dyes: [c(0.70, 0.58, 0.92)]),
         ]
+        x += MascotCostumeCatalog.all
         return x
     }
 }
@@ -479,18 +483,25 @@ private extension MascotWardrobeCatalog {
 struct MascotOutfit: Codable, Equatable, Sendable {
     var items: [String: String]      // slot rawValue → item id
     var dyes: [String: Int] = [:]    // slot rawValue → dye index
+    /// Covered slot items parked while a costume is worn. Restored on unequip; never discarded.
+    var parkedItems: [String: String] = [:]
+    var parkedDyes: [String: Int] = [:]
 
     static let empty = MascotOutfit(items: [:])
 
-    init(items: [String: String], dyes: [String: Int] = [:]) {
+    init(items: [String: String], dyes: [String: Int] = [:], parkedItems: [String: String] = [:], parkedDyes: [String: Int] = [:]) {
         self.items = items
         self.dyes = dyes
+        self.parkedItems = parkedItems
+        self.parkedDyes = parkedDyes
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         items = try c.decodeIfPresent([String: String].self, forKey: .items) ?? [:]
         dyes = try c.decodeIfPresent([String: Int].self, forKey: .dyes) ?? [:]
+        parkedItems = try c.decodeIfPresent([String: String].self, forKey: .parkedItems) ?? [:]
+        parkedDyes = try c.decodeIfPresent([String: Int].self, forKey: .parkedDyes) ?? [:]
     }
 
     static func solo(_ item: MascotWardrobeItem, dye: Int = 0) -> MascotOutfit {
@@ -505,14 +516,25 @@ struct MascotOutfit: Codable, Equatable, Sendable {
     func contains(_ item: MascotWardrobeItem) -> Bool { items[item.slot.rawValue] == item.id }
 
     mutating func equip(_ item: MascotWardrobeItem, dye: Int? = nil) {
+        if item.slot == .costume {
+            equipCostume(item, dye: dye)
+            return
+        }
+        if Self.costumeCoveredSlots.contains(item.slot), hasCostume {
+            unequipCostume()
+        }
         items[item.slot.rawValue] = item.id
         if let dye { dyes[item.slot.rawValue] = dye } else if dyes[item.slot.rawValue] == nil { dyes[item.slot.rawValue] = 0 }
     }
     mutating func unequip(_ slot: MascotWardrobeSlot) {
+        if slot == .costume {
+            unequipCostume()
+            return
+        }
         items.removeValue(forKey: slot.rawValue)
         dyes.removeValue(forKey: slot.rawValue)
     }
-    mutating func clear() { items = [:]; dyes = [:] }
+    mutating func clear() { items = [:]; dyes = [:]; parkedItems = [:]; parkedDyes = [:] }
 
     var isEmpty: Bool { items.isEmpty }
     var equippedIDs: [String] { Array(items.values) }
@@ -520,8 +542,11 @@ struct MascotOutfit: Codable, Equatable, Sendable {
 
     /// Equipped items that can be drawn on this rig (non-fitting ones are hidden, background excluded).
     func wearables(on rig: MascotRig) -> [(item: MascotWardrobeItem, color: Color, fit: MascotFit)] {
-        MascotWardrobeSlot.allCases.compactMap { slot in
-            guard slot != .background, let item = item(for: slot) else { return nil }
+        let hiding = hasCostume
+        return MascotWardrobeSlot.allCases.compactMap { slot in
+            guard slot != .background else { return nil }
+            if hiding, Self.costumeCoveredSlots.contains(slot) { return nil }
+            guard let item = item(for: slot) else { return nil }
             let fit = item.fit(on: rig)
             guard fit.isWearable else { return nil }
             return (item, item.dye(dye(for: slot)), fit)
@@ -694,6 +719,7 @@ final class MascotWardrobeStore {
         let stamp = "\(month)-\(day)-\(now.year ?? 0)"
         guard UserDefaults.standard.string(forKey: birthdayOutfitAppliedKey) != stamp else { return false }
         UserDefaults.standard.set(stamp, forKey: birthdayOutfitAppliedKey)
+        if outfit.hasCostume { return true }
         var next = outfit
         for id in ["hat.bdaycrown", "aura.sparkles", "held.balloon"] {
             if let item = MascotWardrobeCatalog.item(id: id), canEquip(item) { next.equip(item) }
@@ -715,13 +741,27 @@ final class MascotWardrobeStore {
 
     private func sanitizeOutfit() {
         var changed = false
+        for (slot, id) in outfit.parkedItems {
+            guard let item = MascotWardrobeCatalog.item(id: id), item.slot.rawValue == slot, owns(item) else {
+                outfit.parkedItems.removeValue(forKey: slot)
+                outfit.parkedDyes.removeValue(forKey: slot)
+                changed = true
+                continue
+            }
+        }
+        var droppedCostume = false
         for (slot, id) in outfit.items {
             guard let item = MascotWardrobeCatalog.item(id: id), item.slot.rawValue == slot, owns(item) else {
                 outfit.items.removeValue(forKey: slot)
                 outfit.dyes.removeValue(forKey: slot)
+                if slot == MascotWardrobeSlot.costume.rawValue { droppedCostume = true }
                 changed = true
                 continue
             }
+        }
+        if droppedCostume {
+            outfit.restoreParkedSlots()
+            changed = true
         }
         if changed { persist() }
     }
