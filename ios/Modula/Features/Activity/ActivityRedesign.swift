@@ -778,6 +778,7 @@ struct ActivityClusterFeed: View {
     @ViewBuilder private var timelineRows: some View {
             let all = sections
             let firstSection = all.first?.section
+            ActivityDaySummary(events: events)
             ForEach(all, id: \.section) { group in
                 sectionHeader(group.section, clusters: group.clusters, isFirst: group.section == firstSection)
                 if !foldedSections.contains(group.section) {
@@ -1082,6 +1083,66 @@ extension ActivityTimelineSection {
         case .today: "sun.max.fill"
         case .yesterday: "calendar"
         case .earlier: "clock.arrow.circlepath"
+        }
+    }
+}
+
+
+/// "Last 24 hours" glance strip above the timeline: likes, comments, follows and reposts counted from the
+/// notifications already loaded (no extra request). Hidden when nothing happened in the last day.
+struct ActivityDaySummary: View {
+    let events: [ActivityEvent]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Stat: Identifiable { let id: String; let symbol: String; let count: Int; let noun: String }
+
+    private var stats: [Stat] {
+        let cutoff = Date().addingTimeInterval(-86_400)
+        var likes = 0, comments = 0, follows = 0, reposts = 0
+        for e in events where e.createdAt >= cutoff {
+            let n = max(1, e.primaryActors.count)
+            switch e.kind {
+            case .like, .reaction: likes += n
+            case .comment, .mention: comments += 1
+            case .follow, .followRequest, .followAccepted: follows += n
+            case .repost, .share: reposts += n
+            default: break
+            }
+        }
+        return [
+            Stat(id: "likes", symbol: "heart.fill", count: likes, noun: likes == 1 ? "like" : "likes"),
+            Stat(id: "comments", symbol: "bubble.left.fill", count: comments, noun: comments == 1 ? "comment" : "comments"),
+            Stat(id: "follows", symbol: "person.fill.badge.plus", count: follows, noun: follows == 1 ? "follow" : "follows"),
+            Stat(id: "reposts", symbol: "arrow.2.squarepath", count: reposts, noun: reposts == 1 ? "repost" : "reposts"),
+        ].filter { $0.count > 0 }
+    }
+
+    var body: some View {
+        let items = stats
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Last 24 hours").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, s in
+                        HStack(spacing: 5) {
+                            Image(systemName: s.symbol).font(.caption.weight(.bold))
+                            Text("\(s.count)").font(.subheadline.weight(.bold)).monospacedDigit()
+                                .contentTransition(.numericText(value: Double(s.count)))
+                        }
+                        .padding(.horizontal, 12).frame(height: 34)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                        .modulaAppear(delay: reduceMotion ? 0 : Double(index) * 0.05)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(s.count) \(s.noun)")
+                    }
+                    Spacer(minLength: 0)
+                }
+                .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: items.map(\.count))
+            }
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Last 24 hours")
+            .accessibilityIdentifier("activity.daySummary")
         }
     }
 }

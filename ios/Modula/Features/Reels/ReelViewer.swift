@@ -16,6 +16,7 @@ struct ReelsRouteView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .modifier(ModulaKeepAwake(key: ModulaKeepAwake.reelsKey))
         .task {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--uitest-reels-fixture") {
@@ -1105,5 +1106,39 @@ final class ReelSleepTimer {
             NotificationCenter.default.post(name: .modulaReelSleep, object: nil)
             HapticEngine.shared.play(.warning)
         }
+    }
+}
+
+
+/// Settings › Gestures › Keep screen on: stops auto-lock while a screen that opts in is visible and the app is
+/// active. Reference-counted so overlapping screens don't re-enable auto-lock early.
+struct ModulaKeepAwake: ViewModifier {
+    static let reelsKey = "display.keepAwake.reels"
+    static let readerKey = "display.keepAwake.reader"
+    let key: String
+    @AppStorage private var enabled: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var holding = false
+    @MainActor private static var holds = 0
+
+    init(key: String) {
+        self.key = key
+        _enabled = AppStorage(wrappedValue: false, key)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { update(visible: true) }
+            .onDisappear { update(visible: false) }
+            .onChange(of: enabled) { _, _ in update(visible: true) }
+            .onChange(of: scenePhase) { _, _ in update(visible: true) }
+    }
+
+    @MainActor private func update(visible: Bool) {
+        let want = visible && enabled && scenePhase == .active
+        guard want != holding else { return }
+        holding = want
+        Self.holds = max(0, Self.holds + (want ? 1 : -1))
+        UIApplication.shared.isIdleTimerDisabled = Self.holds > 0
     }
 }

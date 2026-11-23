@@ -1088,6 +1088,9 @@ struct ComposerReadingChip: View {
             Text("\(words) words · \(minutes) min")
                 .font(.caption2.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.secondary)
+                // Count rolls as you type instead of snapping.
+                .contentTransition(.numericText(value: Double(words)))
+                .animation(.snappy(duration: 0.2), value: words)
                 .padding(.horizontal, 8)
                 .frame(height: 24)
                 .modulaGlass(in: Capsule(), interactive: false)

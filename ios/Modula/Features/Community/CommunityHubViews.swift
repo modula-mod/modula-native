@@ -300,6 +300,9 @@ struct CommunityBuildersView: View {
     @State private var postText = ""
     @State private var postIdempotencyKey = "community-post-\(UUID().uuidString.lowercased())"
     @State private var confirmLeave = false
+    @State private var showRules = false
+    @State private var memberQuery = ""
+    @State private var memberFilter: CommunityMemberFilter = .all
 
     private var accent: Color { app.appearance.liveAccent }
     private var community: CommunityDetails? { app.communities.selectedCommunity }
@@ -392,8 +395,24 @@ struct CommunityBuildersView: View {
             CommunityInfoRow(symbol: "person.3", tint: accent, title: community.summary.memberCount == 1 ? "1 member" : "\(community.summary.memberCount) members", subtitle: memberSubtitle(community.summary.membership))
             Divider().padding(.leading, 64)
             CommunityInfoRow(symbol: "calendar", tint: accent, title: app.communities.events.count == 1 ? "1 event" : "\(app.communities.events.count) events", subtitle: "Server-persisted community schedule")
+            Divider().padding(.leading, 64)
+            Button { showRules = true } label: {
+                HStack(spacing: 0) {
+                    CommunityInfoRow(symbol: "list.bullet.clipboard", tint: accent, title: "Rules & guidelines",
+                                     subtitle: community.postingPolicy == .moderators ? "Moderators post · tap to read" : "Members post · tap to read")
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary).padding(.trailing, 14)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("community.rules.open")
         }
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+        .sheet(isPresented: $showRules) {
+            CommunityRulesSheet(community: community, attachmentsAllowed: app.communities.settings?.allowAttachments)
+                .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
+        }
     }
 
     private var tabs: some View {
@@ -441,10 +460,27 @@ struct CommunityBuildersView: View {
             if app.communities.members.isEmpty {
                 ModulaEmptyState(title: CommunityCopy.membersEmpty, message: "Members appear here once they join.", symbol: "person.2")
             } else {
-                ForEach(app.communities.members) { member in
+                let shown = CommunityMemberFilter.apply(app.communities.members, filter: memberFilter, query: memberQuery)
+                ModulaSearchField(text: $memberQuery, prompt: "Search members")
+                    .accessibilityIdentifier("community.members.search")
+                HStack(spacing: 8) {
+                    ForEach(CommunityMemberFilter.allCases) { f in
+                        ModulaChip(title: f.title(count: CommunityMemberFilter.apply(app.communities.members, filter: f, query: "").count),
+                                   selected: memberFilter == f) {
+                            withAnimation(.snappy(duration: 0.22)) { memberFilter = f }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                if shown.isEmpty {
+                    Text(memberQuery.isEmpty ? "No one in this group yet." : "No loaded members match “\(memberQuery)”.")
+                        .font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 20)
+                }
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, member in
                     CommunityMemberRow(member: member) {
                         app.navigation.push(.profile(member.profile.routeID, .overview))
                     }
+                    .modulaAppear(delay: Double(min(index, 8)) * 0.035)
                     if member.id == app.communities.members.last?.id, app.communities.membersNextCursor != nil {
                         ProgressView().task { await app.communities.loadMoreMembers() }
                     }
@@ -593,8 +629,16 @@ private struct CommunityMemberRow: View {
                 HStack(spacing: 12) {
                     ModulaAvatar(initials: member.profile.initials, url: member.profile.avatarURL, size: 44, name: member.profile.displayName)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(member.profile.displayName).font(.headline)
-                        Text("@\(member.profile.handle) · \(member.role.rawValue.capitalized)")
+                        HStack(spacing: 6) {
+                            Text(member.profile.displayName).font(.headline)
+                            if member.role == .owner || member.role == .admin || member.role == .moderator {
+                                Label(member.role.rawValue.capitalized, systemImage: member.role == .owner ? "crown.fill" : "shield.lefthalf.filled")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 7).padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.primary.opacity(0.08)))
+                            }
+                        }
+                        Text(member.joinedAt.map { "@\(member.profile.handle) · joined \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "@\(member.profile.handle) · \(member.role.rawValue.capitalized)")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -750,5 +794,105 @@ enum CommunityDirectorySort: String, CaseIterable, Identifiable {
         case .active: "clock"
         case .name: "textformat"
         }
+    }
+}
+
+
+// MARK: - Members filter + rules sheet
+
+enum CommunityMemberFilter: String, CaseIterable, Identifiable {
+    case all, staff, members
+    var id: String { rawValue }
+    func title(count: Int) -> String {
+        switch self {
+        case .all: "All \(count)"
+        case .staff: "Staff \(count)"
+        case .members: "Members \(count)"
+        }
+    }
+    /// Filters the loaded page(s) of members; staff (owner, admins, moderators) sort first.
+    static func apply(_ members: [CommunityMember], filter: CommunityMemberFilter, query: String) -> [CommunityMember] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let isStaff: (CommunityMember) -> Bool = { [.owner, .admin, .moderator].contains($0.role) }
+        let rank: (CommunityRole) -> Int = { r in
+            switch r { case .owner: 0; case .admin: 1; case .moderator: 2; case .member: 3; case .restricted: 4 }
+        }
+        return members.filter { m in
+            switch filter {
+            case .all: true
+            case .staff: isStaff(m)
+            case .members: !isStaff(m)
+            }
+        }
+        .filter { q.isEmpty || $0.profile.displayName.lowercased().contains(q) || $0.profile.handle.lowercased().contains(q) }
+        .enumerated()
+        .sorted { (rank($0.element.role), $0.offset) < (rank($1.element.role), $1.offset) }
+        .map(\.element)
+    }
+}
+
+/// Rules built from the community's real policies, plus Modula's community guidelines (which apply everywhere).
+struct CommunityRulesSheet: View {
+    let community: CommunityDetails
+    let attachmentsAllowed: Bool?
+    @Environment(\.dismiss) private var dismiss
+
+    private var communityRules: [(String, String, String)] {
+        var rules: [(String, String, String)] = [
+            (community.membershipPolicy == .approval ? "person.badge.clock" : "person.badge.plus",
+             community.membershipPolicy == .approval ? "Membership needs approval" : "Anyone can join",
+             community.membershipPolicy == .approval ? "Moderators review each request before you can take part." : "Join to post, vote and RSVP."),
+            (community.postingPolicy == .moderators ? "megaphone" : "text.bubble",
+             community.postingPolicy == .moderators ? "Only moderators post" : "Members can post",
+             community.postingPolicy == .moderators ? "Members can read and react; posts come from the team." : "Keep posts on topic for \(community.summary.name)."),
+            (community.summary.visibility == .private ? "lock" : "globe",
+             community.summary.visibility == .private ? "Private space" : "Public space",
+             community.summary.visibility == .private ? "Posts are only visible to members." : "Anyone can read posts here."),
+        ]
+        if let attachmentsAllowed {
+            rules.append((attachmentsAllowed ? "paperclip" : "paperclip.badge.ellipsis",
+                          attachmentsAllowed ? "Photos and files allowed" : "Text only",
+                          attachmentsAllowed ? "Share images and files that fit the topic." : "Attachments are turned off in this community."))
+        }
+        return rules
+    }
+
+    private static let guidelines: [(String, String, String)] = [
+        ("hand.raised", "Be kind", "No harassment, hate or threats."),
+        ("checkmark.seal", "Be genuine", "No spam, scams or impersonation."),
+        ("lock.shield", "Respect privacy", "Don’t share other people’s personal information."),
+        ("flag", "Report, don’t retaliate", "Use Report on posts that break these rules."),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section(community.summary.name) {
+                    ForEach(Array(communityRules.enumerated()), id: \.offset) { i, r in row(r).modulaAppear(delay: Double(i) * 0.04) }
+                }
+                Section {
+                    ForEach(Array(Self.guidelines.enumerated()), id: \.offset) { i, r in row(r).modulaAppear(delay: 0.12 + Double(i) * 0.04) }
+                } header: { Text("Modula community guidelines") } footer: {
+                    Text("Moderators can remove posts or members that break these rules.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Rules")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .accessibilityIdentifier("community.rules.sheet")
+    }
+
+    private func row(_ r: (String, String, String)) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: r.0).font(.body.weight(.semibold)).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(r.1).font(.subheadline.weight(.semibold))
+                Text(r.2).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }

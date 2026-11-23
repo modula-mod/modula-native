@@ -83,6 +83,8 @@ struct GesturesSettingsHost: View {
     @AppStorage("settings.gestures.doubleTapLike") private var doubleTapLike = true
     @AppStorage("settings.gestures.swipeReply") private var swipeReply = true
     @AppStorage("chat.screenEffects") private var chatScreenEffects = true
+    @AppStorage(ModulaKeepAwake.reelsKey) private var keepAwakeReels = false
+    @AppStorage(ModulaKeepAwake.readerKey) private var keepAwakeReader = false
     /// Double-tap a chat bubble to react with this ("" = your most recent reaction, else ❤️).
     @AppStorage("messages.doubleTapReaction") private var doubleTapReaction = ""
     @AppStorage("settings.gestures.shakeUndo") private var shakeUndo = false
@@ -114,6 +116,14 @@ struct GesturesSettingsHost: View {
                     Toggle("Chat screen effects", isOn: $chatScreenEffects)
                         .accessibilityHint("Confetti, hearts, balloons or sparkles when you send words like congrats or happy birthday")
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
+                }
+                SettingsToggleCard {
+                    Toggle("Keep screen on in Reels", isOn: $keepAwakeReels)
+                        .accessibilityHint("Your phone won't auto-lock while you're watching Reels")
+                        .accessibilityIdentifier("settings.keepAwake.reels")
+                    Toggle("Keep screen on in Reader", isOn: $keepAwakeReader)
+                        .accessibilityHint("Your phone won't auto-lock while an article is open in Reader")
+                        .accessibilityIdentifier("settings.keepAwake.reader")
                 }
                 SettingsToggleCard {
                     Picker("Double-tap reaction in chats", selection: $doubleTapReaction) {

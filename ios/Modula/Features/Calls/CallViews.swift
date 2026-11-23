@@ -620,7 +620,34 @@ enum CallsDirectory {
         _ = await (following, followers)
     }
 
+    /// Speed: `all` merged chats + following + followers and ran a localized sort on every call; the keypad
+    /// alone called it 3–4 times per keystroke. The merged list is now cached behind a cheap signature of its
+    /// inputs (ids, names, avatars, hidden set), so repeat calls are a hash pass instead of a rebuild + sort.
+    nonisolated(unsafe) private static var cache: (signature: Int, contacts: [CallsContact])?
+
     static func all(_ app: AppEnvironment) -> [CallsContact] {
+        let session = app.profile.session(for: .me, handleHint: app.auth.account?.primaryHandle)
+        var hasher = Hasher()
+        for chat in app.messaging.conversations where chat.kind == .direct && chat.participants.count == 1 {
+            let p = chat.participants[0]
+            hasher.combine(chat.id); hasher.combine(p.id); hasher.combine(p.handle); hasher.combine(p.displayName); hasher.combine(p.avatarURL)
+        }
+        hasher.combine(-1)
+        for profile in session.following.items { hasher.combine(profile.id); hasher.combine(profile.displayName); hasher.combine(profile.avatarURL) }
+        hasher.combine(-2)
+        for profile in session.followers.items { hasher.combine(profile.id); hasher.combine(profile.displayName); hasher.combine(profile.avatarURL) }
+        hasher.combine(CallsLocalStore.shared.hiddenContacts)
+        let signature = hasher.finalize()
+        if let cache, cache.signature == signature {
+            ModulaSignpost.event("CallsDirectoryCacheHit")
+            return cache.contacts
+        }
+        let contacts = ModulaSignpost.measure("CallsDirectoryBuild") { build(app, session: session) }
+        cache = (signature, contacts)
+        return contacts
+    }
+
+    private static func build(_ app: AppEnvironment, session: ProfileSessionState) -> [CallsContact] {
         var byKey: [String: CallsContact] = [:]
         for chat in app.messaging.conversations where chat.kind == .direct && chat.participants.count == 1 {
             let p = chat.participants[0]
@@ -628,7 +655,6 @@ enum CallsDirectory {
             byKey[k] = CallsContact(id: k, personID: p.id, handle: p.handle, name: p.displayName.isEmpty ? "@\(p.handle)" : p.displayName,
                                     avatarURL: p.avatarURL, conversationID: chat.id)
         }
-        let session = app.profile.session(for: .me, handleHint: app.auth.account?.primaryHandle)
         let lists: [([ModulaProfile], Bool)] = [(session.following.items, true), (session.followers.items, false)]
         for (profiles, isFollowing) in lists {
             for profile in profiles {
@@ -1892,6 +1918,7 @@ struct CallsGreenCallButton: View {
 struct CallsKeypad: View {
     @Environment(AppEnvironment.self) private var app
     @AppStorage("calls.keypad.tones") private var tones = true
+    @Environment(\.accessibilityReduceMotion) private var keypadReduceMotion
     @State private var entry = ""
     @State private var handleMode = false
     @State private var working = false
@@ -1919,7 +1946,8 @@ struct CallsKeypad: View {
     }
     private var matchedContact: CallsContact? {
         if handleMode { return handleContacts.first { $0.handle.lowercased() == handleQuery } }
-        return t9.count == 1 ? t9.first : nil
+        let matches = t9
+        return matches.count == 1 ? matches.first : nil
     }
 
     var body: some View {
@@ -1976,6 +2004,9 @@ struct CallsKeypad: View {
             Text(entry.isEmpty ? " " : CallsKeypadFormat.format(entry))
                 .font(.system(size: 40, weight: .regular).monospacedDigit())
                 .foregroundStyle(.primary)
+                // Digits roll in/out as they're typed or deleted (instant under Reduce Motion).
+                .contentTransition(keypadReduceMotion ? .identity : .numericText(countsDown: false))
+                .animation(keypadReduceMotion ? nil : .snappy(duration: 0.18), value: entry)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
