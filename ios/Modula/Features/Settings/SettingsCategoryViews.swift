@@ -1106,6 +1106,9 @@ struct DeveloperSettingsHost: View {
                 CommunityDeveloperEntry()
                 Button("Module Studio") { app.navigation.open(.developer(.studio)) }
                     .accessibilityIdentifier("developer.settings.studio")
+                Button("Call Screens") { app.navigation.open(.developer(.callScreens)) }
+                    .accessibilityIdentifier("developer.settings.callScreens")
+                Button("Board") { app.navigation.open(.board) }
                 Button("Runtime") { app.navigation.open(.settings(.developer(.runtime))) }
                 Button("Modules") { app.navigation.open(.settings(.developer(.modules))) }
                 Button("Network") { app.navigation.open(.settings(.developer(.network))) }

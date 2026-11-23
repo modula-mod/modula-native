@@ -444,6 +444,7 @@ struct RouteView: View {
             DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
             #endif
         case .developer(.studio): DeveloperStudioView()
+        case .developer(.callScreens): CallScreensGallery()
         case .developer(let route): DevelopmentRouteView(title: route.rawValue.capitalized, symbol: "hammer")
         case .command:
             CommandCenterView(context: .global)
@@ -462,6 +463,8 @@ struct RouteView: View {
             CollectionDetailView(collectionID: id)
         case .drafts:
             DraftsView()
+        case .board:
+            BoardView()
         case .community(let route):
             CommunityRootView(route: route)
         }
