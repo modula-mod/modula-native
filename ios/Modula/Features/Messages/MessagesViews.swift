@@ -1518,8 +1518,7 @@ struct ConversationView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .overlay(alignment: .bottomTrailing) { flyOverlay }
-            .overlay { ChatScreenEffectOverlay().allowsHitTesting(false) }
+            .overlay(alignment: .bottomTrailing) { flyOverlayWithEffects }
             .background { keyboardShortcuts }
             .confirmationDialog(
                 "Unsend this message?",
@@ -2361,6 +2360,17 @@ struct ConversationView: View {
             try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 340))
             flyText = nil
             flyUp = false
+        }
+    }
+
+    @ViewBuilder
+    /// Fly-in text plus the keyword screen effects, as one overlay (keeps `body` cheap to type-check).
+    private var flyOverlayWithEffects: some View {
+        ZStack(alignment: .bottomTrailing) {
+            ChatScreenEffectOverlay()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
+            flyOverlay
         }
     }
 
