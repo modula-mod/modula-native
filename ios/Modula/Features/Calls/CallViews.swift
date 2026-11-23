@@ -3253,6 +3253,8 @@ struct ModulaNumberSheet: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var heroScheme
+    private var heroScrim: Color { heroScheme == .dark ? Color(hex: "#05040C") : Color(hex: "#F6F5FB") }
     @State private var refreshing = false
     @State private var confirmBlockRefresh = false
     @State private var showsQR = false
@@ -3354,18 +3356,24 @@ struct ModulaNumberSheet: View {
             }
             ModulaNumberDigits(number: store.number, hidden: store.hidden, dimmed: !store.enabled, glow: glow)
             Text("Share it instead of your handle. It's a Modula number for chats and calls, not a phone number.")
-                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .font(.footnote).foregroundStyle(.primary.opacity(0.78)).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 24)
         .padding(.horizontal, 18)
         .frame(maxWidth: .infinity)
         .background {
-            SpectralDrapeView(accent: app.appearance.liveAccent, interactive: false)
-                .opacity(0.38)
-                .overlay(Color.black.opacity(0.18))
-                .clipShape(shape)
-                .accessibilityHidden(true)
+            ZStack {
+                SpectralRibbonsView(accent: app.appearance.liveAccent, intensity: 0.75)
+                // Legibility band behind the digits and caption (soft, no hard edge).
+                LinearGradient(stops: [.init(color: .clear, location: 0),
+                                       .init(color: heroScrim.opacity(0.55), location: 0.32),
+                                       .init(color: heroScrim.opacity(0.6), location: 0.78),
+                                       .init(color: .clear, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            }
+            .clipShape(shape)
+            .accessibilityHidden(true)
         }
         .modulaGlass(in: shape, interactive: false)
         .clipShape(shape)

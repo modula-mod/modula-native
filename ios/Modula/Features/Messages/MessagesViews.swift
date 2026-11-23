@@ -5239,6 +5239,19 @@ enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// 3×3 mesh palettes, muted, with separate light and dark variants so bubbles stay legible.
+    /// Highlight hue for the sheen on still wallpapers.
+    var sheen: Color {
+        switch self {
+        case .graphite: Color(hex: "#9AA3B2")
+        case .dusk: Color(hex: "#A77BFF")
+        case .ocean: Color(hex: "#4FB3E8")
+        case .meadow: Color(hex: "#5FCF8A")
+        case .sand: Color(hex: "#E8C38A")
+        case .ember: Color(hex: "#FF8A5C")
+        default: Color.white
+        }
+    }
+
     func mesh(dark: Bool) -> [Color] {
         func h(_ hex: String) -> Color { Color(hex: hex) }
         switch (self, dark) {
@@ -5309,13 +5322,10 @@ struct MessagesWallpaperSurface: View {
             case .none:
                 Color.clear
             case .spectral:
-                if animated {
-                    ModulaAuthBackdrop(calm: true)
-                } else {
-                    LinearGradient(colors: dark ? [Color(hex: "#05090D"), Color(hex: "#1B2A3A"), Color(hex: "#2A1838")]
-                                                : [Color(hex: "#EEF1F8"), Color(hex: "#D9E4F5"), Color(hex: "#EBDDF3")],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                }
+                // Fills the thread, preview and tile edge to edge; tiles draw one still frame.
+                SpectralRibbonsView(intensity: 0.8, animated: animated)
+                // A light veil so bubbles and timestamps stay easy to read.
+                (dark ? Color.black : Color.white).opacity(dark ? 0.18 : 0.22)
             case .photo:
                 ChatWallpaperPhoto(key: photoKey, revision: revision)
                     .blur(radius: blur, opaque: true)
@@ -5324,6 +5334,12 @@ struct MessagesWallpaperSurface: View {
                 MeshGradient(width: 3, height: 3,
                              points: [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.55, 0.45], [1, 0.5], [0, 1], [0.5, 1], [1, 1]],
                              colors: theme.mesh(dark: dark))
+                // Depth instead of a flat wash: a soft sheen top-left and a gentle edge falloff,
+                // both proportional to the box so tiles, preview and thread match.
+                EllipticalGradient(colors: [theme.sheen.opacity(dark ? 0.22 : 0.30), .clear],
+                                   center: UnitPoint(x: 0.22, y: 0.18), startRadiusFraction: 0, endRadiusFraction: 0.75)
+                EllipticalGradient(colors: [.clear, .clear, Color.black.opacity(dark ? 0.35 : 0.06)],
+                                   center: .center, startRadiusFraction: 0, endRadiusFraction: 0.8)
             }
             // Reduce Transparency: a flat veil so text never sits on busy art.
             if reduceTransparency, theme != .none {

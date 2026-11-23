@@ -179,3 +179,137 @@ fileprivate final class DrapeRenderer: NSObject, MTKViewDelegate {
         simd_float4x4(columns: (SIMD4(cos(a), 0, -sin(a), 0), SIMD4(0, 1, 0, 0), SIMD4(sin(a), 0, cos(a), 0), SIMD4(0, 0, 0, 1)))
     }
 }
+
+// MARK: - Spectral ribbons (Canvas, fills any box) — t236u
+
+/// Silky "Spectral" ribbons (Apple Spectral wallpaper feel) drawn with Canvas.
+/// Always fills its container edge to edge: geometry is computed in unit space and scaled to
+/// the bounds, lines run past both edges, and a vignette fades every edge, so there is never
+/// a cropped blob or hard cut. Slow 20 fps drift; a static frame for Reduce Motion, Low Power,
+/// background or off-screen. Decorative only.
+struct SpectralRibbonsView: View {
+    var accent: Color = .purple
+    /// 0…1: how bright the ribbons draw. Lower behind text.
+    var intensity: Double = 1
+    /// False for thumbnails: one static frame, no timeline.
+    var animated = true
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var phase
+    @State private var visible = false
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    private var running: Bool { animated && !reduceMotion && !lowPower && phase == .active && visible }
+
+    var body: some View {
+        let dark = scheme == .dark
+        let palette = SpectralRibbonPalette(accent: accent, dark: dark)
+        ZStack {
+            LinearGradient(colors: palette.base, startPoint: .top, endPoint: .bottom)
+            // Static blooms (no per-frame cost) give the ribbons a soft glow to sit in.
+            EllipticalGradient(colors: [palette.bloom.opacity(dark ? 0.55 : 0.35), .clear],
+                               center: UnitPoint(x: 0.25, y: 0.42), startRadiusFraction: 0, endRadiusFraction: 0.6)
+            EllipticalGradient(colors: [palette.bloom2.opacity(dark ? 0.40 : 0.28), .clear],
+                               center: UnitPoint(x: 0.85, y: 0.65), startRadiusFraction: 0, endRadiusFraction: 0.55)
+            if animated {
+                TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: !running)) { context in
+                    canvas(time: running ? context.date.timeIntervalSinceReferenceDate : Self.stillTime,
+                           palette: palette, dark: dark)
+                }
+            } else {
+                canvas(time: Self.stillTime, palette: palette, dark: dark)
+            }
+            // Vignette: every edge fades into the base, so nothing ends on a hard line.
+            // Proportional to the box, so small cards fade as softly as full screens.
+            EllipticalGradient(colors: [.clear, .clear, palette.base[1].opacity(dark ? 0.85 : 0.65)],
+                               center: .center, startRadiusFraction: 0, endRadiusFraction: 0.72)
+        }
+        .clipped()
+        .onAppear { visible = true }
+        .onDisappear { visible = false }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private static let stillTime: TimeInterval = 42
+
+    private func canvas(time: TimeInterval, palette: SpectralRibbonPalette, dark: Bool) -> some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { ctx, size in
+            guard size.width > 1, size.height > 1 else { return }
+            let t = time.truncatingRemainder(dividingBy: 10_000) * 0.11
+            if dark { ctx.blendMode = .plusLighter }
+            let w = size.width, h = size.height
+            // Scale bands with the box's area so wide cards and tall screens both look full.
+            let unit = (w * h).squareRoot() * 0.8
+            for ribbon in Self.ribbons {
+                let lines = ribbon.lines
+                let shading = GraphicsContext.Shading.linearGradient(
+                    Gradient(colors: palette.ribbon(ribbon.hue)),
+                    startPoint: CGPoint(x: 0, y: h * 0.2), endPoint: CGPoint(x: w, y: h * 0.8))
+                for i in 0..<lines {
+                    let f = Double(i) / Double(lines - 1)
+                    let centre = sin(f * .pi)
+                    var path = Path()
+                    let steps = 44
+                    for s in 0...steps {
+                        let u = -0.08 + 1.16 * Double(s) / Double(steps)
+                        let x = u * w
+                        let wave = sin(u * ribbon.k1 + t * ribbon.s1 + ribbon.p)
+                            + 0.55 * sin(u * ribbon.k2 - t * ribbon.s2 + f * 1.6)
+                        let pinch = 0.55 + 0.45 * sin(u * ribbon.k3 + t * 0.7 + ribbon.p * 2)
+                        let y = h * ribbon.y
+                            + unit * ribbon.amp * wave
+                            + unit * ribbon.width * (f - 0.5) * pinch
+                        if s == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+                    }
+                    var line = ctx
+                    line.opacity = (0.10 + 0.55 * centre) * intensity * (dark ? 1 : 0.85)
+                    line.stroke(path, with: shading, lineWidth: 0.7 + 0.5 * centre)
+                }
+            }
+        }
+    }
+
+    private struct Ribbon {
+        var y: Double, amp: Double, width: Double
+        var k1: Double, k2: Double, k3: Double
+        var s1: Double, s2: Double, p: Double
+        var hue: Int, lines: Int
+    }
+
+    private static let ribbons: [Ribbon] = [
+        Ribbon(y: 0.40, amp: 0.10, width: 0.34, k1: 4.2, k2: 7.1, k3: 3.3, s1: 1.0, s2: 0.6, p: 0.0, hue: 0, lines: 26),
+        Ribbon(y: 0.62, amp: 0.08, width: 0.26, k1: 3.4, k2: 6.0, k3: 4.1, s1: 0.8, s2: 0.9, p: 1.7, hue: 1, lines: 20),
+        Ribbon(y: 0.24, amp: 0.06, width: 0.18, k1: 5.0, k2: 8.3, k3: 2.6, s1: 0.6, s2: 0.5, p: 3.1, hue: 2, lines: 14)
+    ]
+}
+
+struct SpectralRibbonPalette {
+    let base: [Color]
+    let bloom: Color
+    let bloom2: Color
+    private let hues: [[Color]]
+
+    init(accent: Color, dark: Bool) {
+        if dark {
+            base = [Color(hex: "#07060F"), Color(hex: "#03030A")]
+            bloom = Color(hex: "#3B2A8F")
+            bloom2 = Color(hex: "#123A5C")
+            hues = [[Color(hex: "#7B5CFF"), Color(hex: "#C9B8FF"), Color(hex: "#5AC8FA")],
+                    [Color(hex: "#5AC8FA"), Color(hex: "#9F7BFF"), Color(hex: "#FF8AD8")],
+                    [accent, Color(hex: "#E4DBFF"), Color(hex: "#7B5CFF")]]
+        } else {
+            base = [Color(hex: "#F6F5FB"), Color(hex: "#ECEAF6")]
+            bloom = Color(hex: "#C9BCFF")
+            bloom2 = Color(hex: "#B8E3FF")
+            hues = [[Color(hex: "#5B3FE0"), Color(hex: "#8E7BF0"), Color(hex: "#2F8FD8")],
+                    [Color(hex: "#2F8FD8"), Color(hex: "#6E54E8"), Color(hex: "#D05AB0")],
+                    [accent, Color(hex: "#7A66E0"), Color(hex: "#4A3BC8")]]
+        }
+    }
+
+    func ribbon(_ i: Int) -> [Color] { hues[i % hues.count] }
+}
