@@ -954,6 +954,13 @@ struct PrivacySafetySettingsPage: View {
                         Picker("Lock Backdrop", selection: $lockBackdrop) {
                             Text("Aurora").tag("aurora")
                             Text("Spectral Drape").tag("drape")
+                            Section("Nature") {
+                                Text("Northern Lights").tag("nature.aurora")
+                                Text("Starry Night").tag("nature.starry")
+                                Text("Snow").tag("nature.snow")
+                                Text("Ocean Waves").tag("nature.waves")
+                                Text("Fireflies").tag("nature.fireflies")
+                            }
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
