@@ -16,6 +16,8 @@ struct ReelTikTokRail: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var following = false
     @State private var followBusy = false
+    /// Brief "followed" confirmation: the + morphs into a checkmark, then the badge leaves.
+    @State private var justFollowed = false
 
     var body: some View {
         // One white SF Symbol family, same size/weight/shadow, count under each (TikTok spacing).
@@ -71,24 +73,31 @@ struct ReelTikTokRail: View {
                     followBusy = true
                     Task {
                         let ok = await app.profile.follow(profileID: reel.creator.id, handle: reel.creator.handle)
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { following = ok }
                         followBusy = false
-                        if ok { HapticEngine.shared.play(.followComplete) }
+                        guard ok else { return }
+                        HapticEngine.shared.play(.followComplete)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { justFollowed = true }
+                        try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 850))
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { following = true }
                     }
                 } label: {
                     // White badge, black glyph (never accent/coral). Hit area padded to 44 pt.
-                    Image(systemName: "plus")
+                    Image(systemName: justFollowed ? "checkmark" : "plus")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.black)
+                        .contentTransition(.symbolEffect(.replace))
                         .frame(width: 22, height: 22)
                         .background(Circle().fill(.white))
+                        .scaleEffect(justFollowed && !reduceMotion ? 1.12 : 1)
                         .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         .frame(width: 44, height: 44)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .offset(y: 21)
-                .accessibilityLabel("Follow \(reel.creator.displayName)")
+                .transition(.scale(scale: 0.3).combined(with: .opacity))
+                .disabled(justFollowed)
+                .accessibilityLabel(justFollowed ? "Following \(reel.creator.displayName)" : "Follow \(reel.creator.displayName)")
                 .accessibilityIdentifier("reels.follow")
             }
         }

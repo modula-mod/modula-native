@@ -60,8 +60,10 @@ struct SearchScreen: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 scopeChips
-                if !typeahead.isEmpty {
-                    typeaheadRow
+                // Computed once per pass (it reads recents from disk); was evaluated twice.
+                let suggestions = typeahead
+                if !suggestions.isEmpty {
+                    typeaheadRow(suggestions)
                 }
                 if chromeScope == .moliboos {
                     molibooResults(limit: nil)
@@ -136,6 +138,8 @@ struct SearchScreen: View {
 
     @ViewBuilder private var results: some View {
         let state = app.discover.search
+        // One filter/order pass per render (it used to run for the empty check and again for the list).
+        let visible = visibleResults
         switch state.loadState {
         case .loading where state.results.isEmpty:
             ProgressView("Searching…").frame(maxWidth: .infinity, minHeight: 180)
@@ -143,7 +147,7 @@ struct SearchScreen: View {
             ModulaErrorState(message: message) {
                 Task { await app.discover.performSearch(query: query, section: chromeScope.section) }
             }
-        case _ where visibleResults.isEmpty:
+        case _ where visible.isEmpty:
             VStack(spacing: 14) {
                 ModulaEmptyState(title: "No results for “\(query)”", message: "Check the spelling or try a broader search.", symbol: "magnifyingglass")
                     .frame(minHeight: 200)
@@ -157,8 +161,11 @@ struct SearchScreen: View {
             }
         default:
             LazyVStack(alignment: .leading, spacing: 12) {
-                ForEach(visibleResults) { hit in
+                resultCount(visible.count, more: state.nextCursor != nil)
+                ForEach(Array(visible.enumerated()), id: \.element.id) { index, hit in
                     searchRow(hit)
+                        // Light stagger for the first screenful; Reduce Motion shows them at once.
+                        .modulaAppear(delay: Double(min(index, 8)) * 0.035)
                 }
                 if state.nextCursor != nil {
                     Button("Load more") {
@@ -169,6 +176,22 @@ struct SearchScreen: View {
                 }
             }
         }
+    }
+
+    private func resultCount(_ count: Int, more: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text("\(count)\(more ? "+" : "")")
+                .monospacedDigit()
+                .contentTransition(.numericText(value: Double(count)))
+            Text(count == 1 && !more ? "result" : "results")
+            if chromeScope != .all { Text("in \(chromeScope.title)").foregroundStyle(.tertiary) }
+            Spacer(minLength: 0)
+        }
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .animation(reduceMotion ? nil : .snappy, value: count)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("search.count")
     }
 
     private var visibleResults: [SearchHit] {
@@ -401,10 +424,10 @@ struct SearchScreen: View {
         .accessibilityIdentifier("search.saved")
     }
 
-    private var typeaheadRow: some View {
+    private func typeaheadRow(_ items: [String]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(typeahead, id: \.self) { item in
+                ForEach(items, id: \.self) { item in
                     Button {
                         query = item
                         DiscoverSearchRecents.record(item)

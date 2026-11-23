@@ -783,6 +783,8 @@ struct ActivityClusterFeed: View {
                 if !foldedSections.contains(group.section) {
                 ForEach(group.clusters) { cluster in
                     row(cluster)
+                        // Fold/unfold slides rows in from their header instead of popping.
+                        .transition(calm ? .opacity : .opacity.combined(with: .offset(y: -8)))
                     if cluster.expandsInline && expanded.contains(cluster.id) {
                         expandedFollowers(cluster)
                     }
@@ -822,6 +824,7 @@ struct ActivityClusterFeed: View {
                     Image(systemName: "chevron.down")
                         .font(.caption2.weight(.bold))
                         .rotationEffect(.degrees(folded ? -90 : 0))
+                        .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.75), value: folded)
                         .foregroundStyle(.secondary)
                 }
                 .font(.subheadline.weight(.semibold))
@@ -830,7 +833,22 @@ struct ActivityClusterFeed: View {
                 .frame(minHeight: 30)
                 .modulaGlass(in: Capsule(), interactive: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+            // Long-press a section: read it all, or fold/unfold every section at once.
+            .contextMenu {
+                if unread > 0 {
+                    Button("Mark Section as Read", systemImage: "checkmark.circle") {
+                        onMarkRead(clusters.flatMap(\.events))
+                        HapticEngine.shared.play(.success)
+                    }
+                }
+                Button("Fold All Sections", systemImage: "rectangle.compress.vertical") {
+                    withAnimation(.snappy(duration: 0.3)) { foldedSections = Set(sections.map(\.section)) }
+                }
+                Button("Unfold All Sections", systemImage: "rectangle.expand.vertical") {
+                    withAnimation(.snappy(duration: 0.3)) { foldedSections = [] }
+                }
+            }
             .accessibilityLabel(folded ? "\(section.title), folded. Show" : "\(section.title). Fold")
             .accessibilityIdentifier("activity.section.\(section.rawValue)")
             if section == .new, unread > 0 {

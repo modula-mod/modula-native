@@ -1063,8 +1063,18 @@ struct ProfileView: View {
                 Text(" \(label)").font(.subheadline.weight(.medium)).foregroundStyle(Color.primary.opacity(0.72))
             }
             .monospacedDigit()
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+        // Long-press: the exact number behind "1.2K", with copy.
+        .contextMenu {
+            let exact = value.formatted(.number)
+            Text("\(exact) \(label)")
+            Button("Copy Number", systemImage: "doc.on.doc") {
+                UIPasteboard.general.string = exact
+                HapticEngine.shared.play(.confirmation)
+            }
+        }
         .accessibilityLabel("\(value) \(label)")
     }
 

@@ -954,6 +954,12 @@ struct ConversationListView: View {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
         }
+        if conversation.participants.count == 1, let handle = conversation.participants.first?.handle, !handle.isEmpty {
+            Button("Copy @\(handle.hasPrefix("@") ? String(handle.dropFirst()) : handle)", systemImage: "at") {
+                UIPasteboard.general.string = handle.hasPrefix("@") ? handle : "@\(handle)"
+                HapticEngine.shared.play(.confirmation)
+            }
+        }
         if let body = conversation.lastMessage?.body, !body.isEmpty {
             Button("Copy Last Message", systemImage: "text.bubble") {
                 UIPasteboard.general.string = body

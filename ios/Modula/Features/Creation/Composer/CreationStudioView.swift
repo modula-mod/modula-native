@@ -830,7 +830,17 @@ struct CreationStudioView: View {
         switch store.draft.kind {
         case .story: "Add text"
         case .reel: "Caption"
-        default: "What's happening?"
+        default: Self.timelyPrompt
+        }
+    }
+
+    /// A gentle prompt that follows the time of day.
+    private static var timelyPrompt: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: "Good morning. What's on today?"
+        case 12..<17: "What's happening?"
+        case 17..<22: "How did today go?"
+        default: "Up late? Share what's on your mind."
         }
     }
 

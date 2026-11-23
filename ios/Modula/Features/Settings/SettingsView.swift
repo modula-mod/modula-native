@@ -195,7 +195,7 @@ struct SettingsView: View {
                                 .frame(minHeight: 220)
                         }
                     } else {
-                        ForEach(groupedSearchItems, id: \.category) { group in
+                        ForEach(Array(groupedSearchItems.enumerated()), id: \.element.category) { gi, group in
                             SettingsGroup(title: group.category) {
                                 ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
                                     SettingsTileRow(title: item.title, subtitle: searchSubtitle(item, category: group.category), symbol: item.symbol) {
@@ -205,6 +205,7 @@ struct SettingsView: View {
                                     if index < group.items.count - 1 { SettingsDivider() }
                                 }
                             }
+                            .modulaAppear(delay: Double(min(gi, 5)) * 0.04)
                         }
                     }
                 } else if searchPresented {
@@ -582,7 +583,14 @@ struct SettingsView: View {
                 .padding(.leading, 4)
             TelegramSettingsCard { content() }
         }
+        // Sections rise in once, in reading order (first screenful only; none with Reduce Motion).
+        .modulaAppear(delay: Double(min(Self.sectionOrder.firstIndex(of: title) ?? 6, 6)) * 0.035)
     }
+
+    private static let sectionOrder = [
+        "Account & Membership", "Privacy & Security", "Appearance & Accessibility",
+        "Notifications & Communication", "Content, Social & Activity", "Modules & Intelligence",
+    ]
 
     /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).
     private func tinted(_ title: String, _ symbol: String, _ tint: Color, _ route: SettingsRoute) -> some View {
