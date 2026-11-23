@@ -84,10 +84,12 @@ struct SavedView: View {
                 if shown.isEmpty {
                     Text("No saved posts match “\(query)”.").foregroundStyle(.secondary)
                 }
-                ForEach(shown) { post in
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, post in
                     SavedPostRow(post: app.posts.resolved(post)) {
                         Task { await app.saved.unsave(postID: post.id, postActions: app.postActions) }
                     }
+                    // Light stagger for the first screenful only.
+                    .modulaAppear(delay: Double(min(index, 8)) * 0.03)
                 }
                 if app.saved.hasMore, query.isEmpty {
                     ProgressView()

@@ -97,24 +97,40 @@ extension HapticSemantic {
     static let shared = HapticEngine()
     var intensityProvider: () -> AppearanceStore.HapticIntensity = { .standard }
 
+    // Reused, pre-warmed generators: allocating one per tap spun the Taptic Engine up cold
+    // every time (visible latency on fast selection haptics such as scrubbing or jiggle swaps).
+    private let selection = UISelectionFeedbackGenerator()
+    private let light = UIImpactFeedbackGenerator(style: .light)
+    private let medium = UIImpactFeedbackGenerator(style: .medium)
+    private let heavy = UIImpactFeedbackGenerator(style: .heavy)
+    private let soft = UIImpactFeedbackGenerator(style: .soft)
+    private let notification = UINotificationFeedbackGenerator()
+
     func play(_ semantic: HapticSemantic) {
         let intensity = intensityProvider()
         guard intensity != .off else { return }
         switch semantic {
         case .selection, .reactionSelect:
-            UISelectionFeedbackGenerator().selectionChanged()
+            selection.selectionChanged()
+            selection.prepare()
         case .navigation, .contextOpen, .lightImpact:
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            light.impactOccurred()
+            light.prepare()
         case .mediumImpact, .impact, .dragThreshold:
-            UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .light ? .light : .medium).impactOccurred()
+            let g = intensity == .strong ? heavy : intensity == .light ? light : medium
+            g.impactOccurred()
+            g.prepare()
         case .drop:
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            soft.impactOccurred()
+            soft.prepare()
         case .saveComplete:
             ModulaHapticTexture.play(.save)
         case .confirmation, .success, .followComplete:
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            notification.notificationOccurred(.success)
+            notification.prepare()
         case .warning:
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            notification.notificationOccurred(.warning)
+            notification.prepare()
         case .failure:
             ModulaHapticTexture.play(.error)
         }

@@ -539,6 +539,13 @@ enum BoardWidgetRegistry {
     static let declared: [ModuleWidgetManifest] = []
 }
 
+struct BoardStopwatchState: Codable, Equatable, Sendable {
+    var started: Date?
+    var elapsed: TimeInterval = 0
+    var laps: [TimeInterval] = []
+    func total(at date: Date) -> TimeInterval { elapsed + (started.map { date.timeIntervalSince($0) } ?? 0) }
+}
+
 /// Persists the Board on this iPhone and tracks a light, local activity signal.
 @MainActor @Observable
 final class BoardStore {
@@ -617,6 +624,25 @@ final class BoardStore {
     }
 
     func reset() { mutate { $0 = .default } }
+
+    // MARK: Stopwatches (model state, so edit mode / page swipes / relaunch don't reset them)
+
+    private static let stopwatchKey = "board.stopwatch.v1"
+    private(set) var stopwatches: [String: BoardStopwatchState] = {
+        guard let data = UserDefaults.standard.data(forKey: BoardStore.stopwatchKey),
+              let saved = try? JSONDecoder().decode([String: BoardStopwatchState].self, from: data) else { return [:] }
+        return saved
+    }()
+
+    func stopwatch(_ id: String) -> BoardStopwatchState { stopwatches[id] ?? BoardStopwatchState() }
+
+    func setStopwatch(_ id: String, _ state: BoardStopwatchState) {
+        stopwatches[id] = state
+        // Drop state for widgets that no longer exist.
+        let live = Set(layout.pages.flatMap(\.widgets).map(\.id))
+        stopwatches = stopwatches.filter { live.contains($0.key) || $0.key == id }
+        if let data = try? JSONEncoder().encode(stopwatches) { UserDefaults.standard.set(data, forKey: Self.stopwatchKey) }
+    }
 
     // MARK: Local activity (minutes in Modula today) and day streak
 
@@ -816,7 +842,7 @@ struct BoardWidgetView: View {
             case .quickActions: BoardQuickActions(size: size)
             case .modules: BoardModulesFace(size: size)
             case .countdown: BoardCountdownFace(size: size, title: widget.setting("title", "Weekend"), target: widget.setting("date", ""))
-            case .stopwatch: BoardStopwatchFace(size: size)
+            case .stopwatch: BoardStopwatchFace(size: size, widgetID: widget.id)
             case .callsFavourites: BoardFavouritesFace(size: size)
             case .connectNumber: BoardConnectFace(size: size)
             case .weather, .nowPlaying, .photos: BoardGatedFace(kind: shownKind, size: size)
@@ -1333,7 +1359,48 @@ struct BoardNotesFace: View {
 
 struct BoardMolibooFace: View {
     let size: BoardWidgetSize
+    @State private var pets = 0
+    @State private var bounce = false
+    @State private var reaction: String?
+    private static let reactions = ["Hehe!", "More pats!", "♥", "Yay!", "That tickles!", "Best day!"]
+
     var body: some View {
+        face
+            .scaleEffect(bounce ? 1.08 : 1, anchor: .bottom)
+            .animation(.spring(response: 0.22, dampingFraction: 0.42), value: bounce)
+            .overlay(alignment: .top) {
+                if let reaction {
+                    Text(reaction)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(Color.white))
+                        .foregroundStyle(.black)
+                        .padding(.top, 10)
+                        .transition(.scale(scale: 0.5, anchor: .bottom).combined(with: .opacity))
+                        .id(reaction + "\(pets)")
+                }
+            }
+            .contentShape(Rectangle())
+            // Pet Moliboo: a 2D bounce, a haptic and a little speech bubble.
+            .onTapGesture {
+                pets += 1
+                bounce = true
+                HapticEngine.shared.play(.lightImpact)
+                let line = Self.reactions.randomElement() ?? "♥"
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { reaction = line }
+                let count = pets
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(140))
+                    bounce = false
+                    try? await Task.sleep(for: .milliseconds(1000))
+                    if pets == count { withAnimation(.easeOut(duration: 0.25)) { reaction = nil } }
+                }
+            }
+            .accessibilityAction(named: "Pet Moliboo") { pets += 1; HapticEngine.shared.play(.lightImpact) }
+    }
+
+    @ViewBuilder
+    private var face: some View {
         let hour = Calendar.current.component(.hour, from: Date())
         let line = HomeMolibooGreeting.mood(hour: hour, streak: MascotProgressStore.shared.streak)
         switch BoardFamily(size) {
@@ -1750,13 +1817,20 @@ struct BoardCountdownFace: View {
 
 struct BoardStopwatchFace: View {
     let size: BoardWidgetSize
-    @State private var started: Date?
-    @State private var elapsed: TimeInterval = 0
-    @State private var laps: [TimeInterval] = []
+    var widgetID: String = ""
+    private var state: BoardStopwatchState { BoardStore.shared.stopwatch(widgetID) }
+    private var started: Date? { state.started }
+    private var laps: [TimeInterval] { state.laps }
+
+    private func update(_ change: (inout BoardStopwatchState) -> Void) {
+        var next = state
+        change(&next)
+        withAnimation(.snappy) { BoardStore.shared.setStopwatch(widgetID, next) }
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: started == nil ? 60 : 0.1)) { ctx in
-            let total = elapsed + (started.map { ctx.date.timeIntervalSince($0) } ?? 0)
+            let total = state.total(at: ctx.date)
             let family = BoardFamily(size)
             Group {
                 switch family {
@@ -1807,7 +1881,7 @@ struct BoardStopwatchFace: View {
     @ViewBuilder
     private func controls(_ total: TimeInterval, _ d: CGFloat) -> some View {
         Button {
-            if started != nil { laps.insert(total, at: 0) } else { elapsed = 0; laps = [] }
+            if started != nil { update { $0.laps.insert(total, at: 0) } } else { update { $0.elapsed = 0; $0.laps = [] } }
             HapticEngine.shared.play(.selection)
         } label: {
             Image(systemName: started != nil ? "flag.fill" : "arrow.counterclockwise").font(.system(size: d * 0.36, weight: .semibold))
@@ -1826,7 +1900,9 @@ struct BoardStopwatchFace: View {
     }
 
     private func toggle() {
-        if let s = started { elapsed += Date().timeIntervalSince(s); started = nil } else { started = Date() }
+        update { st in
+            if let s = st.started { st.elapsed += Date().timeIntervalSince(s); st.started = nil } else { st.started = Date() }
+        }
     }
 
     static func format(_ t: TimeInterval) -> String {
@@ -1844,7 +1920,8 @@ struct BoardView: View {
     @Environment(\.colorScheme) private var systemScheme
     private var store: BoardStore { BoardStore.shared }
     @State private var editing = false
-    @State private var page = 0
+    // Reopens on the page you last looked at.
+    @AppStorage("board.lastPage") private var page = 0
     @State private var showsGallery = false
     @State private var configuringID: BoardConfigTarget?
     @State private var renaming = false
@@ -1900,7 +1977,10 @@ struct BoardView: View {
         .onChange(of: store.layout.pages.count) { _, count in
             if page >= count { page = max(0, count - 1) }
         }
-        .onAppear { store.appBecameActive() }
+        .onAppear {
+            if page >= store.layout.pages.count { page = 0 }
+            store.appBecameActive()
+        }
         .onChange(of: phase) { _, p in
             if p == .active { store.appBecameActive() } else if p == .background { store.appResigned() }
         }

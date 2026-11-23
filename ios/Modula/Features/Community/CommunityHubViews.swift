@@ -35,8 +35,11 @@ struct CommunityHubView: View {
     let route: CommunityRoute
     @Environment(AppEnvironment.self) private var app
     @State private var query = ""
+    @State private var topic: String?
+    @AppStorage("community.directory.sort") private var sortRaw = CommunityDirectorySort.relevant.rawValue
 
     private var scope: CommunityHubScope { route.hubScope ?? .forYou }
+    private var sort: CommunityDirectorySort { CommunityDirectorySort(rawValue: sortRaw) ?? .relevant }
     private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
@@ -131,6 +134,7 @@ struct CommunityHubView: View {
             if scope == .topics {
                 categoryRail
             }
+            directoryHeader
             LazyVStack(spacing: 12) {
                 ForEach(visibleCommunities) { community in
                     CommunityDirectoryCard(community: community) { open(community) }
@@ -148,13 +152,51 @@ struct CommunityHubView: View {
     }
 
     private var visibleCommunities: [CommunitySummary] {
+        var list: [CommunitySummary]
         switch scope {
         case .forYou:
             let featured = app.communities.communities.filter(\.featured)
-            return featured.isEmpty ? app.communities.communities : featured
+            list = featured.isEmpty ? app.communities.communities : featured
         default:
-            return app.communities.communities
+            list = app.communities.communities
         }
+        if scope == .topics, let topic { list = list.filter { $0.category == topic } }
+        // Client-side order over the loaded page (the directory endpoint has no sort parameter).
+        switch sort {
+        case .relevant: break
+        case .members: list.sort { $0.memberCount > $1.memberCount }
+        case .active: list.sort { ($0.recentActivityAt ?? .distantPast) > ($1.recentActivityAt ?? .distantPast) }
+        case .name: list.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+        return list
+    }
+
+    private var directoryHeader: some View {
+        let count = visibleCommunities.count
+        return HStack(spacing: 8) {
+            Text("\(count) \(count == 1 ? "community" : "communities")")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+            Spacer(minLength: 8)
+            Menu {
+                Picker("Sort", selection: Binding(get: { sort }, set: { v in withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { sortRaw = v.rawValue } })) {
+                    ForEach(CommunityDirectorySort.allCases) { option in
+                        Label(option.title, systemImage: option.symbol).tag(option)
+                    }
+                }
+            } label: {
+                Label(sort.title, systemImage: "arrow.up.arrow.down")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 36)
+                    .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .accessibilityLabel("Sort communities, \(sort.title)")
+            .accessibilityIdentifier("community.sort")
+        }
+        .animation(.snappy, value: count)
     }
 
     private var categoryRail: some View {
@@ -162,11 +204,24 @@ struct CommunityHubView: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { category in
-                    Text(category)
-                        .font(.subheadline.weight(.semibold))
+                    let on = topic == category
+                    Button {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { topic = on ? nil : category }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        HStack(spacing: 5) {
+                            if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).transition(.scale.combined(with: .opacity)) }
+                            Text(category).font(.subheadline.weight(.semibold)).fixedSize()
+                        }
+                        .foregroundStyle(on ? Color.modulaOnPrimary : .primary)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 40)
-                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                        .background { if on { Capsule().fill(Color.modulaPrimaryFill) } }
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                    .modulaGlass(in: Capsule(), interactive: true, specular: true)
+                    .accessibilityAddTraits(on ? .isSelected : [])
                 }
             }
         }
@@ -672,5 +727,28 @@ struct CommunityScenicCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
         .shadow(color: accent.opacity(0.2), radius: 16, y: 8)
+    }
+}
+
+
+/// Directory order (applied to the loaded page on device).
+enum CommunityDirectorySort: String, CaseIterable, Identifiable {
+    case relevant, members, active, name
+    var id: Self { self }
+    var title: String {
+        switch self {
+        case .relevant: "Relevant"
+        case .members: "Most members"
+        case .active: "Recently active"
+        case .name: "A–Z"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .relevant: "sparkles"
+        case .members: "person.3"
+        case .active: "clock"
+        case .name: "textformat"
+        }
     }
 }
