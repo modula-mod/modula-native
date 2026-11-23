@@ -1685,14 +1685,15 @@ enum MessagingArchiveSnapshotStore {
 }
 
 enum MessageThreadSearchScope: String, CaseIterable, Identifiable, Sendable {
-    case all, from, links, images, starred
+    case all, from, links, images, voice, starred
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: "All"
         case .from: "From"
         case .links: "Links"
-        case .images: "Images"
+        case .images: "Photos"
+        case .voice: "Voice"
         case .starred: "Starred"
         }
     }
@@ -1713,6 +1714,8 @@ enum MessageThreadSearchScope: String, CaseIterable, Identifiable, Sendable {
         case .images:
             guard let url, case .image = MessageInlineContent.classify(url) else { return false }
             return q.isEmpty || text.contains(q)
+        case .voice:
+            return message.kind == .voice && !message.isDeleted && (q.isEmpty || hasText)
         case .starred:
             return starredIDs.contains(message.id) && (q.isEmpty || hasText)
         }

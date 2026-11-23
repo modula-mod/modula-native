@@ -79,13 +79,14 @@ enum MessageDeliveryTicks {
 // MARK: - Inbox search refinement (loaded chats only)
 
 enum InboxSearchKind: String, CaseIterable, Identifiable {
-    case all, links, images, starred
+    case all, links, images, voice, starred
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: "All"
         case .links: "Links"
-        case .images: "Images"
+        case .images: "Photos"
+        case .voice: "Voice"
         case .starred: "Starred"
         }
     }
@@ -105,6 +106,9 @@ enum InboxSearchKind: String, CaseIterable, Identifiable {
             }
             if let body = conversation.lastMessage?.body, hit(body) { return true }
             return messages.contains { hit($0.body.text) }
+        case .voice:
+            if conversation.lastMessage?.kind == .voice { return true }
+            return messages.contains { $0.kind == .voice && !$0.isDeleted }
         case .starred:
             return messages.contains { starredIDs.contains($0.id) }
         }

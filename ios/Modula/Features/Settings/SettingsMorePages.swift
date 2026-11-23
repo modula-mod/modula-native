@@ -85,6 +85,7 @@ struct GesturesSettingsHost: View {
     @AppStorage("chat.screenEffects") private var chatScreenEffects = true
     @AppStorage(ModulaKeepAwake.reelsKey) private var keepAwakeReels = false
     @AppStorage(InboxSwipeAction.storageKey) private var inboxSwipe = InboxSwipeAction.readToggle.rawValue
+    @AppStorage(InboxSwipeAction.trailingKey) private var inboxSwipeLeft = ""
     @AppStorage(ModulaKeepAwake.readerKey) private var keepAwakeReader = false
     /// Double-tap a chat bubble to react with this ("" = your most recent reaction, else ❤️).
     @AppStorage("messages.doubleTapReaction") private var doubleTapReaction = ""
@@ -138,6 +139,12 @@ struct GesturesSettingsHost: View {
                     }
                     .tint(.primary)
                     .accessibilityIdentifier("settings.gestures.inboxSwipe")
+                    Picker("Swipe left on a chat", selection: $inboxSwipeLeft) {
+                        Label("Pin, Archive, Mute", systemImage: "square.stack").tag("")
+                        ForEach(InboxSwipeAction.allCases) { Label("\($0.title) first", systemImage: $0.symbol).tag($0.rawValue) }
+                    }
+                    .tint(.primary)
+                    .accessibilityIdentifier("settings.gestures.inboxSwipeLeft")
                 }
                 SettingsAPIFootnote(text: "Double-tap likes posts with photos or video. Swipe right on a chat bubble to quote it in your reply, or left to see its exact time. Double-tap a bubble to react. Shake to undo works in Modula’s text fields. Edge Picker options are in Appearance. Gesture Navigation: swipe in from the right edge on Home for your profile, from the left for the sidebar, and up on the tab bar for the Modules Dock; every swipe also has a button.")
             }

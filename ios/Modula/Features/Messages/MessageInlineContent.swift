@@ -13,12 +13,27 @@ enum MessageInlineContent: Equatable, Sendable {
 
     private static let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "gif", "webp", "heic", "avif"]
 
+    /// One shared detector (NSDataDetector matching is thread-safe) + a bounded memo: the inbox
+    /// filters, thread search scopes and every bubble render ask for the same strings repeatedly.
+    nonisolated(unsafe) private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    nonisolated(unsafe) private static var urlMemo: [String: URL?] = [:]
+    private static let memoLock = NSLock()
+
     static func firstURL(in text: String) -> URL? {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        // Cheap reject: no dot and no scheme, no web link.
+        guard text.contains(".") || text.contains("://"), let detector else { return nil }
+        memoLock.lock()
+        if let hit = urlMemo[text] { memoLock.unlock(); return hit }
+        memoLock.unlock()
         let range = NSRange(text.startIndex..., in: text)
-        return detector.matches(in: text, options: [], range: range)
+        let url = detector.matches(in: text, options: [], range: range)
             .compactMap(\.url)
             .first { $0.scheme == "https" || $0.scheme == "http" }
+        memoLock.lock()
+        if urlMemo.count > 600 { urlMemo.removeAll(keepingCapacity: true) }
+        urlMemo[text] = .some(url)
+        memoLock.unlock()
+        return url
     }
 
     static func classify(_ url: URL) -> MessageInlineContent {

@@ -71,6 +71,8 @@ struct MessagesRootView: View {
 
 struct ConversationListView: View {
     @AppStorage(InboxSwipeAction.storageKey) private var leadingSwipeRaw = InboxSwipeAction.readToggle.rawValue
+    /// "" = the standard Pin · Archive · Mute set; otherwise that action leads (and full-swipes).
+    @AppStorage(InboxSwipeAction.trailingKey) private var trailingSwipeRaw = ""
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Remembered across launches, so "Unread" stays on if that's how you triage.
@@ -765,34 +767,7 @@ struct ConversationListView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(conversation) }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            togglePin(conversation)
-                        } label: {
-                            Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
-                                  systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
-                        }
-                        .tint(.primary)
-                        if app.messaging.capabilities.archive {
-                            Button {
-                                Task { await app.messaging.archive(conversation.id) }
-                            } label: { Label("Archive", systemImage: "archivebox.fill") }
-                            .tint(.indigo)
-                        }
-                        if app.messaging.capabilities.mute {
-                            Button {
-                                Task { await app.messaging.toggleMute(conversation.id) }
-                            } label: {
-                                Label(conversation.isMuted ? "Unmute" : "Mute", systemImage: conversation.isMuted ? "bell.fill" : "bell.slash.fill")
-                            }
-                            .tint(.gray)
-                        } else if let person = conversation.participants.first {
-                            Button {
-                                app.navigation.push(.profile(person.id, .overview))
-                            } label: { Label("Profile", systemImage: "person.crop.circle") }
-                            .tint(.gray)
-                        }
-                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: InboxSwipeAction(rawValue: trailingSwipeRaw) != nil) { trailingSwipe(conversation) }
                     .contextMenu { contextMenu(conversation) }
                     .onAppear {
                         if conversation.id == lastID {
@@ -1016,10 +991,50 @@ struct ConversationListView: View {
         .accessibilityIdentifier("messages.requestsEntry")
     }
 
-    /// Settings › Gestures › "Swipe right on a chat": Read/Unread (default), Pin, Mute or Archive.
+    /// Settings › Gestures › "Swipe left on a chat": the standard set, or one action first (full swipe) then the rest.
     @ViewBuilder
+    private func trailingSwipe(_ conversation: Conversation) -> some View {
+        if let first = InboxSwipeAction(rawValue: trailingSwipeRaw) {
+            swipeButton(first, conversation)
+            ForEach([InboxSwipeAction.pin, .archive, .mute].filter { $0 != first }) { swipeButton($0, conversation) }
+        } else {
+                        Button {
+                            togglePin(conversation)
+                        } label: {
+                            Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
+                                  systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
+                        }
+                        .tint(.primary)
+                        if app.messaging.capabilities.archive {
+                            Button {
+                                Task { await app.messaging.archive(conversation.id) }
+                            } label: { Label("Archive", systemImage: "archivebox.fill") }
+                            .tint(.indigo)
+                        }
+                        if app.messaging.capabilities.mute {
+                            Button {
+                                Task { await app.messaging.toggleMute(conversation.id) }
+                            } label: {
+                                Label(conversation.isMuted ? "Unmute" : "Mute", systemImage: conversation.isMuted ? "bell.fill" : "bell.slash.fill")
+                            }
+                            .tint(.gray)
+                        } else if let person = conversation.participants.first {
+                            Button {
+                                app.navigation.push(.profile(person.id, .overview))
+                            } label: { Label("Profile", systemImage: "person.crop.circle") }
+                            .tint(.gray)
+                        }
+                            }
+    }
+
+    /// Settings › Gestures › "Swipe right on a chat": Read/Unread (default), Pin, Mute or Archive.
     private func leadingSwipe(_ conversation: Conversation) -> some View {
-        switch InboxSwipeAction(rawValue: leadingSwipeRaw) ?? .readToggle {
+        swipeButton(InboxSwipeAction(rawValue: leadingSwipeRaw) ?? .readToggle, conversation)
+    }
+
+    @ViewBuilder
+    private func swipeButton(_ action: InboxSwipeAction, _ conversation: Conversation) -> some View {
+        switch action {
         case .pin:
             Button { togglePin(conversation) } label: {
                 Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
@@ -1288,6 +1303,7 @@ struct ConversationRow: View {
     var draft: String? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.routeTransitionNamespace) private var routeTransitions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isGroup: Bool { conversation.kind == .group || conversation.participants.count > 1 }
@@ -1341,12 +1357,26 @@ struct ConversationRow: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if unread {
-                        Circle().fill(accent)
-                            .frame(width: 10, height: 10)
-                            .padding(.trailing, 4)
-                            .accessibilityHidden(true)
+                        // Count badge (2+) in the chat's theme colour; a dot for one / marked-unread.
+                        let tint = ChatThemePalette.accent(app.messaging.theme(for: conversation.id)) ?? accent
+                        Group {
+                            if conversation.unreadCount > 1 {
+                                Text(conversation.unreadCount > 99 ? "99+" : "\(conversation.unreadCount)")
+                                    .font(.caption2.weight(.bold)).monospacedDigit()
+                                    .foregroundStyle(tint == accent ? Color.modulaOnPrimary : .white)
+                                    .padding(.horizontal, 6).frame(minWidth: 20, minHeight: 20)
+                                    .background(Capsule().fill(tint))
+                                    .contentTransition(.numericText())
+                            } else {
+                                Circle().fill(tint).frame(width: 10, height: 10).padding(.trailing, 4)
+                            }
+                        }
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
+                        .accessibilityHidden(true)
                     }
                 }
+                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: conversation.unreadCount)
+                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: unread)
             }
         }
         .padding(.vertical, 2)
@@ -1362,15 +1392,22 @@ struct ConversationRow: View {
             return Text("Draft · ").fontWeight(.semibold).foregroundStyle(.secondary) + Text(MessagePreviewText.plain(draft))
         }
         if conversation.lastMessage?.kind == .voice {
-            let raw = "Voice note"
-            let body = Text(raw)
+            let body = Text(Image(systemName: "waveform")) + Text(" Voice note")
             if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
             return body
         }
         let raw = MessagePreviewText.plain(conversation.lastMessage?.body ?? "")
         if raw.isEmpty { return Text("No messages yet").italic() }
         // Roadmap #07: matched words are highlighted while searching.
-        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: Color.primary))
+        var body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: Color.primary))
+        // Content glyph: a photo link reads "📷 Photo", other links get a link glyph.
+        if let url = MessageInlineContent.firstURL(in: raw) {
+            if case .image = MessageInlineContent.classify(url), raw.trimmingCharacters(in: .whitespacesAndNewlines) == url.absoluteString {
+                body = Text(Image(systemName: "photo")) + Text(" Photo")
+            } else {
+                body = Text(Image(systemName: "link")) + Text(" ") + body
+            }
+        }
         if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
         if isGroup, let senderID = conversation.lastMessage?.senderID,
            let sender = conversation.participants.first(where: { $0.id == senderID }) {
@@ -3062,8 +3099,9 @@ struct MessageBubble: View {
                 }
                 if !message.isDeleted, message.kind == .voice, let attachment = message.voiceAttachment {
                     MessageVoicePlayer(attachment: attachment,
-                                       accent: message.isOwn ? ownInk : Color.primary,
-                                       glyph: message.isOwn ? (themeAccent ?? Color.modulaPrimaryFill) : Color.modulaOnPrimary)
+                                       // Incoming voice notes pick up the chat theme's accent for the play circle + waveform.
+                                       accent: message.isOwn ? ownInk : (themeAccent ?? Color.primary),
+                                       glyph: message.isOwn ? (themeAccent ?? Color.modulaPrimaryFill) : (themeAccent == nil ? Color.modulaOnPrimary : .white))
                         .padding(6)
                         .background { bubbleBackground }
                 }
@@ -7087,6 +7125,7 @@ struct BubbleRowKey: Equatable, Sendable {
 enum InboxSwipeAction: String, CaseIterable, Identifiable {
     case readToggle, pin, mute, archive
     static let storageKey = "messages.swipe.leading"
+    static let trailingKey = "messages.swipe.trailing"
     var id: String { rawValue }
     var title: String {
         switch self { case .readToggle: "Read / Unread"; case .pin: "Pin"; case .mute: "Mute"; case .archive: "Archive" }
