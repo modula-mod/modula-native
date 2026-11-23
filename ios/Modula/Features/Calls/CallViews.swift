@@ -788,6 +788,9 @@ struct CallsRecentsList: View {
     @State private var editing = false
     @State private var confirmClear = false
     @State private var detail: CallsContact?
+    @State private var noteFor: CallRecord?
+    @State private var noteText = ""
+    private var notes: CallNotesStore { CallNotesStore.shared }
 
     var body: some View {
         let items = app.calls.recents.filter { !missedOnly || CallCopy.isMissed($0) }
@@ -834,6 +837,17 @@ struct CallsRecentsList: View {
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button("Delete", systemImage: "trash", role: .destructive) { hide(group) }
                             }
+                            .swipeActions(edge: .leading) {
+                                Button("Note", systemImage: "note.text") { editNote(group.latest) }
+                                    .tint(.gray)
+                            }
+                            .contextMenu {
+                                Button(notes.note(for: group.latest.id) == nil ? "Add Note" : "Edit Note", systemImage: "note.text") { editNote(group.latest) }
+                                Button("Voice Call", systemImage: "phone") { CallsActions.call(group.latest.conversationID, kind: .audio, app: app) }
+                                Button("Video Call", systemImage: "video") { CallsActions.call(group.latest.conversationID, kind: .video, app: app) }
+                                Button("Message", systemImage: "message") { app.navigation.push(.messages(.conversation(group.latest.conversationID))) }
+                                Button("Delete", systemImage: "trash", role: .destructive) { hide(group) }
+                            }
                     }
                     .onDelete { offsets in for i in offsets { hide(groups[i]) } }
                 }
@@ -851,6 +865,21 @@ struct CallsRecentsList: View {
             }
         }
         .sheet(item: $detail) { contact in CallsContactCard(contact: contact) }
+        .alert("Call Note", isPresented: Binding(get: { noteFor != nil }, set: { if !$0 { noteFor = nil } }), presenting: noteFor) { record in
+            TextField("What was it about?", text: $noteText, axis: .vertical)
+            Button("Save") { notes.set(noteText, for: record.id); HapticEngine.shared.play(.success) }
+            if notes.note(for: record.id) != nil {
+                Button("Remove Note", role: .destructive) { notes.set("", for: record.id) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { record in
+            Text("Only you can see notes. Saved on this iPhone for your call with \(record.other.name).")
+        }
+    }
+
+    private func editNote(_ record: CallRecord) {
+        noteText = notes.note(for: record.id) ?? ""
+        noteFor = record
     }
 
     private func hide(_ group: CallsRecentGroup) {
@@ -874,6 +903,13 @@ struct CallsRecentsList: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        if let note = notes.note(for: record.id) {
+                            Label(note, systemImage: "note.text")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityLabel("Note: \(note)")
+                        }
                     }
                     Spacer(minLength: 8)
                     Text(timeLabel(record.createdAt))
@@ -3848,5 +3884,30 @@ struct ModulaNumberRefreshSheet: View {
         }
         .buttonStyle(.plain)
         .modulaGlass(in: Capsule(), interactive: true)
+    }
+}
+
+
+// MARK: - Call notes (local, t235u)
+
+@MainActor @Observable
+final class CallNotesStore {
+    static let shared = CallNotesStore()
+    private static let key = "calls.notes.v1"
+    private var notes: [String: String]
+
+    private init() {
+        notes = UserDefaults.standard.dictionary(forKey: Self.key) as? [String: String] ?? [:]
+    }
+
+    func note(for callID: String) -> String? {
+        guard let text = notes[callID], !text.isEmpty else { return nil }
+        return text
+    }
+
+    func set(_ text: String, for callID: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        notes[callID] = trimmed.isEmpty ? nil : String(trimmed.prefix(500))
+        UserDefaults.standard.set(notes, forKey: Self.key)
     }
 }
