@@ -1105,6 +1105,7 @@ struct AppearanceSettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(store.liveAccent)
             }
+            AccentLivePreview(accent: store.liveAccent)
             HStack(spacing: 12) {
                 ForEach(AppearanceStore.Accent.allCases) { accent in
                     let selected = store.customAccentHex == nil && store.accent == accent
@@ -2655,5 +2656,47 @@ struct SettingsDrapeBackdrop: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+
+// MARK: - Accent live preview (t235u)
+
+/// A small mock of where the accent shows (toggle, link, unread dot, progress, selected tab)
+/// so you can judge a colour before leaving Appearance.
+struct AccentLivePreview: View {
+    let accent: Color
+    @State private var on = true
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Circle().fill(accent).frame(width: 8, height: 8)
+                    Text("New message").font(.subheadline.weight(.semibold))
+                }
+                Text("Read more").font(.footnote.weight(.semibold)).foregroundStyle(accent)
+                ProgressView(value: 0.62).tint(accent).frame(maxWidth: 120)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 10) {
+                Toggle("Preview toggle", isOn: $on)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(accent)
+                HStack(spacing: 14) {
+                    Image(systemName: "house.fill").foregroundStyle(accent)
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    Image(systemName: "bubble.left").foregroundStyle(.secondary)
+                }
+                .font(.system(size: 16, weight: .semibold))
+            }
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(.smooth(duration: 0.3), value: accent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Accent preview")
+        .accessibilityIdentifier("settings.appearance.accentPreview")
     }
 }
