@@ -45,6 +45,38 @@ final class AppGateTests: XCTestCase {
         XCTAssertNil(gate.takePendingDestination())
     }
 
+    @MainActor
+    func testDeepLinkSurvivesRelaunchDuringSignIn() {
+        let defaults = UserDefaults(suiteName: "n4e.pending.\(UUID().uuidString)")!
+        let captured = Date()
+        AppGate.persist(PendingDestination(route: .post("456", .root), capturedAt: captured), defaults: defaults)
+        XCTAssertEqual(AppGate.restorePending(defaults: defaults, now: captured.addingTimeInterval(60))?.route, .post("456", .root))
+        XCTAssertNil(AppGate.restorePending(defaults: defaults, now: captured.addingTimeInterval(AppGate.pendingLifetime + 1)))
+        // Expired links are cleared, not kept for later.
+        XCTAssertNil(AppGate.restorePending(defaults: defaults, now: captured))
+        AppGate.persist(PendingDestination(route: .auth(.login), capturedAt: captured), defaults: defaults)
+        XCTAssertNil(AppGate.restorePending(defaults: defaults, now: captured))
+    }
+
+    @MainActor
+    func testRecoveryKindClassification() {
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: "anything", isOnline: false), .offline)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: APIError.unauthenticated.userFacingMessage, isOnline: true), .signedOut)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: APIError.rejected(500, "X").userFacingMessage, isOnline: true), .unavailable)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: APIError.invalidResponse.userFacingMessage, isOnline: true), .unavailable)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: "Couldn't load posts.", isOnline: true), .failed)
+        XCTAssertEqual(ModulaRecoveryKind.failed.detail(for: "Couldn't load posts."), "Couldn't load posts.")
+    }
+
+    @MainActor
+    func testPushReadinessIsHonest() {
+        XCTAssertEqual(PushReadiness.signing(fromProfileData: Data("<plist><key>aps-environment</key><string>development</string></plist>".utf8)), .allowsPush)
+        XCTAssertEqual(PushReadiness.signing(fromProfileData: Data("<plist><key>get-task-allow</key><true/></plist>".utf8)), .noPush)
+        let readiness = PushReadiness(authorizationTitle: "Allowed", flagEnabled: false, signing: .noPush, registration: .idle)
+        XCTAssertEqual(readiness.rows.map(\.ok), [true, false, false, false])
+        XCTAssertFalse(readiness.rows.contains { $0.label.localizedCaseInsensitiveContains("deliver") })
+    }
+
     func testBootRouteIsNotHome() {
         XCTAssertEqual(RouteParser.parse("/"), .boot)
         XCTAssertNotEqual(RouteParser.parse("/"), .home(.following))

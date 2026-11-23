@@ -99,7 +99,7 @@ struct MolibooSettingsView: View {
             case .studio3D(let id): MolibooLivingStudioView(characterID: id)
             case .studio(let tab): MolibooStudioEntry(tab: tab)
             case .collection: MolibooCollectionView()
-            case .cards: MolibooCardBinderView()
+            case .cards: MolibooCardsHomeView()
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: cheer) { _, _ in haptics }
