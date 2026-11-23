@@ -2,9 +2,22 @@ import MetalKit
 import SwiftUI
 import simd
 
-/// Native recreation of React Bits "Spectral Drape": billowing strands of dots in perspective.
-/// Decorative only. Paused off-screen / backgrounded; static frame for Reduce Motion or Low Power.
+/// The app-wide Spectral backdrop (login, onboarding, auth, app lock, Settings, wallpapers).
+/// t237u: every drape now draws the Canvas `SpectralRibbonsView`, so they all match and fill
+/// their box edge to edge. The older Metal sheet below is kept only as `SpectralDrapeMetalView`.
 struct SpectralDrapeView: View {
+    var accent: Color = Color(hex: "#7B5CFF")
+    /// Kept for call-site compatibility; the ribbons are decorative and never take touches.
+    var interactive: Bool = true
+    var intensity: Double = 1
+
+    var body: some View {
+        SpectralRibbonsView(accent: accent, intensity: intensity)
+    }
+}
+
+/// Legacy Metal dotted sheet (not used by default). Paused off-screen; static for Reduce Motion.
+struct SpectralDrapeMetalView: View {
     var accent: Color = .accentColor
     var interactive: Bool = true
     @Environment(\.colorScheme) private var scheme
