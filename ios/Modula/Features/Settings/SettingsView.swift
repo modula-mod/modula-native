@@ -978,6 +978,8 @@ struct AppearanceSettingsView: View {
                 navigationSection(store)
                 ChatWallpaperSettingsRow()
                 CallIDSettingsRow()
+                CallsPreferencesRow()
+                ModulaNumberSettingsRow()
                 ConnectPhoneNumbersRow()
                 advancedSection(store)
 
