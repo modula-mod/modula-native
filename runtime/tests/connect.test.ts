@@ -59,3 +59,19 @@ test('mock provisioning can fail without creating a number, and cancel moves to 
   assert.equal((await api.cancel(record.id)).state, 'cancellationPending');
   assert.equal((await api.updateSettings(record.id, {voicemail: true})).settings.voicemail, true);
 });
+
+test('memorable numbers, usage and lifecycle helpers (t237u)', async () => {
+  const {isMemorable, mockUsage, usageFraction, lifecycleProgress, DEFAULT_NUMBER_SETTINGS} = await import('../src/modules/connect/model');
+  assert.equal(isMemorable('07700 900111'), true);
+  assert.equal(isMemorable('07700 901234'), true);
+  assert.equal(isMemorable('07700 900352'), false);
+  const usage = mockUsage('owned-x', MOCK_PLAN_CONFIG.find(p => p.id === 'business'));
+  assert.equal(usage.textsAllowance, null);
+  assert.equal(usage.illustrative, true);
+  assert.equal(usageFraction(50, 100), 0.5);
+  assert.equal(usageFraction(500, 100), 1);
+  assert.equal(usageFraction(5, null), 0);
+  assert.equal(lifecycleProgress('active'), 4);
+  assert.equal(lifecycleProgress('suspended'), -1);
+  assert.equal(DEFAULT_NUMBER_SETTINGS.spamFilter, true);
+});

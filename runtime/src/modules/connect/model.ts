@@ -29,7 +29,8 @@ export type LifecycleState =
   | 'verificationRejected' | 'numberUnavailable' | 'paymentFailed' | 'provisioningFailed' | 'suspended' | 'cancellationPending';
 export type OwnedNumber = {
   id: string; number: AvailableNumber; planID: string; state: LifecycleState;
-  settings: {smsNotifications: boolean; callNotifications: boolean; voicemail: boolean; forwarding: boolean};
+  settings: {smsNotifications: boolean; callNotifications: boolean; voicemail: boolean; forwarding: boolean;
+    spamFilter: boolean; quietHours: boolean; businessHours: boolean; nickname: string};
 };
 
 export const LIFECYCLE_ORDER: LifecycleState[] = ['available', 'verificationPending', 'readyToProvision', 'provisioning', 'active'];
@@ -209,7 +210,7 @@ export function createMockConnectApi(latencyMs = 450): ConnectApi {
       if (options?.simulateFailure) throw new Error('provisioningFailed');
       const number = mockNumbers(0).concat(mockNumbers(1), mockNumbers(2)).find(n => n.id === numberID) ?? mockNumbers(0)[0];
       const record: OwnedNumber = {id: `owned-${numberID}`, number, planID, state: 'active',
-        settings: {smsNotifications: true, callNotifications: true, voicemail: false, forwarding: false}};
+        settings: {...DEFAULT_NUMBER_SETTINGS}};
       owned.push(record);
       return record;
     },
@@ -229,4 +230,50 @@ export function createMockConnectApi(latencyMs = 450): ConnectApi {
       return owned[index];
     },
   };
+}
+
+
+// MARK: t237u — more Connect features (mock/local only)
+
+export const DEFAULT_NUMBER_SETTINGS: OwnedNumber['settings'] = {
+  smsNotifications: true, callNotifications: true, voicemail: false, forwarding: false,
+  spamFilter: true, quietHours: false, businessHours: false, nickname: '',
+};
+
+/** A number is "memorable" when its last six digits repeat a digit 3+ times or form a run. */
+export function isMemorable(display: string): boolean {
+  const digits = display.replace(/\D/g, '').slice(-6);
+  if (digits.length < 6) return false;
+  const counts = new Map<string, number>();
+  for (const d of digits) counts.set(d, (counts.get(d) ?? 0) + 1);
+  if ([...counts.values()].some(c => c >= 3)) return true;
+  let run = 1;
+  for (let i = 1; i < digits.length; i++) {
+    const step = Number(digits[i]) - Number(digits[i - 1]);
+    run = step === 1 ? run + 1 : 1;
+    if (run >= 4) return true;
+  }
+  return /(\d\d)\1/.test(digits);
+}
+
+export type UsageSnapshot = {texts: number; textsAllowance: number | null; minutes: number; minutesAllowance: number | null; illustrative: true};
+
+/** Deterministic, clearly illustrative usage for the dashboard meter (no real traffic exists). */
+export function mockUsage(numberID: string, plan?: Plan | null): UsageSnapshot {
+  let h = 0;
+  for (const c of numberID) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const textsAllowance = plan?.id === 'business' ? null : plan?.id === 'plus' ? 1000 : 250;
+  const minutesAllowance = plan?.id === 'business' ? null : plan?.id === 'plus' ? 500 : 100;
+  return {texts: h % 120, textsAllowance, minutes: (h >> 8) % 60, minutesAllowance, illustrative: true};
+}
+
+export function usageFraction(used: number, allowance: number | null): number {
+  if (allowance === null || allowance <= 0) return 0;
+  return Math.max(0, Math.min(1, used / allowance));
+}
+
+/** Progress through the activation lifecycle, for the settings timeline. */
+export function lifecycleProgress(state: LifecycleState): number {
+  const i = LIFECYCLE_ORDER.indexOf(state);
+  return i < 0 ? -1 : i;
 }
