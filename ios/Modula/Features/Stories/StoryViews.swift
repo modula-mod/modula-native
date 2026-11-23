@@ -190,9 +190,9 @@ struct StoryTray: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.modulaOnPrimary)
                                     .frame(width: 20, height: 20)
-                                    .background(app.appearance.liveAccent, in: Circle())
+                                    .background(Color.modulaPrimaryFill, in: Circle())
                                     .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2.5))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Circle())
@@ -224,11 +224,11 @@ struct StoryTray: View {
                                         )
                                     )
                                     .overlay(alignment: .bottomTrailing) {
-                                        Image(systemName: "person.badge.plus")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.white)
-                                            .frame(width: 22, height: 22)
-                                            .background(app.appearance.liveAccent, in: Circle())
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 9, weight: .heavy))
+                                            .foregroundStyle(Color.modulaOnPrimary)
+                                            .frame(width: 20, height: 20)
+                                            .background(Color.modulaPrimaryFill, in: Circle())
                                             .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2))
                                     },
                                 title: author.displayName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? author.displayName,
