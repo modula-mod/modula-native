@@ -8,6 +8,7 @@ struct SearchScreen: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var dismissedError: String?
     @State private var allCounts: [ChromeScope: Int] = [:]
+    @AppStorage("search.saved.v1") private var savedRaw = ""
     @Namespace private var scopeNS
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -65,6 +66,7 @@ struct SearchScreen: View {
                 if chromeScope == .moliboos {
                     molibooResults(limit: nil)
                 } else if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chromeScope != .topics {
+                    if !savedSearches.isEmpty { savedRow }
                     DiscoverSearchIdle(onPickRecent: { query = $0 }, onPickSuggestion: { query = $0 })
                 } else {
                     if chromeScope == .all, !molibooMatches.isEmpty {
@@ -88,6 +90,22 @@ struct SearchScreen: View {
             HapticEngine.shared.play(.selection)
         }
         .modulaMinimizedSearchToolbar()
+        .toolbar {
+            if hasQuery {
+                ToolbarItem(placement: .topBarTrailing) {
+                    let saved = isSaved(query)
+                    Button {
+                        toggleSaved(query)
+                    } label: {
+                        Image(systemName: saved ? "bookmark.fill" : "bookmark")
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .tint(.primary)
+                    .accessibilityLabel(saved ? "Remove saved search" : "Save search")
+                    .accessibilityIdentifier("search.save")
+                }
+            }
+        }
         .onChange(of: query) { _, _ in scheduleSearch() }
         .onChange(of: chromeScope) { _, _ in
             // Scope is local state: replacing the route here re-created (popped + pushed) the
@@ -328,6 +346,57 @@ struct SearchScreen: View {
             .filter { seen.insert($0.lowercased()).inserted }
             .prefix(5)
             .map { $0 }
+    }
+
+    // MARK: Saved searches (on this iPhone, t235u)
+
+    private var savedSearches: [String] {
+        savedRaw.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+
+    private func isSaved(_ term: String) -> Bool {
+        let t = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        return savedSearches.contains { $0.caseInsensitiveCompare(t) == .orderedSame }
+    }
+
+    private func toggleSaved(_ term: String) {
+        let t = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        var list = savedSearches.filter { $0.caseInsensitiveCompare(t) != .orderedSame }
+        let adding = list.count == savedSearches.count
+        if adding { list.insert(t, at: 0) }
+        withAnimation(.snappy) { savedRaw = list.prefix(20).joined(separator: "\n") }
+        HapticEngine.shared.play(adding ? .success : .selection)
+        app.navigation.flash(adding ? "Search saved" : "Removed from saved", symbol: adding ? "bookmark.fill" : "bookmark.slash")
+    }
+
+    private var savedRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Saved searches").font(.headline)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(savedSearches, id: \.self) { term in
+                        Button {
+                            query = term
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Label(term, systemImage: "bookmark.fill")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 12).frame(height: 32)
+                                .modulaGlass(in: Capsule(), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Remove", systemImage: "bookmark.slash", role: .destructive) { toggleSaved(term) }
+                        }
+                    }
+                }
+            }
+            .modulaHorizontalRail()
+            .scrollClipDisabled()
+        }
+        .accessibilityIdentifier("search.saved")
     }
 
     private var typeaheadRow: some View {
