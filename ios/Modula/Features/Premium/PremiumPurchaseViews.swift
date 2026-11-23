@@ -57,6 +57,8 @@ final class PremiumStoreKitController {
 
     init(client: GreenfieldClient) {
         self.client = client
+        // Release builds must not observe or finish StoreKit transactions.
+        guard PremiumFeatureFlags.premiumEnabled() else { return }
         updatesTask = Task { [weak self] in await self?.listenForTransactions() }
     }
 
@@ -69,12 +71,13 @@ final class PremiumStoreKitController {
         message = nil
         PremiumEntitlementStore.shared.setDebugOverride(nil)
         PremiumEntitlementStore.shared.resetServerState()
-        if value != nil {
+        if value != nil, PremiumFeatureFlags.premiumEnabled() {
             Task { [weak self] in await self?.refreshMembership() }
         }
     }
 
     func prepare() async {
+        guard PremiumFeatureFlags.premiumEnabled() else { return }
         guard accountID != nil else {
             phase = .idle
             message = PremiumStoreKitError.signedOut.localizedDescription
@@ -101,6 +104,7 @@ final class PremiumStoreKitController {
     }
 
     func purchase(plan: PremiumPlan, billing: PremiumBilling) async -> Bool {
+        guard PremiumFeatureFlags.premiumEnabled() else { return false }
         guard !phase.busy else { return false }
         phase = .purchasing
         message = nil
@@ -141,6 +145,7 @@ final class PremiumStoreKitController {
 
     /// `AppStore.sync()` is intentionally called only from this explicit user action.
     func restore() async -> Bool {
+        guard PremiumFeatureFlags.premiumEnabled() else { return false }
         guard !phase.busy else { return false }
         phase = .restoring
         message = nil
@@ -237,6 +242,7 @@ final class PremiumStoreKitController {
     }
 
     private func listenForTransactions() async {
+        guard PremiumFeatureFlags.premiumEnabled() else { return }
         for await verification in Transaction.updates {
             guard !Task.isCancelled else { return }
             guard case .verified(let transaction) = verification, accountID != nil else { continue }
