@@ -3068,6 +3068,16 @@ final class ModulaNumberStore {
         var created = Date()
         var expires: Date?
         var usesLeft: Int?
+        var maxUses: Int?
+        /// 0…1 left (time for expiring numbers, uses for counted ones) for the countdown ring.
+        func remaining(at now: Date = Date()) -> Double {
+            if let expires {
+                let total = expires.timeIntervalSince(created)
+                return total > 0 ? max(0, min(1, expires.timeIntervalSince(now) / total)) : 0
+            }
+            if let usesLeft, let maxUses, maxUses > 0 { return max(0, min(1, Double(usesLeft) / Double(maxUses))) }
+            return 1
+        }
         var isActive: Bool {
             if let expires, expires < Date() { return false }
             if let usesLeft, usesLeft <= 0 { return false }
@@ -3153,13 +3163,18 @@ final class ModulaNumberStore {
     var shareLink: URL { URL(string: "https://modula.digital/n/\(state.number)")! }
 
     func regenerate() {
-        state.number = Self.generate()
+        adopt(Self.generate())
+    }
+
+    /// Switch to a specific new number (the Refresh sheet previews it first).
+    func adopt(_ number: String) {
+        state.number = number
         state.visits = []
     }
 
     func addTemporary(label: String, expires: TimeInterval?, uses: Int?) {
         let temp = Temporary(number: Self.generate(), label: label,
-                             expires: expires.map { Date().addingTimeInterval($0) }, usesLeft: uses)
+                             expires: expires.map { Date().addingTimeInterval($0) }, usesLeft: uses, maxUses: uses)
         state.temporaries.insert(temp, at: 0)
     }
 
@@ -3195,41 +3210,52 @@ struct ModulaNumberSettingsRow: View {
     }
 }
 
-/// "Modula Number" sheet (Calls › My card, Settings, inbox menu). Local preview until the server
-/// declares number support (`calls.callIDs`); see CALLS-BACKEND.md for the contracts.
+/// "Modula Number" sheet (Calls › My card, Settings, inbox menu). One self-contained layout:
+/// a ScrollView of glass cards, so it never inherits the presenter's List style (from Calls it
+/// was presented inside a `.plain` List and its own List rendered edge to edge). Local preview
+/// until the server declares number support (`calls.callIDs`); see CALLS-BACKEND.md.
 struct ModulaNumberSheet: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var confirmRefresh = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var refreshing = false
     @State private var confirmBlockRefresh = false
     @State private var showsQR = false
+    @State private var copied = false
+    @State private var shareBounce = 0
+    @State private var qrBounce = 0
+    @State private var revealSecret = false
+    @State private var glow = false
 
+    static let margin: CGFloat = 20
     private var isPreview: Bool { !app.calls.capabilities.callIDs }
+    private var store: ModulaNumberStore { .shared }
 
     var body: some View {
-        @Bindable var store = ModulaNumberStore.shared
         NavigationStack {
-            List {
-                Section {
-                    hero(store)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    hero
+                    actionRow
+                    ModulaNumberCard(footer: "Hidden: your number isn't shown on your profile or in calls. People who already have it can still reach you by your rules below.") {
+                        toggleRow("Enabled", isOn: Binding(get: { store.enabled }, set: { v in animate { store.enabled = v } }))
+                        ModulaNumberDivider()
+                        toggleRow("Hide number from others", isOn: Binding(get: { store.hidden }, set: { v in animate { store.hidden = v } }))
+                    }
+                    if store.enabled {
+                        Group {
+                            reachSection
+                            allowSection
+                            temporarySection
+                            safetySection
+                            activitySection
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 }
-                Section {
-                    Toggle("Enabled", isOn: $store.enabled).tint(Color.modulaPrimaryFill)
-                        .listRowBackground(CallsRowGlass())
-                    Toggle("Hide number from others", isOn: $store.hidden).tint(Color.modulaPrimaryFill)
-                        .listRowBackground(CallsRowGlass())
-                } footer: {
-                    Text("Hidden: your number isn't shown on your profile or in calls; people who already have it can still reach you by your rules below.")
-                }
-                if store.enabled {
-                    reachSection(store)
-                    allowSection(store)
-                    temporarySection(store)
-                    safetySection(store)
-                    activitySection(store)
-                }
+                .padding(.horizontal, Self.margin)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Modula Number")
@@ -3244,205 +3270,305 @@ struct ModulaNumberSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            .confirmationDialog("Get a new number?", isPresented: $confirmRefresh, titleVisibility: .visible) {
-                Button("Get New Number") {
-                    store.regenerate()
-                    HapticEngine.shared.play(.selection)
-                    app.navigation.flash("New number: \(ModulaNumberStore.grouped(store.number))", symbol: "arrow.clockwise")
+            .sheet(isPresented: $refreshing) {
+                ModulaNumberRefreshSheet(old: store.number) { new in
+                    refreshing = false
+                    adopt(new)
                 }
-            } message: { Text("Your old number stops working straight away. Temporary numbers keep working.") }
+            }
             .confirmationDialog("Block everyone who used your number and get a new one?", isPresented: $confirmBlockRefresh, titleVisibility: .visible) {
                 Button("Block & Get New Number", role: .destructive) {
-                    store.regenerate()
+                    adopt(ModulaNumberStore.generate())
                     app.navigation.flash("Old number retired", symbol: "hand.raised")
                 }
             } message: { Text("Anyone who only had your old number can't reach you any more.") }
-            .sheet(isPresented: $showsQR) { qrSheet(store) }
+            .sheet(isPresented: $showsQR) { qrSheet }
         }
+        // Self-contained: never pick up a List/Form style or tint from whoever presented it.
+        .listStyle(.insetGrouped)
         .presentationDetents([.large])
         .modulaSheetStyle()
         .accessibilityIdentifier("modulaNumber.sheet")
     }
 
-    private func hero(_ store: ModulaNumberStore) -> some View {
-        VStack(spacing: 14) {
-            if isPreview {
-                Text("Preview")
-                    .font(.caption.weight(.bold))
-                    .padding(.horizontal, 10).frame(minHeight: 24)
-                    .modulaGlass(in: Capsule(), interactive: false)
-                    .accessibilityLabel("Preview: numbers aren't live on the server yet")
+    private func animate(_ change: () -> Void) {
+        if reduceMotion { change() } else { withAnimation(.snappy(duration: 0.3)) { change() } }
+    }
+
+    private func adopt(_ number: String) {
+        animate { store.adopt(number) }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 50 : 650))
+            HapticEngine.shared.play(.success)
+            withAnimation(.easeOut(duration: 0.25)) { glow = true }
+            try? await Task.sleep(for: .milliseconds(700))
+            withAnimation(.easeOut(duration: 0.6)) { glow = false }
+        }
+        app.navigation.flash("New number: \(ModulaNumberStore.grouped(number))", symbol: "arrow.clockwise")
+    }
+
+    // MARK: Hero
+
+    private var hero: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return VStack(spacing: 14) {
+            HStack(spacing: 6) {
+                statusPill(store.enabled ? "Enabled" : "Off", store.enabled ? "checkmark.circle.fill" : "pause.circle")
+                if store.hidden { statusPill("Hidden", "eye.slash").transition(.scale.combined(with: .opacity)) }
+                if isPreview { statusPill("Preview", "sparkles") }
             }
-            Text(ModulaNumberStore.grouped(store.number))
-                .font(.system(size: 46, weight: .semibold, design: .monospaced))
-                .foregroundStyle(store.enabled ? Color.primary : Color.secondary)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-                .contentTransition(.numericText())
-                .accessibilityLabel("Your Modula Number, " + store.number.map(String.init).joined(separator: " "))
+            ModulaNumberDigits(number: store.number, hidden: store.hidden, dimmed: !store.enabled, glow: glow)
             Text("Share it instead of your handle. It's a Modula number for chats and calls, not a phone number.")
                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 16)
-            HStack(spacing: 10) {
-                heroAction("Copy", "doc.on.doc") {
-                    UIPasteboard.general.string = store.number
-                    app.navigation.flash("Number copied", symbol: "doc.on.doc")
-                }
-                ShareLink(item: store.shareLink, subject: Text("My Modula Number"),
-                          message: Text("Reach me on Modula: \(ModulaNumberStore.grouped(store.number))")) {
-                    heroLabel("Share", "square.and.arrow.up")
-                }
-                .buttonStyle(.plain)
-                .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
-                heroAction("QR", "qrcode") { showsQR = true }
-                heroAction("Refresh", "arrow.clockwise") { confirmRefresh = true }
-            }
-            .disabled(!store.enabled)
-            .opacity(store.enabled ? 1 : 0.5)
         }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 18)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, ModulaLayout.contentInset)
+        .background {
+            SpectralDrapeView(accent: app.appearance.liveAccent, interactive: false)
+                .opacity(0.38)
+                .overlay(Color.black.opacity(0.18))
+                .clipShape(shape)
+                .accessibilityHidden(true)
+        }
+        .modulaGlass(in: shape, interactive: false)
+        .clipShape(shape)
     }
 
-    private func heroLabel(_ title: String, _ symbol: String) -> some View {
-        VStack(spacing: 5) {
-            Image(systemName: symbol).font(.system(size: 17, weight: .semibold))
+    private func statusPill(_ title: String, _ symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.bold))
+            .labelStyle(.titleAndIcon)
+            .padding(.horizontal, 10).frame(minHeight: 26)
+            .fixedSize()
+            .modulaGlass(in: Capsule(), interactive: false)
+    }
+
+    // MARK: Actions (4 equal glass buttons)
+
+    private var actionRow: some View {
+        HStack(spacing: 10) {
+            actionButton(copied ? "Copied" : "Copy", copied ? "checkmark" : "doc.on.doc", bounce: 0) {
+                UIPasteboard.general.string = store.number
+                app.navigation.flash("Number copied", symbol: "doc.on.doc")
+                withAnimation(.snappy) { copied = true }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.6))
+                    withAnimation(.snappy) { copied = false }
+                }
+            }
+            ShareLink(item: store.shareLink, subject: Text("My Modula Number"),
+                      message: Text("Reach me on Modula: \(ModulaNumberStore.grouped(store.number))")) {
+                actionLabel("Share", "square.and.arrow.up", bounce: shareBounce)
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+            .simultaneousGesture(TapGesture().onEnded { shareBounce += 1 })
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            actionButton("QR", "qrcode", bounce: qrBounce) {
+                qrBounce += 1
+                showsQR = true
+            }
+            actionButton("Refresh", "arrow.clockwise", bounce: 0) { refreshing = true }
+        }
+        .disabled(!store.enabled)
+        .opacity(store.enabled ? 1 : 0.45)
+    }
+
+    private func actionLabel(_ title: String, _ symbol: String, bounce: Int) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: bounce)
+                .frame(height: 22)
             Text(title).font(.caption.weight(.semibold)).fixedSize()
+                .contentTransition(.opacity)
         }
         .foregroundStyle(.primary)
-        .frame(maxWidth: .infinity, minHeight: 60)
+        .frame(maxWidth: .infinity, minHeight: 66)
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private func heroAction(_ title: String, _ symbol: String, _ run: @escaping () -> Void) -> some View {
-        Button(action: run) { heroLabel(title, symbol) }
+    private func actionButton(_ title: String, _ symbol: String, bounce: Int, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) { actionLabel(title, symbol, bounce: bounce) }
             .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
             .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            .accessibilityLabel(title)
     }
 
-    @ViewBuilder private func reachSection(_ model: ModulaNumberStore) -> some View {
-        @Bindable var store = model
-        Section {
-            ForEach(ModulaNumberStore.Reach.allCases) { option in
+    private func toggleRow(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+    }
+
+    // MARK: Sections
+
+    private var reachSection: some View {
+        ModulaNumberCard(header: "Who can reach me", footer: reachFooter) {
+            ForEach(Array(ModulaNumberStore.Reach.allCases.enumerated()), id: \.element) { index, option in
+                if index > 0 { ModulaNumberDivider() }
+                let on = store.reach == option
                 Button {
                     HapticEngine.shared.play(.selection)
-                    withAnimation(.snappy) { store.reach = option }
+                    animate { store.reach = option }
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: option.symbol).frame(width: 24)
+                        Image(systemName: option.symbol).font(.body).frame(width: 24)
                         Text(option.title).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
-                        if store.reach == option { Image(systemName: "checkmark").font(.body.weight(.semibold)) }
+                        if on {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(app.appearance.liveAccent)
+                                .transition(.scale(scale: 0.4).combined(with: .opacity))
+                        }
                     }
                     .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 50)
+                    .background { if on { Color.primary.opacity(0.06) } }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityAddTraits(store.reach == option ? .isSelected : [])
-                .listRowBackground(CallsRowGlass())
+                .accessibilityAddTraits(on ? .isSelected : [])
             }
             if store.reach == .withSecret {
-                ModulaSegmentedControl("Secret type", selection: $store.secretKind,
-                                       segments: ModulaNumberStore.SecretKind.allCases.map { ($0, $0.title) })
-                    .listRowBackground(CallsRowGlass())
-                SecureField(store.secretKind == .phrase ? "Secret phrase" : "4–6 digit access code", text: $store.secret)
-                    .keyboardType(store.secretKind == .code ? .numberPad : .default)
-                    .textInputAutocapitalization(.never)
-                    .listRowBackground(CallsRowGlass())
-            }
-        } header: {
-            Text("Who can reach me")
-        } footer: {
-            if store.reach == .withSecret {
-                Text(store.secretIsValid ? "People need your number and this secret to start a chat or call."
-                                         : (store.secretKind == .phrase ? "Use at least 3 characters." : "Use 4 to 6 digits."))
-            } else {
-                Text("Applies to anyone who finds you by number.")
+                ModulaNumberDivider()
+                secretEditor
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
-    @ViewBuilder private func allowSection(_ model: ModulaNumberStore) -> some View {
-        @Bindable var store = model
-        Section {
-            Toggle("Chats", isOn: $store.allowChat).tint(Color.modulaPrimaryFill).listRowBackground(CallsRowGlass())
-            Toggle("Voice calls", isOn: $store.allowVoice).tint(Color.modulaPrimaryFill).listRowBackground(CallsRowGlass())
-            Toggle("Video calls", isOn: $store.allowVideo).tint(Color.modulaPrimaryFill).listRowBackground(CallsRowGlass())
-            Toggle("New people go to Requests", isOn: $store.numberOnlyToRequests).tint(Color.modulaPrimaryFill).listRowBackground(CallsRowGlass())
-        } header: {
-            Text("By number, allow")
-        } footer: {
-            Text("Messages from people who only have your number wait in Requests until you accept.")
+    private var reachFooter: String {
+        guard store.reach == .withSecret else { return "Applies to anyone who finds you by number." }
+        return "People need your number and this secret to start a chat or call."
+    }
+
+    @ViewBuilder private var secretEditor: some View {
+        @Bindable var model = ModulaNumberStore.shared
+        VStack(alignment: .leading, spacing: 10) {
+            ModulaSegmentedControl("Secret type", selection: Binding(get: { model.secretKind }, set: { v in animate { model.secretKind = v; model.secret = "" } }),
+                                   segments: ModulaNumberStore.SecretKind.allCases.map { ($0, $0.title) })
+            HStack(spacing: 10) {
+                Group {
+                    if revealSecret {
+                        TextField(model.secretKind == .phrase ? "Secret phrase" : "4–6 digit code", text: $model.secret)
+                    } else {
+                        SecureField(model.secretKind == .phrase ? "Secret phrase" : "4–6 digit code", text: $model.secret)
+                    }
+                }
+                .keyboardType(model.secretKind == .code ? .numberPad : .default)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                Button { withAnimation(.snappy) { revealSecret.toggle() } } label: {
+                    Image(systemName: revealSecret ? "eye.slash" : "eye")
+                        .contentTransition(.symbolEffect(.replace))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(revealSecret ? "Hide secret" : "Show secret")
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
+            let hint = ModulaNumberSecretStrength.evaluate(model.secret, kind: model.secretKind)
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { i in
+                    Capsule().fill(i < hint.level ? Color.primary : Color.primary.opacity(0.15))
+                        .frame(height: 4)
+                }
+            }
+            .animation(.snappy, value: hint.level)
+            Text(hint.text).font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+        }
+        .padding(16)
+    }
+
+    private var allowSection: some View {
+        ModulaNumberCard(header: "By number, allow", footer: "Messages from people who only have your number wait in Requests until you accept.") {
+            toggleRow("Chats", isOn: Binding(get: { store.allowChat }, set: { store.allowChat = $0 }))
+            ModulaNumberDivider()
+            toggleRow("Voice calls", isOn: Binding(get: { store.allowVoice }, set: { store.allowVoice = $0 }))
+            ModulaNumberDivider()
+            toggleRow("Video calls", isOn: Binding(get: { store.allowVideo }, set: { store.allowVideo = $0 }))
+            ModulaNumberDivider()
+            toggleRow("New people go to Requests", isOn: Binding(get: { store.numberOnlyToRequests }, set: { store.numberOnlyToRequests = $0 }))
         }
     }
 
-    @ViewBuilder private func temporarySection(_ store: ModulaNumberStore) -> some View {
-        Section {
+    private var temporarySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ModulaNumberSectionHeader(title: "Temporary numbers")
             ForEach(store.temporaries) { temp in
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(ModulaNumberStore.grouped(temp.number)).font(.body.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(temp.isActive ? Color.primary : Color.secondary)
-                        Text("\(temp.label) · \(temp.status)").font(.caption).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                    if temp.isActive {
-                        Button {
-                            UIPasteboard.general.string = temp.number
-                            app.navigation.flash("Temporary number copied", symbol: "doc.on.doc")
-                        } label: {
-                            Image(systemName: "doc.on.doc").font(.footnote.weight(.semibold)).foregroundStyle(.primary)
-                                .frame(width: 32, height: 32).modulaGlass(in: Circle(), interactive: true)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Copy temporary number")
-                    }
+                ModulaTemporaryNumberCard(temp: temp) {
+                    UIPasteboard.general.string = temp.number
+                    app.navigation.flash("Temporary number copied", symbol: "doc.on.doc")
+                } onDelete: {
+                    animate { store.removeTemporary(temp.id) }
                 }
-                .listRowBackground(CallsRowGlass())
-                .swipeActions {
-                    Button("Delete", systemImage: "trash") { store.removeTemporary(temp.id) }.tint(Color(white: 0.3))
-                }
+                .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
             }
             Menu {
-                Button("Expires in 24 hours", systemImage: "clock") { store.addTemporary(label: "24 hours", expires: 86_400, uses: nil) }
-                Button("Expires in 7 days", systemImage: "calendar") { store.addTemporary(label: "7 days", expires: 7 * 86_400, uses: nil) }
-                Button("Works once", systemImage: "1.circle") { store.addTemporary(label: "One use", expires: nil, uses: 1) }
-                Button("Works 5 times", systemImage: "5.circle") { store.addTemporary(label: "5 uses", expires: nil, uses: 5) }
+                Button("Expires in 24 hours", systemImage: "clock") { addTemp("24 hours", 86_400, nil) }
+                Button("Expires in 7 days", systemImage: "calendar") { addTemp("7 days", 7 * 86_400, nil) }
+                Button("Works once", systemImage: "1.circle") { addTemp("One use", nil, 1) }
+                Button("Works 5 times", systemImage: "5.circle") { addTemp("5 uses", nil, 5) }
             } label: {
-                Label("New temporary number", systemImage: "plus").foregroundStyle(.primary)
+                Label("New temporary number", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .listRowBackground(CallsRowGlass())
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
             if store.temporaries.contains(where: { !$0.isActive }) {
-                Button("Clear expired") { store.clearExpired() }.foregroundStyle(.primary).listRowBackground(CallsRowGlass())
+                Button("Clear expired") { animate { store.clearExpired() } }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+                    .padding(.leading, 16)
             }
-        } header: {
-            Text("Temporary numbers")
-        } footer: {
-            Text("For strangers, sellers or one-off meetups. They stop working on their own, and your main number stays private.")
+            ModulaNumberSectionFooter(text: "For strangers, sellers or one-off meetups. They stop working on their own, and your main number stays private.")
         }
     }
 
-    @ViewBuilder private func safetySection(_ store: ModulaNumberStore) -> some View {
-        Section {
+    private func addTemp(_ label: String, _ expires: TimeInterval?, _ uses: Int?) {
+        HapticEngine.shared.play(.selection)
+        animate { store.addTemporary(label: label, expires: expires, uses: uses) }
+    }
+
+    private var safetySection: some View {
+        ModulaNumberCard(footer: "One tap if your number gets passed around.") {
             Button { confirmBlockRefresh = true } label: {
-                Label("Block & get a new number", systemImage: "hand.raised").foregroundStyle(.primary)
+                HStack(spacing: 12) {
+                    Image(systemName: "hand.raised").frame(width: 24)
+                    Text("Block & get a new number")
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 50)
+                .contentShape(Rectangle())
             }
-            .listRowBackground(CallsRowGlass())
-        } footer: {
-            Text("One tap if your number gets passed around.")
+            .buttonStyle(.plain)
         }
     }
 
-    @ViewBuilder private func activitySection(_ store: ModulaNumberStore) -> some View {
-        Section("Reached you by number") {
+    private var activitySection: some View {
+        ModulaNumberCard(header: "Reached you by number") {
             if store.visits.isEmpty {
                 Text(isPreview ? "Shows here once Modula Numbers are live." : "No one has used your number yet.")
                     .font(.footnote).foregroundStyle(.secondary)
-                    .listRowBackground(CallsRowGlass())
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ForEach(store.visits) { visit in
+                ForEach(Array(store.visits.enumerated()), id: \.element.id) { index, visit in
+                    if index > 0 { ModulaNumberDivider() }
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(visit.name).fixedSize(horizontal: false, vertical: true)
@@ -3451,13 +3577,14 @@ struct ModulaNumberSheet: View {
                         Spacer(minLength: 0)
                         Text(visit.date.formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)
                     }
-                    .listRowBackground(CallsRowGlass())
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 54)
                 }
             }
         }
     }
 
-    private func qrSheet(_ store: ModulaNumberStore) -> some View {
+    private var qrSheet: some View {
         NavigationStack {
             VStack(spacing: 18) {
                 if let matrix = ModulaQRMatrix.make(store.shareLink.absoluteString) {
@@ -3467,6 +3594,7 @@ struct ModulaNumberSheet: View {
                     .frame(width: 220, height: 220)
                     .padding(20)
                     .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(.white))
+                    .transition(.scale.combined(with: .opacity))
                 }
                 Text(ModulaNumberStore.grouped(store.number)).font(.system(.title, design: .monospaced).weight(.semibold))
             }
@@ -3485,5 +3613,241 @@ struct ModulaNumberSheet: View {
         }
         .presentationDetents([.medium])
         .modulaSheetStyle()
+    }
+}
+
+// MARK: Modula Number building blocks
+
+/// Inset grouped glass card with an optional header/footer aligned to the card's 16pt content inset.
+struct ModulaNumberCard<Content: View>: View {
+    var header: String? = nil
+    var footer: String? = nil
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let header { ModulaNumberSectionHeader(title: header) }
+            VStack(spacing: 0) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            if let footer { ModulaNumberSectionFooter(text: footer) }
+        }
+    }
+}
+
+struct ModulaNumberSectionHeader: View {
+    let title: String
+    var body: some View {
+        Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+            .padding(.leading, 16)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+struct ModulaNumberSectionFooter: View {
+    let text: String
+    var body: some View {
+        Text(text).font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+    }
+}
+
+struct ModulaNumberDivider: View {
+    var body: some View { Divider().padding(.leading, 16) }
+}
+
+/// Monospaced grouped digits that roll like an odometer (staggered per digit) when the number
+/// changes, count in from zeros on appear, and blur to dots when hidden. Reduce Motion: cross-fade.
+struct ModulaNumberDigits: View {
+    let number: String
+    let hidden: Bool
+    var dimmed = false
+    var glow = false
+    var size: CGFloat = 46
+    /// Roll from this number on appear (the Refresh sheet: old → new). nil = from zeros.
+    var startFrom: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown: String?
+
+    var body: some View {
+        let chars = Array(ModulaNumberStore.grouped(shown ?? number))
+        HStack(spacing: 0) {
+            ForEach(Array(chars.enumerated()), id: \.offset) { index, char in
+                if char == " " {
+                    Text(" ")
+                } else {
+                    Text(hidden ? "•" : String(char))
+                        .contentTransition(reduceMotion || hidden ? .opacity : .numericText(value: Double(char.wholeNumberValue ?? 0)))
+                        .animation(reduceMotion ? .easeInOut(duration: 0.2)
+                                   : .spring(response: 0.55, dampingFraction: 0.78).delay(Double(index) * 0.045), value: shown)
+                        .animation(.easeInOut(duration: 0.25), value: hidden)
+                }
+            }
+        }
+        .font(.system(size: size, weight: .semibold, design: .monospaced))
+        .foregroundStyle(dimmed ? Color.secondary : Color.primary)
+        .blur(radius: hidden && !reduceMotion ? 0.6 : 0)
+        .shadow(color: Color.primary.opacity(glow ? 0.55 : 0), radius: glow ? 18 : 0)
+        .minimumScaleFactor(0.6)
+        .lineLimit(1)
+        .onAppear {
+            guard shown == nil else { return }
+            if reduceMotion { shown = number; return }
+            shown = startFrom ?? String(repeating: "0", count: number.count)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                shown = number
+            }
+        }
+        .onChange(of: number) { _, value in shown = value }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(hidden ? "Number hidden" : "Modula Number " + number.map(String.init).joined(separator: " "))
+    }
+}
+
+enum ModulaNumberSecretStrength {
+    struct Hint { let level: Int; let text: String }
+
+    static func evaluate(_ value: String, kind: ModulaNumberStore.SecretKind) -> Hint {
+        switch kind {
+        case .code:
+            guard !value.isEmpty else { return Hint(level: 0, text: "Use 4 to 6 digits.") }
+            guard value.allSatisfy(\.isNumber), (4...6).contains(value.count) else { return Hint(level: 1, text: "Use 4 to 6 digits.") }
+            let digits = value.compactMap(\.wholeNumberValue)
+            let same = Set(digits).count == 1
+            let steps = zip(digits, digits.dropFirst()).map { $1 - $0 }
+            let sequential = Set(steps).count == 1 && (steps.first == 1 || steps.first == -1)
+            if same || sequential { return Hint(level: 1, text: "Easy to guess. Avoid repeats and runs like 1234.") }
+            return Hint(level: value.count >= 6 ? 3 : 2, text: value.count >= 6 ? "Strong code." : "Good. Six digits is stronger.")
+        case .phrase:
+            let trimmed = value.trimmingCharacters(in: .whitespaces)
+            guard trimmed.count >= 3 else { return Hint(level: trimmed.isEmpty ? 0 : 1, text: "Use at least 3 characters.") }
+            let words = trimmed.split(separator: " ").count
+            if trimmed.count >= 12 || words >= 3 { return Hint(level: 3, text: "Strong phrase.") }
+            if trimmed.count >= 7 { return Hint(level: 2, text: "Good. A few words make it stronger.") }
+            return Hint(level: 1, text: "Short phrases are easy to guess.")
+        }
+    }
+}
+
+/// Temporary number as a glass card with a countdown ring (time or uses left).
+struct ModulaTemporaryNumberCard: View {
+    let temp: ModulaNumberStore.Temporary
+    let onCopy: () -> Void
+    let onDelete: () -> Void
+    @State private var copied = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let left = temp.remaining(at: context.date)
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.12), lineWidth: 4)
+                    Circle().trim(from: 0, to: left)
+                        .stroke(Color.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut(duration: 0.6), value: left)
+                    Image(systemName: temp.expires != nil ? "clock" : "number")
+                        .font(.caption.weight(.semibold))
+                }
+                .frame(width: 38, height: 38)
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ModulaNumberStore.grouped(temp.number))
+                        .font(.body.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(temp.isActive ? Color.primary : Color.secondary)
+                    Text("\(temp.label) · \(temp.status)").font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if temp.isActive {
+                    Button {
+                        onCopy()
+                        withAnimation(.snappy) { copied = true }
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(1.4))
+                            withAnimation(.snappy) { copied = false }
+                        }
+                    } label: {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                            .contentTransition(.symbolEffect(.replace))
+                            .font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+                            .frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Circle(), interactive: true)
+                    .accessibilityLabel("Copy temporary number")
+                }
+                Menu {
+                    Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                } label: {
+                    Image(systemName: "ellipsis").font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+                        .frame(width: 34, height: 34)
+                }
+                .modulaGlass(in: Circle(), interactive: true)
+                .accessibilityLabel("More for this number")
+            }
+            .padding(14)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+            .opacity(temp.isActive ? 1 : 0.6)
+        }
+    }
+}
+
+/// Glass confirmation for Refresh: old number → new one rolling in. Shuffle for another.
+struct ModulaNumberRefreshSheet: View {
+    let old: String
+    let onConfirm: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var candidate = ModulaNumberStore.generate()
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Text("Get a new number?").font(.title3.bold())
+            VStack(spacing: 6) {
+                Text("Current").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(ModulaNumberStore.grouped(old))
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .strikethrough(true, color: .secondary)
+                Image(systemName: "arrow.down").font(.footnote.weight(.bold)).foregroundStyle(.secondary).padding(.vertical, 2)
+                Text("New").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                ModulaNumberDigits(number: candidate, hidden: false, size: 40, startFrom: old)
+            }
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
+            Text("Your old number stops working straight away. Temporary numbers keep working.")
+                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { onConfirm(candidate) } label: {
+                Text("Use New Number").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.modulaPrimary)
+            HStack(spacing: 10) {
+                glass("Shuffle", "shuffle") {
+                    HapticEngine.shared.play(.selection)
+                    candidate = ModulaNumberStore.generate()
+                }
+                glass("Cancel", "xmark") { dismiss() }
+            }
+        }
+        .padding(20)
+        .presentationDetents([.medium])
+        .modulaSheetStyle()
+        .accessibilityIdentifier("modulaNumber.refresh")
+    }
+
+    private func glass(_ title: String, _ symbol: String, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: Capsule(), interactive: true)
     }
 }
