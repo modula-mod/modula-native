@@ -94,6 +94,9 @@ struct ConversationListView: View {
     @State private var serverFolderID: String?
     @State private var managingFolders = false
     @State private var titleCollapsed = false
+    /// Inbox › title menu › "Show filter chips" (off: the ▾ title menu is the filter).
+    @AppStorage("messages.inbox.showChips") private var showFilterChips = false
+    @State private var showsModulaNumber = false
 
     private enum InboxDestination: Hashable, Identifiable {
         case archived, hidden, folder(String)
@@ -116,7 +119,7 @@ struct ConversationListView: View {
     }
 
     enum InboxFilter: String, CaseIterable, Identifiable {
-        case all, unread, needsReply, groups, favourites, drafts
+        case all, unread, needsReply, groups, favourites, drafts, direct, muted
         /// Four short choices (Hick's law). "Needs reply" stays reachable from code paths only.
         static var allCases: [InboxFilter] { [.all, .unread, .favourites, .groups] }
         var id: Self { self }
@@ -128,6 +131,20 @@ struct ConversationListView: View {
             case .groups: "Groups"
             case .favourites: "Favourites"
             case .drafts: "Drafts"
+            case .direct: "Direct"
+            case .muted: "Muted"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .all: "bubble.left.and.bubble.right"
+            case .unread: "message.badge"
+            case .needsReply: "arrowshape.turn.up.left"
+            case .groups: "person.2"
+            case .favourites: "star"
+            case .drafts: "pencil.line"
+            case .direct: "person"
+            case .muted: "bell.slash"
             }
         }
         /// "Needs reply": the last message came from someone else (Zeigarnik effect: open loops are easy to
@@ -141,6 +158,8 @@ struct ConversationListView: View {
             case .groups: c.kind == .group || c.participants.count > 1
             case .favourites: pinned.contains(c.id)
             case .drafts: drafts.contains(c.id)
+            case .direct: c.kind == .direct && c.participants.count == 1
+            case .muted: c.isMuted
             }
         }
     }
@@ -364,13 +383,9 @@ struct ConversationListView: View {
     /// collapses normally instead of starting half-faded under a tall pinned bar.
     private func header(matches: Int) -> some View {
         VStack(spacing: 8) {
-            Text("Messages")
-                .font(.largeTitle.weight(.bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            inboxTitleMenu
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, ModulaLayout.contentInset)
-                .accessibilityAddTraits(.isHeader)
             if circleOpen && !circle.isEmpty && app.messaging.conversationQuery.isEmpty {
                 circleRow
                     .transition(.opacity)
@@ -379,7 +394,7 @@ struct ConversationListView: View {
             MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Find a conversation")
                 .padding(.horizontal, ModulaLayout.contentInset)
             searchScopeCaption(matches: matches)
-            filterRow
+            if showFilterChips || serverFolderID != nil { filterRow }
             if !app.messaging.conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 searchKindRow
             }
@@ -388,6 +403,83 @@ struct ConversationListView: View {
             }
         }
         .padding(.bottom, 6)
+    }
+
+    /// Big "Chats" title + glass ▾ menu (filters, places, tools), like X's but fuller. The current
+    /// filter shows beside the title, so the chip row can stay off.
+    private var inboxTitleMenu: some View {
+        let folderName = serverFolderID.flatMap { id in app.messaging.serverFolders.first { $0.id == id }?.name }
+        let current = folderName ?? filter.title
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("Chats")
+                .font(.largeTitle.weight(.bold))
+                .fixedSize()
+                .accessibilityAddTraits(.isHeader)
+            Menu {
+                ControlGroup {
+                    titleFilterButton(.all)
+                    titleFilterButton(.unread)
+                    if app.messaging.capabilities.groups || filter == .groups { titleFilterButton(.groups) }
+                }
+                .controlGroupStyle(.compactMenu)
+                Section {
+                    titleFilterButton(.direct)
+                    Button("Requests", systemImage: "tray.and.arrow.down") { app.navigation.replaceTop(with: .messages(.requests)) }
+                    titleFilterButton(.favourites)
+                    if app.messaging.capabilities.mute { titleFilterButton(.muted) }
+                    Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
+                    titleFilterButton(.drafts)
+                }
+                Section {
+                    Button("Modula Number", systemImage: "circle.grid.3x3") { showsModulaNumber = true }
+                    Button("Calls", systemImage: "phone") { app.navigation.replaceTop(with: .messages(.calls)) }
+                    Button("Chat Settings", systemImage: "gearshape") { app.navigation.push(.settings(.chats(.root))) }
+                    Toggle(isOn: $showFilterChips) { Label("Show Filter Chips", systemImage: "line.3.horizontal.decrease") }
+                }
+                Section {
+                    if app.messaging.capabilities.markRead {
+                        Button("Mark All as Read", systemImage: "checkmark.message") {
+                            Task { await app.messaging.markAllVisibleRead() }
+                        }
+                    }
+                    Button("Select Chats", systemImage: "checkmark.circle") { selecting = true }
+                    if app.messaging.capabilities.groups {
+                        Button("New Group", systemImage: "person.2.badge.plus") { showNewGroup = true }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Text(current).font(.subheadline.weight(.semibold)).fixedSize()
+                    Image(systemName: "chevron.down").font(.caption.weight(.bold))
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 32)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .contentShape(Capsule())
+            }
+            .accessibilityLabel("Chats filter: \(current)")
+            .accessibilityHint("Opens filters, places and inbox tools")
+            .accessibilityIdentifier("messages.inbox.titleMenu")
+            Spacer(minLength: 0)
+        }
+        .sheet(isPresented: $showsModulaNumber) { ModulaNumberSheet() }
+    }
+
+    private func titleFilterButton(_ item: InboxFilter) -> some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) {
+                serverFolderID = nil
+                filter = item
+            }
+            HapticEngine.shared.play(.selection)
+        } label: {
+            if filter == item && serverFolderID == nil {
+                Label(item.title, systemImage: "checkmark")
+            } else {
+                Label(item.title, systemImage: item.symbol)
+            }
+        }
     }
 
     private var searchKindRow: some View {
