@@ -789,8 +789,9 @@ private struct CallRowButton: View {
 
 /// Consecutive calls with the same person, kind and outcome (same day) collapse into one row "(3)".
 struct CallsRecentGroup: Identifiable, Hashable {
+    /// Always non-empty: built only by `CallsRecentGrouping`, which starts each group with one record.
     var records: [CallRecord]
-    var id: String { records[0].id }
+    var id: String { records.first?.id ?? "empty" }
     var latest: CallRecord { records[0] }
 }
 

@@ -647,6 +647,8 @@ final class BoardStore {
                     return
                 }
             }
+            // Robustness: never index an empty page list (mutate() re-adds a page afterwards).
+            if layout.pages.isEmpty { layout.pages = [BoardPage(name: "Board", widgets: [])] }
             layout.pages[0].widgets.append(moving)
         }
     }
@@ -2468,17 +2470,50 @@ struct BoardWidgetGallery: View {
     @State private var sizes: [BoardWidgetKind: BoardWidgetSize] = [:]
     @State private var query = ""
     @State private var added: BoardWidgetKind?
+    @State private var category: BoardWidgetCategory = .all
+    @Environment(\.accessibilityReduceMotion) private var galleryReduceMotion
 
     private var kinds: [BoardWidgetKind] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return BoardWidgetKind.allCases.filter { q.isEmpty || $0.title.lowercased().contains(q) || $0.blurb.lowercased().contains(q) }
+        return BoardWidgetKind.allCases.filter {
+            (category == .all || $0.category == category) && (q.isEmpty || $0.title.lowercased().contains(q) || $0.blurb.lowercased().contains(q))
+        }
+    }
+
+    private var categoryBar: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(BoardWidgetCategory.allCases) { c in
+                    let count = c == .all ? BoardWidgetKind.allCases.count : BoardWidgetKind.allCases.filter { $0.category == c }.count
+                    Button {
+                        withAnimation(galleryReduceMotion ? nil : .snappy(duration: 0.25)) { category = c }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Label("\(c.title) \(count)", systemImage: c.symbol)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(category == c ? Color.modulaOnPrimary : Color.primary)
+                            .padding(.horizontal, 14).frame(height: 36)
+                            .background { if category == c { Capsule().fill(Color.modulaPrimaryFill) } }
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(category == c ? .isSelected : [])
+                    .accessibilityIdentifier("board.gallery.category.\(c.rawValue)")
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+        }
+        .scrollIndicators(.hidden)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 18) {
-                    ForEach(kinds) { kind in card(kind) }
+                    categoryBar.padding(.horizontal, -ModulaLayout.contentInset)
+                    ForEach(kinds) { kind in
+                        card(kind).transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    }
                     if !BoardWidgetRegistry.declared.isEmpty {
                         Text("Module widgets appear here when your modules offer them.").font(.footnote).foregroundStyle(.secondary)
                     }
@@ -3899,5 +3934,31 @@ struct BoardPhotoFrameFace: View {
             }
         }
         .accessibilityLabel(token == nil ? "Photo frame, no photo chosen" : "Photo frame")
+    }
+}
+
+
+// MARK: - Widget gallery categories
+
+enum BoardWidgetCategory: String, CaseIterable, Identifiable {
+    case all, time, productivity, wellbeing, people, fun
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .all: "All"; case .time: "Time"; case .productivity: "Productivity"; case .wellbeing: "Wellbeing"; case .people: "People"; case .fun: "Fun" }
+    }
+    var symbol: String {
+        switch self { case .all: "square.grid.2x2"; case .time: "clock"; case .productivity: "checklist"; case .wellbeing: "heart"; case .people: "person.2"; case .fun: "sparkles" }
+    }
+}
+
+extension BoardWidgetKind {
+    var category: BoardWidgetCategory {
+        switch self {
+        case .clock, .worldClock, .today, .countdown, .stopwatch, .yearProgress: .time
+        case .notes, .quickActions, .modules, .focus, .calculator, .converter, .battery: .productivity
+        case .activity, .streak, .breathe, .water, .habit: .wellbeing
+        case .messages, .callsFavourites, .connectNumber: .people
+        case .moliboo, .decide, .quote, .photoFrame, .photos, .nowPlaying, .weather: .fun
+        }
     }
 }

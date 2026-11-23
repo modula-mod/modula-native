@@ -189,16 +189,23 @@ struct SettingsView: View {
                 if isSearching {
                     // Atlas v5 09.002: grouped matches, each with its breadcrumb; unavailable
                     // destinations say so instead of looking like working settings.
-                    if filteredSearchItems.isEmpty {
+                    // Speed: one registry search per render (it ran twice: once for isEmpty, once to group).
+                    let groups = groupedSearchItems
+                    if groups.isEmpty {
                         SettingsGroup(title: "Results") {
                             ModulaEmptyState(title: "No settings for “\(query)”", message: "Try a broader word, like privacy or theme.", symbol: "magnifyingglass")
                                 .frame(minHeight: 220)
                         }
                     } else {
-                        ForEach(Array(groupedSearchItems.enumerated()), id: \.element.category) { gi, group in
+                        Text("\(groups.reduce(0) { $0 + $1.items.count }) result\(groups.reduce(0) { $0 + $1.items.count } == 1 ? "" : "s")")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
+                            .accessibilityIdentifier("settings.search.count")
+                        ForEach(Array(groups.enumerated()), id: \.element.category) { gi, group in
                             SettingsGroup(title: group.category) {
                                 ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
                                     SettingsTileRow(title: item.title, subtitle: searchSubtitle(item, category: group.category), symbol: item.symbol) {
+                                        SettingsRecentSearches.add(query)
                                         app.navigation.settingsFocusAnchor = item.anchor
                                         app.navigation.open(.settings(item.route))
                                     }
@@ -755,6 +762,13 @@ struct SettingsView: View {
 
     /// Shown while the search field is focused and empty (Atlas v5 09.002 "suggested searches").
     private var suggestedSearches: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsRecentSearchesGroup { query = $0 }
+            suggestedGroup
+        }
+    }
+
+    private var suggestedGroup: some View {
         SettingsGroup(title: "Suggested") {
             ForEach(Array(Self.suggestions.enumerated()), id: \.offset) { index, suggestion in
                 SettingsTileRow(title: suggestion.0, symbol: suggestion.1) { query = suggestion.0 }
@@ -2707,5 +2721,49 @@ struct AccentLivePreview: View {
         .accessibilityLabel("Accent preview")
         .modulaAppear()
         .accessibilityIdentifier("settings.appearance.accentPreview")
+    }
+}
+
+
+// MARK: - Recent settings searches
+
+enum SettingsRecentSearches {
+    static let key = "settings.search.recent"
+    static var all: [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+    static func add(_ raw: String) {
+        let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else { return }
+        var list = all.filter { $0.caseInsensitiveCompare(q) != .orderedSame }
+        list.insert(q, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(5)), forKey: key)
+    }
+}
+
+/// Last five searches that led somewhere (saved when you open a result); tap to search again.
+struct SettingsRecentSearchesGroup: View {
+    let pick: (String) -> Void
+    @State private var recents = SettingsRecentSearches.all
+
+    var body: some View {
+        if !recents.isEmpty {
+            SettingsGroup(title: "Recent") {
+                VStack(spacing: 0) {
+                    ForEach(Array(recents.enumerated()), id: \.element) { index, q in
+                        SettingsTileRow(title: q, symbol: "clock.arrow.circlepath") { pick(q) }
+                        if index < recents.count - 1 { SettingsDivider() }
+                    }
+                    Button("Clear Recent Searches") {
+                        UserDefaults.standard.removeObject(forKey: SettingsRecentSearches.key)
+                        withAnimation(.snappy) { recents = [] }
+                        HapticEngine.shared.play(.selection)
+                    }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .accessibilityIdentifier("settings.search.recent.clear")
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+            .accessibilityIdentifier("settings.search.recent")
+        }
     }
 }

@@ -422,8 +422,11 @@ struct ActivityClusterCard: View {
         .overlay(alignment: .topLeading) {
             if !cluster.isRead {
                 ActivityUnreadIndicator().offset(x: -12, y: 29)
+                    // Marking read (one or all) pops the dot away instead of it vanishing.
+                    .transition(.scale(scale: 0.2).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: cluster.isRead)
         .contentShape(Rectangle())
         .opacity(dimmed ? 0.5 : 1)
         .accessibilityElement(children: .contain)

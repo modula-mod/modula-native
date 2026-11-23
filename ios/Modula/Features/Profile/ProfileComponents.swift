@@ -947,6 +947,7 @@ struct ProfileInfoChips: View {
         let symbol: String
         let title: String
         let action: (() -> Void)?
+        var url: URL? = nil
     }
 
     private var accent: Color { profileAccent ?? app.appearance.liveAccent }
@@ -970,7 +971,7 @@ struct ProfileInfoChips: View {
             let open = openURL
             items.append(Chip(id: "website", symbol: "link", title: website.domain ?? website.label, action: {
                 ProfileAboutGrid.openSafely(url, openURL: open)
-            }))
+            }, url: url))
         }
         if let joined = profile.joinedAt {
             items.append(Chip(id: "joined", symbol: "calendar", title: "Joined \(joined.formatted(.dateTime.month(.abbreviated).year()))", action: nil))
@@ -1023,6 +1024,7 @@ struct ProfileInfoChips: View {
             }
             .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
             .modulaGlass(in: Capsule(), interactive: true)
+            .modifier(ProfileLinkPreviewMenu(url: chip.url, app: app, open: action))
             .accessibilityLabel("Website, \(chip.title)")
             .accessibilityIdentifier("profile.chip.\(chip.id)")
         } else {
@@ -3146,6 +3148,36 @@ private struct ProfilePillSurface: ViewModifier {
             content.modulaPrimaryCTA()
         } else {
             content.modulaGlass(in: Capsule(), interactive: true, specular: true)
+        }
+    }
+}
+
+
+/// Touch and hold the profile website chip: a live link preview card (title, image, domain from the existing
+/// link-preview endpoint) with Open, Copy Link and Share. The preview gets the environment explicitly, because
+/// context-menu previews are hosted outside the view tree.
+struct ProfileLinkPreviewMenu: ViewModifier {
+    let url: URL?
+    let app: AppEnvironment
+    let open: () -> Void
+
+    func body(content: Content) -> some View {
+        if let url {
+            content.contextMenu {
+                Button("Open", systemImage: "safari") { open() }
+                Button("Copy Link", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.url = url
+                    HapticEngine.shared.play(.success)
+                }
+                ShareLink(item: url) { Label("Share", systemImage: "square.and.arrow.up") }
+            } preview: {
+                ModulaRichLinkCard(url: url)
+                    .environment(app)
+                    .frame(width: 320)
+                    .padding(12)
+            }
+        } else {
+            content
         }
     }
 }
