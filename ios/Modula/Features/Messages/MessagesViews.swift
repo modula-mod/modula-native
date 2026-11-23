@@ -742,6 +742,7 @@ struct ConversationListView: View {
                             if selecting {
                                 Image(systemName: selectedIDs.contains(conversation.id) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
+                                    .contentTransition(.symbolEffect(.replace))
                                     .foregroundStyle(selectedIDs.contains(conversation.id) ? Color.primary : Color.secondary)
                                     .accessibilityHidden(true)
                             }
@@ -1518,6 +1519,7 @@ struct ConversationView: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) { flyOverlay }
+            .overlay { ChatScreenEffectOverlay().allowsHitTesting(false) }
             .background { keyboardShortcuts }
             .confirmationDialog(
                 "Unsend this message?",
@@ -2914,8 +2916,11 @@ struct ConversationComposerDock: View {
     }
 
     private func flushAndSend() {
+        let sent = text
         flushDraft()
         onSend()
+        // Keyword screen effects (🎉, happy birthday, ❤️…): played on this screen only.
+        if app.messaging.capabilities.send, let kind = ChatScreenEffect.match(sent) { ChatScreenEffectCenter.shared.play(kind) }
     }
 
     private var dockViewer: ConversationParticipant {
@@ -6891,6 +6896,118 @@ struct NatureWallpaperView: View {
             p.scaleBy(x: 1, y: 0.55 + 0.45 * abs(sin(t * 1.3 + Double(i))))
             p.fill(Path(ellipseIn: CGRect(x: -size / 2, y: -size / 3, width: size, height: size * 0.66)),
                    with: .color(petal.opacity(0.55 + 0.3 * rnd(i, 6))))
+        }
+    }
+}
+
+
+// MARK: - Chat screen effects (keyword-triggered, 2D, local only)
+
+enum ChatScreenEffect: String, CaseIterable, Sendable {
+    case confetti, hearts, balloons, sparkles
+
+    /// Words and emoji that trigger each effect (checked on send).
+    static func match(_ text: String) -> ChatScreenEffect? {
+        guard ModulaPreferencesChatEffects.enabled else { return nil }
+        let t = text.lowercased()
+        if t.contains("happy birthday") || t.contains("🎂") || t.contains("🎈") { return .balloons }
+        if t.contains("congrat") || t.contains("well done") || t.contains("🎉") || t.contains("🥳") { return .confetti }
+        if t.contains("love you") || t.contains("❤️") || t.contains("😍") || t.contains("🥰") { return .hearts }
+        if t.contains("happy new year") || t.contains("✨") || t.contains("🎆") { return .sparkles }
+        return nil
+    }
+}
+
+enum ModulaPreferencesChatEffects {
+    static var enabled: Bool { UserDefaults.standard.object(forKey: "chat.screenEffects") as? Bool ?? true }
+}
+
+@MainActor @Observable
+final class ChatScreenEffectCenter {
+    static let shared = ChatScreenEffectCenter()
+    private(set) var current: ChatScreenEffect?
+    private(set) var startedAt = Date.distantPast
+    func play(_ effect: ChatScreenEffect) {
+        current = effect
+        startedAt = Date()
+        HapticEngine.shared.play(.success)
+        let started = startedAt
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(ChatScreenEffectOverlay.duration + 0.1))
+            if self.startedAt == started { self.current = nil }
+        }
+    }
+}
+
+struct ChatScreenEffectOverlay: View {
+    static let duration: Double = 2.6
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var center: ChatScreenEffectCenter { ChatScreenEffectCenter.shared }
+
+    var body: some View {
+        if let effect = center.current, !reduceMotion {
+            let start = center.startedAt
+            TimelineView(.animation) { ctx in
+                let t = ctx.date.timeIntervalSince(start)
+                Canvas { gc, size in
+                    draw(effect, t: t, in: &gc, size: size)
+                }
+            }
+            .ignoresSafeArea()
+            .transition(.opacity)
+            .id(start)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private struct Seed: Sendable { let x, speed, phase, size, spin: Double; let hue: Int }
+    private static let seeds: [Seed] = {
+        var rng = SystemRandomNumberGenerator()
+        return (0..<70).map { _ in
+            Seed(x: .random(in: 0...1, using: &rng), speed: .random(in: 0.6...1.3, using: &rng),
+                 phase: .random(in: 0...(2 * .pi), using: &rng), size: .random(in: 0.7...1.3, using: &rng),
+                 spin: .random(in: -3...3, using: &rng), hue: .random(in: 0..<6, using: &rng))
+        }
+    }()
+    private static let palette: [Color] = [.yellow, .pink, .blue, .green, .orange, .purple]
+
+    private func draw(_ effect: ChatScreenEffect, t: Double, in gc: inout GraphicsContext, size: CGSize) {
+        let fade = t > Self.duration - 0.5 ? max(0, (Self.duration - t) / 0.5) : 1
+        gc.opacity = fade
+        switch effect {
+        case .confetti:
+            for s in Self.seeds {
+                let y = -20 + (t * s.speed * 0.55) * size.height * 1.1
+                let x = s.x * size.width + sin(t * 3 + s.phase) * 18
+                var g = gc
+                g.translateBy(x: x, y: y)
+                g.rotate(by: .radians(t * s.spin + s.phase))
+                let w = 7 * s.size, h = 12 * s.size * abs(cos(t * 4 + s.phase))
+                g.fill(Path(CGRect(x: -w / 2, y: -h / 2, width: w, height: max(2, h))), with: .color(Self.palette[s.hue]))
+            }
+        case .hearts, .balloons:
+            let glyph = gc.resolve(Text(effect == .hearts ? "❤️" : "🎈").font(.system(size: 34)))
+            for s in Self.seeds.prefix(effect == .hearts ? 26 : 18) {
+                let y = size.height + 40 - (t * s.speed * 0.5) * size.height * 1.2
+                let x = s.x * size.width + sin(t * 2 + s.phase) * 24
+                var g = gc
+                g.translateBy(x: x, y: y)
+                g.scaleBy(x: s.size, y: s.size)
+                g.draw(glyph, at: .zero)
+            }
+        case .sparkles:
+            let glyph = gc.resolve(Text("✨").font(.system(size: 26)))
+            for (i, s) in Self.seeds.prefix(30).enumerated() {
+                let delay = Double(i % 10) * 0.12
+                let local = t - delay
+                guard local > 0 else { continue }
+                let pulse = sin(min(1, local / 0.9) * .pi)
+                var g = gc
+                g.opacity = fade * pulse
+                g.translateBy(x: s.x * size.width, y: (0.15 + 0.6 * ((s.phase / (2 * .pi)))) * size.height)
+                g.scaleBy(x: 0.6 + pulse * s.size, y: 0.6 + pulse * s.size)
+                g.draw(glyph, at: .zero)
+            }
         }
     }
 }

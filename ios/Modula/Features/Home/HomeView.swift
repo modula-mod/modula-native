@@ -2472,7 +2472,7 @@ struct HomeExtraSection: View {
 /// On-device quote of the day plus a date fact; changes at midnight.
 struct HomeQuoteCard: View {
     var compact = false
-    private static let quotes: [(String, String)] = [
+    static let quotes: [(String, String)] = [
         ("Simplicity is the ultimate sophistication.", "Leonardo da Vinci"),
         ("Make it work, make it right, make it fast.", "Kent Beck"),
         ("The best way to predict the future is to invent it.", "Alan Kay"),

@@ -843,7 +843,11 @@ struct ShellSidebarView: View {
             }
             rows()
         }
+        // Sections slide in top to bottom when the sidebar opens (Reduce Motion: shown at once).
+        .modulaAppear(delay: Double(Self.sectionOrder.firstIndex(of: title ?? "") ?? 0) * 0.04)
     }
+
+    private static let sectionOrder = ["", "Library", "Tools", "Recent modules", "Recent", "Pinned", "Recents"]
 
     private func rowLabel(symbol: String, title: String, badge: Int = 0, selected: Bool = false) -> some View {
         HStack(spacing: ModulaSpacing.sm) {

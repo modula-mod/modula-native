@@ -82,6 +82,7 @@ struct GesturesSettingsHost: View {
     @AppStorage("settings.gestures.edgeBack") private var edgeBack = true
     @AppStorage("settings.gestures.doubleTapLike") private var doubleTapLike = true
     @AppStorage("settings.gestures.swipeReply") private var swipeReply = true
+    @AppStorage("chat.screenEffects") private var chatScreenEffects = true
     /// Double-tap a chat bubble to react with this ("" = your most recent reaction, else ❤️).
     @AppStorage("messages.doubleTapReaction") private var doubleTapReaction = ""
     @AppStorage("settings.gestures.shakeUndo") private var shakeUndo = false
@@ -110,6 +111,8 @@ struct GesturesSettingsHost: View {
                     Toggle("Edge swipe to go back", isOn: $edgeBack)
                     Toggle("Double-tap to like", isOn: $doubleTapLike)
                     Toggle("Swipe to reply in chats", isOn: $swipeReply)
+                    Toggle("Chat screen effects", isOn: $chatScreenEffects)
+                        .accessibilityHint("Confetti, hearts, balloons or sparkles when you send words like congrats or happy birthday")
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
                 }
                 SettingsToggleCard {

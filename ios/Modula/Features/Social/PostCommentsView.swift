@@ -989,6 +989,8 @@ struct PostCommentsView: View {
                         if store.expandedReplies.contains(comment.id) || (!searchText.isEmpty && !replies.isEmpty) {
                             ForEach(replies) { reply in
                                 commentRow(reply, store: store, indented: true)
+                                    // Replies unfold from their parent instead of popping in.
+                                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -8)))
                             }
                             if !replies.isEmpty || comment.replyCount > 0 {
                                 Button {

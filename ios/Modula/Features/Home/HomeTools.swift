@@ -370,6 +370,7 @@ enum BoardWidgetSize: String, Codable, CaseIterable, Identifiable, Sendable {
 enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, worldClock, activity, weather, today, notes, battery, moliboo, messages, streak
     case quickActions, modules, nowPlaying, photos, countdown, stopwatch, callsFavourites, connectNumber
+    case focus, decide, quote
     var id: Self { self }
 
     var title: String {
@@ -392,6 +393,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stopwatch: "Stopwatch"
         case .callsFavourites: "Favourites"
         case .connectNumber: "Modula Number"
+        case .focus: "Focus"
+        case .decide: "Decide"
+        case .quote: "Quote"
         }
     }
 
@@ -415,6 +419,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stopwatch: "stopwatch"
         case .callsFavourites: "star.fill"
         case .connectNumber: "antenna.radiowaves.left.and.right"
+        case .focus: "timer"
+        case .decide: "dice"
+        case .quote: "quote.opening"
         }
     }
 
@@ -438,6 +445,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stopwatch: "Start, stop, lap"
         case .callsFavourites: "Call your favourites"
         case .connectNumber: "Your Modula Number"
+        case .focus: "A focus timer with a ring"
+        case .decide: "Flip a coin, roll a die, yes or no"
+        case .quote: "A new line every day"
         }
     }
 
@@ -449,6 +459,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .notes: [.small, .medium, .large, .tall]
         case .today: [.small, .medium, .large, .tall]
         case .moliboo: [.small, .circle, .medium, .large, .tall]
+        case .focus: [.small, .circle, .medium, .pill, .large]
+        case .decide: [.small, .circle, .medium]
+        case .quote: [.medium, .small, .large, .pill]
         default: [.small, .medium, .circle, .pill, .large]
         }
     }
@@ -640,7 +653,10 @@ final class BoardStore {
         stopwatches[id] = state
         // Drop state for widgets that no longer exist.
         let live = Set(layout.pages.flatMap(\.widgets).map(\.id))
-        stopwatches = stopwatches.filter { live.contains($0.key) || $0.key == id }
+        stopwatches = stopwatches.filter { entry in
+            let base = entry.key.hasPrefix("focus.") ? String(entry.key.dropFirst(6)) : entry.key
+            return live.contains(base) || entry.key == id
+        }
         if let data = try? JSONEncoder().encode(stopwatches) { UserDefaults.standard.set(data, forKey: Self.stopwatchKey) }
     }
 
@@ -771,6 +787,7 @@ struct BoardTileShape: Shape {
 /// The glass tile around a face. Lays the face out on its design canvas and scales it to fit.
 struct BoardWidgetChrome<Content: View>: View {
     let size: BoardWidgetSize
+    var tint: String = "glass"
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -783,6 +800,7 @@ struct BoardWidgetChrome<Content: View>: View {
                 .frame(width: canvas.width, height: canvas.height)
                 .scaleEffect(scale)
                 .frame(width: fitted.width, height: fitted.height)
+                .background { BoardTint(rawValue: tint)?.fill }
                 .clipShape(shape)
                 .modulaGlass(in: shape, interactive: false)
                 .overlay(shape.boardHairline(Color.white.opacity(0.14), lineWidth: 0.7))
@@ -845,6 +863,9 @@ struct BoardWidgetView: View {
             case .stopwatch: BoardStopwatchFace(size: size, widgetID: widget.id)
             case .callsFavourites: BoardFavouritesFace(size: size)
             case .connectNumber: BoardConnectFace(size: size)
+            case .focus: BoardFocusFace(size: size, widgetID: widget.id, minutes: Int(widget.setting("minutes", "25")) ?? 25)
+            case .decide: BoardDecideFace(size: size, mode: widget.setting("mode", "coin"))
+            case .quote: BoardQuoteFace(size: size)
             case .weather, .nowPlaying, .photos: BoardGatedFace(kind: shownKind, size: size)
             }
         }
@@ -2203,7 +2224,7 @@ struct BoardView: View {
         case .modules: app.navigation.push(.productHub(.collection(.installed)))
         case .connectNumber: app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
         case .moliboo: app.navigation.push(.settings(.moliboo))
-        case .quickActions, .stopwatch: break
+        case .quickActions, .stopwatch, .focus, .decide: break
         default: configuringID = BoardConfigTarget(id: widget.id)
         }
     }
@@ -2228,7 +2249,7 @@ struct BoardWidgetTile: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            BoardWidgetChrome(size: widget.size) {
+            BoardWidgetChrome(size: widget.size, tint: widget.setting("tint", "glass")) {
                 if widget.stack.isEmpty {
                     BoardWidgetView(widget: widget)
                 } else {
@@ -2461,7 +2482,7 @@ struct BoardWidgetSettingsSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         let (w, h) = widget.size.span
-                        BoardWidgetChrome(size: widget.size) { BoardWidgetView(widget: widget) }
+                        BoardWidgetChrome(size: widget.size, tint: widget.setting("tint", "glass")) { BoardWidgetView(widget: widget) }
                             .frame(width: CGFloat(w) * 78 + CGFloat(w - 1) * 8, height: CGFloat(h) * 70)
                             .frame(maxWidth: .infinity)
                             .animation(.spring(response: 0.45, dampingFraction: 0.78), value: widget)
@@ -2469,6 +2490,33 @@ struct BoardWidgetSettingsSheet: View {
                             ModulaSegmentedControl(segments: widget.kind.sizes.map { .init(id: $0, title: $0.title) },
                                                    selection: Binding(get: { widget.size }, set: { v in var copy = widget; copy.size = v; store.update(copy) }),
                                                    accessibilityLabel: "Size", identifier: { "board.size.\($0.rawValue)" })
+                        }
+                        group("Style") {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(BoardTint.allCases) { t in
+                                        let on = widget.setting("tint", "glass") == t.rawValue
+                                        Button {
+                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { set(widget, "tint", t.rawValue) }
+                                            HapticEngine.shared.play(.selection)
+                                        } label: {
+                                            VStack(spacing: 6) {
+                                                Circle()
+                                                    .fill(t.swatch)
+                                                    .frame(width: 40, height: 40)
+                                                    .overlay(Circle().stroke(Color.primary.opacity(on ? 0.9 : 0.15), lineWidth: on ? 2.5 : 1).padding(-3))
+                                                    .overlay { if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(.white).transition(.scale.combined(with: .opacity)) } }
+                                                Text(t.title).font(.caption2.weight(.semibold)).foregroundStyle(on ? .primary : .secondary)
+                                            }
+                                            .frame(minWidth: 48)
+                                        }
+                                        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                                        .accessibilityLabel("\(t.title) style")
+                                        .accessibilityAddTraits(on ? .isSelected : [])
+                                    }
+                                }
+                                .padding(.vertical, 4).padding(.horizontal, 2)
+                            }
                         }
                         options(widget)
                         group("Smart Stack", footer: "Swipe on the widget to flip between everything in the stack.") {
@@ -2552,6 +2600,16 @@ struct BoardWidgetSettingsSheet: View {
                     ISO8601DateFormatter().date(from: widget.setting("date", "")) ?? Date().addingTimeInterval(86_400 * 7)
                 }, set: { d in set(widget, "date", ISO8601DateFormatter().string(from: d)) }), displayedComponents: .date)
             }
+        case .focus:
+            group("Focus length") {
+                ModulaSegmentedControl(segments: ["10", "25", "45", "60"].map { .init(id: $0, title: "\($0) min") },
+                                       selection: binding(widget, "minutes", "25"), accessibilityLabel: "Focus length", identifier: { "board.focus.\($0)" })
+            }
+        case .decide:
+            group("Decide") {
+                ModulaSegmentedControl(segments: [.init(id: "coin", title: "Coin"), .init(id: "dice", title: "Dice"), .init(id: "yesno", title: "Yes / No")],
+                                       selection: binding(widget, "mode", "coin"), accessibilityLabel: "Decide mode", identifier: { "board.decide.\($0)" })
+            }
         default:
             if widget.kind.isGated {
                 group(widget.kind.title) {
@@ -2600,7 +2658,7 @@ struct HomeBoardRail: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(widgets) { widget in
-                        BoardWidgetChrome(size: widget.size) { BoardWidgetView(widget: widget) }
+                        BoardWidgetChrome(size: widget.size, tint: widget.setting("tint", "glass")) { BoardWidgetView(widget: widget) }
                             .frame(width: 132, height: 132)
                             .onTapGesture { app.navigation.push(.board) }
                     }
@@ -2906,6 +2964,226 @@ struct CallScreenPreview: View {
             .transition(.move(edge: .top).combined(with: .opacity))
             .foregroundStyle(.white)
             Spacer()
+        }
+    }
+}
+
+
+// MARK: - Board extras (3:30 round): tints, Focus, Decide, Quote
+
+/// Per-widget colour wash under the glass (Edit Widget › Style).
+enum BoardTint: String, CaseIterable, Identifiable {
+    case glass, graphite, ocean, sunset, forest, rose, lavender
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
+    private var colors: [Color] {
+        switch self {
+        case .glass: [.clear, .clear]
+        case .graphite: [Color(white: 0.28), Color(white: 0.08)]
+        case .ocean: [Color(red: 0.10, green: 0.45, blue: 0.95), Color(red: 0.02, green: 0.18, blue: 0.45)]
+        case .sunset: [Color(red: 1.0, green: 0.55, blue: 0.25), Color(red: 0.75, green: 0.15, blue: 0.45)]
+        case .forest: [Color(red: 0.20, green: 0.65, blue: 0.40), Color(red: 0.03, green: 0.25, blue: 0.18)]
+        case .rose: [Color(red: 1.0, green: 0.55, blue: 0.70), Color(red: 0.60, green: 0.15, blue: 0.35)]
+        case .lavender: [Color(red: 0.70, green: 0.58, blue: 1.0), Color(red: 0.30, green: 0.18, blue: 0.60)]
+        }
+    }
+    var swatch: AnyShapeStyle {
+        self == .glass
+            ? AnyShapeStyle(.ultraThinMaterial)
+            : AnyShapeStyle(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+    }
+    @ViewBuilder var fill: some View {
+        if self != .glass {
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing).opacity(0.62)
+        }
+    }
+}
+
+/// Focus timer: ring + remaining time. State lives in BoardStore (survives edit mode and relaunch).
+struct BoardFocusFace: View {
+    let size: BoardWidgetSize
+    let widgetID: String
+    let minutes: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var key: String { "focus.\(widgetID)" }
+    private var state: BoardStopwatchState { BoardStore.shared.stopwatch(key) }
+    private var length: TimeInterval { TimeInterval(max(1, minutes) * 60) }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: state.started == nil ? 60 : 1)) { ctx in
+            let used = min(length, state.total(at: ctx.date))
+            let remaining = length - used
+            let done = remaining <= 0.5
+            let progress = used / length
+            Group {
+                switch BoardFamily(size) {
+                case .inline:
+                    HStack(spacing: 12) {
+                        ring(progress, done: done, width: 6).frame(width: 40, height: 40)
+                        Text(done ? "Done" : Self.format(remaining)).font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
+                            .contentTransition(.numericText(countsDown: true))
+                        Spacer(minLength: 0)
+                        controls(done: done, d: 44)
+                    }
+                    .padding(.leading, 22).padding(.trailing, 18)
+                case .round, .square:
+                    ZStack {
+                        ring(progress, done: done, width: 10).padding(size == .circle ? 18 : 16)
+                        VStack(spacing: 6) {
+                            Text(done ? "Done" : Self.format(remaining)).font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit()
+                                .contentTransition(.numericText(countsDown: true))
+                                .lineLimit(1).minimumScaleFactor(0.6)
+                            HStack(spacing: 10) { controls(done: done, d: 38) }
+                        }
+                    }
+                default:
+                    VStack(alignment: .leading, spacing: 10) {
+                        BoardFaceHeader(title: "Focus", symbol: "timer", trailing: "\(minutes) min")
+                        HStack(spacing: 18) {
+                            ring(progress, done: done, width: 12).frame(width: 96, height: 96)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(done ? "Done" : Self.format(remaining)).font(.system(size: 40, weight: .semibold, design: .rounded)).monospacedDigit()
+                                    .contentTransition(.numericText(countsDown: true))
+                                Text(done ? "Nice work. Take a break." : state.started == nil ? (used > 0 ? "Paused" : "Ready when you are") : "Stay with it")
+                                    .font(.system(size: 14)).foregroundStyle(.secondary)
+                                HStack(spacing: 10) { controls(done: done, d: 42) }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(BoardMetrics.padding)
+                }
+            }
+            .animation(reduceMotion ? nil : .smooth(duration: 0.6), value: progress)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Focus timer, \(minutes) minutes")
+    }
+
+    private func ring(_ progress: Double, done: Bool, width: CGFloat) -> some View {
+        ZStack {
+            Circle().stroke(Color.primary.opacity(0.14), lineWidth: width)
+            Circle()
+                .trim(from: 0, to: max(0.001, progress))
+                .stroke(done ? Color.green : Color.primary, style: StrokeStyle(lineWidth: width, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+    }
+
+    @ViewBuilder
+    private func controls(done: Bool, d: CGFloat) -> some View {
+        let running = state.started != nil && !done
+        Button {
+            var next = state
+            if done { next = BoardStopwatchState() }
+            else if let s = next.started { next.elapsed += Date().timeIntervalSince(s); next.started = nil }
+            else { next.started = Date() }
+            withAnimation(.snappy) { BoardStore.shared.setStopwatch(key, next) }
+            HapticEngine.shared.play(running ? .selection : .mediumImpact)
+        } label: {
+            Image(systemName: done ? "arrow.counterclockwise" : running ? "pause.fill" : "play.fill")
+                .font(.system(size: d * 0.38, weight: .bold))
+                .foregroundStyle(Color.modulaOnPrimary)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: d, height: d)
+                .background(Circle().fill(Color.modulaPrimaryFill))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+        .accessibilityLabel(done ? "Restart" : running ? "Pause" : "Start")
+        if !done, state.elapsed > 0 || state.started != nil, size != .circle {
+            Button {
+                withAnimation(.snappy) { BoardStore.shared.setStopwatch(key, BoardStopwatchState()) }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                Image(systemName: "xmark").font(.system(size: d * 0.32, weight: .bold))
+                    .frame(width: d, height: d).background(Circle().fill(Color.primary.opacity(0.14)))
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+            .accessibilityLabel("Reset")
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    static func format(_ t: TimeInterval) -> String {
+        let s = Int(t.rounded(.up))
+        return String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/// Coin, die or yes/no: tap to decide (2D flip/tumble; a crossfade under Reduce Motion).
+struct BoardDecideFace: View {
+    let size: BoardWidgetSize
+    let mode: String
+    @State private var result: String?
+    @State private var spins = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var options: [String] {
+        switch mode {
+        case "dice": ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+        case "yesno": ["Yes", "No", "Maybe", "Ask again"]
+        default: ["Heads", "Tails"]
+        }
+    }
+    private var title: String { mode == "dice" ? "Roll" : mode == "yesno" ? "Ask" : "Flip" }
+
+    var body: some View {
+        Button(action: roll) {
+            VStack(spacing: size == .medium ? 10 : 6) {
+                if size == .medium { BoardFaceHeader(title: "Decide", symbol: "dice") }
+                Spacer(minLength: 0)
+                Text(result ?? (mode == "dice" ? "⚅" : mode == "yesno" ? "?" : "🪙"))
+                    .font(.system(size: mode == "dice" ? 64 : (result == nil ? 46 : 30), weight: .bold, design: .rounded))
+                    .lineLimit(1).minimumScaleFactor(0.5)
+                    .rotation3DEffect(.degrees(reduceMotion ? 0 : Double(spins) * 360), axis: mode == "coin" ? (x: 1, y: 0, z: 0) : (x: 0, y: 0, z: 1))
+                    .id(result ?? "none")
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                Text(result == nil ? "Tap to \(title.lowercased())" : "Tap again")
+                    .font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(size == .circle ? 26 : BoardMetrics.padding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+        .accessibilityLabel(result.map { "Result: \($0). Tap to \(title.lowercased()) again" } ?? "\(title)")
+    }
+
+    private func roll() {
+        HapticEngine.shared.play(.mediumImpact)
+        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.55, dampingFraction: 0.7)) {
+            spins += 1
+            result = options.randomElement()
+        }
+    }
+}
+
+/// The quote of the day (same list as the Home quote card).
+struct BoardQuoteFace: View {
+    let size: BoardWidgetSize
+    var body: some View {
+        let day = Calendar.current.ordinality(of: .day, in: .year, for: .now) ?? 1
+        let q = HomeQuoteCard.quotes[day % HomeQuoteCard.quotes.count]
+        switch BoardFamily(size) {
+        case .inline:
+            HStack(spacing: 10) {
+                Image(systemName: "quote.opening").font(.system(size: 18, weight: .bold)).foregroundStyle(.secondary)
+                Text(q.0).font(.system(size: 15, weight: .semibold)).lineLimit(2).minimumScaleFactor(0.7)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 22)
+        default:
+            VStack(alignment: .leading, spacing: 10) {
+                BoardFaceHeader(title: "Quote", symbol: "quote.opening")
+                Text(q.0)
+                    .font(.system(size: size == .small ? 16 : size == .medium ? 19 : 26, weight: .semibold, design: .serif))
+                    .minimumScaleFactor(0.55)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                Text("— \(q.1)").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .padding(BoardMetrics.padding)
         }
     }
 }
