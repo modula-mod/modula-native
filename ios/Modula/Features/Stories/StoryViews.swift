@@ -1748,18 +1748,32 @@ struct StoryFX: Equatable, Sendable {
 extension StoryFilterEngine {
     nonisolated(unsafe) private static let fxContext = CIContext(options: [.useSoftwareRenderer: false])
 
+    /// Person mask for "Blur back", computed once per photo (segmentation is the slow step).
+    @MainActor private static var maskCache: (image: UIImage, mask: CIImage)?
+
     @MainActor
-    static func applyFX(_ fx: StoryFX, to image: UIImage) -> UIImage {
+    private static func personMask(for source: UIImage?, fallback: CIImage) -> CIImage? {
+        if let source, let cached = maskCache, cached.image === source { return cached.mask }
+        let input = source?.cgImage.map { CIImage(cgImage: $0) } ?? fallback
+        let seg = CIFilter.personSegmentation()
+        seg.inputImage = input
+        seg.qualityLevel = 1
+        guard let raw = seg.outputImage,
+              let cg = fxContext.createCGImage(raw, from: raw.extent) else { return nil }
+        let mask = CIImage(cgImage: cg)
+        if let source { maskCache = (source, mask) }
+        return mask
+    }
+
+    @MainActor
+    static func applyFX(_ fx: StoryFX, to image: UIImage, maskSource: UIImage? = nil) -> UIImage {
         guard !fx.isIdentity, let cg = image.cgImage else { return image }
         let source = CIImage(cgImage: cg)
         let extent = source.extent
         var out = source
 
         if fx[.blur] > 0.01 {
-            let seg = CIFilter.personSegmentation()
-            seg.inputImage = out
-            seg.qualityLevel = 1
-            if let mask = seg.outputImage {
+            if let mask = personMask(for: maskSource, fallback: out) {
                 let scaled = mask.transformed(by: CGAffineTransform(scaleX: extent.width / mask.extent.width, y: extent.height / mask.extent.height))
                 let blurred = out.clampedToExtent().applyingGaussianBlur(sigma: 4 + 22 * fx[.blur]).cropped(to: extent)
                 let blend = CIFilter.blendWithMask()
@@ -2576,6 +2590,7 @@ struct StoryCreateView: View {
     @State private var fxTab = "filters"
     @State private var fxSelected: StoryFX.Kind = .grain
     @State private var railExpanded = false
+    @State private var comparing = false
     @State private var filterToast: String?
     @State private var refilterTask: Task<Void, Never>?
     @State private var showsDrafts = false
@@ -2832,7 +2847,7 @@ struct StoryCreateView: View {
                         }
                 } else {
                     StoryBackgroundView(
-                        image: filteredPreview ?? sourceImage,
+                        image: comparing ? sourceImage : (filteredPreview ?? sourceImage),
                         gradient: gradientBG,
                         collage: collageLayout,
                         collageImages: collageImages,
@@ -3563,6 +3578,7 @@ struct StoryCreateView: View {
                 sliderRow(symbol: fxSelected.symbol, value: Binding(get: { fx[fxSelected] }, set: { fx[fxSelected] = $0 }),
                           label: "\(fxSelected.title) amount")
             }
+            fxActions
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -3596,6 +3612,58 @@ struct StoryCreateView: View {
             }
             .modulaHorizontalRail()
         }
+    }
+
+    /// Hold to see the original, a random look, and reset.
+    private var fxActions: some View {
+        HStack(spacing: 10) {
+            Label("Hold to compare", systemImage: comparing ? "eye.fill" : "eye")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(comparing ? Color.black : Color.white)
+                .padding(.horizontal, 12).frame(height: 34)
+                .background(Capsule().fill(comparing ? Color.white : Color.white.opacity(0.14)))
+                .contentShape(Capsule())
+                .onLongPressGesture(minimumDuration: 0.05, maximumDistance: 40, perform: {}, onPressingChanged: { pressing in
+                    withAnimation(.easeOut(duration: 0.12)) { comparing = pressing }
+                    if pressing { HapticEngine.shared.play(.selection) }
+                })
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { comparing.toggle() }
+            Spacer(minLength: 0)
+            Button {
+                let pool = Self.stripFilters.filter { $0.id != "none" && $0.id != filter.id }
+                if let pick = pool.randomElement() {
+                    withAnimation(spring) { filter = pick }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { filterToast = pick.title }
+                    let shown = pick.title
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(900))
+                        if filterToast == shown { withAnimation(.easeOut(duration: 0.3)) { filterToast = nil } }
+                    }
+                }
+                HapticEngine.shared.play(.success)
+            } label: {
+                Image(systemName: "dice.fill").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+            .accessibilityLabel("Surprise me")
+            Button {
+                withAnimation(spring) {
+                    filter = StoryFilter.catalog[0]
+                    fx = StoryFX()
+                }
+                HapticEngine.shared.play(.warning)
+            } label: {
+                Image(systemName: "arrow.counterclockwise").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+            .disabled(filter.id == "none" && fx.isIdentity)
+            .opacity(filter.id == "none" && fx.isIdentity ? 0.4 : 1)
+            .accessibilityLabel("Reset filters and effects")
+        }
+        .padding(.horizontal, 18)
     }
 
     private func sliderRow(symbol: String, value: Binding<Double>, label: String) -> some View {
@@ -4027,101 +4095,130 @@ struct StoryCreateView: View {
 
     // MARK: Bottom bar
 
+    /// One glass tray: caption on top; media buttons, audience and a black/white Share below.
     private var bottomBar: some View {
         VStack(spacing: 10) {
             if hasMedia && !showsCamera {
-                HStack(spacing: 10) {
-                    TextField("Add a story…", text: $caption, axis: .vertical)
+                HStack(alignment: .bottom, spacing: 10) {
+                    TextField("Add a caption…", text: $caption, axis: .vertical)
                         .lineLimit(1...3)
                         .textFieldStyle(.plain)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .modulaGlass(in: Capsule(), interactive: true)
+                        .font(.body)
+                        .foregroundStyle(.white)
+                        .tint(.white)
                         .disabled(busy)
-
-                    Menu {
-                        Button { visibility = "public" } label: { Label("Everyone", systemImage: "globe") }
-                        Button { visibility = "followers" } label: { Label("Followers", systemImage: "person.2") }
-                        if app.stories.capabilities.privacy {
-                            Button { visibility = "close_friends" } label: { Label("Close Friends", systemImage: "star.circle.fill") }
-                        }
-                    } label: {
-                        Label(audienceTitle, systemImage: audienceSymbol)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .frame(height: 44)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: visibility == "close_friends" ? Color.green : nil)
+                        .accessibilityIdentifier("story.create.caption")
+                    if !caption.isEmpty {
+                        Text("\(caption.count)")
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .contentTransition(.numericText())
+                            .padding(.bottom, 3)
+                            .transition(.opacity)
                     }
-                    .disabled(busy)
-                    .accessibilityLabel("Audience")
                 }
+                .padding(.horizontal, 6)
+                .padding(.top, 4)
+                Divider().overlay(Color.white.opacity(0.15))
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 if !showsCamera {
                     Button {
                         withAnimation(spring) { showsCamera = true }
                         HapticEngine.shared.play(.selection)
                     } label: {
                         Image(systemName: "camera.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 48, height: 48)
-                            .modulaGlass(in: Circle(), interactive: true)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white.opacity(0.14)))
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
                     .accessibilityLabel("Open camera")
 
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .images) {
                         Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            // PhotosPicker's label is nonisolated; modulaGlass is main-actor, so use material here.
-                            .background(.ultraThinMaterial, in: Circle())
-                            .overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white.opacity(0.14)))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Photo library")
+
+                    Menu {
+                        Picker("Audience", selection: $visibility) {
+                            Label("Everyone", systemImage: "globe").tag("public")
+                            Label("Followers", systemImage: "person.2").tag("followers")
+                            if app.stories.capabilities.privacy {
+                                Label("Close Friends", systemImage: "star.circle.fill").tag("close_friends")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: audienceSymbol).font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(visibility == "close_friends" ? Color.green : .white)
+                            Text(audienceTitle).font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).opacity(0.7)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                        .contentTransition(.interpolate)
+                    }
+                    .disabled(busy)
+                    .accessibilityLabel("Audience, \(audienceTitle)")
                 }
 
                 Spacer(minLength: 0)
 
-                // Hidden while the camera is up so it never collides with the mode picker
-                // (e.g. "Boomerang"); it appears once there is something to share.
+                // Hidden while the camera is up so it never collides with the mode picker.
                 if !showsCamera {
-                Button {
-                    Task { await publish() }
-                } label: {
-                    Group {
-                        if busy {
-                            ProgressView().tint(Color.modulaOnPrimary)
-                        } else {
-                            Label("Share", systemImage: "arrow.up.circle.fill")
-                                .font(.headline)
+                    Button {
+                        Task { await publish() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if busy {
+                                ProgressView().tint(.black)
+                            } else {
+                                Text("Share").font(.headline)
+                                Image(systemName: "arrow.up").font(.system(size: 14, weight: .bold))
+                            }
                         }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 20)
+                        .frame(height: 44)
+                        .background(Capsule().fill(.white))
+                        .contentShape(Capsule())
                     }
-                    .frame(minWidth: 120)
-                    .frame(height: 48)
-                    .padding(.horizontal, 10)
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                .modulaPrimaryCTA()
-                .disabled(!canShare || busy || showsCamera)
-                .opacity(!canShare || showsCamera ? 0.45 : 1)
-                .accessibilityIdentifier("story.create.share")
-                .transition(.opacity.combined(with: .scale(0.9)))
+                    .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: .success))
+                    .disabled(!canShare || busy)
+                    .opacity(!canShare ? 0.45 : 1)
+                    .accessibilityLabel("Share story")
+                    .accessibilityIdentifier("story.create.share")
+                    .transition(.opacity.combined(with: .scale(0.9)))
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
+        .padding(.horizontal, showsCamera ? 0 : 12)
+        .padding(.vertical, showsCamera ? 0 : 10)
         .background {
-            LinearGradient(colors: [.clear, .black.opacity(0.55), .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+            if !showsCamera {
+                Color.clear.modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false)
+            }
+        }
+        .environment(\.colorScheme, .dark)
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background {
+            LinearGradient(colors: [.clear, .black.opacity(0.45), .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea(edges: .bottom)
                 .allowsHitTesting(false)
         }
+        .animation(spring, value: caption.isEmpty)
     }
 
     private var audienceTitle: String {
@@ -4179,7 +4276,7 @@ struct StoryCreateView: View {
             try? await Task.sleep(for: .milliseconds(40))
             guard !Task.isCancelled, let sourceImage else { return }
             let filtered = StoryFilterEngine.apply(filter, to: sourceImage, intensity: filterIntensity)
-            filteredPreview = fx.isIdentity ? filtered : StoryFilterEngine.applyFX(fx, to: filtered)
+            filteredPreview = fx.isIdentity ? filtered : StoryFilterEngine.applyFX(fx, to: filtered, maskSource: sourceImage)
             scheduleBake(delay: 0)
         }
     }

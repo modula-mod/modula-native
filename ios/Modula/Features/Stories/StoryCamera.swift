@@ -865,17 +865,46 @@ struct StoryCaptureStage: View {
         }
     }
 
-    /// Capture modes — the shared segmented control (scrolls and auto-centres the active mode), dark camera chrome.
+    /// Capture modes, iOS Camera style: full-word labels that scroll, the active one centred and
+    /// bold. Nothing is cut off; the edges fade instead.
     private var modePicker: some View {
-        ModulaSegmentedControl(
-            segments: modes.map { .init(id: $0, title: $0.rawValue) },
-            selection: Binding(get: { mode }, set: { select($0) }),
-            forceScroll: true, compact: true, accessibilityLabel: "Capture mode",
-            identifier: { "story.camera.mode.\($0.rawValue)" }
-        )
-        .environment(\.colorScheme, .dark)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 18) {
+                    ForEach(modes, id: \.self) { item in
+                        let on = item == mode
+                        Button { select(item) } label: {
+                            Text(item.rawValue.uppercased())
+                                .font(.system(size: 13, weight: on ? .bold : .semibold))
+                                .kerning(0.6)
+                                .foregroundStyle(on ? Color.black : Color.white.opacity(0.75))
+                                .fixedSize()
+                                .padding(.horizontal, on ? 12 : 2)
+                                .frame(height: 30)
+                                .background { if on { Capsule().fill(.white) } }
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .id(item)
+                        .accessibilityLabel(item.rawValue)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                        .accessibilityIdentifier("story.camera.mode.\(item.rawValue)")
+                    }
+                }
+                .padding(.horizontal, 120)
+                .animation(.spring(response: 0.32, dampingFraction: 0.8), value: mode)
+            }
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.16),
+                                         .init(color: .black, location: 0.84), .init(color: .clear, location: 1)],
+                                 startPoint: .leading, endPoint: .trailing))
+            .onAppear { proxy.scrollTo(mode, anchor: .center) }
+            .onChange(of: mode) { _, next in withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { proxy.scrollTo(next, anchor: .center) } }
+        }
+        .frame(height: 40)
         .frame(maxWidth: .infinity)
         .disabled(engine.isRecording || countdown != nil || !clips.isEmpty)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Capture mode")
     }
 
     private func pickLibrary() {

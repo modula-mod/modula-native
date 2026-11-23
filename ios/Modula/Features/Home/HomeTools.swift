@@ -1896,6 +1896,7 @@ struct BoardView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .onChange(of: page) { _, _ in HapticEngine.shared.play(.selection) }
         .onChange(of: store.layout.pages.count) { _, count in
             if page >= count { page = max(0, count - 1) }
         }
@@ -2014,7 +2015,9 @@ struct BoardView: View {
                                             labelRoom: labelRoom,
                                             onTap: { tapped(widget) },
                                             onRemove: { remove(widget.id) },
-                                            onLongPress: { startEditing() })
+                                            onLongPress: { startEditing() },
+                                            onDuplicate: { duplicate(widget, page: boardPage.id) },
+                                            onEditBoard: { startEditing() })
                                 .frame(width: frame.width, height: frame.height)
                                 .offset(x: origin.x, y: origin.y)
                                 .zIndex(isDragged ? 10 : 0)
@@ -2033,6 +2036,8 @@ struct BoardView: View {
             .scrollIndicators(.hidden)
             .scrollDisabled(dragID != nil)
             .contentShape(Rectangle())
+            // Tap empty space to finish editing, like the Home Screen.
+            .onTapGesture { if editing && dragID == nil { stopEditing() } }
             .onLongPressGesture(minimumDuration: 0.5) { startEditing() }
         }
     }
@@ -2070,6 +2075,19 @@ struct BoardView: View {
                     dragTranslation = .zero
                 }
             }
+    }
+
+    private func duplicate(_ widget: BoardWidget, page pageID: String) {
+        var copy = widget
+        copy.id = UUID().uuidString
+        HapticEngine.shared.play(.success)
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
+            store.mutate { layout in
+                guard let p = layout.pages.firstIndex(where: { $0.id == pageID }),
+                      let i = layout.pages[p].widgets.firstIndex(where: { $0.id == widget.id }) else { return }
+                layout.pages[p].widgets.insert(copy, at: i + 1)
+            }
+        }
     }
 
     private func remove(_ id: String) {
@@ -2124,13 +2142,9 @@ struct BoardWidgetTile: View {
     var onRemove: () -> Void
     var onLongPress: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var wiggle = false
     @State private var stackIndex = 0
-    /// Per-tile jiggle character: random phase, amplitude and tempo, like the Home Screen.
-    @State private var amp = Double.random(in: 1.1...1.8)
-    @State private var tempo = Double.random(in: 0.12...0.16)
-    @State private var phaseDelay = Double.random(in: 0...0.12)
-    @State private var startsLeft = Bool.random()
+    var onDuplicate: (() -> Void)? = nil
+    var onEditBoard: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 6) {
@@ -2193,11 +2207,9 @@ struct BoardWidgetTile: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
-        .onLongPressGesture(minimumDuration: 0.45) { if !editing { onLongPress() } }
-        .rotationEffect(.degrees(editing && !lifted && !reduceMotion ? (wiggle == startsLeft ? amp : -amp) : 0))
-        .onChange(of: editing) { _, on in on ? beginJiggle() : endJiggle() }
-        .onChange(of: lifted) { _, up in if !up && editing { beginJiggle() } }
-        .onAppear { if editing { beginJiggle() } }
+        .modifier(BoardTileMenu(enabled: !editing, onEdit: onTap, onEditBoard: onEditBoard ?? onLongPress,
+                                onDuplicate: onDuplicate, onRemove: onRemove))
+        .modifier(BoardJiggle(active: editing && !lifted && !reduceMotion, seed: widget.id, size: widget.size))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(widget.kind.title)
         .accessibilityHint(editing ? "Opens widget settings. Drag to reorder." : "Long-press to edit the Board")
@@ -2205,14 +2217,65 @@ struct BoardWidgetTile: View {
         .accessibilityIdentifier("board.widget.\(widget.kind.rawValue)")
     }
 
-    private func beginJiggle() {
-        guard !reduceMotion else { return }
-        wiggle = false
-        withAnimation(.easeInOut(duration: tempo).repeatForever(autoreverses: true).delay(phaseDelay)) { wiggle = true }
+}
+
+/// iOS-style long-press menu on a widget (off while jiggling so it can't fight the reorder drag).
+struct BoardTileMenu: ViewModifier {
+    let enabled: Bool
+    let onEdit: () -> Void
+    let onEditBoard: () -> Void
+    let onDuplicate: (() -> Void)?
+    let onRemove: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.contextMenu {
+                Button("Edit Widget", systemImage: "info.circle") { onEdit() }
+                Button("Edit Board", systemImage: "square.grid.2x2") { onEditBoard() }
+                if let onDuplicate { Button("Duplicate", systemImage: "plus.square.on.square") { onDuplicate() } }
+                Divider()
+                Button("Remove Widget", systemImage: "minus.circle", role: .destructive) { onRemove() }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Home Screen jiggle: a steady ±1.3° rock (≈0.14 s per swing) with a tiny drift, a per-widget
+/// phase so neighbours don't move in lockstep, and a short fade in/out. Driven by the frame
+/// clock rather than a repeat-forever animation, so it can't leak into other animations
+/// (that leak was the "jiggling a lot"). Larger widgets rock less so their corners don't swing.
+struct BoardJiggle: ViewModifier {
+    let active: Bool
+    let seed: String
+    let size: BoardWidgetSize
+    @State private var since = Date()
+
+    private var phase: Double {
+        Double(seed.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 997 }) / 997 * 2 * .pi
+    }
+    private var amplitude: Double {
+        switch size {
+        case .small, .circle: 1.4
+        case .medium, .pill: 0.9
+        case .tall: 0.8
+        case .large: 0.6
+        case .extraLarge: 0.45
+        }
     }
 
-    private func endJiggle() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { wiggle = false }
+    func body(content: Content) -> some View {
+        TimelineView(.animation(minimumInterval: 1 / 60, paused: !active)) { ctx in
+            let t = ctx.date.timeIntervalSince(since)
+            let envelope = active ? min(1, t / 0.18) : 0
+            let swing = sin(t * 2 * .pi / 0.28 + phase)
+            content
+                .rotationEffect(.degrees(amplitude * swing * envelope))
+                .offset(y: 0.4 * cos(t * 2 * .pi / 0.28 + phase) * envelope)
+        }
+        .onChange(of: active) { _, on in if on { since = Date() } }
+        .onAppear { since = Date() }
     }
 }
 
