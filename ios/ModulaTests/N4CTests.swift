@@ -4,6 +4,7 @@ import Network
 import UIKit
 import WebKit
 import XCTest
+import zlib
 @testable import Modula
 
 private final class RecordingGameSchemeTask: NSObject, WKURLSchemeTask {
@@ -13,7 +14,12 @@ private final class RecordingGameSchemeTask: NSObject, WKURLSchemeTask {
     var finished = false
     var failure: Error?
 
-    init(_ url: URL) { request = URLRequest(url: url) }
+    init(_ url: URL, method: String = "GET", headers: [String: String] = [:]) {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
+        self.request = request
+    }
     func didReceive(_ response: URLResponse) { self.response = response }
     func didReceive(_ data: Data) { body.append(data) }
     func didFinish() { finished = true }
@@ -278,7 +284,7 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             XCTAssertTrue(acceptedTask.finished)
             XCTAssertNil(acceptedTask.failure)
             let csp = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Security-Policy")
-            XCTAssertTrue(csp?.contains("connect-src 'none'") == true)
+            XCTAssertTrue(csp?.contains("connect-src 'self'") == true)
             XCTAssertTrue(csp?.contains("frame-src 'none'") == true)
             let permissionsPolicy = (acceptedTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Permissions-Policy")
             XCTAssertTrue(permissionsPolicy?.contains("geolocation=()") == true)
@@ -296,7 +302,8 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             browser.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
             keyWindow.addSubview(browser)
             defer { browser.removeFromSuperview() }
-            browser.load(URLRequest(url: acceptedURL))
+            let loadStarted = await browserProbe.load(acceptedURL)
+            XCTAssertTrue(loadStarted, "\(engine) game must load only after the local-only rule list is installed")
             await fulfillment(of: [navigationFinished], timeout: 20)
             XCTAssertNil(navigationFailure)
             let nativeHandlers = try await browser.evaluateJavaScript("Object.keys(window.webkit?.messageHandlers || {}).length")
@@ -454,7 +461,6 @@ final class WebGameInstalledIsolationTests: XCTestCase {
             for hostile in [
                 "modula-game://\(origin)/../index.html",
                 "modula-game://\(origin)/%2e%2e/index.html",
-                "modula-game://\(origin)/%69ndex.html",
                 "modula-game://\(origin)/index.html?other=1",
                 "modula-game://\(String(repeating: "0", count: 64))/index.html",
                 "file:///private/var/mobile/Containers/Data/index.html",
@@ -464,8 +470,9 @@ final class WebGameInstalledIsolationTests: XCTestCase {
                                "Unexpected game resource: \(hostile)")
                 let rejectedTask = RecordingGameSchemeTask(try XCTUnwrap(URL(string: hostile)))
                 try WebGameResourceProbe.serve(entry: entry, task: rejectedTask)
-                XCTAssertFalse(rejectedTask.finished)
-                XCTAssertNotNil(rejectedTask.failure)
+                XCTAssertTrue(rejectedTask.finished, hostile)
+                XCTAssertNil(rejectedTask.failure, hostile)
+                XCTAssertEqual((rejectedTask.response as? HTTPURLResponse)?.statusCode, 404, hostile)
             }
 
             XCTAssertThrowsError(try stage(archive, String(repeating: "0", count: 64)), "\(engine) wrong digest")
@@ -611,6 +618,926 @@ final class WebGameInstalledIsolationTests: XCTestCase {
         try script.write(to: game.appendingPathComponent("game.js"))
         try Data("unlisted".utf8).write(to: game.appendingPathComponent("unlisted.txt"))
         XCTAssertThrowsError(try WebGamePackage.verifyInstalled(at: game, expectedSha256: digest, trustedFiles: trusted))
+    }
+}
+
+// MARK: - GUBIC host hardening (prism/gubic-host-hardening)
+
+private enum HardeningGameFixture {
+    static let strictPolicy = "default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'none'"
+    /// The exact policy shipped by the bundled Phaser and PlayCanvas fixtures
+    /// (ModulaUITests/GameFixtures/*/game.tgz index.html).
+    static let samplePolicy = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+
+    static func document(_ policy: String = strictPolicy, body: String = "<p id=\"ready\">ready</p>") -> String {
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\"><title>Hardening QA</title></head><body>\(body)</body></html>"
+    }
+
+    /// A real ustar archive with a `modula.game-files.1` inventory, zlib-wrapped
+    /// (WebGamePackage inflates gzip or zlib), parsed by the production code.
+    static func archive(_ files: [String: Data]) throws -> Data {
+        var all = files
+        let inventory: [String: Any] = ["schema": "modula.game-files.1", "files": files.mapValues(WebGamePackage.digest)]
+        all["game.files.json"] = try JSONSerialization.data(withJSONObject: inventory, options: [.sortedKeys])
+        var tar = Data()
+        for path in all.keys.sorted() {
+            let bytes = all[path]!
+            tar.append(header(path, size: bytes.count))
+            tar.append(bytes)
+            tar.append(Data(count: (512 - bytes.count % 512) % 512))
+        }
+        tar.append(Data(count: 1_024))
+        var length = compressBound(uLong(tar.count))
+        var output = [UInt8](repeating: 0, count: Int(length))
+        let status = tar.withUnsafeBytes { raw in
+            compress2(&output, &length, raw.bindMemory(to: Bytef.self).baseAddress, uLong(tar.count), Z_BEST_COMPRESSION)
+        }
+        guard status == Z_OK else { throw WebGamePackageError.invalid("fixture compression") }
+        return Data(output.prefix(Int(length)))
+    }
+
+    private static func header(_ path: String, size: Int) -> Data {
+        var bytes = [UInt8](repeating: 0, count: 512)
+        func put(_ text: String, _ offset: Int) { for (index, byte) in text.utf8.enumerated() { bytes[offset + index] = byte } }
+        func octal(_ value: Int, _ width: Int) -> String {
+            let digits = String(value, radix: 8)
+            return String(repeating: "0", count: max(0, width - digits.count)) + digits
+        }
+        put(path, 0)
+        put("0000644\0", 100)
+        put("0000000\0", 108)
+        put("0000000\0", 116)
+        put(octal(size, 11) + "\0", 124)
+        put("00000000000\0", 136)
+        put("        ", 148)
+        put("0", 156)
+        put("ustar\0", 257)
+        put("00", 263)
+        let sum = bytes.reduce(0) { $0 + Int($1) }
+        put(octal(sum, 6) + "\0 ", 148)
+        return Data(bytes)
+    }
+}
+
+private final class PermissiveRecordingNavigation: NSObject, WKNavigationDelegate {
+    let finished: XCTestExpectation
+    var requested: [String] = []
+    var failure: Error?
+    init(finished: XCTestExpectation) { self.finished = finished }
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+        requested.append(action.request.url?.absoluteString ?? "")
+        return .allow
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finished.fulfill() }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        failure = error
+        finished.fulfill()
+    }
+}
+
+private final class NavigationOutcome { var error: Error? }
+
+@MainActor
+final class WebGameHostHardeningTests: XCTestCase {
+    private var root: URL!
+    private var controller: ModuleActivationController!
+    private let account = "qa-hardening-account"
+
+    override func setUp() async throws {
+        root = FileManager.default.temporaryDirectory.appendingPathComponent("game-hardening-\(UUID().uuidString)")
+        controller = ModuleActivationController(store: ModuleArtifactStore(root: root))
+    }
+
+    override func tearDown() async throws {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    /// `bypassingHygiene` simulates a document that every validator missed, so the
+    /// production host (header CSP + rule list) is the only thing in its way.
+    private func install(_ files: [String: Data], id: String, bypassingHygiene: Bool = false) throws -> URL {
+        try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(bypassingHygiene) {
+            try installVerified(files, id: id)
+        }
+    }
+
+    private func installVerified(_ files: [String: Data], id: String) throws -> URL {
+        let archive = try HardeningGameFixture.archive(files)
+        let frontend = Data("""
+            {"schema":"modula.frontend.1.0","frontendSchemaVersion":"1.0.0","mpsVersion":"1.0","productId":"\(id)","releaseVersion":"0.1.0","mode":"declarative","entry":"home","hostRuntime":{"versionRange":">=1.0.0"},"routes":[{"path":"/","viewId":"home"}],"views":[{"id":"home","kind":"dashboard","root":{"type":"section","children":[{"type":"text","text":"Ready"}]}}],"accessibility":{"declaration":"host-baseline-with-product-semantics","screenReader":true,"scalableText":true,"keyboardNavigation":true,"reduceMotion":true}}
+            """.utf8)
+        let manifest = ModuleManifest(id: id, name: id, version: "0.1.0", runtime: "web-game", entry: "index.html",
+                                      permissions: [], minHostVersion: ">=1.0.0", minBridgeVersion: "0.1.0", collections: [])
+        try controller.stageVerified(accountID: account, moduleId: id, version: "0.1.0", releaseId: "\(id)@0.1.0",
+                                     frontend: frontend, frontendSha256: WebGamePackage.digest(frontend),
+                                     mediaType: ProductUIDocument.mediaType, hostManifest: manifest, descriptor: nil,
+                                     gameArchive: archive, gameSha256: WebGamePackage.digest(archive))
+        let active = try controller.activate(accountID: account, moduleId: id)
+        return try controller.store.verifiedGameEntry(for: active)
+    }
+
+    private func attach(_ view: WKWebView) throws {
+        let keyWindow = try XCTUnwrap(UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }.first)
+        view.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+        keyWindow.addSubview(view)
+    }
+
+    /// Opens a game through the production delegate, rule list and loader.
+    private func open(_ entry: URL, bypassingHygiene: Bool = false) async throws -> (probe: WebGameBrowserProbe, url: URL) {
+        let finished = expectation(description: "game document loaded")
+        finished.assertForOverFulfill = false
+        let outcome = NavigationOutcome()
+        let (url, probe) = try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(bypassingHygiene) {
+            let url = try WebGameResourceProbe.entryURL(entry: entry)
+            let probe = try WebGameResourceProbe.browser(entry: entry) { error in
+                outcome.error = error
+                finished.fulfill()
+            }
+            return (url, probe)
+        }
+        try attach(probe.browser)
+        let started = await probe.load(url)
+        XCTAssertTrue(started, "the local-only rule list must compile before the game loads")
+        await fulfillment(of: [finished], timeout: 20)
+        XCTAssertNil(outcome.error)
+        return (probe, url)
+    }
+
+    private func value(_ browser: WKWebView, _ script: String) async throws -> String {
+        try await browser.evaluateJavaScript(script) as? String ?? "<non-string>"
+    }
+
+    /// `evaluateJavaScript` does not wait for a Promise (WKError.javaScriptResultTypeIsUnsupported).
+    /// `callAsyncJavaScript` in the page world treats the body as an async function; use `return await`.
+    private func awaitPageJS(_ browser: WKWebView, _ functionBody: String, arguments: [String: Any] = [:]) async throws -> Any? {
+        try await browser.callAsyncJavaScript(functionBody, arguments: arguments, in: nil, contentWorld: .page)
+    }
+
+    private func loopbackListener() async throws -> (NWListener, NWEndpoint.Port, LockedConnectionCount) {
+        let connections = LockedConnectionCount()
+        let listener = try NWListener(using: .tcp, on: .any)
+        let ready = expectation(description: "loopback listener ready")
+        listener.stateUpdateHandler = { state in if case .ready = state { ready.fulfill() } }
+        listener.newConnectionHandler = { connection in
+            connections.increment()
+            connection.cancel()
+        }
+        listener.start(queue: DispatchQueue(label: "game-hardening-listener"))
+        await fulfillment(of: [ready], timeout: 5)
+        return (listener, try XCTUnwrap(listener.port), connections)
+    }
+
+    func testHTMLHeaderPolicyIsTheBoundaryAndMeetsTheContract() throws {
+        let header = try WebGameDocumentPolicy.parse(WebGameResourceProbe.htmlContentSecurityPolicy)
+        XCTAssertEqual(WebGameResourceProbe.htmlContentSecurityPolicy, WebGamePackageServe.headerContentSecurityPolicy)
+        XCTAssertEqual(header["default-src"], ["'none'"])
+        XCTAssertEqual(header["script-src"], ["'self'"])
+        XCTAssertEqual(header["connect-src"], ["'self'"])
+        XCTAssertEqual(header["font-src"], ["'self'"])
+        XCTAssertEqual(Set(header["img-src"] ?? []), Set(["'self'", "data:", "blob:"]))
+        XCTAssertEqual(Set(header["media-src"] ?? []), Set(["'self'", "blob:"]))
+        for name in ["object-src", "worker-src", "child-src", "frame-src", "base-uri", "form-action", "frame-ancestors"] {
+            XCTAssertEqual(header[name], ["'none'"], name)
+        }
+        // The header is a constant: serving any document yields the same bytes,
+        // whatever its own meta policy says.
+        let permissive = HardeningGameFixture.document("default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *")
+        let entry = try install(["index.html": Data(permissive.utf8)], id: "digital.modula.qa-header-constant", bypassingHygiene: true)
+        let url = try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(true) { try WebGameResourceProbe.entryURL(entry: entry) }
+        let task = RecordingGameSchemeTask(url)
+        try WebGamePackage.$skipsDocumentPolicyHygiene.withValue(true) { try WebGameResourceProbe.serve(entry: entry, task: task) }
+        let response = try XCTUnwrap(task.response as? HTTPURLResponse)
+        XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Security-Policy"), WebGameResourceProbe.htmlContentSecurityPolicy)
+    }
+
+    /// Sentinel's #188 bypass classes, loaded through the production loader with
+    /// package hygiene switched off. Nothing may reach the network and no
+    /// injected script may run.
+    func testValidatorBypassPayloadsAreContainedByTheHost() async throws {
+        let (listener, port, connections) = try await loopbackListener()
+        defer { listener.cancel() }
+        let target = "127.0.0.1:\(port.rawValue)"
+        let strict = HardeningGameFixture.strictPolicy
+        let beacon = """
+            <script>
+            window.__injected = 'ran';
+            fetch('http://\(target)/inline-fetch').catch(() => {});
+            try { new WebSocket('ws://\(target)/inline-socket'); } catch (_) {}
+            new Image().src = 'http://\(target)/inline-beacon.png';
+            </script>
+            """
+        let permissive = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *; img-src *"
+        let payloads: [(String, String)] = [
+            ("comment-trick remote script before meta CSP",
+             "<!doctype html><html><head><!--><script src=\"http://\(target)/x.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"><title>t</title></head><body>\(beacon)</body></html>"),
+            ("trailing-space http-equiv with a permissive policy",
+             "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy \" content=\"\(permissive)\"><title>t</title></head><body><script src=\"http://\(target)/trailing.js\"></script>\(beacon)</body></html>"),
+            ("permissive meta CSP trying to loosen the header",
+             "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"\(permissive)\"><title>t</title></head><body><img src=\"http://\(target)/loosen.png\"><script src=\"http://\(target)/loosen.js\"></script>\(beacon)</body></html>"),
+            ("no meta CSP, inline fetch/WebSocket/image beacon",
+             "<!doctype html><html><head><title>t</title></head><body>\(beacon)<script>eval(\"window.__injected = 'eval'\")</script></body></html>"),
+        ]
+        for (index, payload) in payloads.enumerated() {
+            let (label, html) = payload
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: html), "hygiene unexpectedly accepted: \(label)")
+            let entry = try install(["index.html": Data(html.utf8)], id: "digital.modula.qa-bypass-\(index)", bypassingHygiene: true)
+            let before = connections.value
+            let (probe, url) = try await open(entry, bypassingHygiene: true)
+            try await Task.sleep(for: .milliseconds(1_500))
+            let injected = try await value(probe.browser, "String(window.__injected)")
+            XCTAssertEqual(injected, "undefined", "injected script ran: \(label)")
+            XCTAssertEqual(connections.value, before, "network reached: \(label)")
+            XCTAssertEqual(probe.browser.url?.absoluteString, url.absoluteString, label)
+            probe.browser.removeFromSuperview()
+            probe.close()
+        }
+    }
+
+    func testDocumentHygieneRejectsCommentTrickAndPaddedHTTPEquiv() {
+        let strict = HardeningGameFixture.strictPolicy
+        let rejected: [String: String] = [
+            "comment trick <!-->": "<!doctype html><html><head><!--><script src=\"http://127.0.0.1:9/x.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "comment trick <!--->": "<!doctype html><html><head><!---><script src=\"http://127.0.0.1:9/x.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "comment trick with later close": "<!doctype html><html><head><!--><script src=\"http://127.0.0.1:9/x.js\"></script><!-- note --><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "--!> closes a comment": "<!doctype html><html><head><!-- a --!><script src=\"http://127.0.0.1:9/x.js\"></script><!-- b --><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "padded http-equiv, strict content": "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy \" content=\"\(strict)\"></head></html>",
+            "padded http-equiv, permissive content": "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy \" content=\"default-src *; script-src *\"></head></html>",
+            "padded http-equiv beside a strict one": HardeningGameFixture.document().replacingOccurrences(of: "<title>", with: "<meta http-equiv=\" content-security-policy\" content=\"default-src *\"><title>"),
+        ]
+        for (label, html) in rejected.sorted(by: { $0.key < $1.key }) {
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: html), label)
+        }
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: "<!-- build 1 --><!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>"))
+    }
+
+    /// Mosaic M1: hygiene must not refuse a game the server publishes.
+    /// Named entities in non-CSP meta attributes are ignored; http-equiv and
+    /// the chosen CSP content are decoded exactly once; object-src is optional.
+    func testDocumentHygieneDecodesOnlyCSPMetaAttributesAndAllowsOptionalObjectSrc() throws {
+        let policy = "default-src 'none'; script-src 'self'; connect-src 'none'"
+        let withObject = policy + "; object-src 'none'"
+
+        // A description (or any non-CSP attribute) with named entities beyond
+        // the five XML names must still install. The server accepts these.
+        let described = "<!doctype html><html><head><meta name=\"description\" content=\"Caf&eacute; &nbsp;&copy; 2026\"><meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\"><title>t</title></head><body></body></html>"
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: described))
+        let describedArchive = try HardeningGameFixture.archive(["index.html": Data(described.utf8)])
+        XCTAssertNoThrow(try WebGamePackage(archive: describedArchive, expectedSha256: WebGamePackage.digest(describedArchive)))
+
+        // http-equiv and CSP content are decoded exactly once.
+        let encoded = try WebGameDocumentPolicy.validate(html: "<!doctype html><html><head><meta http-equiv=\"Content&#45;Security&#45;Policy\" content=\"default-src &#39;none&#39;; script-src &#39;self&#39;; connect-src &#39;none&#39;\"></head></html>")
+        XCTAssertEqual(encoded["default-src"], ["'none'"])
+        XCTAssertEqual(encoded["script-src"], ["'self'"])
+        XCTAssertEqual(encoded["connect-src"], ["'none'"])
+        XCTAssertNil(encoded["object-src"])
+
+        // A second decode would turn &amp;#39; into a quote and accept this.
+        // After one decode the source is still &#39;none&#39;, which is refused.
+        XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: "<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src &amp;#39;none&amp;#39;; script-src 'self'; connect-src 'none'\"></head></html>"))
+
+        // object-src may be omitted (server web-game-csp.ts); if present it must be 'none'.
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(policy)))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(withObject)))
+        let optionalArchive = try HardeningGameFixture.archive(["index.html": Data(HardeningGameFixture.document(policy).utf8)])
+        XCTAssertNoThrow(try WebGamePackage(archive: optionalArchive, expectedSha256: WebGamePackage.digest(optionalArchive)))
+        XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(
+            "default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'self'")))
+    }
+
+    func testTopNavigationToAnotherListedFileOrRemoteURLIsCancelled() async throws {
+        let entry = try install([
+            "index.html": Data(HardeningGameFixture.document().utf8),
+            "other.html": Data(HardeningGameFixture.document(body: "<p>other</p>").utf8),
+            "art.svg": Data("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"></svg>".utf8),
+        ], id: "digital.modula.qa-navigation")
+        let (probe, url) = try await open(entry)
+        defer { probe.browser.removeFromSuperview(); probe.close() }
+        let browser = probe.browser
+        let origin = try XCTUnwrap(url.host)
+        for target in ["other.html", "art.svg", "/art.svg", "https://example.invalid/", "http://127.0.0.1:9/",
+                       "modula-game://\(origin)/index.html?again=1",
+                       "modula-game://\(String(repeating: "0", count: 64))/index.html"] {
+            _ = try await browser.evaluateJavaScript("location.href = '\(target)'; true")
+            try await Task.sleep(for: .milliseconds(600))
+            XCTAssertEqual(browser.url?.absoluteString, url.absoluteString, "top navigation was not cancelled: \(target)")
+            let location = try await value(browser, "location.href")
+            XCTAssertEqual(location, url.absoluteString, "document changed after navigating to \(target)")
+        }
+        // Native-initiated loads go through the same policy.
+        for target in ["https://example.invalid/", "modula-game://\(origin)/other.html", "modula-game://\(origin)/art.svg"] {
+            browser.load(URLRequest(url: try XCTUnwrap(URL(string: target))))
+            try await Task.sleep(for: .milliseconds(600))
+            XCTAssertEqual(browser.url?.absoluteString, url.absoluteString, "load was not cancelled: \(target)")
+        }
+        // A window.open / target=_blank attempt never produces a new view.
+        let popup = try await value(browser, "window.open('other.html', '_blank') ? 'allowed' : 'blocked'")
+        XCTAssertEqual(popup, "blocked")
+    }
+
+    func testSVGWithScriptCannotRunOrReachTheNetwork() async throws {
+        let (listener, port, connections) = try await loopbackListener()
+        defer { listener.cancel() }
+        let svg = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><image href="http://127.0.0.1:\(port.rawValue)/svg-image" width="8" height="8"/><script>
+            fetch('http://127.0.0.1:\(port.rawValue)/svg-fetch').catch(() => {});
+            try { new WebSocket('ws://127.0.0.1:\(port.rawValue)/svg-socket'); } catch (_) {}
+            location.href = 'ran.html';
+            </script></svg>
+            """
+        let entry = try install([
+            "index.html": Data(HardeningGameFixture.document().utf8),
+            "evil.svg": Data(svg.utf8),
+        ], id: "digital.modula.qa-svg")
+        let (probe, url) = try await open(entry)
+        defer { probe.browser.removeFromSuperview(); probe.close() }
+        let browser = probe.browser
+        let svgURL = try XCTUnwrap(URL(string: "evil.svg", relativeTo: url)?.absoluteURL)
+
+        // 1. The production policy refuses the SVG as a top-level document.
+        _ = try await browser.evaluateJavaScript("location.href = 'evil.svg'; true")
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertEqual(browser.url?.absoluteString, url.absoluteString)
+
+        // 2. The SVG response carries the §4.2 header CSP (no 'unsafe-inline').
+        let task = RecordingGameSchemeTask(svgURL)
+        try WebGameResourceProbe.serve(entry: entry, task: task)
+        let headers = try XCTUnwrap(task.response as? HTTPURLResponse)
+        XCTAssertEqual(headers.value(forHTTPHeaderField: "Content-Type"), "image/svg+xml")
+        XCTAssertEqual(headers.value(forHTTPHeaderField: "Content-Security-Policy"),
+                       WebGameResourceProbe.resourceContentSecurityPolicy)
+        XCTAssertEqual(headers.value(forHTTPHeaderField: "X-Content-Type-Options"), "nosniff")
+
+        // 3. Defence in depth: even if a delegate allowed the navigation, the
+        //    rendered SVG runs no script and makes no network request.
+        let before = connections.value
+        let finished = expectation(description: "svg document rendered")
+        finished.assertForOverFulfill = false
+        let permissive = PermissiveRecordingNavigation(finished: finished)
+        browser.navigationDelegate = permissive
+        browser.load(URLRequest(url: svgURL))
+        await fulfillment(of: [finished], timeout: 20)
+        XCTAssertNil(permissive.failure, "the SVG document should render so the test proves its script is inert")
+        try await Task.sleep(for: .milliseconds(1_500))
+        XCTAssertFalse(permissive.requested.contains { $0.hasSuffix("/ran.html") },
+                       "SVG script executed: \(permissive.requested)")
+        XCTAssertEqual(connections.value, before, "SVG document reached the network")
+    }
+
+    func testEveryResponseCarriesAContentSecurityPolicy() throws {
+        let files: [String: Data] = [
+            "index.html": Data(HardeningGameFixture.document().utf8),
+            "levels/menu.html": Data(HardeningGameFixture.document(body: "<p>menu</p>").utf8),
+            "art.svg": Data("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>".utf8),
+            "main.js": Data("window.ready = true".utf8),
+            "engine.mjs": Data("export const ready = true".utf8),
+            "style.css": Data("body { margin: 0 }".utf8),
+            "level.json": Data("{}".utf8),
+            "notes.txt": Data("ok".utf8),
+            "pixel.png": Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+            "sprite.gif": Data([0x47, 0x49, 0x46, 0x38]),
+            "sound.wav": Data("RIFF".utf8),
+            "clip.mp4": Data("ftyp".utf8),
+            "clip.webm": Data("webm".utf8),
+            "tone.m4a": Data("ftyp".utf8),
+            "ui.woff": Data("wOFF".utf8),
+            "ui.woff2": Data("wOF2".utf8),
+            "ui.ttf": Data("ttf".utf8),
+            "ui.otf": Data("otf".utf8),
+            "map.xml": Data("<root/>".utf8),
+            "blob.bin": Data([0x01, 0x02, 0x03]),
+        ]
+        let expectedType = [
+            "index.html": "text/html; charset=utf-8",
+            "levels/menu.html": "text/html; charset=utf-8",
+            "art.svg": "image/svg+xml",
+            "main.js": "text/javascript; charset=utf-8",
+            "engine.mjs": "text/javascript; charset=utf-8",
+            "style.css": "text/css; charset=utf-8",
+            "level.json": "application/json",
+            "notes.txt": "text/plain; charset=utf-8",
+            "pixel.png": "image/png",
+            "sprite.gif": "image/gif",
+            "sound.wav": "audio/wav",
+            "clip.mp4": "video/mp4",
+            "clip.webm": "video/webm",
+            "tone.m4a": "audio/mp4",
+            "ui.woff": "font/woff",
+            "ui.woff2": "font/woff2",
+            "ui.ttf": "font/ttf",
+            "ui.otf": "font/otf",
+            "map.xml": "application/xml",
+            "blob.bin": "application/octet-stream",
+        ]
+        let entry = try install(files, id: "digital.modula.qa-headers")
+        let url = try WebGameResourceProbe.entryURL(entry: entry)
+        for path in files.keys.sorted() {
+            let resource = try XCTUnwrap(URL(string: path, relativeTo: url)?.absoluteURL)
+            let task = RecordingGameSchemeTask(resource)
+            try WebGameResourceProbe.serve(entry: entry, task: task)
+            XCTAssertTrue(task.finished, path)
+            let response = try XCTUnwrap(task.response as? HTTPURLResponse, path)
+            let csp = try XCTUnwrap(response.value(forHTTPHeaderField: "Content-Security-Policy"), "\(path) has no CSP")
+            XCTAssertEqual(response.value(forHTTPHeaderField: "X-Content-Type-Options"), "nosniff", path)
+            XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Type"), expectedType[path], path)
+            XCTAssertEqual(csp, WebGamePackageServe.headerContentSecurityPolicy, path)
+            XCTAssertEqual(response.value(forHTTPHeaderField: "Cross-Origin-Resource-Policy"), "same-origin", path)
+            XCTAssertNil(response.value(forHTTPHeaderField: "Set-Cookie"), path)
+        }
+    }
+
+    func testStorageIsNotReadableAcrossGamesOrAfterRelaunch() async throws {
+        let files = ["index.html": Data(HardeningGameFixture.document().utf8)]
+        let first = try install(files, id: "digital.modula.qa-storage-one")
+        let second = try install(files, id: "digital.modula.qa-storage-two")
+        let read = """
+            (() => { try { return String(localStorage.getItem('qa-secret')) + '|' + String(sessionStorage.getItem('qa-secret')); }
+                     catch (error) { return 'error:' + error.name; } })()
+            """
+        let write = """
+            (() => { try { localStorage.setItem('qa-secret', 'game-one'); sessionStorage.setItem('qa-secret', 'game-one'); return 'written'; }
+                     catch (error) { return 'error:' + error.name; } })()
+            """
+        let (one, oneURL) = try await open(first)
+        let written = try await value(one.browser, write)
+        XCTAssertEqual(written, "written")
+        let ownRead = try await value(one.browser, read)
+        XCTAssertEqual(ownRead, "game-one|game-one", "storage must work within one session for this test to prove isolation")
+
+        let (two, twoURL) = try await open(second)
+        XCTAssertNotEqual(oneURL.host, twoURL.host)
+        let otherRead = try await value(two.browser, read)
+        XCTAssertFalse(otherRead.contains("game-one"), "a second game read the first game's storage: \(otherRead)")
+        two.browser.removeFromSuperview()
+        two.close()
+
+        one.browser.removeFromSuperview()
+        one.close()
+        let (relaunched, relaunchedURL) = try await open(first)
+        defer { relaunched.browser.removeFromSuperview(); relaunched.close() }
+        XCTAssertEqual(relaunchedURL, oneURL)
+        let afterRelaunch = try await value(relaunched.browser, read)
+        XCTAssertFalse(afterRelaunch.contains("game-one"), "storage survived a relaunch: \(afterRelaunch)")
+    }
+
+    func testLocalOnlyRuleListBlocksNetworkBeneathCSP() async throws {
+        let (listener, port, connections) = try await loopbackListener()
+        defer { listener.cancel() }
+        let page = """
+            <img src="http://127.0.0.1:\(port.rawValue)/rule-image.png">
+            <script>
+            fetch('http://127.0.0.1:\(port.rawValue)/rule-fetch').catch(() => {});
+            try { new WebSocket('ws://127.0.0.1:\(port.rawValue)/rule-socket'); } catch (_) {}
+            </script>
+            """
+        func attempt(withRules: Bool) async throws -> Int {
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .nonPersistent()
+            if withRules {
+                let installed = await WebGameResourceProbe.installNetworkRules(on: configuration.userContentController)
+                XCTAssertTrue(installed)
+            }
+            let view = WKWebView(frame: .zero, configuration: configuration)
+            try attach(view)
+            defer { view.removeFromSuperview() }
+            let finished = expectation(description: "rule probe loaded (rules: \(withRules))")
+            let delegate = RecordingGameNavigation(finished: finished)
+            view.navigationDelegate = delegate
+            let before = connections.value
+            view.loadHTMLString(page, baseURL: URL(string: "http://127.0.0.1:\(port.rawValue)/"))
+            await fulfillment(of: [finished], timeout: 20)
+            try await Task.sleep(for: .milliseconds(1_500))
+            return withExtendedLifetime(delegate) { connections.value - before }
+        }
+        let control = try await attempt(withRules: false)
+        XCTAssertGreaterThan(control, 0, "without the rule list the probe page must reach the listener, or this test proves nothing")
+        let ruled = try await attempt(withRules: true)
+        XCTAssertEqual(ruled, 0, "the local-only rule list let a page reach the network")
+    }
+
+    /// ATLAS: connect-src 'self' is the per-package scheme origin only.
+    /// GET of a listed file is allowed; an unlisted path is 404; POST is
+    /// rejected; the document policy refuses a remote host or ws:.
+    func testSameOriginFetchOfListedFilesIsAllowedAndUnsafeConnectSrcIsRejected() async throws {
+        let policy = "default-src 'none'; script-src 'self'; connect-src 'self'; object-src 'none'"
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(policy)))
+        for rejected in [
+            "default-src 'none'; script-src 'self'; connect-src https://evil.example; object-src 'none'",
+            "default-src 'none'; script-src 'self'; connect-src ws://evil.example; object-src 'none'",
+            "default-src 'none'; script-src 'self'; connect-src wss:; object-src 'none'",
+        ] {
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(rejected)), rejected)
+        }
+
+        let listedBody = Data("{\"ok\":true}".utf8)
+        let entry = try install([
+            "index.html": Data(HardeningGameFixture.document(policy).utf8),
+            "level.json": listedBody,
+        ], id: "digital.modula.qa-connect-self")
+        let url = try WebGameResourceProbe.entryURL(entry: entry)
+        let listed = try XCTUnwrap(URL(string: "level.json", relativeTo: url)?.absoluteURL)
+        let missing = try XCTUnwrap(URL(string: "missing.json", relativeTo: url)?.absoluteURL)
+
+        let get = RecordingGameSchemeTask(listed)
+        try WebGameResourceProbe.serve(entry: entry, task: get)
+        XCTAssertTrue(get.finished)
+        XCTAssertNil(get.failure)
+        let getResponse = try XCTUnwrap(get.response as? HTTPURLResponse)
+        XCTAssertEqual(getResponse.statusCode, 200)
+        XCTAssertEqual(get.body, listedBody)
+        XCTAssertNil(getResponse.value(forHTTPHeaderField: "Set-Cookie"))
+        XCTAssertNil(getResponse.value(forHTTPHeaderField: "Access-Control-Allow-Credentials"))
+
+        let notFound = RecordingGameSchemeTask(missing)
+        try WebGameResourceProbe.serve(entry: entry, task: notFound)
+        XCTAssertTrue(notFound.finished)
+        XCTAssertNil(notFound.failure)
+        XCTAssertEqual((notFound.response as? HTTPURLResponse)?.statusCode, 404)
+
+        let posted = RecordingGameSchemeTask(listed, method: "POST")
+        try WebGameResourceProbe.serve(entry: entry, task: posted)
+        XCTAssertTrue(posted.finished)
+        XCTAssertNil(posted.failure)
+        let postResponse = try XCTUnwrap(posted.response as? HTTPURLResponse)
+        XCTAssertEqual(postResponse.statusCode, 404)
+        XCTAssertNil(postResponse.value(forHTTPHeaderField: "Allow"))
+        XCTAssertNil(postResponse.value(forHTTPHeaderField: "Set-Cookie"))
+
+        // The host header CSP must actually allow a same-origin fetch.
+        let (probe, _) = try await open(entry)
+        defer { probe.browser.removeFromSuperview(); probe.close() }
+        let fetched = try await awaitPageJS(probe.browser, """
+            const r = await fetch('level.json');
+            const t = await r.text();
+            return r.status + ':' + t;
+            """) as? String
+        XCTAssertEqual(fetched, #"200:{"ok":true}"#)
+        let unlisted = try await awaitPageJS(probe.browser, """
+            const r = await fetch('missing.json');
+            return String(r.status);
+            """) as? String
+        XCTAssertEqual(unlisted, "404")
+        let postStatus = try await awaitPageJS(probe.browser, """
+            const r = await fetch('level.json', {method: 'POST'});
+            return String(r.status);
+            """) as? String
+        XCTAssertEqual(postStatus, "404")
+    }
+
+    /// Mosaic H1 / §4.2: host header allows Phaser-style blob images; the
+    /// handler follows the serve contract (GET only, 404 otherwise, Range 206,
+    /// no cookies, percent-decode once, never treat %2F as a separator).
+    /// WKWebView-level: blob image, package JSON/XML/audio/woff fetches, and
+    /// blocked API/remote XHR+fetch. Handler unit tests: HEAD/OPTIONS/query/
+    /// bare root/game.files.json/unlisted/Range/%2F/spaces/non-ASCII/cookies.
+    func testPlatformSpec42ServeContractAndPhaserStyleBlobLoads() async throws {
+        let pixel: [UInt8] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+                              0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+                              0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+                              0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0xf8, 0xcf, 0xc0, 0xf0,
+                              0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0x00, 0x00,
+                              0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]
+        let policy = "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; object-src 'none'"
+        let json = Data("{\"ok\":true}".utf8)
+        let xml = Data("<font></font>".utf8)
+        let ogg = Data("OggS".utf8)
+        let woff = Data("wOFF".utf8)
+        let audio = Data("RIFF".utf8)
+        let spaced = Data("space".utf8)
+        let cafe = Data("cafe".utf8)
+        let nested = Data("nested".utf8)
+        let entry = try install([
+            "index.html": Data(HardeningGameFixture.document(policy).utf8),
+            "level.json": json,
+            "font.xml": xml,
+            "sound.ogg": ogg,
+            "sound.mp3": Data("ID3".utf8),
+            "sound.m4a": Data("ftyp".utf8),
+            "sound.wav": audio,
+            "ui.woff": woff,
+            "pixel.png": Data(pixel),
+            "dir/file.png": nested,
+            "notes.txt": Data("ok".utf8),
+        ], id: "digital.modula.qa-spec-42")
+        let url = try WebGameResourceProbe.entryURL(entry: entry)
+        let origin = try XCTUnwrap(url.host)
+        func pkg(_ path: String) throws -> URL {
+            var components = URLComponents()
+            components.scheme = url.scheme
+            components.host = origin
+            components.path = path.hasPrefix("/") ? path : "/" + path
+            return try XCTUnwrap(components.url)
+        }
+        func serve(_ request: URL, method: String = "GET", headers: [String: String] = [:]) throws -> (HTTPURLResponse, Data, Error?) {
+            let task = RecordingGameSchemeTask(request, method: method, headers: headers)
+            try WebGameResourceProbe.serve(entry: entry, task: task)
+            XCTAssertTrue(task.finished, request.absoluteString)
+            let response = try XCTUnwrap(task.response as? HTTPURLResponse, request.absoluteString)
+            XCTAssertEqual(response.value(forHTTPHeaderField: "Content-Security-Policy"), WebGamePackageServe.headerContentSecurityPolicy)
+            XCTAssertEqual(response.value(forHTTPHeaderField: "Cross-Origin-Resource-Policy"), "same-origin")
+            XCTAssertEqual(response.value(forHTTPHeaderField: "X-Content-Type-Options"), "nosniff")
+            XCTAssertNil(response.value(forHTTPHeaderField: "Set-Cookie"))
+            XCTAssertNil(response.value(forHTTPHeaderField: "Access-Control-Allow-Origin"))
+            XCTAssertNil(response.value(forHTTPHeaderField: "Access-Control-Allow-Credentials"))
+            XCTAssertNil(response.value(forHTTPHeaderField: "Allow"))
+            return (response, task.body, task.failure)
+        }
+
+        // Handler unit tests
+        let listed = try pkg("level.json")
+        let (get, getBody, getErr) = try serve(listed)
+        XCTAssertEqual(get.statusCode, 200)
+        XCTAssertEqual(getBody, json)
+        XCTAssertNil(getErr)
+        XCTAssertEqual(get.value(forHTTPHeaderField: "Content-Type"), "application/json")
+
+        let (missing, _, _) = try serve(try pkg("missing.json"))
+        XCTAssertEqual(missing.statusCode, 404)
+
+        for method in ["HEAD", "OPTIONS", "POST", "PUT", "DELETE"] {
+            let (rejected, _, _) = try serve(listed, method: method)
+            XCTAssertEqual(rejected.statusCode, 404, method)
+        }
+
+        var root = URLComponents()
+        root.scheme = url.scheme
+        root.host = origin
+        root.path = "/"
+        let (bare, _, _) = try serve(try XCTUnwrap(root.url))
+        XCTAssertEqual(bare.statusCode, 404)
+
+        let (inventory, _, _) = try serve(try pkg("game.files.json"))
+        XCTAssertEqual(inventory.statusCode, 404)
+
+        var queried = URLComponents(url: listed, resolvingAgainstBaseURL: false)
+        queried?.query = "cache=1"
+        let (query, _, _) = try serve(try XCTUnwrap(queried?.url))
+        XCTAssertEqual(query.statusCode, 404)
+
+        // %2F must not be decoded into a path separator.
+        let encodedSlash = try XCTUnwrap(URL(string: "modula-game://\(origin)/dir%2Ffile.png"))
+        XCTAssertFalse(try WebGameResourceProbe.allows(entry: entry, request: encodedSlash))
+        let (slash, _, _) = try serve(encodedSlash)
+        XCTAssertEqual(slash.statusCode, 404)
+        let (nestedOK, nestedBody, _) = try serve(try pkg("dir/file.png"))
+        XCTAssertEqual(nestedOK.statusCode, 200)
+        XCTAssertEqual(nestedBody, nested)
+        // One percent-decode: %69ndex.html is index.html and must match the manifest.
+        let once = try XCTUnwrap(URL(string: "modula-game://\(origin)/%69ndex.html"))
+        let (decoded, decodedBody, _) = try serve(once)
+        XCTAssertEqual(decoded.statusCode, 200)
+        XCTAssertTrue(WebGamePackageServe.isHTML(decoded.value(forHTTPHeaderField: "Content-Type")))
+        XCTAssertFalse(decodedBody.isEmpty)
+
+        // Spaces and non-ASCII names percent-decode once and match the manifest
+        // exactly. These names are outside WebGamePackage.safe's path alphabet,
+        // so they are served through the shared helper the same way the GUBIC
+        // player does, against a synthetic inventory.
+        let namedOrigin = String(repeating: "a", count: 64)
+        func namedURL(_ path: String) throws -> URL {
+            var components = URLComponents()
+            components.scheme = "modula-game"
+            components.host = namedOrigin
+            components.path = path.hasPrefix("/") ? path : "/" + path
+            return try XCTUnwrap(components.url)
+        }
+        func serveNamed(_ request: URL) throws -> (HTTPURLResponse, Data) {
+            let task = RecordingGameSchemeTask(request)
+            WebGamePackageServe.serve(task, scheme: "modula-game", origin: namedOrigin,
+                                      files: ["a b.png": spaced, "café.png": cafe], isOpen: true)
+            XCTAssertTrue(task.finished, request.absoluteString)
+            return (try XCTUnwrap(task.response as? HTTPURLResponse), task.body)
+        }
+        let (space, spaceBody) = try serveNamed(try namedURL("a b.png"))
+        XCTAssertEqual(space.statusCode, 200)
+        XCTAssertEqual(spaceBody, spaced)
+        XCTAssertEqual(space.value(forHTTPHeaderField: "Cross-Origin-Resource-Policy"), "same-origin")
+        let (accent, accentBody) = try serveNamed(try namedURL("café.png"))
+        XCTAssertEqual(accent.statusCode, 200)
+        XCTAssertEqual(accentBody, cafe)
+
+        // A single Range is 206; multi-range/malformed is 200 full (spec); unsatisfiable is 416.
+        let rangeURL = try pkg("pixel.png")
+        let (partial, partialBody, _) = try serve(rangeURL, headers: ["Range": "bytes=0-3"])
+        XCTAssertEqual(partial.statusCode, 206)
+        XCTAssertEqual(partial.value(forHTTPHeaderField: "Content-Range"), "bytes 0-3/70")
+        XCTAssertEqual(partialBody, Data(pixel.prefix(4)))
+        let (multi, multiBody, _) = try serve(rangeURL, headers: ["Range": "bytes=0-1,2-3"])
+        XCTAssertEqual(multi.statusCode, 200)
+        XCTAssertEqual(multiBody, Data(pixel))
+        let (bad, badBody, _) = try serve(rangeURL, headers: ["Range": "items=0-1"])
+        XCTAssertEqual(bad.statusCode, 200)
+        XCTAssertEqual(badBody, Data(pixel))
+        let (unsat, _, _) = try serve(rangeURL, headers: ["Range": "bytes=1000-1001"])
+        XCTAssertEqual(unsat.statusCode, 416)
+        XCTAssertEqual(unsat.value(forHTTPHeaderField: "Content-Range"), "bytes */70")
+        XCTAssertEqual(unsat.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8")
+
+        let (cookie, _, _) = try serve(listed, headers: ["Cookie": "session=secret", "Authorization": "Bearer x"])
+        XCTAssertEqual(cookie.statusCode, 200)
+        XCTAssertNil(cookie.value(forHTTPHeaderField: "Set-Cookie"))
+
+        // WKWebView-level: package fetches, Phaser blob image, API/remote blocked.
+        let (listener, port, connections) = try await loopbackListener()
+        defer { listener.cancel() }
+        let (probe, _) = try await open(entry)
+        defer { probe.browser.removeFromSuperview(); probe.close() }
+        let browser = probe.browser
+
+        let loaded = try await awaitPageJS(browser, """
+            const rows = await Promise.all([
+              fetch('level.json').then(async r => r.status + ':' + await r.text()),
+              fetch('font.xml').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
+              fetch('sound.ogg').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
+              fetch('sound.mp3').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
+              fetch('sound.m4a').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
+              fetch('sound.wav').then(r => r.status + ':' + (r.headers.get('content-type') || '')),
+              fetch('ui.woff').then(r => r.status + ':' + (r.headers.get('content-type') || ''))
+            ]);
+            return rows.join('|');
+            """) as? String
+        XCTAssertEqual(loaded, #"200:{"ok":true}|200:application/xml|200:audio/ogg|200:audio/mpeg|200:audio/mp4|200:audio/wav|200:font/woff"#)
+
+        let blobImage = try await awaitPageJS(browser, """
+            const r = await fetch('pixel.png');
+            const b = await r.blob();
+            return await new Promise(resolve => {
+              const img = new Image();
+              img.onload = () => resolve('ok:' + img.naturalWidth + 'x' + img.naturalHeight);
+              img.onerror = () => resolve('img-error');
+              img.src = URL.createObjectURL(b);
+            });
+            """) as? String
+        XCTAssertEqual(blobImage, "ok:1x1")
+
+        let before = connections.value
+        let blocked = try await awaitPageJS(browser, """
+            const probeFetch = async (url, ok, blocked) => {
+              try {
+                const r = await fetch(url);
+                return ok + ':' + r.status;
+              } catch (_) {
+                return blocked;
+              }
+            };
+            const probeXHR = (url) => new Promise(resolve => {
+              const x = new XMLHttpRequest();
+              x.onload = () => resolve('ok:' + x.status);
+              x.onerror = () => resolve('blocked');
+              x.open('GET', url);
+              x.send();
+            });
+            const rows = await Promise.all([
+              probeFetch('https://api.modula.digital/v1/health', 'api-ok', 'api-blocked'),
+              probeFetch('http://127.0.0.1:\(port.rawValue)/remote', 'remote-ok', 'remote-blocked'),
+              probeXHR('https://api.modula.digital/v1/health'),
+              probeXHR('http://127.0.0.1:\(port.rawValue)/remote')
+            ]);
+            return rows.join(',');
+            """) as? String
+        XCTAssertEqual(blocked, "api-blocked,remote-blocked,blocked,blocked")
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertEqual(connections.value, before, "a game fetch or XHR reached the loopback listener")
+    }
+
+    func testByteRangeEdgesAndUnsatisfiableEmptyFile() throws {
+        let payload = Data("abcdefgh".utf8)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: nil, size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-3", size: 8), .partial(0..<4))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-", size: 8), .partial(0..<8))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-3", size: 8), .partial(5..<8))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-0", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=5-3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-999", size: 8), .partial(0..<8))
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=100-101", size: 8), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=100-", size: 8), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=99999999999999999999-", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-99999999999999999999", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=+0-3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-+3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-+3", size: 8), .complete)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-", size: 0), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=-5", size: 0), .unsatisfiable)
+        XCTAssertEqual(WebGamePackageServe.byteRange(header: "bytes=0-1", size: 0), .unsatisfiable)
+
+        let origin = String(repeating: "b", count: 64)
+        func url(_ path: String) throws -> URL {
+            var components = URLComponents()
+            components.scheme = "modula-game"
+            components.host = origin
+            components.path = "/" + path
+            return try XCTUnwrap(components.url)
+        }
+        func serve(_ path: String, range: String?, files: [String: Data]) throws -> (HTTPURLResponse, Data) {
+            var headers: [String: String] = [:]
+            if let range { headers["Range"] = range }
+            let task = RecordingGameSchemeTask(try url(path), headers: headers)
+            WebGamePackageServe.serve(task, scheme: "modula-game", origin: origin, files: files, isOpen: true)
+            XCTAssertTrue(task.finished, "\(path) \(range ?? "<none>")")
+            return (try XCTUnwrap(task.response as? HTTPURLResponse), task.body)
+        }
+        let files = ["clip.bin": payload, "empty.bin": Data()]
+
+        let suffix = try serve("clip.bin", range: "bytes=-3", files: files)
+        XCTAssertEqual(suffix.0.statusCode, 206)
+        XCTAssertEqual(suffix.0.value(forHTTPHeaderField: "Content-Range"), "bytes 5-7/8")
+        XCTAssertEqual(suffix.0.value(forHTTPHeaderField: "Content-Type"), "application/octet-stream")
+        XCTAssertEqual(suffix.1, Data("fgh".utf8))
+
+        let openEnd = try serve("clip.bin", range: "bytes=0-", files: files)
+        XCTAssertEqual(openEnd.0.statusCode, 206)
+        XCTAssertEqual(openEnd.0.value(forHTTPHeaderField: "Content-Range"), "bytes 0-7/8")
+        XCTAssertEqual(openEnd.1, payload)
+
+        let minusZero = try serve("clip.bin", range: "bytes=-0", files: files)
+        XCTAssertEqual(minusZero.0.statusCode, 200)
+        XCTAssertEqual(minusZero.1, payload)
+
+        let inverted = try serve("clip.bin", range: "bytes=5-3", files: files)
+        XCTAssertEqual(inverted.0.statusCode, 200)
+        XCTAssertEqual(inverted.1, payload)
+
+        let overflow = try serve("clip.bin", range: "bytes=99999999999999999999-", files: files)
+        XCTAssertEqual(overflow.0.statusCode, 200)
+        XCTAssertEqual(overflow.1, payload)
+
+        let plus = try serve("clip.bin", range: "bytes=+0-3", files: files)
+        XCTAssertEqual(plus.0.statusCode, 200)
+        XCTAssertEqual(plus.1, payload)
+
+        for range in ["bytes=0-", "bytes=-5", "bytes=0-1"] {
+            let empty = try serve("empty.bin", range: range, files: files)
+            XCTAssertEqual(empty.0.statusCode, 416, range)
+            XCTAssertEqual(empty.0.value(forHTTPHeaderField: "Content-Range"), "bytes */0", range)
+            XCTAssertEqual(empty.0.value(forHTTPHeaderField: "Content-Type"), "text/plain; charset=utf-8", range)
+            XCTAssertTrue(empty.1.isEmpty, range)
+        }
+    }
+
+    func testParsedPackagePolicyRejectsUnsafeAndRemoteSourcesAndAcceptsSamples() throws {
+        // The bundled samples' declared policies still pass.
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(HardeningGameFixture.samplePolicy)))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document()))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
+            html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'none'\">"))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
+            html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'none'\">"))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(
+            html: "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; connect-src 'self'\">"))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(
+            "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:")))
+        XCTAssertNoThrow(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(
+            "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'")))
+        let directives = try WebGameDocumentPolicy.parse(HardeningGameFixture.samplePolicy)
+        XCTAssertEqual(directives["default-src"], ["'none'"])
+        XCTAssertEqual(directives["img-src"], ["'self'", "data:"])
+
+        let strict = HardeningGameFixture.strictPolicy
+        let rejected: [String: String] = [
+            "unsafe-inline script": "default-src 'none'; script-src 'self' 'unsafe-inline'; connect-src 'none'; object-src 'none'",
+            "unsafe-eval script": "default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'; object-src 'none'",
+            "wasm-unsafe-eval": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'none'; object-src 'none'",
+            "remote script host": "default-src 'none'; script-src 'self' https://evil.example; connect-src 'none'; object-src 'none'",
+            "bare script host": "default-src 'none'; script-src 'self' evil.example; connect-src 'none'; object-src 'none'",
+            "script scheme": "default-src 'none'; script-src 'self' https:; connect-src 'none'; object-src 'none'",
+            "data script": "default-src 'none'; script-src 'self' data:; connect-src 'none'; object-src 'none'",
+            "wildcard script": "default-src 'none'; script-src *; connect-src 'none'; object-src 'none'",
+            "remote connect": "default-src 'none'; script-src 'self'; connect-src https://api.example; object-src 'none'",
+            "wildcard connect": "default-src 'none'; script-src 'self'; connect-src *; object-src 'none'",
+            "ws connect": "default-src 'none'; script-src 'self'; connect-src ws:; object-src 'none'",
+            "wss connect": "default-src 'none'; script-src 'self'; connect-src wss:; object-src 'none'",
+            "connect-src self plus remote": "default-src 'none'; script-src 'self'; connect-src 'self' https://api.example; object-src 'none'",
+            "missing default-src": "script-src 'self'; connect-src 'none'; object-src 'none'",
+            "permissive default-src": "default-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'",
+            "missing script-src": "default-src 'none'; connect-src 'none'; object-src 'none'",
+            "missing connect-src": "default-src 'none'; script-src 'self'; object-src 'none'",
+            "object-src not none": "default-src 'none'; script-src 'self'; connect-src 'none'; object-src 'self'",
+            "duplicate directive": "\(strict); connect-src *",
+            "second policy": "\(strict), script-src *",
+            "remote image": "\(strict); img-src https://cdn.example",
+            "unknown directive": "\(strict); report-uri https://collector.example",
+            "unsafe-inline outside style": "\(strict); img-src 'self' 'unsafe-inline'",
+            "none mixed": "default-src 'none' 'self'; script-src 'self'; connect-src 'none'; object-src 'none'",
+        ]
+        for (label, policy) in rejected.sorted(by: { $0.key < $1.key }) {
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: HardeningGameFixture.document(policy)), label)
+        }
+        // The old substring check accepted these; the parsed check does not.
+        let substringBypasses: [String: String] = [
+            "policy only in a comment": "<!doctype html><html><head><!-- <meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"> --></head><body></body></html>",
+            "policy only as text": "<!doctype html><html><head><title>\(strict) Content-Security-Policy</title></head><body></body></html>",
+            "policy after a script": "<!doctype html><html><head><script src=\"main.js\"></script><meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"></head></html>",
+            "two policies": HardeningGameFixture.document(strict).replacingOccurrences(of: "<title>", with: "<meta http-equiv=\"Content-Security-Policy\" content=\"\(strict)\"><title>"),
+            "unsafe-eval beside required tokens": HardeningGameFixture.document("default-src 'none'; script-src 'self' 'unsafe-eval'; connect-src 'none'; object-src 'none'"),
+        ]
+        for (label, html) in substringBypasses.sorted(by: { $0.key < $1.key }) {
+            XCTAssertThrowsError(try WebGameDocumentPolicy.validate(html: html), label)
+        }
+        // And the archive parser applies it before any byte reaches WebKit.
+        let weak = try HardeningGameFixture.archive(["index.html": Data(HardeningGameFixture.document(
+            "default-src 'none'; script-src 'self' https://evil.example; connect-src 'none'; object-src 'none'").utf8)])
+        XCTAssertThrowsError(try WebGamePackage(archive: weak, expectedSha256: WebGamePackage.digest(weak)))
+        let sample = try HardeningGameFixture.archive(["index.html": Data(HardeningGameFixture.document(HardeningGameFixture.samplePolicy).utf8)])
+        XCTAssertNoThrow(try WebGamePackage(archive: sample, expectedSha256: WebGamePackage.digest(sample)))
     }
 }
 
@@ -1519,12 +2446,17 @@ final class StoryUploadBudgetTests: XCTestCase {
 private final class SessionRouterProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (Int, String))?
     nonisolated(unsafe) static var log: [String] = []
+    nonisolated(unsafe) static var refreshTokens: [String] = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
     override func startLoading() {
         let path = request.url?.path ?? ""
         Self.log.append("\(request.httpMethod ?? "GET") \(path) \(request.value(forHTTPHeaderField: "Authorization") ?? "-")")
+        if path == "/v1/sessions/refresh", let token = Self.bodyString(request, key: "refreshToken") {
+            Self.refreshTokens.append(token)
+        }
         let (status, body) = Self.handler?(request) ?? (500, "{}")
         if status == 0 {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
@@ -1537,6 +2469,22 @@ private final class SessionRouterProtocol: URLProtocol, @unchecked Sendable {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+
+    static func bodyString(_ request: URLRequest, key: String) -> String? {
+        var data = request.httpBody ?? Data()
+        if data.isEmpty, let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let read = stream.read(&buffer, maxLength: buffer.count)
+                if read <= 0 { break }
+                data.append(buffer, count: read)
+            }
+        }
+        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        return object?[key] as? String
+    }
 }
 
 final class GreenfieldSessionRecoveryTests: XCTestCase {
@@ -1553,12 +2501,14 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [SessionRouterProtocol.self]
         SessionRouterProtocol.log = []
+        SessionRouterProtocol.refreshTokens = []
         return GreenfieldClient(baseURL: baseURL ?? URL(string: "https://session-test-\(UUID().uuidString.prefix(8)).modula.test")!,
                                 transport: URLSession(configuration: config))
     }
 
     override func tearDown() {
         SessionRouterProtocol.handler = nil
+        SessionRouterProtocol.refreshTokens = []
         super.tearDown()
     }
 
@@ -1657,7 +2607,121 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
         let revokedSession = await revoked.hasSession()
         XCTAssertFalse(revokedSession)
     }
+
+    func testConcurrent401sShareOneRefreshAndNeverReplayTheToken() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            let auth = request.value(forHTTPHeaderField: "Authorization")
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("POST", "/v1/sessions/refresh"): return (200, Self.tokens(2))
+            case ("GET", "/v1/stories/rail"):
+                return auth == "Bearer access-2" ? (200, #"{"ok":true,"data":{"items":[]}}"#) : (401, Self.unauthorized)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.log = []
+        SessionRouterProtocol.refreshTokens = []
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 1...8 {
+                group.addTask {
+                    _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail")
+                }
+            }
+            try await group.waitForAll()
+        }
+        XCTAssertEqual(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 1)
+        XCTAssertEqual(SessionRouterProtocol.refreshTokens, ["refresh-1"], "the same refresh token must be presented only once")
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession)
+    }
+
+    func testRefreshReuse401SignsOutOnceWithNoRetryLoop() async throws {
+        let client = makeClient()
+        let reuse = #"{"ok":false,"error":{"code":"UNAUTHENTICATED","message":"Refresh token reuse detected","retryable":false}}"#
+        let notified = expectation(description: "session invalidated once")
+        notified.expectedFulfillmentCount = 1
+        notified.assertForOverFulfill = true
+        await client.setSessionInvalidationHandler { notified.fulfill() }
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("POST", "/v1/sessions/refresh"): return (401, reuse)
+            default: return (401, Self.unauthorized)
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.log = []
+        SessionRouterProtocol.refreshTokens = []
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 1...8 {
+                group.addTask {
+                    do {
+                        _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail")
+                        XCTFail("expected the session to end")
+                    } catch {
+                        XCTAssertEqual(error as? APIError, .unauthenticated)
+                    }
+                }
+            }
+        }
+        await fulfillment(of: [notified], timeout: 2)
+        XCTAssertEqual(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 1)
+        XCTAssertEqual(SessionRouterProtocol.refreshTokens, ["refresh-1"])
+        let hasSession = await client.hasSession()
+        XCTAssertFalse(hasSession)
+        // A later call must not start another refresh.
+        SessionRouterProtocol.log = []
+        do { _ = try await client.authenticatedJSON("GET", path: "/v1/stories/rail") } catch { }
+        XCTAssertTrue(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.isEmpty)
+    }
+
+    func testStepUpRequired401DoesNotRefreshOrSignOut() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("DELETE", let path) where path.hasPrefix("/v1/modules/"):
+                return (401, #"{"ok":false,"error":{"code":"STEP_UP_REQUIRED"}}"#)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        SessionRouterProtocol.log = []
+        do {
+            _ = try await client.authenticatedJSON("DELETE", path: "/v1/modules/modula.example/install", body: .object(["choice": .string("deleteData")]))
+            XCTFail("expected STEP_UP_REQUIRED")
+        } catch let api as APIError {
+            XCTAssertNotNil(api.requiresStepUp)
+            XCTAssertEqual(api.code, "STEP_UP_REQUIRED")
+        }
+        XCTAssertTrue(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.isEmpty)
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession, "step-up must not sign the session out")
+    }
+
+    func testRevokeSession404IsTreatedAsAlreadyGone() async throws {
+        let client = makeClient()
+        SessionRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return (201, Self.tokens(1))
+            case ("GET", "/v1/accounts/me"): return (200, Self.me)
+            case ("DELETE", "/v1/sessions/sess-missing"):
+                return (404, #"{"ok":false,"error":{"code":"NOT_FOUND","message":"Session not found"}}"#)
+            default: return (404, "{}")
+            }
+        }
+        _ = try await client.signIn(email: "a@b.c", password: "pw")
+        try await client.revokeSession(id: "sess-missing")
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession, "a missing other session must not sign this one out")
+    }
 }
+
 
 // MARK: - Home pagination vs refresh race
 

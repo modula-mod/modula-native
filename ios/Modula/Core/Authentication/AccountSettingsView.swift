@@ -251,6 +251,14 @@ private struct AccountSessionsView: View {
                                 if let last = session.lastActive { Text(last).font(.caption).foregroundStyle(.secondary) }
                                 if let location = session.location { Text(location).font(.caption).foregroundStyle(.secondary) }
                             }
+                            if !session.current {
+                                Spacer(minLength: 8)
+                                Button("Sign out", role: .destructive) {
+                                    Task { await revoke(session) }
+                                }
+                                .font(.subheadline.weight(.semibold))
+                                .accessibilityIdentifier("auth.sessions.revoke")
+                            }
                         }
                     }
                     Button("Sign Out All Other Sessions", role: .destructive) {
@@ -284,6 +292,19 @@ private struct AccountSessionsView: View {
         } catch {
             loaded = true
             self.error = "Session list isn’t available right now."
+        }
+    }
+
+    /// 404 NOT_FOUND is already treated as success by the client; just drop the row.
+    private func revoke(_ session: GreenfieldSessionInfo) async {
+        do {
+            try await app.client.revokeSession(id: session.id)
+            sessions.removeAll { $0.id == session.id }
+            if sessions.isEmpty { error = nil }
+        } catch let api as APIError {
+            error = api.userFacingMessage
+        } catch {
+            self.error = "Could not sign that session out."
         }
     }
 }

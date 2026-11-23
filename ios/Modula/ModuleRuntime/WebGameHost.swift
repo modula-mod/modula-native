@@ -2,6 +2,169 @@ import CryptoKit
 import SwiftUI
 import WebKit
 
+/// Shared serve contract for the native html5 hosts, mirroring GUBIC platform
+/// spec §4.2 (modula-latest PR #204). Origins stay native and stricter:
+/// `modula-game://<sha256(account/module/digest)>/` on WebGameHost and
+/// `gubic://<random per play>/` on the GUBIC player, not `modula-pkg://<packageId>/`.
+enum WebGamePackageServe {
+    /// Exact header CSP from docs/gubic/GUBIC-PLATFORM-SPEC.md §4.2.
+    /// Applied to every handler response (200, 206, 404 and 416).
+    static let headerContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; object-src 'none'; worker-src 'none'; child-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+    static let permissionsPolicy = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
+
+    /// Percent-decoded once, then matched exactly to a manifest path.
+    /// An encoded `/` (`%2F`) is never a separator and yields nil (404).
+    /// Spaces and non-ASCII names decode and match the listed member.
+    static func memberPath(of url: URL, scheme: String, origin: String) -> String? {
+        guard url.scheme == scheme, url.host == origin else { return nil }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+        if components.percentEncodedQuery != nil || components.percentEncodedFragment != nil { return nil }
+        let encoded = components.percentEncodedPath
+        if encoded.lowercased().contains("%2f") || encoded.contains("\\") { return nil }
+        guard encoded.hasPrefix("/") else { return nil }
+        let body = String(encoded.dropFirst())
+        if body.isEmpty { return nil }
+        var segments: [String] = []
+        for raw in body.split(separator: "/", omittingEmptySubsequences: false) {
+            if raw.isEmpty { return nil }
+            guard let decoded = raw.removingPercentEncoding, !decoded.contains("/") , !decoded.contains("\\") else { return nil }
+            if decoded == "." || decoded == ".." { return nil }
+            segments.append(decoded)
+        }
+        let path = segments.joined(separator: "/")
+        if path == "game.files.json" { return nil }
+        return path
+    }
+
+    static func mimeType(forMemberPath path: String) -> String {
+        switch URL(fileURLWithPath: path).pathExtension.lowercased() {
+        case "html": return "text/html; charset=utf-8"
+        case "js", "mjs": return "text/javascript; charset=utf-8"
+        case "css": return "text/css; charset=utf-8"
+        case "json": return "application/json"
+        case "xml": return "application/xml"
+        case "txt": return "text/plain; charset=utf-8"
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "svg": return "image/svg+xml"
+        case "mp3": return "audio/mpeg"
+        case "ogg": return "audio/ogg"
+        case "m4a": return "audio/mp4"
+        case "wav": return "audio/wav"
+        case "mp4": return "video/mp4"
+        case "webm": return "video/webm"
+        case "woff": return "font/woff"
+        case "woff2": return "font/woff2"
+        case "ttf": return "font/ttf"
+        case "otf": return "font/otf"
+        default: return "application/octet-stream"
+        }
+    }
+
+    static func isHTML(_ mime: String?) -> Bool {
+        guard let mime else { return false }
+        return mime.lowercased().split(separator: ";").first?.trimmingCharacters(in: .whitespaces) == "text/html"
+    }
+
+    enum BytesReply: Equatable {
+        case complete
+        case partial(Range<Int>)
+        case unsatisfiable
+    }
+
+    /// ASCII digits only (`^[0-9]+$`). A leading `+` or any other sign is rejected.
+    static func asciiDigitInt(_ raw: some StringProtocol) -> Int? {
+        guard !raw.isEmpty, raw.unicodeScalars.allSatisfy({ 48...57 ~= $0.value }) else { return nil }
+        return Int(raw)
+    }
+
+    /// A single `bytes=` range may be 206. Multi-range or malformed Range
+    /// headers are ignored and the full file is returned with 200 (§4.2).
+    /// An unsatisfiable single range is 416 with `Content-Range: bytes */N`.
+    static func byteRange(header: String?, size: Int) -> BytesReply {
+        guard let raw = header?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return .complete
+        }
+        guard raw.lowercased().hasPrefix("bytes=") else { return .complete }
+        let spec = String(raw.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+        if spec.isEmpty || spec.contains(",") { return .complete }
+        if spec.hasPrefix("-") {
+            guard let suffix = asciiDigitInt(spec.dropFirst()), suffix > 0 else { return .complete }
+            guard size > 0 else { return .unsatisfiable }
+            let length = min(suffix, size)
+            return .partial((size - length)..<size)
+        }
+        let parts = spec.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2, let start = asciiDigitInt(parts[0]) else { return .complete }
+        if parts[1].isEmpty {
+            guard start < size else { return .unsatisfiable }
+            return .partial(start..<size)
+        }
+        guard let end = asciiDigitInt(parts[1]), end >= start else { return .complete }
+        guard start < size else { return .unsatisfiable }
+        return .partial(start..<(min(end, size - 1) + 1))
+    }
+
+    /// Cookie and Authorization are ignored and never influence the response.
+    /// GET only: every other method, and every path that is not a listed
+    /// inventory member, is 404 with no Allow header.
+    static func serve(_ task: WKURLSchemeTask, scheme: String, origin: String, files: [String: Data], isOpen: Bool) {
+        guard let url = task.request.url else {
+            task.didFailWithError(URLError(.badURL))
+            return
+        }
+        let method = (task.request.httpMethod ?? "GET").uppercased()
+        guard isOpen, method == "GET" else {
+            finish(task, url: url, status: 404, mime: "text/plain; charset=utf-8", bytes: Data())
+            return
+        }
+        guard let path = memberPath(of: url, scheme: scheme, origin: origin), let bytes = files[path] else {
+            finish(task, url: url, status: 404, mime: "text/plain; charset=utf-8", bytes: Data())
+            return
+        }
+        let mime = mimeType(forMemberPath: path)
+        switch byteRange(header: task.request.value(forHTTPHeaderField: "Range"), size: bytes.count) {
+        case .complete:
+            finish(task, url: url, status: 200, mime: mime, bytes: bytes)
+        case .partial(let range):
+            let slice = bytes.subdata(in: range)
+            finish(task, url: url, status: 206, mime: mime, bytes: slice, extra: [
+                "Content-Range": "bytes \(range.lowerBound)-\(range.upperBound - 1)/\(bytes.count)",
+            ])
+        case .unsatisfiable:
+            finish(task, url: url, status: 416, mime: "text/plain; charset=utf-8", bytes: Data(), extra: [
+                "Content-Range": "bytes */\(bytes.count)",
+            ])
+        }
+    }
+
+    static func finish(_ task: WKURLSchemeTask, url: URL, status: Int, mime: String, bytes: Data,
+                       extra: [String: String] = [:]) {
+        var headers = [
+            "Content-Type": mime,
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+            "Cross-Origin-Resource-Policy": "same-origin",
+            "Permissions-Policy": permissionsPolicy,
+            "Content-Security-Policy": headerContentSecurityPolicy,
+        ]
+        for (name, value) in extra { headers[name] = value }
+        guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1",
+                                             headerFields: headers) else {
+            task.didFailWithError(URLError(.badServerResponse))
+            return
+        }
+        task.didReceive(response)
+        task.didReceive(bytes)
+        task.didFinish()
+    }
+}
+
+
 /// One host for every verified HTML5 game. Nothing in this view depends on a
 /// particular JavaScript engine or game identity.
 struct WebGameHost: View {
@@ -71,7 +234,19 @@ struct WebGameHost: View {
                 } description: {
                     Text("The web rendering process stopped. Reopen the verified game package to continue.")
                 } actions: {
-                    Button("Reopen") { processFailed = false; webView?.reload() }
+                    Button("Reopen") {
+                        // reload() targets the current URL, which the entry-only
+                        // navigation policy cancels once the game has changed its
+                        // path. Load the entry URL through the same fail-closed
+                        // path used on first open.
+                        guard let webView,
+                              let entryURL = (webView.navigationDelegate as? WebGameSurface.Coordinator)?.handler?.entryURL else { return }
+                        processFailed = false
+                        documentReady = false
+                        WebGameSurface.loadGame(entryURL, in: webView) { success in
+                            if !success { processFailed = true }
+                        }
+                    }
                     Button("Exit") { close() }
                 }
                 .foregroundStyle(.white)
@@ -150,7 +325,13 @@ private struct WebGameSurface: UIViewRepresentable {
             guard let progress = change.newValue else { return }
             DispatchQueue.main.async { coordinator?.parent.loadingProgress = progress }
         }
-        if let gameURL { view.load(URLRequest(url: gameURL)) }
+        if let gameURL {
+            // Fail closed: the game document loads only after the local-only
+            // network rule list is installed on this view's content controller.
+            Self.loadGame(gameURL, in: view) { loaded in
+                if !loaded { DispatchQueue.main.async { processFailed = true } }
+            }
+        }
         DispatchQueue.main.async { webView = view }
         return view
     }
@@ -199,6 +380,48 @@ private struct WebGameSurface: UIViewRepresentable {
         return configuration
     }
 
+    /// Blocks every load that is not on the game's own custom scheme, beneath
+    /// CSP. Compiled at runtime by WebKit; no third-party code.
+    static let networkRuleListIdentifier = "digital.modula.web-game.local-only.v1"
+    static let networkRules = #"""
+    [{"trigger":{"url-filter":".*"},"action":{"type":"block"}},
+     {"trigger":{"url-filter":"^modula-game://"},"action":{"type":"ignore-previous-rules"}},
+     {"trigger":{"url-filter":"^data:"},"action":{"type":"ignore-previous-rules"}},
+     {"trigger":{"url-filter":"^blob:"},"action":{"type":"ignore-previous-rules"}}]
+    """#
+    @MainActor private static var compiledNetworkRules: WKContentRuleList?
+
+    /// Installs the local-only rule list on `controller`. Reports false, and
+    /// installs nothing, when WebKit cannot compile it.
+    @MainActor
+    static func installNetworkRules(on controller: WKUserContentController,
+                                    completion: @escaping @MainActor (Bool) -> Void) {
+        if let compiledNetworkRules {
+            controller.add(compiledNetworkRules)
+            completion(true)
+            return
+        }
+        Task { @MainActor in
+            let list = try? await WKContentRuleListStore.default()?.compileContentRuleList(
+                forIdentifier: networkRuleListIdentifier, encodedContentRuleList: networkRules)
+            guard let list else { completion(false); return }
+            compiledNetworkRules = list
+            controller.add(list)
+            completion(true)
+        }
+    }
+
+    /// The only way a game document is loaded: never before the rule list is
+    /// in place, and not at all if it could not be compiled.
+    @MainActor
+    static func loadGame(_ url: URL, in view: WKWebView, completion: @escaping @MainActor (Bool) -> Void) {
+        installNetworkRules(on: view.configuration.userContentController) { [weak view] installed in
+            guard installed, let view else { completion(false); return }
+            view.load(URLRequest(url: url))
+            completion(true)
+        }
+    }
+
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
         coordinator.progressObservation = nil
         view.stopLoading()
@@ -227,11 +450,24 @@ private struct WebGameSurface: UIViewRepresentable {
             }
         }
 
+        /// Only the verified entry document may occupy the main frame. Any other
+        /// main-frame navigation (including to listed archive files such as SVG),
+        /// every subframe navigation, and every new-window target is cancelled.
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = action.request.url, let handler,
-                  url.scheme == VerifiedGameSchemeHandler.scheme,
-                  url.host == handler.origin,
+                  action.targetFrame?.isMainFrame == true,
+                  url.absoluteString == handler.entryURL.absoluteString,
                   handler.contains(url) else { return .cancel }
+            return .allow
+        }
+
+        /// The main frame may only display the entry document as HTML. Anything
+        /// WebKit cannot show inline (a download) or any other type is cancelled.
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+            guard let handler, navigationResponse.isForMainFrame, navigationResponse.canShowMIMEType,
+                  WebGamePackageServe.isHTML(navigationResponse.response.mimeType),
+                  let url = navigationResponse.response.url,
+                  url.absoluteString == handler.entryURL.absoluteString else { return .cancel }
             return .allow
         }
 
@@ -275,9 +511,15 @@ private struct WebGameSurface: UIViewRepresentable {
 /// ambiguity. WebKit receives no local-file read grant or Native message bridge.
 private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "modula-game"
-    // Applied by the host on the HTML response, independent of any policy
-    // declared by a downloadable package.
-    private static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
+    // Applied by the host on every HTML response, independent of any policy
+    // declared by a downloadable package. This header (with the local-only
+    // rule list) is the security boundary: it is never derived from, or
+    // relaxed by, the document. A document meta CSP can only add restrictions,
+    // because browsers enforce every policy present.
+    // Exact §4.2 header CSP, including connect-src 'self' and font-src 'self'.
+    // 'self' is this handler's per-package modula-game:// origin only.
+    static let contentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
+    static let resourceContentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
     let digest: String
     let origin: String
     let entryURL: URL
@@ -326,11 +568,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
         sessionLock.lock()
         let active = !closed
         sessionLock.unlock()
-        guard active, url.scheme == Self.scheme, url.host == origin else { return false }
-        let path = String(url.path.dropFirst())
-        return URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath == "/" + path
-            && files[path] != nil
-            && url.query == nil && url.fragment == nil
+        guard active, let path = WebGamePackageServe.memberPath(of: url, scheme: Self.scheme, origin: origin) else {
+            return false
+        }
+        return files[path] != nil
     }
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
@@ -338,39 +579,10 @@ private final class VerifiedGameSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     fileprivate func serve(_ task: WKURLSchemeTask) {
-        guard let url = task.request.url, contains(url),
-              let bytes = files[String(url.path.dropFirst())] else {
-            task.didFailWithError(WebGamePackageError.invalid("unlisted resource"))
-            return
-        }
-        let mime: String
-        switch url.pathExtension.lowercased() {
-        case "html": mime = "text/html"
-        case "js", "mjs": mime = "text/javascript"
-        case "css": mime = "text/css"
-        case "json": mime = "application/json"
-        case "png": mime = "image/png"
-        case "jpg", "jpeg": mime = "image/jpeg"
-        case "webp": mime = "image/webp"
-        case "svg": mime = "image/svg+xml"
-        case "mp3": mime = "audio/mpeg"
-        case "ogg": mime = "audio/ogg"
-        case "wav": mime = "audio/wav"
-        default: mime = "application/octet-stream"
-        }
-        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff",
-                       "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
-        if mime == "text/html" {
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
-        }
-        if mime == "text/html" { headers["Content-Security-Policy"] = Self.contentSecurityPolicy }
-        guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
-            task.didFailWithError(WebGamePackageError.invalid("resource response"))
-            return
-        }
-        task.didReceive(response)
-        task.didReceive(bytes)
-        task.didFinish()
+        sessionLock.lock()
+        let open = !closed
+        sessionLock.unlock()
+        WebGamePackageServe.serve(task, scheme: Self.scheme, origin: origin, files: files, isOpen: open)
     }
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
@@ -397,6 +609,13 @@ struct WebGameBrowserProbe {
         browser.stopLoading()
         handler.closeSession()
     }
+
+    /// Loads through the production path: rule list first, then the document.
+    @MainActor func load(_ url: URL) async -> Bool {
+        await withCheckedContinuation { continuation in
+            WebGameSurface.loadGame(url, in: browser) { continuation.resume(returning: $0) }
+        }
+    }
 }
 
 @MainActor
@@ -411,6 +630,16 @@ enum WebGameResourceProbe {
     static func serve(entry: URL, task: WKURLSchemeTask) throws {
         try VerifiedGameSchemeHandler(entry: entry).serve(task)
     }
+
+    /// Installs the production local-only rule list on any content controller.
+    static func installNetworkRules(on controller: WKUserContentController) async -> Bool {
+        await withCheckedContinuation { continuation in
+            WebGameSurface.installNetworkRules(on: controller) { continuation.resume(returning: $0) }
+        }
+    }
+
+    static var resourceContentSecurityPolicy: String { VerifiedGameSchemeHandler.resourceContentSecurityPolicy }
+    static var htmlContentSecurityPolicy: String { VerifiedGameSchemeHandler.contentSecurityPolicy }
 
     static func browser(entry: URL, onNavigationComplete: @escaping (Error?) -> Void) throws -> WebGameBrowserProbe {
         let handler = try VerifiedGameSchemeHandler(entry: entry)
