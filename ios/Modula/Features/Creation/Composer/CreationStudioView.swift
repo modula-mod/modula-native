@@ -31,6 +31,8 @@ struct CreationStudioView: View {
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
     @State private var publishMorph = false
+    @State private var showsAltPrompt = false
+    @AppStorage("compose.altTextPrompt.off") private var altPromptOff = false
     @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: true)
     @State private var showsFullCamera = false
     @State private var cameraLibraryItems: [PhotosPickerItem] = []
@@ -110,6 +112,16 @@ struct CreationStudioView: View {
                 close()
             }
             Button("Continue Editing", role: .cancel) {}
+        }
+        .confirmationDialog("Add alt text?", isPresented: $showsAltPrompt, titleVisibility: .visible) {
+            Button("Add Alt Text") {
+                store.altTextMediaID = store.draft.media.first { $0.kind == .image && $0.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }?.id
+            }
+            Button("Post Without") { startPublishing(store) }
+            Button("Don't Ask Again") { altPromptOff = true; startPublishing(store) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Some photos have no description. Alt text helps people who use VoiceOver.")
         }
         .sheet(item: altTextBinding(store)) { media in
             NavigationStack {
@@ -203,7 +215,11 @@ struct CreationStudioView: View {
             }
 
             Button {
-                startPublishing(store)
+                if !altPromptOff, store.draft.media.contains(where: { $0.kind == .image && $0.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                    showsAltPrompt = true
+                } else {
+                    startPublishing(store)
+                }
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
