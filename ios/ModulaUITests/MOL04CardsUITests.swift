@@ -27,6 +27,10 @@ final class MOL04CardsUITests: XCTestCase {
         XCTAssertTrue(entry.exists, "Cards entry in the Moliboo hub")
         entry.tap()
 
+        XCTAssertTrue(app.descendants(matching: .any)["cards.home"].waitForExistence(timeout: 10), "cards home opens")
+        let founding = app.buttons["Founding packs"]
+        XCTAssertTrue(founding.waitForExistence(timeout: 5), "founding packs tab")
+        founding.tap()
         let open = app.buttons["cards.openPack"]
         XCTAssertTrue(open.waitForExistence(timeout: 10), "binder opens")
         XCTAssertTrue(app.descendants(matching: .any)["cards.locked.pebble"].exists, "empty binder")

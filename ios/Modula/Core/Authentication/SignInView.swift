@@ -12,6 +12,8 @@ struct SignInView: View {
     @State private var attemptedSubmit = false
     @State private var appeared = false
     @State private var shake = 0
+    /// Tallest height seen: the layout keeps its rhythm when the keyboard shrinks the view.
+    @State private var stableHeight: CGFloat = 0
     @FocusState private var focused: Field?
     #if DEBUG
     @State private var fixtureUnavailable = false
@@ -26,14 +28,15 @@ struct SignInView: View {
     var body: some View {
         GeometryReader { proxy in
             // Compact heights (iPhone SE, keyboard up, large text) tighten the rhythm.
-            let compact = proxy.size.height < 700 || dynamicTypeSize.isAccessibilitySize
+            let height = max(proxy.size.height, stableHeight)
+            let compact = height < 700 || dynamicTypeSize.isAccessibilitySize
             ScrollViewReader { reader in
                 ScrollView {
                     VStack(spacing: 0) {
                         brand(compact: compact)
-                            .padding(.top, compact ? ModulaSpacing.sm : ModulaSpacing.xl)
-                        Spacer(minLength: compact ? ModulaSpacing.lg : ModulaSpacing.xl)
+                            .padding(.top, ModulaSpacing.sm)
                         form
+                            .padding(.top, compact ? ModulaSpacing.lg : ModulaSpacing.xl)
                         Spacer(minLength: compact ? ModulaSpacing.lg : ModulaSpacing.xl)
                         footer
                     }
@@ -41,12 +44,14 @@ struct SignInView: View {
                     .padding(.bottom, ModulaSpacing.md)
                     .frame(maxWidth: 460)
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: proxy.size.height)
+                    .frame(minHeight: height)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared || reduceMotion ? 0 : 12)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .scrollBounceBehavior(.basedOnSize)
+                .onAppear { stableHeight = max(stableHeight, proxy.size.height) }
+                .onChange(of: proxy.size.width) { _, _ in stableHeight = proxy.size.height }
                 .onChange(of: focused) { _, field in
                     guard let field else { return }
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
@@ -62,6 +67,7 @@ struct SignInView: View {
         .accessibilityIdentifier("auth.login")
         .disabled(app.auth.busy)
         .onAppear {
+            if email.isEmpty, let verified = app.auth.lastVerifiedEmail { email = verified }
             guard !appeared else { return }
             withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                 appeared = true
@@ -78,23 +84,14 @@ struct SignInView: View {
     // MARK: Brand
 
     private func brand(compact: Bool) -> some View {
-        VStack(spacing: compact ? ModulaSpacing.sm : ModulaSpacing.md) {
-            SignInBrandMark(compact: compact)
-            VStack(spacing: ModulaSpacing.xs) {
-                ModulaWordmark(height: 20)
-                    .accessibilityHidden(true)
-                Text("Welcome back")
-                    .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.bold))
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Sign in to your digital world, your way.")
-                    .font(.body)
+        AuthBrandHeader(title: "Welcome back", subtitle: "Sign in to your digital world, your way.", compact: compact) {
+            if app.gate.pendingDestination != nil {
+                Label("After you sign in, Modula opens the link you followed.", systemImage: "link")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("auth.pendingLink")
             }
-            .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 
@@ -107,10 +104,10 @@ struct SignInView: View {
     private var formFields: some View {
         VStack(alignment: .leading, spacing: ModulaSpacing.md) {
             AuthGlassField(
-                title: "Email or username",
+                title: "Email",
                 symbol: "envelope",
                 text: $email,
-                prompt: "Email or username",
+                prompt: "The email you signed up with",
                 message: emailMessage,
                 focus: $focused,
                 focusValue: Field.email,
@@ -163,8 +160,15 @@ struct SignInView: View {
                 errorBanner(error)
             }
 
-            AuthPrimaryButton(title: "Sign In", busy: app.auth.busy, enabled: canSubmit) {
-                Task { await submit() }
+            pendingSignupBanner
+
+            // Per-route 429: count down `retryAfter`, then re-enable.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let wait = Int(app.auth.rateLimitWait(at: context.date).rounded(.up))
+                AuthPrimaryButton(title: wait > 0 ? "Try again in \(VerifyEmailView.clock(wait))" : "Sign In",
+                                  busy: app.auth.busy, enabled: canSubmit && wait == 0) {
+                    Task { await submit() }
+                }
             }
             .accessibilityIdentifier("auth.sign-in")
             .padding(.top, ModulaSpacing.xxs)
@@ -176,23 +180,37 @@ struct SignInView: View {
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: passwordMessage)
     }
 
+    /// A sign-up waiting for its code never blocks sign-in: it is offered here, and signing
+    /// in to another account forgets it.
+    @ViewBuilder
+    private var pendingSignupBanner: some View {
+        if let pending = app.auth.pendingSignup {
+            // The button sits outside the banner: the banner combines its children for
+            // VoiceOver, which would swallow a nested button.
+            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                AuthNoticeBanner(message: "Finishing sign-up for \(pending.email)? Enter the code we emailed you.")
+                    .accessibilityIdentifier("auth.pending")
+                Button("Enter verification code") {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(.auth(.verify))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.pending.resume")
+            }
+        } else if let notice = app.auth.pendingNotice {
+            AuthNoticeBanner(message: notice)
+                .accessibilityIdentifier("auth.pending.notice")
+        }
+    }
+
     private var cardShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: app.appearance.interfaceShape.radius(for: .contentCard) + 6, style: .continuous)
     }
 
     private func errorBanner(_ error: String) -> some View {
-        VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
-            HStack(alignment: .firstTextBaseline, spacing: ModulaSpacing.xs) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .accessibilityHidden(true)
-                Text(error)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(error)
-                    .accessibilityIdentifier("auth.error")
-            }
+        AuthNoticeBanner(message: error) {
             #if DEBUG
             if let diagnostic = app.auth.lastDiagnostic, diagnostic != error {
                 Text(diagnostic)
@@ -202,10 +220,8 @@ struct SignInView: View {
             }
             #endif
         }
-        .padding(ModulaSpacing.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.red.opacity(scheme == .dark ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: app.appearance.interfaceShape.radius(for: .control), style: .continuous))
-        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+        .accessibilityLabel(error)
+        .accessibilityIdentifier("auth.error")
     }
 
     // MARK: Footer
@@ -230,7 +246,7 @@ struct SignInView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .modulaMaterial(.control, in: Capsule())
+                    .modifier(AuthGlassCapsule())
                     .disabled(app.auth.busy)
                     .accessibilityIdentifier("auth.sign-in-fixture")
                     if fixtureUnavailable {
@@ -278,8 +294,10 @@ struct SignInView: View {
 
     private var emailMessage: String? {
         guard emailTouched || attemptedSubmit else { return nil }
-        if trimmedEmail.isEmpty { return "Enter your email or username." }
-        if trimmedEmail.contains("@"), !Self.looksLikeEmail(trimmedEmail) {
+        if trimmedEmail.isEmpty { return "Enter your email." }
+        // Greenfield signs in by email only (authentication/service.ts `login`).
+        if !trimmedEmail.contains("@") { return "Sign in with your email address, not your username." }
+        if !Self.looksLikeEmail(trimmedEmail) {
             return "That email address looks incomplete."
         }
         return nil
@@ -301,9 +319,10 @@ struct SignInView: View {
     }
 
     private func submit() async {
-        guard canSubmit else {
+        guard app.auth.rateLimitWait() == 0 else { return }
+        guard canSubmit, Self.looksLikeEmail(trimmedEmail) else {
             attemptedSubmit = true
-            focused = trimmedEmail.isEmpty ? .email : .password
+            focused = (trimmedEmail.isEmpty || !Self.looksLikeEmail(trimmedEmail)) ? .email : .password
             shake += 1
             HapticEngine.shared.play(.warning)
             return
@@ -317,6 +336,11 @@ struct SignInView: View {
         if ok {
             HapticEngine.shared.play(.success)
             app.refreshLaunchState()
+        } else if app.auth.resumeVerificationRequested {
+            // Unverified account, fresh code emailed (403 EMAIL_VERIFICATION_REQUIRED).
+            app.auth.resumeVerificationRequested = false
+            HapticEngine.shared.play(.navigation)
+            app.navigation.open(.auth(.verify))
         } else {
             shake += 1
             HapticEngine.shared.play(.failure)
@@ -348,12 +372,14 @@ struct SignInView: View {
 /// App icon as the brand moment: a soft accent halo behind the real icon.
 struct SignInBrandMark: View {
     var compact = false
+    /// Fixed side length (e.g. the compact header lockup); nil scales with Dynamic Type.
+    var side: CGFloat? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ScaledMetric(relativeTo: .largeTitle) private var size = 76.0
 
     var body: some View {
-        let side = min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
+        let side = self.side ?? min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
         ModulaUnitTile(variant: .teal)
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
@@ -384,7 +410,7 @@ struct RegisterPlaceholderView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background { ModulaAuthBackdrop() }
+        .background { ModulaAuthBackdrop(calm: true) }
         .modulaSoftScrollEdge()
         .navigationTitle("Create Account")
         .accessibilityIdentifier("auth.register")

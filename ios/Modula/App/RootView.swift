@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
+    @State private var visitedTabs: Set<AppTab> = []
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -66,12 +67,18 @@ struct RootView: View {
                 delegate.consumePendingShortcutIfNeeded()
             }
             app.refreshQuickActions()
+            #if DEBUG
+            openQALaunchTarget()
+            #endif
         }
         .task {
+            // After the first frames, so Home's feed request goes out first; and the
+            // catalogue the boot gate already loaded isn't fetched a second time.
+            try? await Task.sleep(for: .milliseconds(700))
             if app.catalogue.accountID == nil {
                 app.catalogue.accountID = app.auth.account?.accountId
             }
-            await app.catalogue.load()
+            if !app.catalogue.loaded { await app.catalogue.load() }
             if app.auth.isSignedIn {
                 await app.profile.loadIfNeeded(
                     .me,
@@ -197,7 +204,15 @@ struct RootView: View {
         return TabView(selection: reselectable) {
             ForEach(AppTab.allCases) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
-                    RouteView(route: navigation.root(for: tab))
+                    Group {
+                        // Lazy tabs: TabView builds every tab's root at launch; Messages,
+                        // Activity, Profile… now build on first visit instead.
+                        if tab == navigation.selectedTab || visitedTabs.contains(tab) {
+                            RouteView(route: navigation.root(for: tab))
+                        } else {
+                            Color.clear
+                        }
+                    }
                         .navigationDestination(for: AppRoute.self) {
                             RouteView(route: $0)
                                 // Pushed Settings / Premium pages: no minimised tab bubble (the profile avatar
@@ -229,6 +244,9 @@ struct RootView: View {
                 .tag(tab)
             }
         }
+        .onChange(of: navigation.selectedTab, initial: true) { _, selected in
+            if !visitedTabs.contains(selected) { visitedTabs.insert(selected) }
+        }
         .overlay {
             ProfileTabBarAvatarApplicator(image: app.profile.tabBarAvatar)
                 .frame(width: 0, height: 0)
@@ -257,6 +275,27 @@ struct RootView: View {
         let mentions = events.filter { !$0.isRead && $0.kind.isMention }.count
         return ModulaFocusState.activityBadge(unread: unread, unreadMentions: mentions)
     }
+
+    #if DEBUG
+    /// QA only (stripped from Release): `--uitest-open settings|sidebar|<route>`
+    /// opens a screen after launch so simulator screenshots need no taps.
+    private func openQALaunchTarget() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--uitest-open"), arguments.indices.contains(index + 1) else { return }
+        let target = arguments[index + 1]
+        let navigation = app.navigation
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            switch target {
+            case "sidebar": navigation.presentSidebar()
+            case "settings": navigation.open(.settings(.root))
+            case "inbox": navigation.open(.messages(.inbox))
+            case "chat": navigation.open(.messages(.inbox)); try? await Task.sleep(for: .milliseconds(500)); navigation.push(.messages(.conversation("fx-sophia")))
+            default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
+            }
+        }
+    }
+    #endif
 
     private func refreshTabAvatar() async {
         await app.profile.refreshTabBarAvatar(

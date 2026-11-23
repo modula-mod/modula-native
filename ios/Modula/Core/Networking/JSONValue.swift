@@ -39,3 +39,42 @@ indirect enum JSONValue: Codable, Sendable, Equatable {
         }
     }
 }
+
+
+/// Last first page of a feed/inbox on disk, per account, so a cold launch can paint
+/// it immediately and revalidate (stale-while-revalidate). Caches directory; cleared
+/// on sign-out. Reads and writes run off the main thread.
+enum ModulaWarmCache {
+    nonisolated static var root: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("modula-warm", isDirectory: true)
+    }
+
+    nonisolated private static func file(_ name: String, account: String) -> URL {
+        let safeAccount = String(account.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || $0 == "-" }.prefix(80))
+        return root.appendingPathComponent(safeAccount, isDirectory: true).appendingPathComponent(name + ".json")
+    }
+
+    nonisolated static func store(_ value: JSONValue, name: String, account: String?) {
+        guard let account, !account.isEmpty else { return }
+        let url = file(name, account: account)
+        Task.detached(priority: .utility) {
+            guard let data = try? JSONEncoder().encode(value) else { return }
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
+    }
+
+    nonisolated static func load(name: String, account: String?) async -> JSONValue? {
+        guard let account, !account.isEmpty else { return nil }
+        let url = file(name, account: account)
+        return await Task.detached(priority: .userInitiated) {
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return try? JSONDecoder().decode(JSONValue.self, from: data)
+        }.value
+    }
+
+    nonisolated static func clearAll() {
+        try? FileManager.default.removeItem(at: root)
+    }
+}

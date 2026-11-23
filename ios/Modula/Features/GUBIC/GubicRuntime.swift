@@ -20,12 +20,16 @@ struct GubicGameSource: Identifiable {
     }
 }
 
-/// Serves one game's files from memory under `gubic://<session-origin>/`. Unlisted paths,
-/// queries and fragments fail, so the page cannot reach anything but its own package.
+/// Serves one game's files from memory under `gubic://<random per play>/`.
+/// That origin is stricter than the `modula-pkg://<packageId>/` name in §4.2;
+/// the handler contract otherwise mirrors the spec. Unlisted paths, queries
+/// and fragments fail, so the page cannot reach anything but its own package.
 /// Plain Swift type (not NSObject) so it stays out of the generated ObjC header; WebKit sees `makeWebKitHandler()`.
 final class GubicSchemeHandler: @unchecked Sendable {
     static let scheme = "gubic"
-    static let contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    // Exact §4.2 header CSP. 'self' is this play's gubic:// origin only.
+    static let contentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
+    static let resourceContentSecurityPolicy = WebGamePackageServe.headerContentSecurityPolicy
 
     let origin: String
     private let files: [String: Data]
@@ -42,47 +46,31 @@ final class GubicSchemeHandler: @unchecked Sendable {
 
     func allows(_ url: URL) -> Bool {
         lock.lock(); defer { lock.unlock() }
-        guard !closed, url.scheme == Self.scheme, url.host == origin, url.query == nil, url.fragment == nil else { return false }
-        return files[String(url.path.dropFirst())] != nil
+        guard !closed, let path = WebGamePackageServe.memberPath(of: url, scheme: Self.scheme, origin: origin) else {
+            return false
+        }
+        return files[path] != nil
     }
 
     func close() { lock.lock(); closed = true; lock.unlock() }
 
+    /// Only the entry document may occupy the main frame (the bridge bootstrap
+    /// is injected there). Every other main-frame target, including other
+    /// listed files such as SVG or HTML, every subframe and every new window
+    /// is refused.
+    func allowsNavigation(to url: URL, isMainFrame: Bool) -> Bool {
+        isMainFrame && url.absoluteString == entryURL.absoluteString && allows(url)
+    }
+
     func makeWebKitHandler() -> any WKURLSchemeHandler { GubicWebKitSchemeHandler(owner: self) }
 
     func serve(_ task: WKURLSchemeTask) {
-        guard let url = task.request.url, allows(url), let bytes = files[String(url.path.dropFirst())] else {
-            task.didFailWithError(URLError(.fileDoesNotExist))
-            return
-        }
-        let mime: String = switch url.pathExtension.lowercased() {
-        case "html": "text/html"
-        case "js", "mjs": "text/javascript"
-        case "css": "text/css"
-        case "json": "application/json"
-        case "png": "image/png"
-        case "jpg", "jpeg": "image/jpeg"
-        case "webp": "image/webp"
-        case "svg": "image/svg+xml"
-        case "mp3": "audio/mpeg"
-        case "ogg": "audio/ogg"
-        case "wav": "audio/wav"
-        case "woff2": "font/woff2"
-        default: "application/octet-stream"
-        }
-        var headers = ["Content-Type": mime, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"]
-        if mime == "text/html" {
-            headers["Content-Security-Policy"] = Self.contentSecurityPolicy
-            headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=()"
-        }
-        guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else {
-            task.didFailWithError(URLError(.badServerResponse))
-            return
-        }
-        task.didReceive(response)
-        task.didReceive(bytes)
-        task.didFinish()
+        lock.lock()
+        let open = !closed
+        lock.unlock()
+        WebGamePackageServe.serve(task, scheme: Self.scheme, origin: origin, files: files, isOpen: open)
     }
+
 
 }
 

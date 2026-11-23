@@ -1068,7 +1068,7 @@ struct ModulaMascotFigure: View {
             .offset(y: s * kind.eyeY)
             .rotationEffect(.degrees(7 * sin(t * 0.8) * Double(a)), anchor: .bottom)
         }
-        if pose.conditions.night && kind.supportsWardrobe && worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil && worn.item(for: .hair) == nil {
+        if pose.conditions.night && kind.supportsWardrobe && worn.item(for: .costume) == nil && worn.item(for: .hat) == nil && worn.item(for: .seasonal) == nil && worn.item(for: .hair) == nil {
             // Nightcap with a pom-pom.
             ZStack(alignment: .topTrailing) {
                 MascotCapShape()
@@ -1087,7 +1087,7 @@ struct ModulaMascotFigure: View {
                 .scaleEffect(0.8 + 0.25 * CGFloat(abs(sin(t * 1.6))) * a + (1 - a) * 0.2)
                 .offset(x: s * 0.42, y: top - s * 0.02)
         }
-        if pose.conditions.offline && kind.supportsWardrobe && worn.item(for: .accessory) == nil && worn.item(for: .top) == nil && worn.item(for: .outerwear) == nil {
+        if pose.conditions.offline && kind.supportsWardrobe && worn.item(for: .costume) == nil && worn.item(for: .accessory) == nil && worn.item(for: .top) == nil && worn.item(for: .outerwear) == nil {
             // Little scarf.
             Capsule().fill(LinearGradient(colors: [Color(red: 0.95, green: 0.35, blue: 0.35), Color(red: 0.78, green: 0.22, blue: 0.25)], startPoint: .top, endPoint: .bottom))
                 .overlay(Capsule().stroke(Color(red: 0.45, green: 0.1, blue: 0.12).opacity(0.6), lineWidth: 0.8))

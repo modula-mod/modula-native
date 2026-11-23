@@ -407,7 +407,7 @@ struct MolibooLegendLookCard: View {
             Label("Legends wear their own look", systemImage: "sparkles")
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            Text("\(kind.name) comes complete, so hats, outfits and items stay off. Your wardrobe and saved outfits are kept for your other Moliboos.")
+            Text("\(kind.name) comes complete, so hats, costumes and items stay off. Your wardrobe and saved outfits are kept for your other Moliboos.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
