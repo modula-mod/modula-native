@@ -39,14 +39,22 @@ struct SettingsToggleCard<Content: View>: View {
                 SettingsGlassCard { rows }
             }
         }
-        .toggleStyle(.switch)
+        // Switches always use the shared accent style (a plain .switch here dropped the accent).
+        .toggleStyle(SettingsHapticToggleStyle())
         .tint(.primary)
     }
 
+    /// 52pt rows; dividers stay hairlines (the minHeight used to apply to each divider too,
+    /// which spaced Push › Notify me about rows ~110pt apart).
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
-            content
-                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            ForEach(subviews: content) { row in
+                if row.containerValues.settingsIsDivider {
+                    row
+                } else {
+                    row.frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                }
+            }
         }
     }
 }
@@ -62,7 +70,12 @@ extension EnvironmentValues {
 }
 
 struct SettingsDivider: View {
-    var body: some View { Divider().padding(.leading, 42) }
+    var body: some View { Divider().padding(.leading, 42).containerValue(\.settingsIsDivider, true) }
+}
+
+extension ContainerValues {
+    /// Marks `SettingsDivider` so card layouts don't give it a row's minimum height.
+    @Entry var settingsIsDivider: Bool = false
 }
 
 struct SettingsNavigationRow: View {
@@ -2366,7 +2379,6 @@ struct CustomNavigationSettingsView: View {
                 ModulaSegmentedControl(segments: TabBadgeStyle.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.badgeStyle))
             }
             Toggle("Show labels", isOn: animated($custom.showLabels))
-                .tint(Color.modulaPrimaryFill)
                 .listRowBackground(CustomNavigationRowGlass())
         } header: {
             Text("Look")
@@ -2385,10 +2397,8 @@ struct CustomNavigationSettingsView: View {
             .tint(.primary)
             .listRowBackground(CustomNavigationRowGlass())
             Toggle("Long-press quick menu", isOn: $custom.longPressMenu)
-                .tint(Color.modulaPrimaryFill)
                 .listRowBackground(CustomNavigationRowGlass())
             Toggle("Haptics", isOn: $custom.haptics)
-                .tint(Color.modulaPrimaryFill)
                 .listRowBackground(CustomNavigationRowGlass())
         } header: {
             Text("Behaviour")

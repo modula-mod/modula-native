@@ -344,6 +344,7 @@ struct AppLockSettingsView: View {
                 Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) {
                     confirmSignOutReset = true
                 }
+                .foregroundStyle(Color(uiColor: .systemRed))
             } footer: {
                 Text("Forgot your passcode? Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept unless you discard them.")
             }

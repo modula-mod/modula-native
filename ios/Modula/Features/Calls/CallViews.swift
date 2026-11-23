@@ -2713,7 +2713,7 @@ struct CallsContactExtrasSection: View {
                         .fixedSize()
                 }
                 Divider()
-                Toggle("Birthday", isOn: $hasBirthday).tint(Color.modulaPrimaryFill)
+                Toggle("Birthday", isOn: $hasBirthday)
                 if hasBirthday {
                     DatePicker("Date", selection: Binding(get: { extras.birthday ?? Date() }, set: { extras.birthday = $0 }),
                                displayedComponents: .date)
@@ -2728,7 +2728,6 @@ struct CallsContactExtrasSection: View {
                     get: { store.isBlocked(handle: contact.handle, id: contact.personID) },
                     set: { store.setBlocked($0, contact: contact) }
                 ))
-                .tint(Color.modulaPrimaryFill)
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -2893,14 +2892,14 @@ struct CallsPreferencesSheet: View {
                 }
 
                 Section {
-                    Toggle("Quiet hours", isOn: $store.quietEnabled).tint(Color.modulaPrimaryFill)
+                    Toggle("Quiet hours", isOn: $store.quietEnabled)
                         .listRowBackground(CallsRowGlass())
                     if store.quietEnabled {
                         DatePicker("From", selection: $store.quietStart, displayedComponents: .hourAndMinute).tint(.primary)
                             .listRowBackground(CallsRowGlass())
                         DatePicker("Until", selection: $store.quietEnd, displayedComponents: .hourAndMinute).tint(.primary)
                             .listRowBackground(CallsRowGlass())
-                        Toggle("Allow Favourites", isOn: $store.quietAllowFavourites).tint(Color.modulaPrimaryFill)
+                        Toggle("Allow Favourites", isOn: $store.quietAllowFavourites)
                             .listRowBackground(CallsRowGlass())
                     }
                 } header: {

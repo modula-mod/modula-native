@@ -646,6 +646,7 @@ func settingsDisplayTitle(_ raw: String) -> String {
 struct SettingsIconTile: View {
     let symbol: String
     var size: CGFloat = 30
+    @Environment(\.colorScheme) private var scheme
 
     static func color(for symbol: String) -> Color {
         let map: [(String, Color)] = [
@@ -656,14 +657,23 @@ struct SettingsIconTile: View {
             ("questionmark", .blue), ("info", .gray), ("hammer", .gray), ("brain", .purple), ("slider", .gray),
             ("hand.draw", .teal), ("keyboard", .gray), ("magnifyingglass", .gray), ("square.and.arrow.up", .blue),
             ("nosign", .red), ("key", .gray), ("trash", .red), ("envelope", .blue), ("at", .teal), ("laptop", .gray),
+            ("eye", .indigo), ("timer", .orange), ("clock", .orange), ("circle.grid", .blue), ("number", .blue),
+            ("circle.circle", .purple), ("atom", .purple), ("scope", .purple), ("hand.tap", .pink), ("iphone.radiowaves", .pink),
+            ("waveform", .pink), ("arrow.triangle.2.circlepath", .teal), ("phone", .green), ("app", .blue), ("calendar", .red),
+            ("photo", .pink), ("wand", .purple), ("textformat", .gray), ("signature", .indigo), ("location", .blue),
+            ("heart", .pink), ("star", .orange), ("flag", .orange), ("link", .blue), ("qrcode", .gray), ("iphone", .gray),
         ]
-        return map.first { symbol.hasPrefix($0.0) || symbol.contains($0.0) }?.1 ?? .accentColor
+        if let hit = map.first(where: { symbol.hasPrefix($0.0) || symbol.contains($0.0) })?.1 { return hit }
+        // Never fall back to the tint (root `.tint(.primary)` made it a white tile under a white glyph).
+        let palette: [Color] = [.blue, .indigo, .purple, .teal, .orange, .green, .pink, .cyan]
+        let seed = symbol.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
+        return palette[abs(seed) % palette.count]
     }
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(SettingsTileContrast.glyph(on: Self.color(for: symbol), scheme: scheme))
             .frame(width: size, height: size)
             .background(Self.color(for: symbol).gradient, in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
             .accessibilityHidden(true)
@@ -722,7 +732,7 @@ struct SettingsTileToggle: View {
                 Text(title).lineLimit(2)
             }
         }
-        .toggleStyle(.switch)
+        .toggleStyle(SettingsHapticToggleStyle())
         .frame(minHeight: 52)
     }
 }
@@ -937,7 +947,8 @@ struct PrivacySafetySettingsPage: View {
                     }
                     .frame(minHeight: 52)
                     SettingsDivider()
-                    HStack {
+                    HStack(spacing: 12) {
+                        SettingsIconTile(symbol: "photo.artframe")
                         Text("Lock Backdrop")
                         Spacer()
                         Picker("Lock Backdrop", selection: $lockBackdrop) {
@@ -1012,7 +1023,9 @@ struct PrivacySafetySettingsPage: View {
             }
             if lock.enabled, !lock.isSlideOnly {
                 Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) { confirmSignOutReset = true }
-                    .font(.subheadline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(uiColor: .systemRed))
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
         }
@@ -1199,6 +1212,7 @@ struct TelegramDivider: View {
 struct TelegramRow: View {
     var title: String
     var symbol: String
+    @Environment(\.colorScheme) private var scheme
     var tint: Color
     var value: String? = nil
     var badge: Int? = nil
@@ -1213,7 +1227,7 @@ struct TelegramRow: View {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(SettingsTileContrast.glyph(on: tint, scheme: scheme))
                     .shadow(color: .black.opacity(0.18), radius: 0.5, y: 0.5)
                     .frame(width: 30, height: 30)
                     .background {
@@ -1276,5 +1290,18 @@ private struct TelegramRowPressStyle: ButtonStyle {
         configuration.label
             .background(Color.primary.opacity(configuration.isPressed ? 0.08 : 0))
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+
+/// Readable glyph on a coloured settings tile: white on saturated/dark tiles, black on light ones
+/// (e.g. a graphite or yellow accent), so no tile ever shows white-on-white.
+enum SettingsTileContrast {
+    static func glyph(on tile: Color, scheme: ColorScheme) -> Color {
+        let ui = UIColor(tile).resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a) else { return .white }
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return luminance > 0.72 ? .black : .white
     }
 }
