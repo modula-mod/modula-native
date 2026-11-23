@@ -1,6 +1,7 @@
 import AVFoundation
 import SafariServices
 import SwiftUI
+import Translation
 import UIKit
 import WebKit
 
@@ -1385,6 +1386,8 @@ private struct ModulaReaderView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: Double = 0
     @State private var speaker = ModulaReaderSpeaker()
+    /// Reader › Translate: Apple's on-device translation sheet over the article text.
+    @State private var translating = false
 
     /// Plain text of the article (title, then blocks), for Listen / Copy / Share.
     private var plainText: String {
@@ -1588,6 +1591,10 @@ private struct ModulaReaderView: View {
                             ModulaToastCenter.shared.show("Article copied", symbol: "doc.on.doc")
                         } label: { Label("Copy article text", systemImage: "doc.on.doc") }
                         ShareLink(item: plainText) { Label("Share article text", systemImage: "square.and.arrow.up") }
+                        Button {
+                            translating = true
+                            HapticEngine.shared.play(.selection)
+                        } label: { Label("Translate", systemImage: "translate") }
                     }
                     Divider()
                     Button { onClose() } label: { Label("Exit reader", systemImage: "doc.richtext") }
@@ -1597,6 +1604,7 @@ private struct ModulaReaderView: View {
                         .frame(width: 40, height: 40)
                         .modulaGlass(in: Circle())
                 }
+                .translationPresentation(isPresented: $translating, text: String(plainText.prefix(20_000)))
                 .tint(.primary)
                 .accessibilityLabel("Reader settings")
                 .accessibilityIdentifier("browser.reader.settings")

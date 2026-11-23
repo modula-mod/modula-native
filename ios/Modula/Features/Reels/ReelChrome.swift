@@ -276,6 +276,11 @@ struct ReelQuickMenu: View {
     /// Keep watching in the floating dock / system Picture in Picture (nil hides the row).
     var onMiniPlayer: (() -> Void)? = nil
     var onPictureInPicture: (() -> Void)? = nil
+    var onCopyCaption: (() -> Void)? = nil
+    /// Remix / Duet: shown, but gated until the server can create derived reels.
+    var onRemix: (() -> Void)? = nil
+    var onSleepTimer: ((Int) -> Void)? = nil
+    var sleepMinutesLeft: Int? = nil
     var onDismiss: () -> Void
 
     private static let rates: [Double] = [0.5, 1.0, 1.25, 1.5, 2.0]
@@ -324,6 +329,35 @@ struct ReelQuickMenu: View {
                 row(clearDisplay ? "Show controls" : "Clear display", symbol: "eye", id: "reels.menu.clear", action: onToggleClear)
                 row("Auto-scroll", symbol: "arrow.down.to.line.circle", checked: autoScroll, id: "reels.menu.autoscroll", action: onToggleAutoScroll)
                     .accessibilityHint("Moves to the next reel when a video ends")
+                if let onSleepTimer {
+                    Menu {
+                        ForEach([15, 30, 45, 60], id: \.self) { m in
+                            Button("\(m) minutes") { onSleepTimer(m); onDismiss() }
+                        }
+                        if sleepMinutesLeft != nil {
+                            Button("Turn Off", systemImage: "xmark", role: .destructive) { onSleepTimer(0); onDismiss() }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(sleepMinutesLeft.map { "Sleep timer · \($0) min" } ?? "Sleep timer").font(.body).lineLimit(1).minimumScaleFactor(0.85)
+                            Spacer(minLength: 8)
+                            Image(systemName: "moon.zzz").font(.body).frame(width: 22)
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("reels.menu.sleep")
+                }
+                if let onCopyCaption {
+                    row("Copy caption", symbol: "text.quote", id: "reels.menu.copycaption", action: onCopyCaption)
+                }
+                if let onRemix {
+                    row("Remix or Duet", symbol: "rectangle.split.2x1", id: "reels.menu.remix", action: onRemix)
+                        .opacity(0.55)
+                        .accessibilityHint("Not available yet")
+                }
             }
             .padding(.vertical, 4)
 

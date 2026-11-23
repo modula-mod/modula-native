@@ -1127,6 +1127,11 @@ extension HomeView {
     fileprivate func prefetchAhead(after post: SocialPost, in items: [SocialPost]) {
         guard let index = items.firstIndex(where: { $0.id == post.id }) else { return }
         for next in items.dropFirst(index + 1).prefix(4) {
+            // Speed: author avatars too (160 px matches ModulaAvatar's minimum decode), so the
+            // header of the next card is ready before it scrolls in.
+            if let url = next.author?.avatarURL {
+                ModulaImagePrefetcher.prefetch(url: url, cacheKey: "avatar:\(url.path)", maximumPixelSize: 160, client: app.client)
+            }
             for media in next.media.prefix(2) {
                 let attachment = ModulaPostMapper.attachment(media)
                 guard attachment.kind == .image else { continue }
