@@ -42,10 +42,10 @@ struct CommunityHubView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                header
-                search
-                scopes
-                scopeBody
+                header.modulaAppear()
+                search.modulaAppear(delay: 0.05)
+                scopes.modulaAppear(delay: 0.1)
+                scopeBody.modulaAppear(delay: 0.15)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 28)
