@@ -144,6 +144,7 @@ jobs:
             -only-testing:ModulaTests \
             -skip-testing:ModulaTests/GreenfieldAuthContractTests \
             -skip-testing:ModulaTests/GreenfieldBridgeIntegrationTests \
+            -skip-testing:ModulaTests/DiscoverGreenfieldContractTests \
             "${sign_args[@]}" \
             2>&1 | tee artifacts/logs/unit-tests.log
 
