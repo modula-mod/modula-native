@@ -542,8 +542,9 @@ struct ShellSidebarView: View {
             items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
         }
         items.append(.init(id: "moliboos", title: "Moliboos", symbol: "sparkles", route: .settings(.moliboo), requiresSignIn: false, keywords: "mascot pet"))
-        // Premium is gated: the upsell row only appears for free accounts.
-        if !PremiumEntitlementStore.shared.plan.isPaid {
+        // Premium is developer-only and off in Release. The upsell row appears
+        // only when the surface is enabled and the account is not already paid.
+        if PremiumFeatureFlags.premiumEnabled(), !PremiumEntitlementStore.shared.plan.isPaid {
             items.append(.init(id: "premium", title: "Premium", symbol: "sun.horizon", route: .settings(.premium(.root)), requiresSignIn: false))
         }
         return items
