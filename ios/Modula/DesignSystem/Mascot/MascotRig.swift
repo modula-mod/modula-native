@@ -254,7 +254,7 @@ extension MascotRig {
 // MARK: - Fit
 
 enum MascotNeed: Sendable, Hashable {
-    case head, hair, face, torso, legs, legsOrFrill, frill, feet, neck, hand, back, aura, ground, scene
+    case head, hair, face, torso, legs, legsOrFrill, frill, feet, neck, hand, back, aura, ground, scene, body
 }
 
 enum MascotFit: Equatable, Sendable {
@@ -278,7 +278,7 @@ extension MascotRig {
     func fit(_ need: MascotNeed) -> MascotFit {
         if wearsOwnLook && need != .scene { return .none(Self.ownLookNote) }
         switch need {
-        case .head, .face, .hand, .back, .aura, .ground, .scene, .frill:
+        case .head, .face, .hand, .back, .aura, .ground, .scene, .frill, .body:
             return .fits
         case .hair:
             return canWearHair ? .fits : .none("Doesn’t fit this Moliboo")

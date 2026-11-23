@@ -96,16 +96,30 @@ struct WebGamePackage {
         guard !files.keys.contains(where: { $0 == "__runtime" || $0.hasPrefix("__runtime/") }) else {
             throw WebGamePackageError.invalid("reserved shared runtime path")
         }
-        guard let html = files["index.html"].flatMap({ String(data: $0, encoding: .utf8) }),
-              html.localizedCaseInsensitiveContains("Content-Security-Policy"),
-              html.contains("default-src 'none'"), html.contains("script-src 'self'"),
-              html.contains("connect-src 'none'"), html.contains("object-src 'none'") else {
+        guard let html = files["index.html"].flatMap({ String(data: $0, encoding: .utf8) }) else {
             throw WebGamePackageError.invalid("restrictive Content Security Policy")
+        }
+        // Hygiene only: the security boundary is the host's own header CSP and
+        // local-only rule list (WebGameHost), never a document-declared policy.
+        if !WebGamePackage.skipsDocumentPolicyHygiene {
+            do {
+                _ = try WebGameDocumentPolicy.validate(html: html)
+            } catch WebGameDocumentPolicy.Rejection.policy(let reason) {
+                throw WebGamePackageError.invalid("restrictive Content Security Policy: \(reason)")
+            }
         }
         self.sha256 = expectedSha256
         self.archive = archive
         self.files = files
     }
+
+    #if DEBUG
+    /// Tests only: lets a hostile document that a validator missed reach the
+    /// production host, to prove the host header CSP and rule list contain it.
+    @TaskLocal static var skipsDocumentPolicyHygiene = false
+    #else
+    static var skipsDocumentPolicyHygiene: Bool { false }
+    #endif
 
     static func members(archive: Data, expectedSha256: String) throws -> [String: Data] {
         guard archive.count <= Self.maximumCompressedBytes,
@@ -278,6 +292,198 @@ struct WebGamePackage {
         }
         guard status == Z_STREAM_END else { throw WebGamePackageError.invalid("gzip data or expansion limit") }
         return output
+    }
+}
+
+/// Parses the entry document's declared Content-Security-Policy instead of
+/// matching substrings, mirroring the intent of GreenField's ingestion gate
+/// (services/greenfield-api/src/gubic/web-game-csp.ts, #182). It refuses
+/// anything it cannot interpret unambiguously.
+///
+/// This is package hygiene, NOT a security boundary: HTML parsing here can
+/// never be guaranteed to match WebKit's (GreenField #188 had 8 bypasses).
+/// The boundary is the host header CSP on every response plus the fail-closed
+/// local-only WKContentRuleList in WebGameHost, which no document can relax.
+enum WebGameDocumentPolicy {
+    enum Rejection: Error, Equatable { case policy(String) }
+    typealias Directives = [String: [String]]
+
+    /// Directives a game document may declare. Anything else is refused.
+    static let allowedDirectives: Set<String> = [
+        "default-src", "script-src", "script-src-elem", "script-src-attr", "style-src", "style-src-elem",
+        "style-src-attr", "img-src", "font-src", "media-src", "connect-src", "object-src", "worker-src",
+        "child-src", "frame-src", "manifest-src", "base-uri", "form-action",
+    ]
+    /// Directives that govern executable code: only 'self' or 'none'.
+    static let codeDirectives: Set<String> = [
+        "script-src", "script-src-elem", "script-src-attr", "worker-src", "child-src", "frame-src", "object-src",
+    ]
+    /// Inline styles are inert without script; the host header still governs them.
+    static let inlineStyleDirectives: Set<String> = ["style-src", "style-src-elem", "style-src-attr"]
+    private static let rawTextElements = ["script", "style", "title", "textarea", "xmp", "iframe",
+                                          "noembed", "noframes", "noscript", "template"]
+    private static let tagPattern = #"(?:[^>"']|"[^"]*"|'[^']*')*>"#
+
+    /// Extracts exactly one effective CSP meta element from the document head,
+    /// then parses and validates its directives.
+    @discardableResult
+    static func validate(html: String) throws -> Directives {
+        // `<!-->` and `<!--->` are complete (abruptly closed) comments in HTML;
+        // `--!>` also closes one. Treating them otherwise hides markup.
+        let uncommented = replace(#"<!--(?:>|->|[\s\S]*?(?:--!?>|$))"#, in: html, with: " ")
+        var markup = uncommented
+        for name in rawTextElements {
+            markup = replace("(<\(name)\\b[^>]*>)[\\s\\S]*?(?:</\(name)\\s*>|$)", in: markup, with: "$1</\(name)>")
+        }
+        let text = markup as NSString
+        var metas: [NSRange] = []
+        for range in matches("<meta\\b" + tagPattern, in: markup) {
+            // Decode only http-equiv, once. Other attributes (a description
+            // containing &nbsp; / &eacute;, and so on) are ignored: this
+            // check is hygiene, and the server accepts those entities.
+            guard let rawEquiv = attributes(of: text.substring(with: range))["http-equiv"] else { continue }
+            let equiv = try decodeEntities(rawEquiv).lowercased()
+            if equiv == "content-security-policy" {
+                metas.append(range)
+            } else if equiv.trimmingCharacters(in: .whitespacesAndNewlines) == "content-security-policy" {
+                // Browsers may or may not honour a padded name; refuse the ambiguity.
+                throw Rejection.policy("ambiguous http-equiv \"\(equiv)\"")
+            }
+        }
+        guard metas.count == 1, let meta = metas.first else {
+            throw Rejection.policy(metas.isEmpty ? "no effective CSP meta element" : "more than one CSP meta element")
+        }
+        let prefix = text.substring(to: meta.location).replacingOccurrences(of: "\u{FEFF}", with: "")
+        let allowedBefore = "<!doctype\\b[^>]*>|<html\\b[^>]*>|<head\\b[^>]*>|<title\\b[^>]*></title>|<meta\\b" + tagPattern
+        guard replace(allowedBefore, in: prefix, with: "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw Rejection.policy("CSP must be declared in <head> before any other content")
+        }
+        // Decode the chosen CSP content exactly once, never other meta attributes.
+        guard let rawContent = attributes(of: text.substring(with: meta))["content"] else {
+            throw Rejection.policy("empty CSP")
+        }
+        let content = try decodeEntities(rawContent)
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw Rejection.policy("empty CSP")
+        }
+        let directives = try parse(content)
+        try assertRestrictive(directives)
+        return directives
+    }
+
+    /// Splits a serialized policy into directive name and source list.
+    /// Duplicate directives and multiple policies are refused, not ignored.
+    static func parse(_ policy: String) throws -> Directives {
+        guard !policy.contains(",") else { throw Rejection.policy("must be a single policy") }
+        var directives = Directives()
+        for raw in policy.split(separator: ";", omittingEmptySubsequences: false) {
+            let tokens = raw.components(separatedBy: CharacterSet(charactersIn: " \t\n\r\u{0C}")).filter { !$0.isEmpty }
+            guard let first = tokens.first else { continue }
+            let name = first.lowercased()
+            guard name.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else { throw Rejection.policy("invalid directive name \(first)") }
+            guard directives[name] == nil else { throw Rejection.policy("repeats the \(name) directive") }
+            directives[name] = Array(tokens.dropFirst())
+        }
+        return directives
+    }
+
+    static func assertRestrictive(_ directives: Directives) throws {
+        for (name, sources) in directives {
+            guard allowedDirectives.contains(name) else { throw Rejection.policy("directive not permitted: \(name)") }
+            guard !sources.isEmpty else { throw Rejection.policy("\(name) has no sources") }
+            for source in sources {
+                let lower = source.lowercased()
+                if ["'unsafe-eval'", "'wasm-unsafe-eval'", "'unsafe-hashes'"].contains(lower) ||
+                    (lower == "'unsafe-inline'" && !inlineStyleDirectives.contains(name)) {
+                    throw Rejection.policy("must not allow \(lower) (\(name))")
+                }
+                if lower == "'none'" && sources.count > 1 { throw Rejection.policy("\(name) mixes 'none' with other sources") }
+                if lower.contains("*") { throw Rejection.policy("wildcard source (\(name))") }
+                if codeDirectives.contains(name) {
+                    guard lower == "'self'" || lower == "'none'" else {
+                        throw Rejection.policy("\(name) may only allow 'self' (found \(source))")
+                    }
+                    continue
+                }
+                if ["'self'", "'none'", "data:", "blob:", "'unsafe-inline'"].contains(lower) { continue }
+                throw Rejection.policy("remote or non-local source (\(name): \(source))")
+            }
+        }
+        guard directives["default-src"]?.map({ $0.lowercased() }) == ["'none'"] else {
+            throw Rejection.policy("must set default-src 'none'")
+        }
+        // connect-src may be 'self' (the per-package scheme origin only) or
+        // the tighter 'none'. No ws:/wss:, remote hosts, or other sources.
+        let connect = directives["connect-src"]?.map { $0.lowercased() }
+        guard connect == ["'none'"] || connect == ["'self'"] else {
+            throw Rejection.policy("must set connect-src 'none' or 'self'")
+        }
+        // object-src is optional, matching the server (web-game-csp.ts). If
+        // present it must still be exactly 'none'.
+        if let object = directives["object-src"], object.map({ $0.lowercased() }) != ["'none'"] {
+            throw Rejection.policy("must set object-src 'none'")
+        }
+        guard directives["script-src"]?.map({ $0.lowercased() }) == ["'self'"] else {
+            throw Rejection.policy("must set script-src 'self'")
+        }
+    }
+
+    /// Attributes of one start tag; duplicates keep the first value, as in HTML.
+    /// Values are raw. Callers decode only the attributes they interpret
+    /// (http-equiv and the chosen CSP content), exactly once.
+    static func attributes(of tag: String) -> [String: String] {
+        let body = replace(#"/?>$"#, in: replace(#"^<[A-Za-z0-9-]+"#, in: tag, with: ""), with: "")
+        let text = body as NSString
+        var result = [String: String]()
+        let pattern = #"([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return result }
+        for match in regex.matches(in: body, range: NSRange(location: 0, length: text.length)) {
+            let name = text.substring(with: match.range(at: 1)).lowercased()
+            guard result[name] == nil else { continue }
+            var value = ""
+            for group in 2...4 where match.range(at: group).location != NSNotFound {
+                value = text.substring(with: match.range(at: group))
+                break
+            }
+            result[name] = value
+        }
+        return result
+    }
+
+    private static func decodeEntities(_ value: String) throws -> String {
+        let text = value as NSString
+        guard let regex = try? NSRegularExpression(pattern: "&([A-Za-z0-9#]+);") else { return value }
+        var output = ""
+        var cursor = 0
+        for match in regex.matches(in: value, range: NSRange(location: 0, length: text.length)) {
+            output += text.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            let name = text.substring(with: match.range(at: 1))
+            let lower = name.lowercased()
+            let scalar: UnicodeScalar?
+            if lower.hasPrefix("#x") {
+                scalar = UInt32(lower.dropFirst(2), radix: 16).flatMap { UnicodeScalar($0) }
+            } else if lower.hasPrefix("#") {
+                scalar = UInt32(lower.dropFirst(), radix: 10).flatMap { UnicodeScalar($0) }
+            } else {
+                scalar = ["quot": "\"", "apos": "'", "lt": "<", "gt": ">", "amp": "&"][lower].flatMap { $0.unicodeScalars.first }
+            }
+            guard let scalar else { throw Rejection.policy("unsupported character reference &\(name);") }
+            output.unicodeScalars.append(scalar)
+            cursor = match.range.location + match.range.length
+        }
+        output += text.substring(from: cursor)
+        return output
+    }
+
+    private static func matches(_ pattern: String, in string: String) -> [NSRange] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        return regex.matches(in: string, range: NSRange(location: 0, length: (string as NSString).length)).map(\.range)
+    }
+
+    private static func replace(_ pattern: String, in string: String, with template: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return string }
+        return regex.stringByReplacingMatches(in: string, range: NSRange(location: 0, length: (string as NSString).length),
+                                              withTemplate: template)
     }
 }
 
