@@ -739,6 +739,19 @@ final class BoardStore {
 enum BoardGridPacker {
     struct Slot: Equatable { let x: Int; let y: Int; let w: Int; let h: Int }
 
+    /// Speed: every Board render (and every frame of an edit-mode drag) re-packed every page, inserting
+    /// `[Int]` arrays into a Set per occupied cell. The packing only depends on widget order and sizes, so it's
+    /// memoised on exactly that (one entry per page id/order/size signature, small bounded cache).
+    nonisolated(unsafe) private static var memo: [[String]: (slots: [String: Slot], rows: Int)] = [:]
+    static func packCached(_ widgets: [BoardWidget], columns: Int = 4) -> (slots: [String: Slot], rows: Int) {
+        let key = widgets.map { "\($0.id):\($0.size.span.0)x\($0.size.span.1)" } + ["c\(columns)"]
+        if let hit = memo[key] { return hit }
+        let result = ModulaSignpost.measure("BoardPack") { pack(widgets, columns: columns) }
+        if memo.count > 24 { memo.removeAll() }
+        memo[key] = result
+        return result
+    }
+
     static func pack(_ widgets: [BoardWidget], columns: Int = 4) -> (slots: [String: Slot], rows: Int) {
         var occupied = Set<[Int]>()
         var slots: [String: Slot] = [:]
@@ -2137,7 +2150,7 @@ struct BoardView: View {
             let inset = ModulaLayout.contentInset
             let cell = max(40, (geo.size.width - inset * 2 - Self.gap * 3) / 4)
             let widgets = boardPage.widgets
-            let packed = BoardGridPacker.pack(widgets)
+            let packed = BoardGridPacker.packCached(widgets)
             let labelRoom: CGFloat = store.layout.showsLabels ? Self.labelRoom : 0
             let rowHeight = cell + labelRoom / 2
             let frames = Self.frames(packed.slots, cell: cell, rowHeight: rowHeight, labelRoom: labelRoom)
@@ -2173,6 +2186,7 @@ struct BoardView: View {
                 Color.clear.frame(height: bottomClearance)
             }
             .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
             .scrollDisabled(dragID != nil)
             .contentShape(Rectangle())
             // Tap empty space to finish editing, like the Home Screen.
@@ -2282,6 +2296,8 @@ struct BoardWidgetTile: View {
     var onLongPress: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var stackIndex = 0
+    @State private var stackTouchedAt = Date.distantPast
+    @Environment(\.scenePhase) private var tileScenePhase
     var onDuplicate: (() -> Void)? = nil
     var onEditBoard: (() -> Void)? = nil
 
@@ -2308,6 +2324,18 @@ struct BoardWidgetTile: View {
                         .animation(.snappy, value: stackIndex)
                     }
                     .onChange(of: kinds.count) { _, count in if stackIndex >= count { stackIndex = 0 } }
+                    // Auto-rotate (Edit Widget › Smart Stack): flips every 8 s while visible and not editing; a manual
+                    // swipe pauses it for 20 s so it never fights your finger.
+                    .simultaneousGesture(DragGesture(minimumDistance: 8).onChanged { _ in stackTouchedAt = Date() })
+                    .task(id: "\(widget.setting("rotate", "off"))|\(editing)|\(tileScenePhase == .active)|\(kinds.count)") {
+                        guard widget.setting("rotate", "off") == "on", !editing, tileScenePhase == .active, kinds.count > 1 else { return }
+                        while !Task.isCancelled {
+                            try? await Task.sleep(for: .seconds(8))
+                            guard !Task.isCancelled else { return }
+                            if Date().timeIntervalSince(stackTouchedAt) < 20 { continue }
+                            withAnimation(reduceMotion ? nil : .smooth(duration: 0.5)) { stackIndex = (stackIndex + 1) % kinds.count }
+                        }
+                    }
                 }
             }
             .allowsHitTesting(!editing)
@@ -2558,6 +2586,13 @@ struct BoardWidgetSettingsSheet: View {
                         }
                         options(widget)
                         group("Smart Stack", footer: "Swipe on the widget to flip between everything in the stack.") {
+                            if !widget.stack.isEmpty {
+                                Toggle("Rotate automatically", isOn: Binding(get: { widget.setting("rotate", "off") == "on" }, set: { on in
+                                    var copy = widget; copy.settings["rotate"] = on ? "on" : "off"; store.update(copy)
+                                }))
+                                .frame(minHeight: 40)
+                                .accessibilityHint("Shows the next widget in the stack every 8 seconds")
+                            }
                             ForEach(widget.stack, id: \.self) { kind in
                                 HStack {
                                     Label(kind.title, systemImage: kind.symbol)
@@ -3673,13 +3708,34 @@ struct BoardConverterFace: View {
     var body: some View {
         let units = cat.units
         VStack(alignment: .leading, spacing: 10) {
-            BoardFaceHeader(title: cat.title, symbol: "arrow.left.arrow.right")
+            HStack {
+                BoardFaceHeader(title: cat.title, symbol: "arrow.left.arrow.right")
+                if focused {
+                    Button("Done") { focused = false }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.modulaOnPrimary)
+                        .padding(.horizontal, 12).frame(height: 28)
+                        .background(Capsule().fill(Color.modulaPrimaryFill))
+                        .buttonStyle(.plain)
+                        .transition(.scale.combined(with: .opacity))
+                        .accessibilityIdentifier("board.converter.done")
+                }
+            }
+            .animation(.snappy(duration: 0.2), value: focused)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     TextField("0", text: $input)
                         .keyboardType(.decimalPad).focused($focused)
                         .font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
-                        .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focused = false } } }
+                        .submitLabel(.done)
+                        .onSubmit { focused = false }
+                        // Keyboard toolbar only while this field is focused, so several converters never stack
+                        // duplicate Done buttons; the in-widget Done below works even where the toolbar can't show.
+                        .toolbar { if focused { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focused = false } } } }
+                        .onChange(of: input) { _, v in
+                            let cleaned = String(v.filter { "0123456789.,-".contains($0) }.prefix(12))
+                            if cleaned != v { input = cleaned }
+                        }
                     unitMenu(units, selection: $from)
                 }
                 Button {

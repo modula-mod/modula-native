@@ -182,7 +182,7 @@ struct ReelCaptionBlock: View {
                         // Expanded: scrolls inside a capped height instead of pushing the rail off.
                         if expanded {
                             ScrollView(.vertical) {
-                                Text(caption)
+                                Text(ReelCaptionStyle.styled(caption))
                                     .font(.subheadline)
                                     .foregroundStyle(.white)
                                     .multilineTextAlignment(.leading)
@@ -192,7 +192,7 @@ struct ReelCaptionBlock: View {
                             .scrollBounceBehavior(.basedOnSize)
                             .frame(maxHeight: 220)
                         } else {
-                            Text(caption)
+                            Text(ReelCaptionStyle.styled(caption))
                                 .font(.subheadline)
                                 .foregroundStyle(.white)
                                 .lineLimit(2)
@@ -503,5 +503,29 @@ struct ReelMarqueeText: View {
             .lineLimit(1)
             .fixedSize()
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { textWidth = $0 }
+    }
+}
+
+
+/// Reel captions: #hashtags and @mentions in bold, so they read as tappable-looking tags over video, with a soft
+/// shadow for legibility on bright frames. Cached per caption (captions re-render on every progress tick).
+enum ReelCaptionStyle {
+    nonisolated(unsafe) private static var cache: [String: AttributedString] = [:]
+    static func styled(_ caption: String) -> AttributedString {
+        if let hit = cache[caption] { return hit }
+        var out = AttributedString()
+        var first = true
+        for token in caption.split(separator: " ", omittingEmptySubsequences: false) {
+            if !first { out += AttributedString(" ") }
+            first = false
+            var piece = AttributedString(String(token))
+            if (token.hasPrefix("#") || token.hasPrefix("@")) && token.count > 1 {
+                piece.font = .subheadline.weight(.bold)
+            }
+            out += piece
+        }
+        if cache.count > 64 { cache.removeAll() }
+        cache[caption] = out
+        return out
     }
 }

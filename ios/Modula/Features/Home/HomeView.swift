@@ -424,6 +424,7 @@ struct HomeView: View {
                         .accessibilityIdentifier("home.greeting.streak")
                 }
                 HomeGlanceChips()
+                HomeBriefingCard()
                 Button {
                     app.navigation.open(.settings(.whatsNew(.root)))
                     HapticEngine.shared.play(.navigation)
@@ -2529,4 +2530,117 @@ struct HomeFeedRowKey: Equatable, Sendable {
     let post: SocialPost
     let mode: HomeMode
     let ownID: String?
+}
+
+
+// MARK: - Briefing (local data only)
+
+/// "Morning / Afternoon / Evening briefing" in the greeting card: nearest Board countdown, today's habits and
+/// water, and whether you've checked in with your Moliboo. Everything is read from this phone; collapsed by
+/// default to one summary line, expands in place.
+struct HomeBriefingCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("home.briefing.expanded") private var expanded = false
+    @AppStorage("board.habit.v1") private var habitRaw = ""
+    @AppStorage("board.water.v1") private var waterRaw = ""
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+
+    private struct Item: Identifiable { let id: String; let symbol: String; let text: String; var action: (() -> Void)? = nil }
+
+    private static func dayKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    private func items(now: Date) -> [Item] {
+        let widgets = BoardStore.shared.layout.pages.flatMap(\.widgets)
+        let cal = Calendar.current
+        let today = Self.dayKey(now)
+        var out: [Item] = []
+        // Nearest upcoming countdown.
+        let countdowns = widgets.filter { $0.kinds.contains(.countdown) }.compactMap { w -> (String, Int)? in
+            guard let d = BoardISO.date(w.setting("date", "")) else { return nil }
+            let days = cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cal.startOfDay(for: d)).day ?? -1
+            return days >= 0 ? (w.setting("title", "Countdown"), days) : nil
+        }.sorted { $0.1 < $1.1 }
+        if let c = countdowns.first {
+            out.append(Item(id: "countdown", symbol: "calendar.badge.clock",
+                            text: c.1 == 0 ? "\(c.0) is today" : "\(c.1) day\(c.1 == 1 ? "" : "s") until \(c.0)"))
+        }
+        // Habits ticked today.
+        let habits = widgets.filter { $0.kinds.contains(.habit) }
+        if !habits.isEmpty {
+            let done = habits.filter { h in
+                habitRaw.split(separator: ";").contains { $0.hasPrefix("\(h.id)|") && $0.split(separator: "|").last?.split(separator: ",").contains(Substring(today)) == true }
+            }.count
+            out.append(Item(id: "habits", symbol: "checkmark.seal",
+                            text: done == habits.count ? "All \(habits.count) habit\(habits.count == 1 ? "" : "s") done" : "\(done) of \(habits.count) habit\(habits.count == 1 ? "" : "s") done today"))
+        }
+        // Water.
+        if let w = widgets.first(where: { $0.kinds.contains(.water) }) {
+            let goal = Int(w.setting("goal", "8")) ?? 8
+            let n = waterRaw.split(separator: ";").compactMap { e -> Int? in
+                let p = e.split(separator: "|"); return p.count == 3 && p[0] == w.id && p[1] == today ? Int(p[2]) : nil
+            }.first ?? 0
+            out.append(Item(id: "water", symbol: "drop", text: n >= goal ? "Water goal met (\(n))" : "\(n) of \(goal) glasses of water"))
+        }
+        // Moliboo check-in.
+        let name = MolibooRegistry.descriptor(for: kindRaw)?.displayName ?? "Moliboo"
+        let life = MolibooCareStore.shared.life(for: kindRaw)
+        let streak = life.currentStreak(at: now)
+        out.append(Item(id: "moliboo", symbol: life.checkedIn(on: now) ? "flame.fill" : "flame",
+                        text: life.checkedIn(on: now) ? "Checked in with \(name) · \(streak)-day streak" : (streak > 0 ? "Check in with \(name) to keep your \(streak)-day streak" : "Say hi to \(name) today"),
+                        action: { app.navigation.push(.settings(.moliboo)) }))
+        return out
+    }
+
+    private func title(_ now: Date) -> String {
+        let h = Calendar.current.component(.hour, from: now)
+        return h < 12 ? "Morning briefing" : (h < 18 ? "Afternoon briefing" : "Evening briefing")
+    }
+
+    var body: some View {
+        let now = Date()
+        let list = items(now: now)
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82)) { expanded.toggle() }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.horizon.fill").symbolRenderingMode(.multicolor)
+                    Text(title(now)).font(.caption.weight(.bold))
+                    if !expanded, let first = list.first {
+                        Text("· \(first.text)").font(.caption).lineLimit(1).opacity(0.9)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                .foregroundStyle(.white)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title(now))
+            .accessibilityValue(expanded ? "Expanded" : (list.first?.text ?? ""))
+            if expanded {
+                ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
+                    Button { item.action?() } label: {
+                        Label(item.text, systemImage: item.symbol)
+                            .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(item.action == nil)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -6)))
+                    .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82).delay(Double(index) * 0.04), value: expanded)
+                }
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.briefing")
+    }
 }
