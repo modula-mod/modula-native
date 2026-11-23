@@ -396,7 +396,21 @@ struct SearchScreen: View {
 
     private var savedRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Saved searches").font(.headline)
+            HStack {
+                Text("Saved searches").font(.headline)
+                Spacer(minLength: 8)
+                Menu {
+                    Button("Clear All Saved Searches", systemImage: "trash", role: .destructive) {
+                        withAnimation(reduceMotion ? nil : .snappy) { savedRaw = "" }
+                        HapticEngine.shared.play(.warning)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        .frame(width: 44, height: 32).contentShape(Rectangle())
+                }
+                .accessibilityLabel("Saved search options")
+                .accessibilityIdentifier("search.saved.menu")
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(savedSearches, id: \.self) { term in

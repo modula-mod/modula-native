@@ -1906,6 +1906,8 @@ struct ConversationView: View {
                         let replyCounts = MessageReplyGrouping.counts(in: items)
                         let lastOwnID = items.last(where: \.isOwn)?.id
                         let calls = callSlots
+                        // Speed: one Set for search highlighting instead of a linear scan per bubble.
+                        let matchIDs: Set<MessageID> = searching ? Set(searchMatches.map(\.id)) : []
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
                             ForEach(calls.before[message.id] ?? []) { record in callRow(record) }
@@ -1920,12 +1922,17 @@ struct ConversationView: View {
                                     .padding(.bottom, 6)
                             }
                             let replyCount = replyCounts[message.id] ?? 0
+                            let isSelected = selectedMessageIDs.contains(message.id)
+                            // Speed: a bubble whose inputs didn't change skips its body when the thread
+                            // re-renders (typing dots, a new message, a draft save). Closures read live state.
+                            ModulaEquatableRow(key: BubbleRowKey(message: message, position: position, showsStatus: message.id == lastOwnID,
+                                                                 selecting: selectingMessages, isSelected: isSelected, replyCount: replyCount)) {
                             MessageBubble(
                                 message: message,
                                 position: position,
                                 showsStatus: message.id == lastOwnID,
                                 selecting: selectingMessages,
-                                isSelected: selectedMessageIDs.contains(message.id),
+                                isSelected: isSelected,
                                 onToggleSelect: {
                                     if selectedMessageIDs.contains(message.id) { selectedMessageIDs.remove(message.id) }
                                     else { selectedMessageIDs.insert(message.id) }
@@ -1938,6 +1945,8 @@ struct ConversationView: View {
                             ) { action in
                                 handle(action, message: message)
                             }
+                            }
+                            .equatable()
                             // Links in this bubble: the browser shows who shared it.
                             .modifier(ModulaChatLinkSenderModifier(sender: message.isOwn ? "you" : message.sender.displayName))
                             .environment(\.modulaChatLinkContext, ModulaChatLinkContext(
@@ -1947,7 +1956,7 @@ struct ConversationView: View {
                             // The held bubble is lifted into the overlay; leave its slot empty meanwhile.
                             .opacity(focusRequest?.id == message.id ? 0 : 1)
                             .overlay {
-                                if searching, searchMatches.contains(where: { $0.id == message.id }) {
+                                if searching, matchIDs.contains(message.id) {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                                         .stroke(Color.primary.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
                                         .padding(-3)
@@ -1966,10 +1975,14 @@ struct ConversationView: View {
                             // Tight spacing inside a run of messages, roomier between senders.
                             .padding(.top, index == 0 ? 0 : (position.startsGroup ? 8 : 2))
                             .id(message.id)
-                            // New bubbles rise in from the composer; plain fade under Reduce Motion.
+                            // New bubbles pop up from their side with a spring; plain fade under Reduce Motion.
                             .transition(reduceMotion
                                 ? .opacity
-                                : .move(edge: .bottom).combined(with: .opacity))
+                                : .asymmetric(
+                                    insertion: .scale(scale: 0.82, anchor: message.isOwn ? .bottomTrailing : .bottomLeading)
+                                        .combined(with: .offset(y: 14))
+                                        .combined(with: .opacity),
+                                    removal: .opacity.combined(with: .scale(scale: 0.9))))
                         }
                         ForEach(calls.trailing) { record in callRow(record) }
                         ForEach(app.messaging.systemNotes[conversationID] ?? []) { note in
@@ -1987,6 +2000,8 @@ struct ConversationView: View {
                     // 16 pt side margins (bubbles keep their own max width, so nothing clips).
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    // Send/receive spring: only when the newest message changes (older pages don't animate).
+                    .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.78), value: items.last?.id)
                     .scrollTargetLayout()
                 }
                 // Only pin to the newest message while the reader is already there.
@@ -5153,6 +5168,7 @@ struct MessageReactionsRow: View {
     var onTap: (String) -> Void
     var onInspect: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -5170,10 +5186,20 @@ struct MessageReactionsRow: View {
                     .frame(minHeight: 26)
                     .modulaGlass(in: Capsule(), interactive: true)
                     .overlay { if reaction.mine { Capsule().strokeBorder(Color.primary, lineWidth: 1.2) } }
+                    .contentTransition(.numericText(value: Double(reaction.count)))
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                // A new reaction pops in; a changed count bounces.
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.3).combined(with: .opacity))
+                .keyframeAnimator(initialValue: 1.0, trigger: reduceMotion ? 0 : reaction.count) { view, scale in
+                    view.scaleEffect(scale)
+                } keyframes: { _ in
+                    SpringKeyframe(1.22, duration: 0.14)
+                    SpringKeyframe(1.0, duration: 0.3, spring: .bouncy)
+                }
             }
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.6), value: reactions.map(\.emoji))
         .padding(.top, -10)
     }
 }
@@ -7020,4 +7046,15 @@ struct ChatScreenEffectOverlay: View {
             }
         }
     }
+}
+
+
+/// Everything a chat bubble renders from (see `ModulaEquatableRow`).
+struct BubbleRowKey: Equatable, Sendable {
+    let message: Message
+    let position: MessageGroupPosition
+    let showsStatus: Bool
+    let selecting: Bool
+    let isSelected: Bool
+    let replyCount: Int
 }

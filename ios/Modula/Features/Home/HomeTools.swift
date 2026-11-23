@@ -370,7 +370,7 @@ enum BoardWidgetSize: String, Codable, CaseIterable, Identifiable, Sendable {
 enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, worldClock, activity, weather, today, notes, battery, moliboo, messages, streak
     case quickActions, modules, nowPlaying, photos, countdown, stopwatch, callsFavourites, connectNumber
-    case focus, decide, quote
+    case focus, decide, quote, breathe, water, yearProgress
     var id: Self { self }
 
     var title: String {
@@ -396,6 +396,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .focus: "Focus"
         case .decide: "Decide"
         case .quote: "Quote"
+        case .breathe: "Breathe"
+        case .water: "Water"
+        case .yearProgress: "Year"
         }
     }
 
@@ -422,6 +425,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .focus: "timer"
         case .decide: "dice"
         case .quote: "quote.opening"
+        case .breathe: "wind"
+        case .water: "drop.fill"
+        case .yearProgress: "chart.pie.fill"
         }
     }
 
@@ -448,6 +454,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .focus: "A focus timer with a ring"
         case .decide: "Flip a coin, roll a die, yes or no"
         case .quote: "A new line every day"
+        case .breathe: "A one-minute breathing guide"
+        case .water: "Tap to log a glass, resets daily"
+        case .yearProgress: "How much of the year has gone"
         }
     }
 
@@ -462,6 +471,9 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .focus: [.small, .circle, .medium, .pill, .large]
         case .decide: [.small, .circle, .medium]
         case .quote: [.medium, .small, .large, .pill]
+        case .breathe: [.small, .circle, .medium, .large]
+        case .water: [.small, .circle, .medium, .pill]
+        case .yearProgress: [.small, .circle, .medium, .pill]
         default: [.small, .medium, .circle, .pill, .large]
         }
     }
@@ -866,6 +878,9 @@ struct BoardWidgetView: View {
             case .focus: BoardFocusFace(size: size, widgetID: widget.id, minutes: Int(widget.setting("minutes", "25")) ?? 25)
             case .decide: BoardDecideFace(size: size, mode: widget.setting("mode", "coin"))
             case .quote: BoardQuoteFace(size: size)
+            case .breathe: BoardBreatheFace(size: size)
+            case .water: BoardWaterFace(size: size, widgetID: widget.id, goal: Int(widget.setting("goal", "8")) ?? 8)
+            case .yearProgress: BoardYearFace(size: size)
             case .weather, .nowPlaying, .photos: BoardGatedFace(kind: shownKind, size: size)
             }
         }
@@ -2224,7 +2239,7 @@ struct BoardView: View {
         case .modules: app.navigation.push(.productHub(.collection(.installed)))
         case .connectNumber: app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
         case .moliboo: app.navigation.push(.settings(.moliboo))
-        case .quickActions, .stopwatch, .focus, .decide: break
+        case .quickActions, .stopwatch, .focus, .decide, .breathe, .water: break
         default: configuringID = BoardConfigTarget(id: widget.id)
         }
     }
@@ -2604,6 +2619,11 @@ struct BoardWidgetSettingsSheet: View {
             group("Focus length") {
                 ModulaSegmentedControl(segments: ["10", "25", "45", "60"].map { .init(id: $0, title: "\($0) min") },
                                        selection: binding(widget, "minutes", "25"), accessibilityLabel: "Focus length", identifier: { "board.focus.\($0)" })
+            }
+        case .water:
+            group("Daily goal") {
+                ModulaSegmentedControl(segments: ["6", "8", "10", "12"].map { .init(id: $0, title: "\($0) glasses") },
+                                       selection: binding(widget, "goal", "8"), accessibilityLabel: "Water goal", identifier: { "board.water.\($0)" })
             }
         case .decide:
             group("Decide") {
@@ -3185,5 +3205,185 @@ struct BoardQuoteFace: View {
             }
             .padding(BoardMetrics.padding)
         }
+    }
+}
+
+
+/// 2D breathing guide: tap to start a one-minute in-4 / out-6 session.
+struct BoardBreatheFace: View {
+    let size: BoardWidgetSize
+    @State private var startedAt: Date?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let cycle: Double = 10, session: Double = 60
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: startedAt == nil)) { ctx in
+            let t = startedAt.map { ctx.date.timeIntervalSince($0) } ?? 0
+            let running = startedAt != nil && t < Self.session
+            let phase = t.truncatingRemainder(dividingBy: Self.cycle)
+            let inhale = phase < 4
+            // 0…1 breath depth: up over 4 s, down over 6 s.
+            let depth = running ? (inhale ? phase / 4 : 1 - (phase - 4) / 6) : 0.35
+            let eased = 0.5 - cos(depth * .pi) / 2
+            VStack(spacing: 8) {
+                if size == .medium || size == .large { BoardFaceHeader(title: "Breathe", symbol: "wind", trailing: running ? "\(Int(Self.session - t))s" : nil) }
+                Spacer(minLength: 0)
+                ZStack {
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle()
+                            .fill(Color.cyan.opacity(0.22 - Double(i) * 0.05))
+                            .scaleEffect(reduceMotion ? 0.8 : 0.45 + eased * (0.45 + Double(i) * 0.12))
+                    }
+                    Circle().fill(Color.cyan.opacity(0.55)).scaleEffect(reduceMotion ? 0.5 : 0.3 + eased * 0.3)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text(running ? (inhale ? "Breathe in" : "Breathe out") : "Tap to breathe")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .contentTransition(.opacity)
+                    .animation(.easeInOut(duration: 0.4), value: inhale)
+                Spacer(minLength: 0)
+            }
+            .padding(size == .circle ? 24 : BoardMetrics.padding)
+            .onChange(of: running) { _, now in
+                if !now, startedAt != nil { startedAt = nil; HapticEngine.shared.play(.success) }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            startedAt = startedAt == nil ? Date() : nil
+            HapticEngine.shared.play(.selection)
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(startedAt == nil ? "Start a one-minute breathing session" : "Stop breathing session")
+    }
+}
+
+/// Glasses of water today (on this iPhone; resets at midnight).
+struct BoardWaterFace: View {
+    let size: BoardWidgetSize
+    let widgetID: String
+    let goal: Int
+    @AppStorage("board.water.v1") private var raw = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var today: String { Self.dayKey(Date()) }
+    private var count: Int {
+        // raw = "<widgetID>|<day>|<count>;…"
+        for entry in raw.split(separator: ";") {
+            let p = entry.split(separator: "|")
+            if p.count == 3, p[0] == widgetID, p[1] == today { return Int(p[2]) ?? 0 }
+        }
+        return 0
+    }
+
+    var body: some View {
+        let n = count, progress = min(1, Double(n) / Double(max(1, goal)))
+        Group {
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 12) {
+                    Image(systemName: "drop.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(.cyan)
+                    Text("\(n)/\(goal)").font(.system(size: 26, weight: .bold, design: .rounded)).monospacedDigit().contentTransition(.numericText(value: Double(n)))
+                    ProgressView(value: progress).tint(.cyan)
+                    addButton(36)
+                }
+                .padding(.horizontal, 20)
+            default:
+                VStack(spacing: 8) {
+                    if size == .medium { BoardFaceHeader(title: "Water", symbol: "drop.fill", trailing: "Goal \(goal)") }
+                    ZStack(alignment: .bottom) {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.cyan.opacity(0.12))
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(LinearGradient(colors: [.cyan, .blue], startPoint: .top, endPoint: .bottom))
+                            .scaleEffect(x: 1, y: max(0.02, progress), anchor: .bottom)
+                        Text("\(n)").font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                            .contentTransition(.numericText(value: Double(n)))
+                            .frame(maxHeight: .infinity)
+                    }
+                    .frame(width: size == .medium ? 90 : nil)
+                    .frame(maxWidth: .infinity)
+                    .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.7), value: n)
+                    HStack {
+                        Text(n >= goal ? "Goal met" : "\(goal - n) to go").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        addButton(32)
+                    }
+                }
+                .padding(size == .circle ? 26 : BoardMetrics.padding)
+            }
+        }
+        .contextMenu {
+            Button("Undo One", systemImage: "minus.circle") { set(max(0, count - 1)) }
+            Button("Reset Today", systemImage: "arrow.counterclockwise") { set(0) }
+        }
+    }
+
+    private func addButton(_ d: CGFloat) -> some View {
+        Button {
+            set(count + 1)
+            HapticEngine.shared.play(count + 1 == goal ? .success : .lightImpact)
+        } label: {
+            Image(systemName: "plus").font(.system(size: d * 0.42, weight: .bold))
+                .foregroundStyle(Color.modulaOnPrimary)
+                .frame(width: d, height: d).background(Circle().fill(Color.modulaPrimaryFill))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.88, haptic: nil))
+        .accessibilityLabel("Add a glass of water")
+    }
+
+    private func set(_ value: Int) {
+        var kept = raw.split(separator: ";").map(String.init).filter { !$0.hasPrefix("\(widgetID)|") }
+        kept.append("\(widgetID)|\(today)|\(value)")
+        raw = kept.suffix(24).joined(separator: ";")
+    }
+
+    private static func dayKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+}
+
+/// Percent of the year gone, as a ring (or bar on the pill).
+struct BoardYearFace: View {
+    let size: BoardWidgetSize
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 3600)) { ctx in
+            let cal = Calendar.current
+            let year = cal.component(.year, from: ctx.date)
+            let start = cal.date(from: DateComponents(year: year, month: 1, day: 1)) ?? ctx.date
+            let end = cal.date(from: DateComponents(year: year + 1, month: 1, day: 1)) ?? ctx.date
+            let p = max(0, min(1, ctx.date.timeIntervalSince(start) / end.timeIntervalSince(start)))
+            let left = cal.dateComponents([.day], from: ctx.date, to: end).day ?? 0
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 12) {
+                    Text(String(year)).font(.system(size: 18, weight: .bold, design: .rounded))
+                    ProgressView(value: p).tint(.primary)
+                    Text("\(Int(p * 100))%").font(.system(size: 18, weight: .semibold, design: .rounded)).monospacedDigit()
+                }
+                .padding(.horizontal, 22)
+            default:
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle().stroke(Color.primary.opacity(0.14), lineWidth: 10)
+                        Circle().trim(from: 0, to: p).stroke(Color.primary, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
+                        VStack(spacing: 0) {
+                            Text("\(Int(p * 100))%").font(.system(size: 26, weight: .bold, design: .rounded)).monospacedDigit()
+                            Text(String(year)).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(size == .circle ? 8 : 0)
+                    if size == .medium {
+                        VStack(alignment: .leading, spacing: 4) {
+                            BoardFaceHeader(title: "Year", symbol: "chart.pie.fill")
+                            Text("\(left) days left").font(.system(size: 20, weight: .semibold, design: .rounded))
+                            Text("Make them count.").font(.system(size: 13)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(size == .circle ? 22 : BoardMetrics.padding)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }

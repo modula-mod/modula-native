@@ -844,7 +844,8 @@ struct ShellSidebarView: View {
             rows()
         }
         // Sections slide in top to bottom when the sidebar opens (Reduce Motion: shown at once).
-        .modulaAppear(delay: Double(Self.sectionOrder.firstIndex(of: title ?? "") ?? 0) * 0.04)
+        .modulaAppear(delay: Double(Self.sectionOrder.firstIndex(of: title ?? "") ?? 0) * 0.04,
+                      replayWhen: app.navigation.sidebarPresented)
     }
 
     private static let sectionOrder = ["", "Library", "Tools", "Recent modules", "Recent", "Pinned", "Recents"]

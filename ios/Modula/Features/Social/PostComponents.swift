@@ -229,8 +229,8 @@ struct PostHeader: View {
                 Text(ActivityRelativeTime.string(from: post.createdAt))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .help(post.createdAt.formatted(date: .complete, time: .shortened))
-                    .accessibilityLabel("Posted \(post.createdAt.formatted(date: .long, time: .shortened))")
+                    .help(ModulaPostDateText.complete(post.createdAt))
+                    .accessibilityLabel(ModulaPostDateText.posted(post.createdAt))
                 if post.isEdited {
                     Text("· Edited")
                         .font(.caption)
@@ -920,5 +920,30 @@ struct SharedFeedPostCard: View {
         case "delete": Task { _ = await app.postActions.deletePost(post) }
         default: break
         }
+    }
+}
+
+
+/// Speed: every feed card formatted two long date strings on each body pass (tooltip + VoiceOver
+/// label). Dates repeat across re-renders, so the strings are cached (main actor, bounded).
+@MainActor
+enum ModulaPostDateText {
+    private static var completeCache: [Date: String] = [:]
+    private static var postedCache: [Date: String] = [:]
+
+    static func complete(_ date: Date) -> String {
+        if let hit = completeCache[date] { return hit }
+        if completeCache.count > 800 { completeCache.removeAll(keepingCapacity: true) }
+        let value = date.formatted(date: .complete, time: .shortened)
+        completeCache[date] = value
+        return value
+    }
+
+    static func posted(_ date: Date) -> String {
+        if let hit = postedCache[date] { return hit }
+        if postedCache.count > 800 { postedCache.removeAll(keepingCapacity: true) }
+        let value = "Posted \(date.formatted(date: .long, time: .shortened))"
+        postedCache[date] = value
+        return value
     }
 }

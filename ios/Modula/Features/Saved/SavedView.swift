@@ -8,6 +8,7 @@ struct SavedView: View {
     @State private var newFolderFor: String?? = nil
     @State private var newFolderName = ""
     @State private var renaming: String?
+    @AppStorage("saved.sort.oldestFirst") private var oldestFirst = false
     private var folders: SavedFolderStore { SavedFolderStore.shared }
 
     var body: some View {
@@ -68,6 +69,23 @@ struct SavedView: View {
         .modulaSoftScrollEdge()
         // Local filter over the loaded saved posts (text and author), no extra requests.
         .searchable(text: $query, prompt: "Search saved posts")
+        .toolbar {
+            if showsPosts, app.saved.posts.count > 1 {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Picker("Order", selection: Binding(get: { oldestFirst }, set: { v in withAnimation(.snappy) { oldestFirst = v } })) {
+                            Label("Newest First", systemImage: "arrow.down").tag(false)
+                            Label("Oldest First", systemImage: "arrow.up").tag(true)
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .tint(.primary)
+                    .accessibilityLabel("Sort saved posts")
+                    .accessibilityIdentifier("saved.sort")
+                }
+            }
+        }
         .alert(renaming == nil ? "New Folder" : "Rename Folder", isPresented: Binding(
             get: { newFolderFor != nil || renaming != nil },
             set: { if !$0 { newFolderFor = nil; renaming = nil } }
@@ -155,7 +173,8 @@ struct SavedView: View {
 
     private var filteredPosts: [SocialPost] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = folder.map { f in app.saved.posts.filter { folders.folder(of: $0.id) == f } } ?? app.saved.posts
+        var base = folder.map { f in app.saved.posts.filter { folders.folder(of: $0.id) == f } } ?? app.saved.posts
+        if oldestFirst { base.reverse() }
         guard !q.isEmpty else { return base }
         return base.filter { post in
             let p = app.posts.resolved(post)

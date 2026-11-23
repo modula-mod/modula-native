@@ -1195,4 +1195,38 @@ struct ModulaAppearModifier: ViewModifier {
 
 extension View {
     func modulaAppear(delay: Double = 0) -> some View { modifier(ModulaAppearModifier(delay: delay)) }
+    /// Same entrance, replayed every time `active` turns true (e.g. each time a drawer opens).
+    func modulaAppear(delay: Double = 0, replayWhen active: Bool) -> some View {
+        modifier(ModulaReplayAppearModifier(delay: delay, active: active))
+    }
+}
+
+struct ModulaReplayAppearModifier: ViewModifier {
+    var delay: Double = 0
+    var active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    /// Set once `active` went false while still mounted (closed but kept alive).
+    @State private var needsReplay = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 10)
+            // Always plays on mount (also when opened by a drag, before `active` flips).
+            .onAppear { play() }
+            .onChange(of: active) { _, now in
+                if !now { needsReplay = true; return }
+                guard needsReplay else { return }
+                needsReplay = false
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { shown = false }
+                play()
+            }
+    }
+
+    private func play() {
+        if reduceMotion { shown = true; return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(delay)) { shown = true }
+    }
 }
