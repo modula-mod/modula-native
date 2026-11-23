@@ -507,13 +507,13 @@ struct CallsHomeView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Lists run to the bottom edge and scroll under the floating switcher; this keeps
+            // the last rows reachable above it.
+            .contentMargins(.bottom, Self.barClearance, for: .scrollContent)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            tabBar.background(alignment: .bottom) {
-                CallsBottomBlur(height: 150).ignoresSafeArea(edges: .bottom)
-            }
-        }
-        .modulaSoftScrollEdge()
+        // t232u: the glass pill floats straight over content: no band, no blur behind it.
+        .overlay(alignment: .bottom) { tabBar }
+        .modifier(CallsScrollEdges())
         .navigationTitle(tab == .keypad ? "" : tab.title)
         .navigationBarTitleDisplayMode(tab == .contacts ? .large : .inline)
         .animation(.snappy(duration: 0.22), value: tab)
@@ -524,6 +524,9 @@ struct CallsHomeView: View {
         }
         .accessibilityIdentifier("calls.home")
     }
+
+    /// Room the floating switcher takes above the home indicator (pill + its bottom padding).
+    static let barClearance: CGFloat = 76
 
     /// Apple Phone-style bottom switcher, in glass.
     private var tabBar: some View {
@@ -1888,7 +1891,7 @@ struct CallsKeypad: View {
             }
         }
         .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.bottom, 10)
+        .padding(.bottom, handleMode ? 0 : CallsHomeView.barClearance + 8)
         // ⋯ and Add-to-Favourites sit in the navigation bar, level with Back.
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) { topBarItems }
@@ -2005,6 +2008,7 @@ struct CallsKeypad: View {
             }
             .padding(.vertical, 6)
         }
+        .modulaHorizontalRail()
         .frame(minHeight: 44)
     }
 
@@ -2130,16 +2134,15 @@ struct CallsKeypad: View {
                     }
                 }
             }
-            .contentMargins(.bottom, 120, for: .scrollContent)
+            .contentMargins(.bottom, CallsHomeView.barClearance + 104, for: .scrollContent)
             .scrollDismissesKeyboard(.interactively)
             .frame(maxHeight: .infinity)
             .overlay(alignment: .bottom) {
+                // Floats on its own shadow, no backdrop band; the list scrolls underneath.
                 CallsGreenCallButton(working: working) { place($0) }
-                    .padding(.bottom, 10)
+                    .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
+                    .padding(.bottom, CallsHomeView.barClearance + 12)
                     .frame(maxWidth: .infinity)
-                    .background(alignment: .bottom) {
-                        CallsBottomBlur(height: 130).padding(.horizontal, -ModulaLayout.contentInset)
-                    }
             }
         }
         .padding(.top, 8)
@@ -2578,23 +2581,17 @@ final class CallsPersonalStore {
     }
 }
 
-/// Bottom progressive blur: the shared top blur, flipped, so lists scroll softly under floating
-/// controls (call button, Calls switcher) instead of meeting a hard edge.
-struct CallsBottomBlur: View {
-    var height: CGFloat = 140
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        ModulaTopProgressiveBlur(
-            height: height,
-            tint: ModulaPalette.resolve(app.appearance, scheme: scheme).canvas,
-            reduceTransparency: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        )
-        .scaleEffect(x: 1, y: -1)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+/// Calls screens: soft top edge only. No bottom scroll-edge effect, so nothing draws a band
+/// behind the floating switcher (t232u).
+private struct CallsScrollEdges: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .scrollEdgeEffectStyle(.soft, for: .top)
+                .scrollEdgeEffectHidden(true, for: .bottom)
+        } else {
+            content
+        }
     }
 }
 
@@ -2673,6 +2670,7 @@ struct CallsRecentlyCalledRow: View {
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 4)
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("calls.contacts.recent")
     }
 
