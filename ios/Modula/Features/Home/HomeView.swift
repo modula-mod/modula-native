@@ -2282,10 +2282,10 @@ struct HomeSectionEditor: View {
         VStack(alignment: .leading, spacing: 8) {
             ModulaSegmentedControl(segments: HomeSectionOptions.Density.allCases.map { .init(id: $0, title: $0.title) },
                                    selection: binding.density, accessibilityLabel: "Density",
-                                   identifier: "home.edit.\(section.rawValue).density")
+                                   identifier: { "home.edit.\(section.rawValue).density.\($0.rawValue)" })
             ModulaSegmentedControl(segments: HomeSectionOptions.Style.allCases.map { .init(id: $0, title: $0.title) },
                                    selection: binding.style, accessibilityLabel: "Style",
-                                   identifier: "home.edit.\(section.rawValue).style")
+                                   identifier: { "home.edit.\(section.rawValue).style.\($0.rawValue)" })
         }
         .padding(.leading, 40)
     }

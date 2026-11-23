@@ -858,8 +858,6 @@ struct StoryCaptureStage: View {
                     .buttonStyle(.plain)
                     .disabled(engine.isRecording || merging)
                     .accessibilityLabel(clips.count == 1 ? "Done, use 1 clip" : "Done, use \(clips.count) clips")
-                } else {
-                    Color.clear.frame(width: 44, height: 44)
                 }
             }
             .padding(.horizontal, 14)
@@ -912,7 +910,14 @@ struct StoryCaptureStage: View {
                     ForEach(StoryFilter.catalog) { item in
                         Circle()
                             .fill(filterTint(item.id))
-                            .overlay(Image(systemName: item.systemImage).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white))
+                            .overlay {
+                                // "None" sits inside the shutter ring: no glyph there.
+                                if item.id != "none" {
+                                    Image(systemName: item.systemImage).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                                }
+                            }
+                            .scaleEffect(filterID == item.id ? 1 : 0.86)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: filterID)
                             .frame(width: 58, height: 58)
                             .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1))
                             .id(Optional(item.id))
@@ -941,7 +946,8 @@ struct StoryCaptureStage: View {
     }
 
     private func filterTint(_ id: String) -> some ShapeStyle {
-        let hue = Double(abs(id.hashValue % 360)) / 360
+        // Stable per filter (String.hashValue is reseeded every launch, so colours jumped around).
+        let hue = Double(id.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 360 }) / 360
         return id == "none" ? AnyShapeStyle(Color.white.opacity(0.18)) : AnyShapeStyle(Color(hue: hue, saturation: 0.55, brightness: 0.7).opacity(0.8))
     }
 

@@ -3232,6 +3232,21 @@ struct StoryCreateView: View {
         scheduleBake()
     }
 
+    /// Light backdrops (Peach, White, Yellow…) get dark text and vice versa, but only while the
+    /// text is still the default black/white: a colour the user picked is never overridden.
+    private func autoContrastText(on bg: StoryGradientBG) {
+        let darkVotes = bg.hexes.filter { StoryTextContrast.prefersDarkText(hex: $0) }.count
+        let wanted = darkVotes * 2 > bg.hexes.count ? "#111111" : "#FFFFFF"
+        let defaults: Set<String> = ["#FFFFFF", "#111111", "#000000"]
+        if defaults.contains(textSpec.colorHex.uppercased()) { textSpec.colorHex = wanted }
+        for i in layers.indices {
+            if case .text(var spec) = layers[i].content, defaults.contains(spec.colorHex.uppercased()), spec.colorHex != wanted {
+                spec.colorHex = wanted
+                layers[i].content = .text(spec)
+            }
+        }
+    }
+
     private func startTextStory() {
         withAnimation(spring) {
             clearMedia()
@@ -3239,6 +3254,7 @@ struct StoryCreateView: View {
             showsCamera = false
             tool = .filters
         }
+        if let gradientBG { autoContrastText(on: gradientBG) }
         HapticEngine.shared.play(.selection)
         beginText()
     }
@@ -3396,6 +3412,7 @@ struct StoryCreateView: View {
                                 gradientBG = item
                                 collageLayout = nil
                             }
+                            autoContrastText(on: item)
                             scheduleBake()
                             HapticEngine.shared.play(.selection)
                         } label: {
