@@ -104,6 +104,8 @@ struct ModulaSheet<Content: View>: View {
     var backgroundInteractionEnabled = false
     var transition: ModulaSheetTransition = .system
     var morphSource: ModulaMorphSource?
+    /// Scrolling inside the sheet scrolls content rather than changing detent.
+    var contentScrolls = false
     @ViewBuilder var content: () -> Content
 
     @Environment(AppEnvironment.self) private var app
@@ -119,8 +121,10 @@ struct ModulaSheet<Content: View>: View {
         backgroundInteractionEnabled: Bool = false,
         transition: ModulaSheetTransition = .system,
         morphSource: ModulaMorphSource? = nil,
+        contentScrolls: Bool = false,
         @ViewBuilder content: @escaping () -> Content
     ) {
+        self.contentScrolls = contentScrolls
         let fallback = detents.first ?? .large
         self.detents = detents.isEmpty ? [.large] : detents
         self._selectedDetent = selectedDetent ?? .constant(fallback)
@@ -138,6 +142,7 @@ struct ModulaSheet<Content: View>: View {
             .modulaPageEntrance(delay: 0.05)
             .presentationDetents(Set(detents.map(\.presentationDetent)), selection: presentationSelection)
             .presentationDragIndicator(dragEnabled ? .visible : .hidden)
+            .presentationContentInteraction(contentScrolls ? .scrolls : .automatic)
             .interactiveDismissDisabled(!dismissible)
             .presentationBackground(backgroundStyle)
             .presentationBackgroundInteraction(backgroundInteractionEnabled ? .enabled : .disabled)

@@ -1,4 +1,7 @@
 #import "ModulaHostBridge.h"
+// The generated Swift header declares the CallKit/PushKit delegate bridges.
+#import <CallKit/CallKit.h>
+#import <PushKit/PushKit.h>
 #import "Modula-Swift.h"
 
 // Host events are no longer broadcast through the shared `onHostEvent` emitter: every
