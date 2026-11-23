@@ -87,7 +87,7 @@ final class AppEnvironment {
         }
         #endif
         runtime.activation = moduleActivation
-        auth = AuthenticationStore(client: client)
+        auth = AuthenticationStore(client: client, pendingStore: PendingSignupStore(baseURL: url))
         push = PushNotificationController(client: client)
         auth.willSignOut = { [push] in
             await CallManager.shared.signOut()
@@ -321,6 +321,7 @@ final class AppEnvironment {
             }
         }
         refreshLaunchState()
+        resumePendingSignupIfNeeded()
         auth.onRevalidationFailed = { [weak self] in
             await self?.performSignOut(resetAppLock: false)
         }
@@ -368,6 +369,20 @@ final class AppEnvironment {
         refreshQuickActions()
     }
 
+    /// Signed out with a sign-up waiting for its code (restored from the Keychain after the
+    /// app was backgrounded or killed): continue at "Enter the code". Expired state is cleared
+    /// by the store with a notice. Only opens the step from the auth root, never over a
+    /// screen the person is using.
+    func resumePendingSignupIfNeeded() {
+        guard gate.state == .signedOut else { return }
+        let noticeBefore = auth.pendingNotice
+        let restored = auth.restorePendingSignup()
+        let justExpired = auth.pendingNotice != nil && auth.pendingNotice != noticeBefore
+        guard restored != nil || justExpired else { return }
+        let path = navigation.path(for: .home)
+        if path.isEmpty { navigation.open(.auth(.verify)) }
+    }
+
     func handleIncomingURL(_ url: URL) {
         guard let route = RouteParser.parse(url.absoluteString) else { return }
         openRouted(route)
@@ -402,6 +417,7 @@ final class AppEnvironment {
         case .active:
             appLock.evaluateForeground()
             refreshLaunchState()
+            resumePendingSignupIfNeeded()
         @unknown default:
             break
         }

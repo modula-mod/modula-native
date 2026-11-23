@@ -42,7 +42,7 @@ enum GubicSampleGame {
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Orbit Tap</title>
     <style>
       html, body { margin: 0; height: 100%; background: #070A14; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
