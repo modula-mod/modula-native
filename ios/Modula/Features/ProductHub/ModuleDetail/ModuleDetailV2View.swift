@@ -131,10 +131,10 @@ struct ModuleDetailV2View: View {
             ModuleUninstallStepUpSheet(
                 email: app.auth.account?.email ?? "",
                 moduleName: product?.name ?? "this module",
-                submit: { password, isReprompt in
+                submit: { credential, isReprompt in
                     await app.catalogue.completeDeleteDataAfterStepUp(
                         moduleID,
-                        password: password,
+                        credential: credential,
                         idempotencyKey: context.idempotencyKey,
                         isReprompt: isReprompt
                     )
@@ -142,6 +142,11 @@ struct ModuleDetailV2View: View {
                 onCancel: {
                     uninstallNotice = ModuleUninstallFlow.cancelledNotice
                     stepUp = nil
+                },
+                onSignInAgain: {
+                    uninstallNotice = ModuleUninstallFlow.signInAgainNotice
+                    stepUp = nil
+                    Task { await app.performSignOut() }
                 },
                 onFinished: { outcome in
                     handleUninstallOutcome(outcome, name: product?.name ?? "Module")
@@ -883,8 +888,10 @@ struct ModuleDetailV2View: View {
         case .stillRequiresStepUp(let message), .failed(let message):
             HapticEngine.shared.play(.failure)
             uninstallNotice = message
-        case .needsPasswordStepUp, .passwordRejected, .rateLimited, .unavailable:
+        case .needsPasswordStepUp, .passwordRejected, .rateLimited, .unavailable, .needsTOTP:
             break
+        case .needsSignInAgain:
+            uninstallNotice = ModuleUninstallFlow.signInAgainNotice
         }
     }
 }

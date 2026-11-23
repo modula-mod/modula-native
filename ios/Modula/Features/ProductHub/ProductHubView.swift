@@ -594,7 +594,8 @@ final class ProductHubStore {
                 lifecycleErrors[id] = message
                 await refreshInstallations()
                 return .failed
-            case .cancelled, .passwordRejected, .rateLimited, .unavailable, .stillRequiresStepUp:
+            case .cancelled, .passwordRejected, .rateLimited, .unavailable, .stillRequiresStepUp,
+                 .needsTOTP, .needsSignInAgain:
                 await refreshInstallations()
                 return .failed
             }
@@ -605,13 +606,14 @@ final class ProductHubStore {
         }
     }
 
-    /// After the step-up sheet confirms the password: one password step-up, then one
+    /// After the step-up sheet confirms a password or TOTP code: one step-up, then one
     /// deleteData retry. If that retry still requires step-up, `needsPasswordStepUp` is
     /// returned so the sheet can re-prompt once. A failure after that re-prompt stops
-    /// with the still-installed error.
+    /// with the still-installed error. A 409 from password step-up returns `needsTOTP`.
+    /// Neither password nor TOTP returns `needsSignInAgain`; the module stays installed.
     func completeDeleteDataAfterStepUp(
         _ id: String,
-        password: String,
+        credential: ModuleStepUpCredential,
         idempotencyKey: String,
         isReprompt: Bool = false
     ) async -> ModuleUninstallOutcome {
@@ -619,9 +621,9 @@ final class ProductHubStore {
         operations[id] = .uninstalling
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
-        let outcome = await ModuleUninstallFlow(client: client).submitPasswordAndRetryDelete(
+        let outcome = await ModuleUninstallFlow(client: client).submitStepUpAndRetryDelete(
             moduleID: id,
-            password: password,
+            credential: credential,
             confirmDelete: true,
             idempotencyKey: idempotencyKey,
             isReprompt: isReprompt
@@ -630,7 +632,7 @@ final class ProductHubStore {
         case .succeeded:
             let removed = await finishUninstall(id)
             return removed == .removed ? .succeeded : .failed("The module was uninstalled on the server, but this device couldn’t finish removing it. Pull to refresh and try again.")
-        case .passwordRejected, .rateLimited, .unavailable, .needsPasswordStepUp:
+        case .passwordRejected, .rateLimited, .unavailable, .needsPasswordStepUp, .needsTOTP, .needsSignInAgain:
             await refreshInstallations()
             return outcome
         case .stillRequiresStepUp(let message), .failed(let message):

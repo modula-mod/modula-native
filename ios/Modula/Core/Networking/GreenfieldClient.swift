@@ -633,7 +633,7 @@ actor GreenfieldClient {
         )
         if first.response.statusCode == 401, generation == epoch, tokens != nil {
             let code = Self.peekErrorCode(first.data) ?? "UNAUTHENTICATED"
-            if !APIError.isStepUpCode(code) && code != "VALIDATION_FAILED" {
+            if Self.shouldRefreshAfterStepUp401(code) {
                 let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
                 let retry = try await performRequest(
                     "POST",
@@ -645,6 +645,48 @@ actor GreenfieldClient {
             }
         }
         return try Self.decodePasswordStepUp(first.data, response: first.response)
+    }
+
+    /// Re-authenticates the current session with an authenticator code
+    /// (`POST /v1/auth/step-up/totp`). Requires the current bearer. The body is
+    /// exactly `{ "code" }`. A successful result is `{stepUp:true, authenticationStrength:"strong"}`
+    /// and refreshes `recent_authentication_at`. Wrong codes are `401 INVALID_CREDENTIALS`.
+    /// No enrolled TOTP is `401 AUTH_METHOD_UNAVAILABLE`. The code is not stored.
+    func totpStepUp(code: String) async throws -> PasswordStepUpResult {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed.count > 16 {
+            throw PasswordStepUpFailure.validation("Enter the 6-digit code from your authenticator app.")
+        }
+        let generation = epoch
+        let bearer = try await accessToken()
+        let first = try await performRequest(
+            "POST",
+            path: "/v1/auth/step-up/totp",
+            body: .object(["code": .string(trimmed)]),
+            bearer: bearer
+        )
+        if first.response.statusCode == 401, generation == epoch, tokens != nil {
+            let peeked = Self.peekErrorCode(first.data) ?? "UNAUTHENTICATED"
+            if Self.shouldRefreshAfterStepUp401(peeked) {
+                let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
+                let retry = try await performRequest(
+                    "POST",
+                    path: "/v1/auth/step-up/totp",
+                    body: .object(["code": .string(trimmed)]),
+                    bearer: renewed
+                )
+                return try Self.decodePasswordStepUp(
+                    retry.data,
+                    response: retry.response,
+                    defaultValidationMessage: "That code wasn’t right. Try again."
+                )
+            }
+        }
+        return try Self.decodePasswordStepUp(
+            first.data,
+            response: first.response,
+            defaultValidationMessage: "That code wasn’t right. Try again."
+        )
     }
 
     /// Module ids are reverse-DNS; anything else never reaches a URL path.
@@ -940,7 +982,20 @@ actor GreenfieldClient {
         return envelope.error?.code
     }
 
-    nonisolated static func decodePasswordStepUp(_ data: Data, response: HTTPURLResponse) throws -> PasswordStepUpResult {
+    /// 401s that are step-up or credential failures must not start a token refresh.
+    nonisolated static func shouldRefreshAfterStepUp401(_ code: String) -> Bool {
+        !APIError.isStepUpCode(code)
+            && code != "VALIDATION_FAILED"
+            && code != "INVALID_CREDENTIALS"
+            && code != "AUTH_METHOD_UNAVAILABLE"
+            && code != "CONFLICT"
+    }
+
+    nonisolated static func decodePasswordStepUp(
+        _ data: Data,
+        response: HTTPURLResponse,
+        defaultValidationMessage: String = "That password is not correct."
+    ) throws -> PasswordStepUpResult {
         struct StepUpEnvelope: Decodable {
             var ok: Bool
             var data: PasswordStepUpResult?
@@ -967,15 +1022,15 @@ actor GreenfieldClient {
             return value
         }
         let code = envelope.error?.code ?? (response.statusCode == 429 ? "RATE_LIMITED" : "REQUEST_FAILED")
-        let fieldMessage = envelope.error?.fieldErrors?["password"]
+        let fieldMessage = envelope.error?.fieldErrors?["password"] ?? envelope.error?.fieldErrors?["code"]
         let message = fieldMessage ?? envelope.error?.message
         // Precedence (GreenField #203 / Mosaic #207): Retry-After header, then
         // details.retryAfterSeconds, then the legacy details.retryAfter string.
         // If none are present, leave retryAfter nil — do not invent a timer.
         let retryAfter = GreenfieldFailureDetails.parse(data, response: response)?.retryAfterSeconds.map(TimeInterval.init)
         switch code {
-        case "VALIDATION_FAILED":
-            throw PasswordStepUpFailure.validation(message ?? "That password is not correct.")
+        case "VALIDATION_FAILED", "INVALID_CREDENTIALS":
+            throw PasswordStepUpFailure.validation(message ?? defaultValidationMessage)
         case "RATE_LIMITED", "TOO_MANY_REQUESTS":
             throw PasswordStepUpFailure.rateLimited(
                 retryAfter: retryAfter,
@@ -983,6 +1038,8 @@ actor GreenfieldClient {
             )
         case "CONFLICT":
             throw PasswordStepUpFailure.conflict(message ?? "This account has no password. Confirm with your authenticator or passkey instead.")
+        case "AUTH_METHOD_UNAVAILABLE":
+            throw PasswordStepUpFailure.methodUnavailable(message ?? "This account has no authenticator app set up.")
         default:
             if response.statusCode == 429 {
                 throw PasswordStepUpFailure.rateLimited(

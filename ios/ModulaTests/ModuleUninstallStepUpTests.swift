@@ -270,6 +270,159 @@ final class ModuleUninstallStepUpTests: XCTestCase {
         XCTAssertNil(body?["confirmDelete"])
     }
 
+    func testRetryAfterPrefersHeaderThenRetryAfterSecondsThenLegacyString() throws {
+        let url = URL(string: "https://uninstall-stepup.modula.test/v1/auth/step-up/password")!
+        func response(_ status: Int, headers: [String: String] = [:]) -> HTTPURLResponse {
+            HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!
+        }
+
+        let allThree = Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","message":"Too many attempts. Try again in a few minutes.","retryable":true,"details":{"retryAfterSeconds":99,"retryAfter":"30 seconds"}}}"#.utf8)
+        do {
+            _ = try GreenfieldClient.decodePasswordStepUp(allThree, response: response(429, headers: ["Retry-After": "10"]))
+            XCTFail("expected rate limit")
+        } catch let error as PasswordStepUpFailure {
+            XCTAssertEqual(error, .rateLimited(retryAfter: 10, message: "Too many attempts. Try again in a few minutes."))
+        }
+
+        do {
+            _ = try GreenfieldClient.decodePasswordStepUp(allThree, response: response(429))
+            XCTFail("expected rate limit")
+        } catch let error as PasswordStepUpFailure {
+            XCTAssertEqual(error, .rateLimited(retryAfter: 99, message: "Too many attempts. Try again in a few minutes."))
+        }
+
+        let legacyOnly = Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","message":"Too many attempts. Try again in a few minutes.","retryable":true,"details":{"retryAfter":"20 seconds"}}}"#.utf8)
+        do {
+            _ = try GreenfieldClient.decodePasswordStepUp(legacyOnly, response: response(429))
+            XCTFail("expected rate limit")
+        } catch let error as PasswordStepUpFailure {
+            XCTAssertEqual(error, .rateLimited(retryAfter: 20, message: "Too many attempts. Try again in a few minutes."))
+        }
+
+        let none = Data(#"{"ok":false,"error":{"code":"RATE_LIMITED","message":"Too many attempts. Try again in a few minutes.","retryable":true}}"#.utf8)
+        do {
+            _ = try GreenfieldClient.decodePasswordStepUp(none, response: response(429))
+            XCTFail("expected rate limit")
+        } catch let error as PasswordStepUpFailure {
+            XCTAssertEqual(error, .rateLimited(retryAfter: nil, message: "Too many attempts. Try again in a few minutes."), "Do not invent a timer when no Retry-After, retryAfterSeconds, or retryAfter is present")
+        }
+
+        // HTTP-date Retry-After is ignored; fall through to retryAfterSeconds.
+        do {
+            _ = try GreenfieldClient.decodePasswordStepUp(allThree, response: response(429, headers: ["Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"]))
+            XCTFail("expected rate limit")
+        } catch let error as PasswordStepUpFailure {
+            XCTAssertEqual(error, .rateLimited(retryAfter: 99, message: "Too many attempts. Try again in a few minutes."))
+        }
+    }
+
+    func testPasswordConflictFallsBackToTOTPThenSuccessfulRetry() async throws {
+        let client = makeClient()
+        let lock = NSLock()
+        nonisolated(unsafe) var deleteAttempts = 0
+        nonisolated(unsafe) var totpBody: JSONValue?
+        nonisolated(unsafe) var totpHasBearer = false
+
+        UninstallRouterProtocol.handler = { request in
+            lock.lock(); defer { lock.unlock() }
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return Self.ok(Self.tokens)
+            case ("GET", "/v1/accounts/me"): return Self.ok(Self.me)
+            case ("DELETE", "/v1/modules/digital.modula.notes/install"):
+                deleteAttempts += 1
+                if deleteAttempts == 1 {
+                    return Self.failure(401, "STEP_UP_REQUIRED", message: "Recent stronger authentication required")
+                }
+                return Self.ok(#"{"ok":true,"data":{"status":"uninstalling"}}"#, status: 202)
+            case ("POST", "/v1/auth/step-up/password"):
+                return Self.failure(409, "CONFLICT", message: "This account has no password")
+            case ("POST", "/v1/auth/step-up/totp"):
+                totpBody = bodyJSON(request)
+                totpHasBearer = (request.value(forHTTPHeaderField: "Authorization") ?? "").hasPrefix("Bearer ")
+                return Self.ok(#"{"ok":true,"data":{"stepUp":true,"authenticationStrength":"strong"}}"#)
+            default:
+                return Self.failure(404, "NOT_FOUND")
+            }
+        }
+
+        _ = try await client.signIn(email: "owner@modula.test", password: "unused-sign-in-password")
+        let flow = ModuleUninstallFlow(client: client)
+        let first = await flow.requestUninstall(
+            moduleID: moduleID, choice: .deleteData, confirmDelete: true, idempotencyKey: "ios-uninstall-notes-totp0001"
+        )
+        XCTAssertEqual(first, .needsPasswordStepUp)
+
+        let afterPassword = await flow.submitPasswordAndRetryDelete(
+            moduleID: moduleID, password: "any-password", confirmDelete: true, idempotencyKey: "ios-uninstall-notes-totp0001"
+        )
+        XCTAssertEqual(afterPassword, .needsTOTP)
+        XCTAssertEqual(deleteAttempts, 1, "409 must not retry deleteData")
+        XCTAssertTrue(afterPassword.leavesModuleInstalled)
+
+        let afterTOTP = await flow.submitTOTPAndRetryDelete(
+            moduleID: moduleID,
+            code: "123456",
+            confirmDelete: true,
+            idempotencyKey: "ios-uninstall-notes-totp0001",
+            passwordWasUnavailable: true
+        )
+        XCTAssertEqual(afterTOTP, .succeeded)
+        XCTAssertEqual(deleteAttempts, 2)
+        XCTAssertTrue(totpHasBearer, "TOTP step-up is an authenticated route and must send the current bearer")
+        XCTAssertEqual(totpBody?["code"]?.string, "123456")
+        XCTAssertEqual(totpBody?.objectKeys.sorted(), ["code"], "Body must be only {code}")
+        XCTAssertEqual(UninstallRouterProtocol.log.filter { $0.hasPrefix("POST /v1/auth/step-up/totp") }.count, 1)
+        XCTAssertEqual(UninstallRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 0)
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession)
+    }
+
+    func testNeitherPasswordNorTOTPLeadsToSignInAgain() async throws {
+        let client = makeClient()
+        nonisolated(unsafe) var deleteAttempts = 0
+        UninstallRouterProtocol.handler = { request in
+            switch (request.httpMethod ?? "", request.url?.path ?? "") {
+            case ("POST", "/v1/sessions"): return Self.ok(Self.tokens)
+            case ("GET", "/v1/accounts/me"): return Self.ok(Self.me)
+            case ("DELETE", "/v1/modules/digital.modula.notes/install"):
+                deleteAttempts += 1
+                return Self.failure(401, "STEP_UP_REQUIRED")
+            case ("POST", "/v1/auth/step-up/password"):
+                return Self.failure(409, "CONFLICT", message: "This account has no password")
+            case ("POST", "/v1/auth/step-up/totp"):
+                return Self.failure(401, "AUTH_METHOD_UNAVAILABLE", message: "Authenticator is not enabled")
+            case ("POST", "/v1/sessions/refresh"):
+                return Self.ok(Self.tokens)
+            default:
+                return Self.failure(404, "NOT_FOUND")
+            }
+        }
+
+        _ = try await client.signIn(email: "owner@modula.test", password: "pw")
+        let flow = ModuleUninstallFlow(client: client)
+        _ = await flow.requestUninstall(
+            moduleID: moduleID, choice: .deleteData, confirmDelete: true, idempotencyKey: "ios-uninstall-notes-neither01"
+        )
+        let afterPassword = await flow.submitPasswordAndRetryDelete(
+            moduleID: moduleID, password: "any-password", confirmDelete: true, idempotencyKey: "ios-uninstall-notes-neither01"
+        )
+        XCTAssertEqual(afterPassword, .needsTOTP)
+
+        let afterTOTP = await flow.submitTOTPAndRetryDelete(
+            moduleID: moduleID,
+            code: "000000",
+            confirmDelete: true,
+            idempotencyKey: "ios-uninstall-notes-neither01",
+            passwordWasUnavailable: true
+        )
+        XCTAssertEqual(afterTOTP, .needsSignInAgain)
+        XCTAssertTrue(afterTOTP.leavesModuleInstalled)
+        XCTAssertEqual(deleteAttempts, 1, "Sign-in-again must not retry deleteData")
+        XCTAssertEqual(UninstallRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.count, 0, "AUTH_METHOD_UNAVAILABLE must not refresh or end the session")
+        let hasSession = await client.hasSession()
+        XCTAssertTrue(hasSession)
+    }
+
     // MARK: - Helpers
 
     private func makeClient() -> GreenfieldClient {
