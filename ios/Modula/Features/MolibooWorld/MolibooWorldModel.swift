@@ -608,5 +608,32 @@ extension MolibooCareStore {
         var life = life(for: id)
         life.log("face.smiling", "Told \(name) you feel \(feeling.label.lowercased())", at: now)
         saveLife(life, for: id)
+        recordFeelingDay(feeling, now: now)
+    }
+
+    static let feelingsKey = "moliboo.feelings.v1"
+
+    /// One feeling per day (latest wins), last 14 days: "y-m-d|feeling;…".
+    private func recordFeelingDay(_ feeling: MolibooFeeling, now: Date) {
+        let day = MolibooFeeling.dayKey(now)
+        var entries = (defaults.string(forKey: Self.feelingsKey) ?? "").split(separator: ";").map(String.init)
+            .filter { !$0.hasPrefix("\(day)|") }
+        entries.append("\(day)|\(feeling.rawValue)")
+        defaults.set(entries.suffix(14).joined(separator: ";"), forKey: Self.feelingsKey)
+    }
+}
+
+extension MolibooFeeling {
+    static func dayKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+    static func parse(_ raw: String) -> [String: MolibooFeeling] {
+        var out: [String: MolibooFeeling] = [:]
+        for e in raw.split(separator: ";") {
+            let p = e.split(separator: "|")
+            if p.count == 2, let f = MolibooFeeling(rawValue: String(p[1])) { out[String(p[0])] = f }
+        }
+        return out
     }
 }

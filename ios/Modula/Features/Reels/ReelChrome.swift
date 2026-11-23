@@ -155,12 +155,11 @@ struct ReelCaptionBlock: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded = false
 
+    /// Speed: read twice per render (the `isEmpty` check and the chip row) and re-split the caption each time;
+    /// now parsed once per caption and cached alongside the styled caption.
     private var hashtags: [String] {
         guard let text = reel.caption else { return [] }
-        return text.split(whereSeparator: \.isWhitespace).compactMap { token -> String? in
-            let t = String(token)
-            return t.hasPrefix("#") && t.count > 1 ? t : nil
-        }
+        return ReelCaptionStyle.hashtags(text)
     }
 
     var body: some View {
@@ -277,6 +276,7 @@ struct ReelQuickMenu: View {
     var onMiniPlayer: (() -> Void)? = nil
     var onPictureInPicture: (() -> Void)? = nil
     var onCopyCaption: (() -> Void)? = nil
+    var onShareCard: (() -> Void)? = nil
     /// Remix / Duet: shown, but gated until the server can create derived reels.
     var onRemix: (() -> Void)? = nil
     var onSleepTimer: ((Int) -> Void)? = nil
@@ -352,6 +352,9 @@ struct ReelQuickMenu: View {
                 }
                 if let onCopyCaption {
                     row("Copy caption", symbol: "text.quote", id: "reels.menu.copycaption", action: onCopyCaption)
+                }
+                if let onShareCard {
+                    row("Share as card", symbol: "rectangle.portrait.on.rectangle.portrait.angled", id: "reels.menu.sharecard", action: onShareCard)
                 }
                 if let onRemix {
                     row("Remix or Duet", symbol: "rectangle.split.2x1", id: "reels.menu.remix", action: onRemix)
@@ -511,6 +514,17 @@ struct ReelMarqueeText: View {
 /// shadow for legibility on bright frames. Cached per caption (captions re-render on every progress tick).
 enum ReelCaptionStyle {
     nonisolated(unsafe) private static var cache: [String: AttributedString] = [:]
+    nonisolated(unsafe) private static var tagCache: [String: [String]] = [:]
+    static func hashtags(_ caption: String) -> [String] {
+        if let hit = tagCache[caption] { return hit }
+        let tags = caption.split(whereSeparator: \.isWhitespace).compactMap { token -> String? in
+            let t = String(token)
+            return t.hasPrefix("#") && t.count > 1 ? t : nil
+        }
+        if tagCache.count > 64 { tagCache.removeAll() }
+        tagCache[caption] = tags
+        return tags
+    }
     static func styled(_ caption: String) -> AttributedString {
         if let hit = cache[caption] { return hit }
         var out = AttributedString()
@@ -527,5 +541,44 @@ enum ReelCaptionStyle {
         if cache.count > 64 { cache.removeAll() }
         cache[caption] = out
         return out
+    }
+}
+
+
+/// Story-sized share image for a reel: creator, caption (hashtags bold), engagement and the Modula link,
+/// over the reel's poster colour. Rendered on device with ImageRenderer; shared via the system sheet.
+struct ReelShareCard: View {
+    let reel: Reel
+    var body: some View {
+        let base = Color(hex: reel.posterColor ?? "#1B3A4B")
+        ZStack(alignment: .bottomLeading) {
+            LinearGradient(colors: [base, base.opacity(0.75), .black], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.rectangle.fill").font(.system(size: 30, weight: .bold))
+                    Text("Reel").font(.system(size: 30, weight: .heavy, design: .rounded))
+                }
+                Spacer()
+                Text("@\(reel.creator.handle)").font(.system(size: 34, weight: .bold))
+                if let caption = reel.caption, !caption.isEmpty {
+                    Text(ReelCaptionStyle.styled(String(caption.prefix(220)))).font(.system(size: 28)).lineLimit(6)
+                }
+                HStack(spacing: 22) {
+                    Label("\(reel.engagement.likeCount)", systemImage: "heart.fill")
+                    Label("\(reel.engagement.replyCount)", systemImage: "bubble.right.fill")
+                }
+                .font(.system(size: 24, weight: .semibold))
+                Text("Watch on Modula").font(.system(size: 22, weight: .semibold)).opacity(0.8)
+            }
+            .foregroundStyle(.white)
+            .padding(56)
+        }
+        .frame(width: 1080 / 2, height: 1920 / 2)
+    }
+
+    @MainActor static func render(_ reel: Reel) -> UIImage? {
+        let renderer = ImageRenderer(content: ReelShareCard(reel: reel))
+        renderer.scale = 2
+        return renderer.uiImage
     }
 }

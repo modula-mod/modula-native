@@ -481,6 +481,13 @@ struct ReelPageView: View {
                         HapticEngine.shared.play(.success)
                         app.navigation.flash("Caption copied", symbol: "text.quote")
                     },
+                    onShareCard: {
+                        guard let image = ReelShareCard.render(reel) else { return }
+                        HapticEngine.shared.play(.success)
+                        var items: [Any] = [image]
+                        if reel.postID != nil { items.append(ModulaShareLink.post(resolved.id)) }
+                        PostSharing.presentSystemSheet(items: items)
+                    },
                     onRemix: {
                         HapticEngine.shared.play(.warning)
                         app.navigation.flash("Remix and Duet aren't available yet", symbol: "rectangle.split.2x1")

@@ -658,7 +658,42 @@ struct MolibooFeelingRow: View {
     let select: (MolibooFeeling) -> Void
     @State private var picked: MolibooFeeling?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(MolibooCareStore.feelingsKey) private var feelingsRaw = ""
     var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            row
+            week
+        }
+    }
+
+    /// Your last seven days of feelings as a little emoji strip (empty days show a dot).
+    @ViewBuilder private var week: some View {
+        let map = MolibooFeeling.parse(feelingsRaw)
+        if !map.isEmpty {
+            let now = Date()
+            HStack(spacing: 0) {
+                ForEach(0..<7, id: \.self) { i in
+                    let day = Calendar.current.date(byAdding: .day, value: i - 6, to: now) ?? now
+                    let f = map[MolibooFeeling.dayKey(day)]
+                    VStack(spacing: 3) {
+                        Text(f?.emoji ?? "·").font(.system(size: f == nil ? 16 : 20)).foregroundStyle(.secondary)
+                            .frame(height: 24)
+                            .transition(.scale.combined(with: .opacity))
+                        Text(day.formatted(.dateTime.weekday(.narrow))).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(day.formatted(.dateTime.weekday(.wide))): \(f?.label ?? "no entry")")
+                }
+            }
+            .padding(.vertical, 8)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+            .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.7), value: feelingsRaw)
+            .accessibilityIdentifier("care.feelings.week")
+        }
+    }
+
+    private var row: some View {
         HStack(spacing: 8) {
             ForEach(MolibooFeeling.allCases) { f in
                 Button {

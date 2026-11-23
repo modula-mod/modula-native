@@ -815,6 +815,8 @@ enum CallsRecentGrouping {
 struct CallsRecentsList: View {
     @Environment(AppEnvironment.self) private var app
     @State private var missedOnly = false
+    /// Voice / video filter (nil = both), remembered across launches.
+    @AppStorage("calls.recents.kind") private var kindFilterRaw = ""
     @State private var editing = false
     @State private var confirmClear = false
     @State private var detail: CallsContact?
@@ -823,13 +825,30 @@ struct CallsRecentsList: View {
     private var notes: CallNotesStore { CallNotesStore.shared }
 
     var body: some View {
-        let items = app.calls.recents.filter { !missedOnly || CallCopy.isMissed($0) }
+        let kindFilter = CallMediaKind(rawValue: kindFilterRaw)
+        let items = app.calls.recents.filter { (!missedOnly || CallCopy.isMissed($0)) && (kindFilter == nil || $0.mediaKind == kindFilter) }
         let groups = CallsRecentGrouping.groups(items)
         VStack(spacing: 6) {
             HStack(spacing: 10) {
                 ModulaSegmentedControl("Recents filter", selection: $missedOnly,
                                        segments: [(false, "All"), (true, "Missed")], identifier: { $0 ? "calls.recents.missed" : "calls.recents.all" })
                 if !app.calls.recents.isEmpty {
+                    Menu {
+                        Picker("Call type", selection: Binding(get: { kindFilterRaw }, set: { v in withAnimation(.snappy) { kindFilterRaw = v } })) {
+                            Label("Voice and video", systemImage: "phone.and.waveform").tag("")
+                            Label("Voice", systemImage: "phone.fill").tag(CallMediaKind.audio.rawValue)
+                            Label("Video", systemImage: "video.fill").tag(CallMediaKind.video.rawValue)
+                        }
+                    } label: {
+                        Image(systemName: kindFilter == .video ? "video.fill" : (kindFilter == .audio ? "phone.fill" : "line.3.horizontal.decrease"))
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                            .contentTransition(.symbolEffect(.replace))
+                            .frame(width: 36, height: 36)
+                    }
+                    .modulaGlass(in: Circle(), interactive: true)
+                    .accessibilityLabel("Call type filter")
+                    .accessibilityValue(kindFilter == .video ? "Video" : (kindFilter == .audio ? "Voice" : "Voice and video"))
+                    .accessibilityIdentifier("calls.recents.kind")
                     Button(editing ? "Done" : "Edit") { withAnimation(.snappy) { editing.toggle() } }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
@@ -855,7 +874,7 @@ struct CallsRecentsList: View {
             }
             if groups.isEmpty {
                 ModulaEmptyState(
-                    title: app.calls.recentsLoading ? "Loading…" : (missedOnly ? "No missed calls" : "No recent calls"),
+                    title: app.calls.recentsLoading ? "Loading…" : (missedOnly ? "No missed calls" : (kindFilter == .video ? "No video calls" : (kindFilter == .audio ? "No voice calls" : "No recent calls"))),
                     message: app.calls.capabilities.enabled ? "Your voice and video calls show up here." : "Calls you make and receive will show up here once calling is on.",
                     symbol: "clock"
                 )
