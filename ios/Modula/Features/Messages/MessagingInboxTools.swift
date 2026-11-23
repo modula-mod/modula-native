@@ -715,6 +715,7 @@ struct QuickReactionsEditor: View {
                                 withAnimation(.snappy) { slot = i }
                             } label: {
                                 Text(picks[i]).font(.system(size: 30))
+                                    .scaleEffect(slot == i ? 1.12 : 1)
                                     .frame(maxWidth: .infinity, minHeight: 56)
                                     .overlay {
                                         RoundedRectangle(cornerRadius: 16, style: .continuous)

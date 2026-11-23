@@ -1153,3 +1153,30 @@ struct ModulaSectionHeader: View {
     }
 }
 
+
+
+// MARK: - Appear motion (t237u)
+
+/// Fades and lifts content in once when it first appears, optionally staggered. Static under
+/// Reduce Motion. Cheap: one opacity + offset animation, no layout change.
+struct ModulaAppearModifier: ViewModifier {
+    var delay: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 10)
+            .onAppear {
+                guard !shown else { return }
+                if reduceMotion { shown = true } else {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(delay)) { shown = true }
+                }
+            }
+    }
+}
+
+extension View {
+    func modulaAppear(delay: Double = 0) -> some View { modifier(ModulaAppearModifier(delay: delay)) }
+}

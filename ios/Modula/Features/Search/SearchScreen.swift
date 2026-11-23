@@ -99,6 +99,7 @@ struct SearchScreen: View {
                     } label: {
                         Image(systemName: saved ? "bookmark.fill" : "bookmark")
                             .contentTransition(.symbolEffect(.replace))
+                            .symbolEffect(.bounce, value: saved)
                     }
                     .tint(.primary)
                     .accessibilityLabel(saved ? "Remove saved search" : "Save search")
@@ -396,6 +397,7 @@ struct SearchScreen: View {
             .modulaHorizontalRail()
             .scrollClipDisabled()
         }
+        .modulaAppear()
         .accessibilityIdentifier("search.saved")
     }
 

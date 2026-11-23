@@ -2697,6 +2697,7 @@ struct AccentLivePreview: View {
         .animation(.smooth(duration: 0.3), value: accent)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Accent preview")
+        .modulaAppear()
         .accessibilityIdentifier("settings.appearance.accentPreview")
     }
 }

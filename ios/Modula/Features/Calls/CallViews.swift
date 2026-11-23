@@ -824,6 +824,7 @@ struct CallsRecentsList: View {
             if !editing, !app.calls.recents.isEmpty {
                 CallsStatsCard(records: app.calls.recents)
                     .padding(.horizontal, ModulaLayout.contentInset)
+                    .modulaAppear()
             }
             if groups.isEmpty {
                 ModulaEmptyState(
@@ -870,7 +871,10 @@ struct CallsRecentsList: View {
         .sheet(item: $detail) { contact in CallsContactCard(contact: contact) }
         .alert("Call Note", isPresented: Binding(get: { noteFor != nil }, set: { if !$0 { noteFor = nil } }), presenting: noteFor) { record in
             TextField("What was it about?", text: $noteText, axis: .vertical)
-            Button("Save") { notes.set(noteText, for: record.id); HapticEngine.shared.play(.success) }
+            Button("Save") {
+                withAnimation(.snappy) { notes.set(noteText, for: record.id) }
+                HapticEngine.shared.play(.success)
+            }
             if notes.note(for: record.id) != nil {
                 Button("Remove Note", role: .destructive) { notes.set("", for: record.id) }
             }
@@ -912,6 +916,7 @@ struct CallsRecentsList: View {
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityLabel("Note: \(note)")
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
                     Spacer(minLength: 8)
@@ -2584,6 +2589,7 @@ struct ConnectPromoCard: View {
         }
         .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        .modulaAppear(delay: 0.08)
         .accessibilityIdentifier("connect.promo")
     }
 }

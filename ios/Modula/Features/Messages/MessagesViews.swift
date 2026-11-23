@@ -5420,13 +5420,19 @@ struct MessagesWallpaper: View {
     var body: some View {
         let store = app.messaging
         let theme = conversationID.map { store.wallpaper(for: $0) } ?? store.defaultWallpaper
-        if theme != .none {
-            let key = store.wallpaperKey(for: conversationID)
-            let style = store.wallpaperStyle(key: key)
-            MessagesWallpaperSurface(theme: theme, photoKey: key, dim: style.dim, blur: style.blur, revision: store.wallpaperRevision)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+        ZStack {
+            if theme != .none {
+                let key = store.wallpaperKey(for: conversationID)
+                let style = store.wallpaperStyle(key: key)
+                MessagesWallpaperSurface(theme: theme, photoKey: key, dim: style.dim, blur: style.blur, revision: store.wallpaperRevision)
+                    .id(theme)
+                    .transition(.opacity)
+            }
         }
+        // Crossfade when you switch wallpapers (a dissolve, which suits Reduce Motion too).
+        .animation(.easeInOut(duration: 0.35), value: theme)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 
