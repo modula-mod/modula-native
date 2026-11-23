@@ -44,7 +44,7 @@ struct DraftsView: View {
                     .modulaAccentCTA()
                 }
             }
-            if let error = app.drafts.syncError {
+            if app.drafts.capabilities.serverPostDrafts, let error = app.drafts.syncError {
                 Section {
                     Label(error, systemImage: "arrow.triangle.2.circlepath.icloud")
                         .foregroundStyle(.secondary)
@@ -83,7 +83,7 @@ struct DraftsView: View {
                             } onDelete: {
                                 pendingDiscard = (item.kind, item.id)
                             }
-                            if item.kind == .post, item.syncState == .conflict {
+                            if app.drafts.capabilities.serverPostDrafts, item.kind == .post, item.syncState == .conflict {
                                 Text("This draft changed on another device. Both versions are preserved until you choose.")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
@@ -101,14 +101,20 @@ struct DraftsView: View {
                 if let saved = app.drafts.lastSavedAt {
                     ModulaAutosaveIndicator(savedAt: saved)
                 }
-                Text("Post drafts sync with your account and keep a private offline cache. Story and In-Mail drafts remain device-only because their server contracts are separate.")
+                Text(app.drafts.capabilities.serverPostDrafts
+                     ? "Post drafts sync with your account and keep a private offline cache. Story and In-Mail drafts remain device-only because their server contracts are separate."
+                     : "Drafts are saved automatically. They’re stored on this device. There isn’t a drafts API.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
         .modulaSoftScrollEdge()
-        .refreshable { await app.drafts.refresh() }
-        .task { await app.drafts.refresh() }
+        .refreshableIf(app.drafts.capabilities.serverPostDrafts) { await app.drafts.refresh() }
+        .task {
+            if app.drafts.capabilities.serverPostDrafts {
+                await app.drafts.refresh()
+            }
+        }
         .modulaCanvas()
         .navigationTitle("Drafts")
         .accessibilityIdentifier("drafts.root")
@@ -156,6 +162,7 @@ struct DraftsView: View {
 }
 
 struct DraftRow: View {
+    @Environment(AppEnvironment.self) private var app
     let item: DraftLibraryItem
     var onContinue: () -> Void
     var onDelete: () -> Void
@@ -191,7 +198,7 @@ struct DraftRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
-                    if item.kind == .post {
+                    if app.drafts.capabilities.serverPostDrafts, item.kind == .post {
                         Label(syncLabel, systemImage: syncSymbol)
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
@@ -291,5 +298,17 @@ struct DraftRestorePrompt: View {
         }
         .padding(20)
         .accessibilityIdentifier("drafts.restore")
+    }
+}
+
+
+private extension View {
+    @ViewBuilder
+    func refreshableIf(_ enabled: Bool, action: @escaping @Sendable () async -> Void) -> some View {
+        if enabled {
+            self.refreshable(action: action)
+        } else {
+            self
+        }
     }
 }

@@ -310,11 +310,15 @@ struct DraftIndex: Codable, Sendable, Equatable {
 }
 
 struct DraftBackendCapabilities: Sendable, Equatable {
-    var serverPostDrafts = true
+    var serverPostDrafts = false
     var localCache = true
     var offlineReplay = true
 
-    static let production = DraftBackendCapabilities()
+    static var production: DraftBackendCapabilities {
+        var value = DraftBackendCapabilities()
+        value.serverPostDrafts = CollectionDraftSyncFeatureFlags.isEnabled
+        return value
+    }
 }
 
 /// One row in the Drafts library. Post drafts merge the account server revision with the private local cache.

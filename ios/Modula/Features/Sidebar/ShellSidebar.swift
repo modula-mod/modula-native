@@ -89,6 +89,13 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         }
     }
 
+
+    /// Community appears in the library only when the live API flag is on.
+    /// Flag-off matches main, which has no Community sidebar item.
+    static func libraryDestinations(apiEnabled: Bool = CommunityAPIFeatureFlags.isEnabled) -> [ShellSidebarDestination] {
+        allCases.filter { $0.section == .library && ($0 != .community || apiEnabled) }
+    }
+
     enum Section: String, CaseIterable, Identifiable {
         case library
         case manage
@@ -543,8 +550,7 @@ struct ShellSidebarView: View {
     }
 
     private var libraryItems: [ShellSidebarItem] {
-        var items = ShellSidebarDestination.allCases
-            .filter { $0.section == .library }
+        var items = ShellSidebarDestination.libraryDestinations()
             .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
                                     requiresSignIn: $0.requiresSignIn,
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.
