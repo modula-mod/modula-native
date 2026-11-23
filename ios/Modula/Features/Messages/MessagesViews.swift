@@ -70,6 +70,7 @@ struct MessagesRootView: View {
 }
 
 struct ConversationListView: View {
+    @AppStorage(InboxSwipeAction.storageKey) private var leadingSwipeRaw = InboxSwipeAction.readToggle.rawValue
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Remembered across launches, so "Unread" stays on if that's how you triage.
@@ -763,19 +764,7 @@ struct ConversationListView: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: ModulaLayout.contentInset, bottom: 4, trailing: ModulaLayout.contentInset))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        if conversation.isUnread, app.messaging.capabilities.markRead {
-                            Button {
-                                Task { await app.messaging.markConversationRead(conversation.id) }
-                            } label: { Label("Read", systemImage: "checkmark.message.fill") }
-                            .tint(.primary)
-                        } else if !conversation.isUnread, app.messaging.capabilities.markUnread {
-                            Button {
-                                Task { await app.messaging.markConversationUnread(conversation.id) }
-                            } label: { Label("Unread", systemImage: "message.badge.filled.fill") }
-                            .tint(.blue)
-                        }
-                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(conversation) }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button {
                             togglePin(conversation)
@@ -1025,6 +1014,40 @@ struct ConversationListView: View {
         .listRowSeparator(.hidden)
         .accessibilityLabel("Message requests, \(count) waiting")
         .accessibilityIdentifier("messages.requestsEntry")
+    }
+
+    /// Settings › Gestures › "Swipe right on a chat": Read/Unread (default), Pin, Mute or Archive.
+    @ViewBuilder
+    private func leadingSwipe(_ conversation: Conversation) -> some View {
+        switch InboxSwipeAction(rawValue: leadingSwipeRaw) ?? .readToggle {
+        case .pin:
+            Button { togglePin(conversation) } label: {
+                Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
+                      systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
+            }
+            .tint(.primary)
+        case .mute where app.messaging.capabilities.mute:
+            Button { Task { await app.messaging.toggleMute(conversation.id) } } label: {
+                Label(conversation.isMuted ? "Unmute" : "Mute", systemImage: conversation.isMuted ? "bell.fill" : "bell.slash.fill")
+            }
+            .tint(.gray)
+        case .archive where app.messaging.capabilities.archive:
+            Button { Task { await app.messaging.archive(conversation.id) } } label: { Label("Archive", systemImage: "archivebox.fill") }
+                .tint(.indigo)
+        default:
+                    if conversation.isUnread, app.messaging.capabilities.markRead {
+                        Button {
+                            Task { await app.messaging.markConversationRead(conversation.id) }
+                        } label: { Label("Read", systemImage: "checkmark.message.fill") }
+                        .tint(.primary)
+                    } else if !conversation.isUnread, app.messaging.capabilities.markUnread {
+                        Button {
+                            Task { await app.messaging.markConversationUnread(conversation.id) }
+                        } label: { Label("Unread", systemImage: "message.badge.filled.fill") }
+                        .tint(.blue)
+                    }
+                
+        }
     }
 
     private func togglePin(_ conversation: Conversation) {
@@ -7057,4 +7080,18 @@ struct BubbleRowKey: Equatable, Sendable {
     let selecting: Bool
     let isSelected: Bool
     let replyCount: Int
+}
+
+
+/// The chat-list swipe-right action (Settings › Gestures).
+enum InboxSwipeAction: String, CaseIterable, Identifiable {
+    case readToggle, pin, mute, archive
+    static let storageKey = "messages.swipe.leading"
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .readToggle: "Read / Unread"; case .pin: "Pin"; case .mute: "Mute"; case .archive: "Archive" }
+    }
+    var symbol: String {
+        switch self { case .readToggle: "checkmark.message"; case .pin: "pin"; case .mute: "bell.slash"; case .archive: "archivebox" }
+    }
 }

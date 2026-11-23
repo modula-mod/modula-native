@@ -1,6 +1,7 @@
 import SwiftUI
 import UserNotifications
 import UIKit
+import UniformTypeIdentifiers
 
 struct SettingsCapabilityUnavailableView: View {
     let title: String
@@ -610,6 +611,7 @@ struct DataStorageHost: View {
                         }
                     }
                 }
+                DeviceSettingsBackupGroup()
                 SettingsGroup(title: "Account data") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Backup", subtitle: "Account or module backup", symbol: "arrow.clockwise.icloud") {
@@ -1607,5 +1609,110 @@ struct SettingsAccentSwitch: View {
             .toggleStyle(.switch)
             .tint(app?.appearance.liveAccent ?? .accentColor)
             .sensoryFeedback(.selection, trigger: configuration.isOn)
+    }
+}
+
+
+// MARK: - Device settings backup (local only)
+
+/// Exports this device's own preferences (Board layout, widgets, saved folders, Moliboo care, gestures, Calls and
+/// browser choices…) as a .plist you can save to Files, and restores one. Allow-listed key prefixes only; anything
+/// that looks like a credential is never included. Nothing is uploaded.
+enum DeviceSettingsBackup {
+    static let prefixes = ["board.", "saved.", "moliboo.", "calls.", "chat.", "display.", "community.", "messages.",
+                           "browser.", "home.", "search.", "settings.", "reels.", "activity.", "composer."]
+    private static let forbidden = ["token", "secret", "password", "auth", "session", "credential", "cookie", "passcode", "pin.code"]
+
+    static func isAllowed(_ key: String) -> Bool {
+        let k = key.lowercased()
+        return prefixes.contains { k.hasPrefix($0) } && !forbidden.contains { k.contains($0) }
+    }
+
+    static func snapshot(_ defaults: UserDefaults = .standard) -> [String: Any] {
+        defaults.dictionaryRepresentation().filter { isAllowed($0.key) }
+    }
+
+    static func exportFile() throws -> (url: URL, count: Int) {
+        let values = snapshot()
+        let payload: [String: Any] = ["format": "modula.device-settings", "version": 1, "exportedAt": Date(), "values": values]
+        let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
+        let day = Date().formatted(.iso8601.year().month().day())
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Modula Settings \(day).plist")
+        try data.write(to: url, options: .atomic)
+        return (url, values.count)
+    }
+
+    /// Restores allow-listed keys from a file made by `exportFile`. Returns how many values were applied.
+    static func restore(from url: URL, into defaults: UserDefaults = .standard) throws -> Int {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let data = try Data(contentsOf: url)
+        guard let root = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              root["format"] as? String == "modula.device-settings",
+              let values = root["values"] as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }
+        var applied = 0
+        for (key, value) in values where isAllowed(key) {
+            defaults.set(value, forKey: key); applied += 1
+        }
+        return applied
+    }
+}
+
+struct DeviceSettingsBackupGroup: View {
+    @State private var importing = false
+    @State private var pendingURL: URL?
+    @State private var status: String?
+    @State private var keyCount = DeviceSettingsBackup.snapshot().count
+
+    var body: some View {
+        SettingsGroup(title: "This device", subtitle: "Your Board, widgets, folders, Moliboo care and gesture choices. Stays on your phone unless you share the file.") {
+            VStack(spacing: 0) {
+                SettingsNavigationRow(title: "Export Device Settings", subtitle: "\(keyCount) preferences · .plist file", symbol: "square.and.arrow.up.on.square") {
+                    do {
+                        let file = try DeviceSettingsBackup.exportFile()
+                        HapticEngine.shared.play(.success)
+                        PostSharing.presentSystemSheet(items: [file.url])
+                        withAnimation(.snappy) { status = "Exported \(file.count) preferences." }
+                    } catch {
+                        HapticEngine.shared.play(.failure)
+                        withAnimation(.snappy) { status = "Couldn’t create the export." }
+                    }
+                }
+                .accessibilityIdentifier("settings.deviceBackup.export")
+                SettingsDivider()
+                SettingsNavigationRow(title: "Restore Device Settings", subtitle: "From a Modula Settings file", symbol: "square.and.arrow.down.on.square") {
+                    importing = true
+                }
+                .accessibilityIdentifier("settings.deviceBackup.restore")
+                if let status {
+                    Text(status).font(.footnote).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.propertyList, .xml]) { result in
+            if case .success(let url) = result { pendingURL = url }
+        }
+        .confirmationDialog("Restore device settings?", isPresented: Binding(get: { pendingURL != nil }, set: { if !$0 { pendingURL = nil } }),
+                            titleVisibility: .visible) {
+            Button("Restore") {
+                guard let url = pendingURL else { return }
+                do {
+                    let n = try DeviceSettingsBackup.restore(from: url)
+                    HapticEngine.shared.play(.success)
+                    withAnimation(.snappy) { status = "Restored \(n) preferences. Some changes show after reopening Modula." }
+                    keyCount = DeviceSettingsBackup.snapshot().count
+                } catch {
+                    HapticEngine.shared.play(.failure)
+                    withAnimation(.snappy) { status = "That file isn’t a Modula Settings export." }
+                }
+                pendingURL = nil
+            }
+            Button("Cancel", role: .cancel) { pendingURL = nil }
+        } message: {
+            Text("Matching preferences on this phone are replaced. Your account, messages and posts aren’t affected.")
+        }
     }
 }

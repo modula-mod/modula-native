@@ -1,6 +1,8 @@
 import SwiftUI
 import UIKit
 import Observation
+import PhotosUI
+import ImageIO
 
 // MARK: - Modula glass sheet kit (feed, summary and Discover option sheets)
 
@@ -371,6 +373,7 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, worldClock, activity, weather, today, notes, battery, moliboo, messages, streak
     case quickActions, modules, nowPlaying, photos, countdown, stopwatch, callsFavourites, connectNumber
     case focus, decide, quote, breathe, water, yearProgress
+    case habit, calculator, converter, photoFrame
     var id: Self { self }
 
     var title: String {
@@ -399,6 +402,10 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .breathe: "Breathe"
         case .water: "Water"
         case .yearProgress: "Year"
+        case .habit: "Habit"
+        case .calculator: "Calculator"
+        case .converter: "Converter"
+        case .photoFrame: "Photo Frame"
         }
     }
 
@@ -428,6 +435,10 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .breathe: "wind"
         case .water: "drop.fill"
         case .yearProgress: "chart.pie.fill"
+        case .habit: "checkmark.seal.fill"
+        case .calculator: "plus.forwardslash.minus"
+        case .converter: "arrow.left.arrow.right"
+        case .photoFrame: "photo.fill"
         }
     }
 
@@ -457,6 +468,10 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .breathe: "A one-minute breathing guide"
         case .water: "Tap to log a glass, resets daily"
         case .yearProgress: "How much of the year has gone"
+        case .habit: "Tick off a daily habit, keep the streak"
+        case .calculator: "A quick calculator"
+        case .converter: "Length, weight, temperature, volume"
+        case .photoFrame: "A photo from your library"
         }
     }
 
@@ -474,6 +489,10 @@ enum BoardWidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .breathe: [.small, .circle, .medium, .large]
         case .water: [.small, .circle, .medium, .pill]
         case .yearProgress: [.small, .circle, .medium, .pill]
+        case .habit: [.small, .medium, .pill, .circle]
+        case .calculator: [.large, .tall]
+        case .converter: [.medium, .large]
+        case .photoFrame: [.small, .medium, .large, .tall, .circle]
         default: [.small, .medium, .circle, .pill, .large]
         }
     }
@@ -881,6 +900,10 @@ struct BoardWidgetView: View {
             case .breathe: BoardBreatheFace(size: size)
             case .water: BoardWaterFace(size: size, widgetID: widget.id, goal: Int(widget.setting("goal", "8")) ?? 8)
             case .yearProgress: BoardYearFace(size: size)
+            case .habit: BoardHabitFace(size: size, widgetID: widget.id, title: widget.setting("title", "Read 10 pages"))
+            case .calculator: BoardCalculatorFace(size: size)
+            case .converter: BoardConverterFace(size: size, category: widget.setting("category", "length"))
+            case .photoFrame: BoardPhotoFrameFace(size: size, widgetID: widget.id)
             case .weather, .nowPlaying, .photos: BoardGatedFace(kind: shownKind, size: size)
             }
         }
@@ -1808,7 +1831,7 @@ struct BoardCountdownFace: View {
     let target: String
 
     private var targetDate: Date {
-        if let d = ISO8601DateFormatter().date(from: target) { return d }
+        if let d = BoardISO.date(target) { return d }
         let cal = Calendar.current
         return cal.nextDate(after: Date(), matching: DateComponents(weekday: 7), matchingPolicy: .nextTime) ?? Date()
     }
@@ -2239,7 +2262,7 @@ struct BoardView: View {
         case .modules: app.navigation.push(.productHub(.collection(.installed)))
         case .connectNumber: app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
         case .moliboo: app.navigation.push(.settings(.moliboo))
-        case .quickActions, .stopwatch, .focus, .decide, .breathe, .water: break
+        case .quickActions, .stopwatch, .focus, .decide, .breathe, .water, .habit, .calculator, .converter: break
         default: configuringID = BoardConfigTarget(id: widget.id)
         }
     }
@@ -2612,8 +2635,8 @@ struct BoardWidgetSettingsSheet: View {
                 TextField("Title", text: binding(widget, "title", "Weekend"))
                     .padding(12).modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 DatePicker("Date", selection: Binding(get: {
-                    ISO8601DateFormatter().date(from: widget.setting("date", "")) ?? Date().addingTimeInterval(86_400 * 7)
-                }, set: { d in set(widget, "date", ISO8601DateFormatter().string(from: d)) }), displayedComponents: .date)
+                    BoardISO.date(widget.setting("date", "")) ?? Date().addingTimeInterval(86_400 * 7)
+                }, set: { d in set(widget, "date", BoardISO.formatter.string(from: d)) }), displayedComponents: .date)
             }
         case .focus:
             group("Focus length") {
@@ -2624,6 +2647,20 @@ struct BoardWidgetSettingsSheet: View {
             group("Daily goal") {
                 ModulaSegmentedControl(segments: ["6", "8", "10", "12"].map { .init(id: $0, title: "\($0) glasses") },
                                        selection: binding(widget, "goal", "8"), accessibilityLabel: "Water goal", identifier: { "board.water.\($0)" })
+            }
+        case .habit:
+            group("Habit") {
+                TextField("What do you want to do daily?", text: binding(widget, "title", "Read 10 pages"))
+                    .padding(12).modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+        case .converter:
+            group("Units") {
+                ModulaSegmentedControl(segments: BoardUnitCategory.allCases.map { .init(id: $0.rawValue, title: $0.title) },
+                                       selection: binding(widget, "category", "length"), accessibilityLabel: "Unit type", identifier: { "board.converter.\($0)" })
+            }
+        case .photoFrame:
+            group("Photo") {
+                BoardPhotoPickerButton(widgetID: widget.id)
             }
         case .decide:
             group("Decide") {
@@ -3385,5 +3422,424 @@ struct BoardYearFace: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Speed: shared ISO formatter
+
+/// Speed: the Countdown face built a new `ISO8601DateFormatter` (an ICU-backed object) every time it read its
+/// target date — several times per render, every minute, per countdown widget. One shared, thread-safe formatter
+/// plus a tiny parse cache replaces those allocations.
+enum BoardISO {
+    nonisolated(unsafe) static let formatter = ISO8601DateFormatter()
+    nonisolated(unsafe) private static var cache: [String: Date] = [:]
+    static func date(_ string: String) -> Date? {
+        guard !string.isEmpty else { return nil }
+        if let hit = cache[string] { return hit }
+        guard let d = formatter.date(from: string) else { return nil }
+        if cache.count > 32 { cache.removeAll() }
+        cache[string] = d
+        return d
+    }
+}
+
+// MARK: - Habit
+
+/// Daily habit: tap to tick today; the last 7 days and the current run. Stored per widget on device.
+struct BoardHabitFace: View {
+    let size: BoardWidgetSize
+    let widgetID: String
+    let title: String
+    // raw = "<widgetID>|<y-m-d>,<y-m-d>…;…" (last 60 days kept)
+    @AppStorage("board.habit.v1") private var raw = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var days: Set<String> {
+        for entry in raw.split(separator: ";") where entry.hasPrefix("\(widgetID)|") {
+            return Set(entry.dropFirst(widgetID.count + 1).split(separator: ",").map(String.init))
+        }
+        return []
+    }
+
+    static func key(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    private func streak(_ done: Set<String>, now: Date) -> Int {
+        let cal = Calendar.current
+        var day = cal.startOfDay(for: now)
+        if !done.contains(Self.key(day)) { day = cal.date(byAdding: .day, value: -1, to: day) ?? day }
+        var n = 0
+        while done.contains(Self.key(day)) {
+            n += 1
+            guard let prev = cal.date(byAdding: .day, value: -1, to: day) else { break }
+            day = prev
+        }
+        return n
+    }
+
+    var body: some View {
+        let now = Date()
+        let done = days
+        let today = done.contains(Self.key(now))
+        let run = streak(done, now: now)
+        Group {
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 12) {
+                    tick(today, d: 38)
+                    Text(title).font(.system(size: 17, weight: .semibold)).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Label("\(run)", systemImage: "flame.fill").font(.system(size: 17, weight: .bold, design: .rounded)).monospacedDigit()
+                        .foregroundStyle(run > 0 ? .orange : .secondary)
+                }
+                .padding(.horizontal, 20)
+            case .round:
+                VStack(spacing: 4) {
+                    tick(today, d: 52)
+                    Text("\(run) day\(run == 1 ? "" : "s")").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                }
+            default:
+                VStack(alignment: .leading, spacing: 10) {
+                    BoardFaceHeader(title: "Habit", symbol: "checkmark.seal.fill", trailing: run > 0 ? "🔥 \(run)" : nil)
+                    Text(title).font(.system(size: size == .medium ? 18 : 15, weight: .semibold)).lineLimit(2)
+                    Spacer(minLength: 0)
+                    HStack(spacing: size == .medium ? 8 : 4) {
+                        ForEach(0..<7, id: \.self) { i in
+                            let day = Calendar.current.date(byAdding: .day, value: i - 6, to: now) ?? now
+                            let on = done.contains(Self.key(day))
+                            Circle().fill(on ? Color.primary : Color.primary.opacity(0.12))
+                                .frame(width: size == .medium ? 14 : 10, height: size == .medium ? 14 : 10)
+                                .scaleEffect(on && i == 6 ? 1.15 : 1)
+                        }
+                        Spacer(minLength: 0)
+                        tick(today, d: size == .medium ? 40 : 34)
+                    }
+                }
+                .padding(BoardMetrics.padding)
+            }
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6), value: today)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func tick(_ on: Bool, d: CGFloat) -> some View {
+        Button { toggleToday(on) } label: {
+            Image(systemName: on ? "checkmark" : "plus")
+                .font(.system(size: d * 0.42, weight: .bold))
+                .foregroundStyle(on ? Color.modulaOnPrimary : Color.primary)
+                .frame(width: d, height: d)
+                .background(Circle().fill(on ? AnyShapeStyle(Color.modulaPrimaryFill) : AnyShapeStyle(Color.primary.opacity(0.1))))
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.88, haptic: nil))
+        .accessibilityLabel(on ? "Done today, \(title). Tap to undo" : "Mark \(title) done today")
+    }
+
+    private func toggleToday(_ on: Bool) {
+        var set = days
+        let k = Self.key(Date())
+        if on { set.remove(k) } else { set.insert(k) }
+        // Keep the last 60 days only.
+        let cal = Calendar.current
+        let keep = Set((0..<60).compactMap { cal.date(byAdding: .day, value: -$0, to: Date()).map(Self.key) })
+        set.formIntersection(keep)
+        var entries = raw.split(separator: ";").map(String.init).filter { !$0.hasPrefix("\(widgetID)|") }
+        entries.append("\(widgetID)|" + set.sorted().joined(separator: ","))
+        raw = entries.joined(separator: ";")
+        HapticEngine.shared.play(on ? .lightImpact : .success)
+    }
+}
+
+// MARK: - Calculator
+
+struct BoardCalculatorFace: View {
+    let size: BoardWidgetSize
+    @State private var display = "0"
+    @State private var stored: Double?
+    @State private var op: String?
+    @State private var fresh = true
+
+    private static let rows: [[String]] = [["C", "±", "%", "÷"], ["7", "8", "9", "×"], ["4", "5", "6", "−"], ["1", "2", "3", "+"], ["0", ".", "⌫", "="]]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(display)
+                .font(.system(size: 40, weight: .light, design: .rounded)).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.4)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.15), value: display)
+                .textSelection(.enabled)
+                .accessibilityLabel("Result \(display)")
+            ForEach(Self.rows, id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(row, id: \.self) { key in
+                        Button { press(key) } label: {
+                            Text(key).font(.system(size: 20, weight: .medium, design: .rounded))
+                                .foregroundStyle(isOp(key) && op == key && fresh ? Color.modulaOnPrimary : Color.primary)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Capsule().fill(isOp(key) && op == key && fresh ? AnyShapeStyle(Color.modulaPrimaryFill)
+                                                                                         : AnyShapeStyle(Color.primary.opacity(isOp(key) || key == "=" ? 0.14 : 0.07))))
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.9))
+                        .accessibilityLabel(Self.spoken(key))
+                    }
+                }
+            }
+        }
+        .padding(BoardMetrics.padding)
+    }
+
+    private func isOp(_ k: String) -> Bool { ["÷", "×", "−", "+"].contains(k) }
+    private static func spoken(_ k: String) -> String {
+        switch k { case "÷": "divide"; case "×": "multiply"; case "−": "minus"; case "+": "plus"; case "±": "plus minus"
+        case "⌫": "delete"; case "C": "clear"; case "%": "percent"; case "=": "equals"; case ".": "point"; default: k }
+    }
+
+    private var value: Double { Double(display) ?? 0 }
+
+    private func show(_ v: Double) {
+        guard v.isFinite else { display = "Error"; return }
+        if v == v.rounded(), abs(v) < 1e15 { display = String(Int64(v)) }
+        else { display = String(format: "%.10g", v) }
+    }
+
+    private func press(_ k: String) {
+        switch k {
+        case "0"..."9":
+            if fresh || display == "0" || display == "Error" { display = k } else if display.count < 15 { display += k }
+            fresh = false
+        case ".":
+            if fresh || display == "Error" { display = "0."; fresh = false } else if !display.contains(".") { display += "." }
+        case "C": display = "0"; stored = nil; op = nil; fresh = true
+        case "⌫":
+            if !fresh, display.count > 1 { display.removeLast() } else { display = "0"; fresh = true }
+        case "±": show(-value)
+        case "%": show(value / 100)
+        case "=":
+            compute(); op = nil; fresh = true
+        default:
+            if !fresh || stored == nil { compute() }
+            stored = value; op = k; fresh = true
+        }
+    }
+
+    private func compute() {
+        guard let a = stored, let op else { return }
+        let b = value
+        let r: Double
+        switch op { case "+": r = a + b; case "−": r = a - b; case "×": r = a * b; default: r = b == 0 ? .nan : a / b }
+        show(r)
+        stored = r.isFinite ? r : nil
+    }
+}
+
+// MARK: - Unit converter
+
+enum BoardUnitCategory: String, CaseIterable, Identifiable {
+    case length, weight, temperature, volume
+    var id: String { rawValue }
+    var title: String { switch self { case .length: "Length"; case .weight: "Weight"; case .temperature: "Temp"; case .volume: "Volume" } }
+    var units: [(String, Dimension)] {
+        switch self {
+        case .length: [("km", UnitLength.kilometers), ("mi", UnitLength.miles), ("m", UnitLength.meters), ("ft", UnitLength.feet), ("cm", UnitLength.centimeters), ("in", UnitLength.inches)]
+        case .weight: [("kg", UnitMass.kilograms), ("lb", UnitMass.pounds), ("g", UnitMass.grams), ("oz", UnitMass.ounces), ("st", UnitMass.stones)]
+        case .temperature: [("°C", UnitTemperature.celsius), ("°F", UnitTemperature.fahrenheit), ("K", UnitTemperature.kelvin)]
+        case .volume: [("L", UnitVolume.liters), ("pt", UnitVolume.imperialPints), ("ml", UnitVolume.milliliters), ("gal", UnitVolume.imperialGallons), ("cup", UnitVolume.cups)]
+        }
+    }
+}
+
+struct BoardConverterFace: View {
+    let size: BoardWidgetSize
+    let category: String
+    @State private var input = "1"
+    @State private var from = 0
+    @State private var to = 1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var focused: Bool
+
+    private var cat: BoardUnitCategory { BoardUnitCategory(rawValue: category) ?? .length }
+
+    private var result: String {
+        let units = cat.units
+        guard let v = Double(input.replacingOccurrences(of: ",", with: ".")), units.indices.contains(from), units.indices.contains(to) else { return "—" }
+        let out = Measurement(value: v, unit: units[from].1).converted(to: units[to].1).value
+        return out.formatted(.number.precision(.significantDigits(1...6)))
+    }
+
+    var body: some View {
+        let units = cat.units
+        VStack(alignment: .leading, spacing: 10) {
+            BoardFaceHeader(title: cat.title, symbol: "arrow.left.arrow.right")
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("0", text: $input)
+                        .keyboardType(.decimalPad).focused($focused)
+                        .font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
+                        .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { focused = false } } }
+                    unitMenu(units, selection: $from)
+                }
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.7)) { swap(&from, &to) }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right").font(.system(size: 15, weight: .bold))
+                        .frame(width: 36, height: 36).background(Circle().fill(Color.primary.opacity(0.1)))
+                        .rotationEffect(.degrees(from < to ? 0 : 180))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Swap units")
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(result).font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.5)
+                        .contentTransition(.numericText()).animation(reduceMotion ? nil : .snappy(duration: 0.2), value: result)
+                        .textSelection(.enabled)
+                    unitMenu(units, selection: $to)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .padding(BoardMetrics.padding)
+        .onChange(of: category) { _, _ in from = 0; to = 1 }
+    }
+
+    private func unitMenu(_ units: [(String, Dimension)], selection: Binding<Int>) -> some View {
+        Menu {
+            ForEach(units.indices, id: \.self) { i in Button(units[i].0) { selection.wrappedValue = i } }
+        } label: {
+            HStack(spacing: 3) {
+                Text(units.indices.contains(selection.wrappedValue) ? units[selection.wrappedValue].0 : "—")
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .bold))
+            }
+            .font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Photo frame
+
+
+/// One library photo per frame, copied (downsampled to 1600 px) into Application Support; decoded off the main
+/// thread at display size and cached, so the Board never decodes a full-resolution photo.
+enum BoardPhotoStore {
+    static let versionKey = "board.photoFrame.v1"
+    nonisolated(unsafe) private static let cache = NSCache<NSString, UIImage>()
+
+    static func url(_ id: String) -> URL {
+        let dir = URL.applicationSupportDirectory.appendingPathComponent("BoardPhotos", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("\(id).jpg")
+    }
+
+    static func downsample(_ data: Data, maxPixels: CGFloat) -> CGImage? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true, kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+        ] as CFDictionary)
+    }
+
+    static func save(_ data: Data, id: String) async -> Bool {
+        await Task.detached(priority: .userInitiated) {
+            guard let cg = downsample(data, maxPixels: 1600),
+                  let jpeg = UIImage(cgImage: cg).jpegData(compressionQuality: 0.86) else { return false }
+            do { try jpeg.write(to: url(id), options: .atomic); return true } catch { return false }
+        }.value
+    }
+
+    static func image(_ id: String, token: String, maxPixels: CGFloat) async -> UIImage? {
+        let key = "\(id)|\(token)|\(Int(maxPixels))" as NSString
+        if let hit = cache.object(forKey: key) { return hit }
+        let img: UIImage? = await Task.detached(priority: .utility) {
+            guard let data = try? Data(contentsOf: url(id)), let cg = downsample(data, maxPixels: maxPixels) else { return nil }
+            return UIImage(cgImage: cg)
+        }.value
+        if let img { cache.setObject(img, forKey: key) }
+        return img
+    }
+
+    static func token(_ raw: String, id: String) -> String? {
+        for entry in raw.split(separator: ";") {
+            let p = entry.split(separator: "=")
+            if p.count == 2, p[0] == id { return String(p[1]) }
+        }
+        return nil
+    }
+
+    static func setToken(_ raw: inout String, id: String) {
+        var entries = raw.split(separator: ";").map(String.init).filter { !$0.hasPrefix("\(id)=") }
+        entries.append("\(id)=\(Int(Date().timeIntervalSince1970))")
+        raw = entries.joined(separator: ";")
+    }
+}
+
+struct BoardPhotoPickerButton: View {
+    let widgetID: String
+    @AppStorage(BoardPhotoStore.versionKey) private var raw = ""
+    @State private var item: PhotosPickerItem?
+    @State private var working = false
+
+    var body: some View {
+        PhotosPicker(selection: $item, matching: .images, photoLibrary: .shared()) {
+            HStack {
+                Image(systemName: "photo.on.rectangle")
+                Text(working ? "Adding…" : (BoardPhotoStore.token(raw, id: widgetID) == nil ? "Choose Photo" : "Change Photo"))
+                Spacer()
+                if working { ProgressView() }
+            }
+            .font(.body.weight(.semibold)).foregroundStyle(.primary)
+            .padding(14).modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+        }
+        .disabled(working)
+        .onChange(of: item) { _, new in
+            guard let new else { return }
+            working = true
+            Task {
+                if let data = try? await new.loadTransferable(type: Data.self), await BoardPhotoStore.save(data, id: widgetID) {
+                    BoardPhotoStore.setToken(&raw, id: widgetID)
+                    HapticEngine.shared.play(.success)
+                } else {
+                    HapticEngine.shared.play(.failure)
+                }
+                working = false
+                item = nil
+            }
+        }
+    }
+}
+
+struct BoardPhotoFrameFace: View {
+    let size: BoardWidgetSize
+    let widgetID: String
+    @AppStorage(BoardPhotoStore.versionKey) private var raw = ""
+    @State private var image: UIImage?
+    @Environment(\.displayScale) private var scale
+
+    var body: some View {
+        let token = BoardPhotoStore.token(raw, id: widgetID)
+        GeometryReader { g in
+            ZStack {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                        .frame(width: g.size.width, height: g.size.height).clipped()
+                        .transition(.opacity)
+                } else if token == nil {
+                    VStack(spacing: 6) {
+                        Image(systemName: "photo.badge.plus").font(.system(size: 26, weight: .semibold))
+                        if size != .circle { Text("Tap to choose a photo").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary) }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .animation(.easeOut(duration: 0.3), value: image != nil)
+            .task(id: "\(token ?? "")|\(Int(max(g.size.width, g.size.height)))") {
+                guard let token, g.size.width > 0 else { image = nil; return }
+                image = await BoardPhotoStore.image(widgetID, token: token, maxPixels: max(g.size.width, g.size.height) * scale)
+            }
+        }
+        .accessibilityLabel(token == nil ? "Photo frame, no photo chosen" : "Photo frame")
     }
 }
