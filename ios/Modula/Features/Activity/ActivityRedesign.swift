@@ -833,8 +833,10 @@ struct ActivityClusterFeed: View {
     }
 
     @ViewBuilder private var timelineRows: some View {
-            ForEach(sections, id: \.section) { group in
-                sectionHeader(group.section, clusters: group.clusters)
+            let all = sections
+            let firstSection = all.first?.section
+            ForEach(all, id: \.section) { group in
+                sectionHeader(group.section, clusters: group.clusters, isFirst: group.section == firstSection)
                 ForEach(group.clusters) { cluster in
                     row(cluster)
                     if cluster.expandsInline && expanded.contains(cluster.id) {
@@ -856,10 +858,15 @@ struct ActivityClusterFeed: View {
             }
     }
 
-    private func sectionHeader(_ section: ActivityTimelineSection, clusters: [ActivityCluster]) -> some View {
+    private func sectionHeader(_ section: ActivityTimelineSection, clusters: [ActivityCluster], isFirst: Bool) -> some View {
         let unread = clusters.reduce(0) { $0 + $1.events.filter { !$0.isRead }.count }
-        return HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(section.title).font(.headline)
+        return HStack(alignment: .center, spacing: 8) {
+            Label(section.title, systemImage: section.glassSymbol)
+                .font(.subheadline.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 30)
+                .modulaGlass(in: Capsule(), interactive: false)
             if section == .new, unread > 0 {
                 Text("\(unread)")
                     .font(.caption.weight(.bold)).monospacedDigit().foregroundStyle(.white)
@@ -869,13 +876,19 @@ struct ActivityClusterFeed: View {
             }
             Spacer(minLength: 8)
             if section == .new, unread > 0, let onMarkAllRead {
-                Button("Mark all read", action: onMarkAllRead)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
-                    .accessibilityIdentifier("activity.mark-all")
+                Button(action: onMarkAllRead) {
+                    Label("Mark all read", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 30)
+                        .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.12))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("activity.mark-all")
             }
         }
-        .padding(.top, section == sections.first?.section ? 6 : 22)
+        .padding(.top, isFirst ? 6 : 22)
         .padding(.bottom, 4)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
@@ -1074,5 +1087,17 @@ enum ModulaFixtureFilter {
             last = isDigit
         }
         return switches >= 3
+    }
+}
+
+
+extension ActivityTimelineSection {
+    var glassSymbol: String {
+        switch self {
+        case .new: "sparkles"
+        case .today: "sun.max.fill"
+        case .yesterday: "calendar"
+        case .earlier: "clock.arrow.circlepath"
+        }
     }
 }

@@ -1145,9 +1145,31 @@ struct IslandAvatarMerge<Avatar: View>: View {
 struct TelegramSettingsCard<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
+        // Liquid Glass card with a specular rim (opaque material under Reduce
+        // Transparency / Lighter effects, handled by modulaGlass).
         VStack(spacing: 0) { content }
+            .padding(.vertical, 3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+    }
+}
+
+/// Static colour field behind Settings so the glass cards have something to refract.
+/// Plain gradients (no blur), drawn once; the cards scroll over it.
+struct SettingsAmbientBackdrop: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let dark = scheme == .dark
+        let accent = app.appearance.liveAccent
+        ZStack {
+            Color(uiColor: .systemGroupedBackground)
+            RadialGradient(colors: [accent.opacity(dark ? 0.34 : 0.24), .clear], center: UnitPoint(x: 0.08, y: 0.02), startRadius: 0, endRadius: 440)
+            RadialGradient(colors: [Color.purple.opacity(dark ? 0.24 : 0.14), .clear], center: UnitPoint(x: 0.98, y: 0.38), startRadius: 0, endRadius: 400)
+            RadialGradient(colors: [Color.teal.opacity(dark ? 0.2 : 0.12), .clear], center: UnitPoint(x: 0.15, y: 0.9), startRadius: 0, endRadius: 380)
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -1179,8 +1201,14 @@ struct TelegramRow: View {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.18), radius: 0.5, y: 0.5)
                     .frame(width: 30, height: 30)
-                    .background(tint, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .background {
+                        // Lit tile: top-light gradient + a bright hairline rim.
+                        let tile = RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        tile.fill(LinearGradient(colors: [tint.mix(with: .white, by: 0.24), tint], startPoint: .top, endPoint: .bottom))
+                            .overlay(tile.strokeBorder(LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 0.7))
+                    }
                     .accessibilityHidden(true)
                 Text(title)
                     .foregroundStyle(titleColor ?? .primary)
@@ -1204,10 +1232,10 @@ struct TelegramRow: View {
                 }
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 44)
+            .frame(minHeight: 48)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TelegramRowPressStyle())
         .accessibilityElement(children: .combine)
         .accessibilityValue([value, badge.map { "\($0) new" }].compactMap { $0 }.joined(separator: ", "))
     }
@@ -1225,5 +1253,15 @@ struct SettingsQRModal: View {
             initialMode: initialMode,
             onDismiss: onClose
         )
+    }
+}
+
+
+/// Row press: a soft highlight inside the glass card instead of no feedback.
+private struct TelegramRowPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(Color.primary.opacity(configuration.isPressed ? 0.08 : 0))
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
