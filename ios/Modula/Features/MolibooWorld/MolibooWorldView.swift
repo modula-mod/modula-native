@@ -47,6 +47,7 @@ struct MolibooWorldView: View {
     @State private var showSwitcher = false
     @State private var switcherQuery = ""
     @State private var showCareSheet = false
+    @State private var game: MolibooMiniGame?
     @State private var sheet: Section?
     @State private var scrollY: CGFloat = 0
     /// Global bottom of the pinned header and top of the inline family tabs: once the tabs reach the
@@ -584,11 +585,43 @@ struct MolibooWorldView: View {
                 .accessibilityIdentifier("world.care.open").accessibilityHint("Opens Care details")
             }
             MolibooStatusPanel(state: careState, life: life) { checkIn() }
+            MolibooGoalsCard(life: life)
             Text("Activities").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
             MolibooActionGrid(life: life, asleep: careState.asleep, columns: 4) { performAction($0) }
+            Text("Mini-games").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooGamesRow { game = $0 }
+            Text("How are you feeling?").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooFeelingRow { shareFeeling($0) }
             Text("Recent moments").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
             MolibooMomentsList(moments: life.moments)
         }
+        .sheet(item: $game) { g in
+            Group {
+                switch g {
+                case .treats: MolibooTreatCatchGame { finishGame(g, score: $0) }
+                case .match: MolibooMemoryGame { finishGame(g, score: $0) }
+                }
+            }
+            .presentationDetents([.large])
+            .modulaSheetStyle()
+        }
+    }
+
+    private func finishGame(_ g: MolibooMiniGame, score: Int) {
+        if care.recordGame(characterID, name: displayName, game: g.title, score: score) {
+            joyPulseTick += 1
+            stage.bounce(allowed: motionAllowed)
+            stage.react(score >= 8 ? .excited : .happy, allowed: motionAllowed)
+            say(score >= 8 ? "That was amazing!" : "Again, again!")
+        } else {
+            say("That was fun… I need a rest.")
+        }
+    }
+
+    private func shareFeeling(_ f: MolibooFeeling) {
+        care.shareFeeling(f, id: characterID, name: displayName)
+        stage.react(f.reaction, allowed: motionAllowed)
+        say(f.line)
     }
 
     /// Runs a care action through the shared store and shows the pet's reaction (pose, pulse, speech, haptic).

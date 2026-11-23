@@ -589,3 +589,334 @@ struct MolibooProgressiveHeaderBlur: View {
                        startPoint: edge == .top ? .top : .bottom, endPoint: edge == .top ? .bottom : .top)
     }
 }
+
+// MARK: - Daily goals + week strip
+
+/// Today's care goals as a progress ring with four chips, plus the last seven check-in days.
+struct MolibooGoalsCard: View {
+    let life: MolibooLifeState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        let now = Date()
+        let goals = life.goals(on: now)
+        let done = goals.filter(\.done).count
+        let week = life.week(ending: now)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.08), lineWidth: 7)
+                    Circle().trim(from: 0, to: CGFloat(done) / CGFloat(max(goals.count, 1)))
+                        .stroke(Color.green.gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Text("\(done)/\(goals.count)").font(.caption.weight(.bold)).monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+                .frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(done == goals.count ? "All care goals done!" : "Today's care goals").font(.subheadline.weight(.semibold))
+                    Text(done == goals.count ? "Come back tomorrow for new ones." : "Feed, play, bath and cuddle once today.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 8) {
+                ForEach(goals) { g in
+                    Label(g.action.title, systemImage: g.done ? "checkmark.circle.fill" : g.action.symbol)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(g.done ? Color.green : Color.secondary)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(maxWidth: .infinity).padding(.vertical, 7)
+                        .background(Capsule().fill(Color.primary.opacity(g.done ? 0.04 : 0.06)))
+                        .accessibilityLabel("\(g.action.title), \(g.done ? "done" : "not done yet")")
+                }
+            }
+            HStack(spacing: 0) {
+                ForEach(week) { d in
+                    VStack(spacing: 4) {
+                        Text(d.date.formatted(.dateTime.weekday(.narrow))).font(.caption2).foregroundStyle(.secondary)
+                        Image(systemName: d.checked ? "flame.fill" : "circle")
+                            .font(.system(size: d.checked ? 15 : 9, weight: .semibold))
+                            .foregroundStyle(d.checked ? Color.orange : Color.secondary.opacity(0.5))
+                            .frame(height: 18)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(d.date.formatted(.dateTime.weekday(.wide))), \(d.checked ? "checked in" : "no check-in")")
+                }
+            }
+        }
+        .padding(16)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
+        .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.75), value: done)
+        .accessibilityIdentifier("care.goals")
+    }
+}
+
+// MARK: - Feelings
+
+struct MolibooFeelingRow: View {
+    let select: (MolibooFeeling) -> Void
+    @State private var picked: MolibooFeeling?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(MolibooFeeling.allCases) { f in
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.55)) { picked = f }
+                    select(f)
+                } label: {
+                    VStack(spacing: 4) {
+                        Text(f.emoji).font(.system(size: 28)).scaleEffect(picked == f ? 1.18 : 1)
+                        Text(f.label).font(.caption2.weight(.semibold)).foregroundStyle(picked == f ? .primary : .secondary)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("I feel \(f.label.lowercased())")
+                .accessibilityAddTraits(picked == f ? .isSelected : [])
+            }
+        }
+        .accessibilityIdentifier("care.feelings")
+    }
+}
+
+// MARK: - Mini-games (2D)
+
+enum MolibooMiniGame: String, Identifiable, CaseIterable {
+    case treats, match
+    var id: String { rawValue }
+    var title: String { self == .treats ? "Treat Catch" : "Memory Match" }
+    var subtitle: String { self == .treats ? "Tap treats before they land" : "Find the six pairs" }
+    var symbol: String { self == .treats ? "carrot.fill" : "square.grid.3x3.fill" }
+    var tint: Color { self == .treats ? Color(red: 0.96, green: 0.58, blue: 0.42) : Color(red: 0.45, green: 0.45, blue: 0.85) }
+    var bestKey: String { "moliboo.game.best.\(rawValue)" }
+}
+
+struct MolibooGamesRow: View {
+    let open: (MolibooMiniGame) -> Void
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(MolibooMiniGame.allCases) { g in
+                Button { open(g) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: g.symbol).font(.headline).foregroundStyle(.white)
+                            .frame(width: 38, height: 38).background(Circle().fill(g.tint.gradient))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(g.title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                            Text(g.subtitle).font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12).frame(maxWidth: .infinity, minHeight: 72)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.96))
+                .accessibilityIdentifier("care.game.\(g.rawValue)")
+            }
+        }
+    }
+}
+
+/// Shared chrome: title, live score, result card with best score and a black/white Done button.
+private struct MolibooGameChrome<Content: View>: View {
+    let game: MolibooMiniGame
+    let status: String
+    let finished: Bool
+    let resultLine: String
+    let finish: () -> Void
+    let restart: () -> Void
+    @ViewBuilder let content: Content
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                Text(game.title).font(.title3.weight(.bold))
+                Spacer()
+                Text(status).font(.subheadline.weight(.semibold)).monospacedDigit().contentTransition(.numericText())
+            }
+            ZStack {
+                content.opacity(finished ? 0.25 : 1).allowsHitTesting(!finished)
+                if finished {
+                    VStack(spacing: 12) {
+                        Text(resultLine).font(.headline).multilineTextAlignment(.center)
+                        HStack(spacing: 10) {
+                            Button("Play again", action: restart)
+                                .font(.subheadline.weight(.semibold)).padding(.horizontal, 18).frame(height: 44)
+                                .modulaGlass(in: Capsule(), interactive: true)
+                            Button { finish(); dismiss() } label: {
+                                Text("Done").font(.subheadline.weight(.semibold)).foregroundStyle(Color(uiColor: .systemBackground))
+                                    .padding(.horizontal, 22).frame(height: 44).background(Capsule().fill(Color.primary))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(20)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(20)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: finished)
+    }
+}
+
+private struct FallingTreat: Identifiable {
+    let id = UUID()
+    let x: CGFloat
+    let born: Date
+    let duration: Double
+    let symbol: String
+}
+
+/// Tap falling treats for 20 seconds. Under Reduce Motion treats pop in place and fade instead of falling.
+struct MolibooTreatCatchGame: View {
+    let finish: (Int) -> Void
+    @AppStorage(MolibooMiniGame.treats.bestKey) private var best = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var treats: [FallingTreat] = []
+    @State private var score = 0
+    @State private var started = Date()
+    @State private var running = true
+    @State private var round = 0
+    private static let length: Double = 20
+    private static let symbols = ["carrot.fill", "birthday.cake.fill", "leaf.fill", "star.fill", "heart.fill"]
+
+    var body: some View {
+        MolibooGameChrome(game: .treats, status: "\(score) caught", finished: !running,
+                          resultLine: score > 0 && score >= best ? "New best! \(score) treats" : "\(score) treats · best \(best)",
+                          finish: { finish(score) }, restart: restart) {
+            GeometryReader { g in
+                TimelineView(.animation(paused: !running)) { ctx in
+                    let left = max(0, Self.length - ctx.date.timeIntervalSince(started))
+                    ZStack(alignment: .topLeading) {
+                        Capsule().fill(Color.primary.opacity(0.08)).frame(height: 4)
+                            .overlay(alignment: .leading) {
+                                Capsule().fill(Color.primary).frame(width: g.size.width * left / Self.length, height: 4)
+                            }
+                        ForEach(treats) { t in
+                            let p: Double = min(1, ctx.date.timeIntervalSince(t.born) / t.duration)
+                            let y: CGFloat = reduceMotion ? restingY(t, height: g.size.height) : 30 + CGFloat(p) * (g.size.height - 30)
+                            Button { catchTreat(t) } label: {
+                                Image(systemName: t.symbol).font(.system(size: 30, weight: .semibold))
+                                    .foregroundStyle(Color(red: 0.96, green: 0.58, blue: 0.42).gradient)
+                                    .frame(width: 56, height: 56).contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .opacity(reduceMotion ? 1 - p : 1)
+                            .position(x: t.x * (g.size.width - 56) + 28, y: y)
+                            .accessibilityLabel("Treat")
+                        }
+                    }
+                }
+            }
+            .clipped()
+        }
+        .task(id: round) { await spawnLoop() }
+        .sensoryFeedback(.impact(weight: .light), trigger: score)
+    }
+
+    /// Reduce Motion: a fixed spot derived from the treat's x, so it pops in place.
+    private func restingY(_ t: FallingTreat, height: CGFloat) -> CGFloat {
+        let band = (t.x * 7).truncatingRemainder(dividingBy: 1)
+        return 50 + band * max(0, height - 100)
+    }
+
+    private func catchTreat(_ t: FallingTreat) {
+        guard running, let i = treats.firstIndex(where: { $0.id == t.id }) else { return }
+        treats.remove(at: i)
+        withAnimation(.snappy) { score += 1 }
+    }
+
+    private func spawnLoop() async {
+        while running && !Task.isCancelled {
+            let elapsed = Date().timeIntervalSince(started)
+            if elapsed >= Self.length {
+                running = false; treats.removeAll()
+                if score > best { best = score }
+                return
+            }
+            let now = Date()
+            treats.removeAll { now.timeIntervalSince($0.born) > $0.duration }
+            // Gets a little faster as the round goes on.
+            let duration = max(1.4, 2.8 - elapsed * 0.06) * (reduceMotion ? 0.8 : 1)
+            treats.append(FallingTreat(x: .random(in: 0...1), born: now, duration: duration, symbol: Self.symbols.randomElement() ?? "star.fill"))
+            try? await Task.sleep(for: .milliseconds(Int(max(380, 700 - elapsed * 15))))
+        }
+    }
+
+    private func restart() {
+        treats = []; score = 0; started = Date(); running = true; round += 1
+    }
+}
+
+/// Six pairs on a 4×3 grid; cards flip with a flat horizontal squash (2D, no perspective).
+struct MolibooMemoryGame: View {
+    let finish: (Int) -> Void
+    @AppStorage(MolibooMiniGame.match.bestKey) private var bestMoves = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var cards: [String] = Self.deal()
+    @State private var faceUp: Set<Int> = []
+    @State private var matched: Set<Int> = []
+    @State private var moves = 0
+    @State private var busy = false
+    private static let symbols = ["carrot.fill", "heart.fill", "star.fill", "moon.fill", "leaf.fill", "music.note"]
+    private static func deal() -> [String] { (symbols + symbols).shuffled() }
+    private var done: Bool { matched.count == cards.count }
+    /// Score for the care reward: 10 for a perfect 6-move game, minus one per extra move (min 1).
+    private var score: Int { max(1, 10 - max(0, moves - 6)) }
+
+    var body: some View {
+        MolibooGameChrome(game: .match, status: "\(moves) moves", finished: done,
+                          resultLine: bestMoves == moves ? "New best! \(moves) moves" : "\(moves) moves · best \(bestMoves)",
+                          finish: { finish(score) }, restart: restart) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                ForEach(cards.indices, id: \.self) { i in
+                    let up = faceUp.contains(i) || matched.contains(i)
+                    Button { flip(i) } label: {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(up ? AnyShapeStyle(Color.primary.opacity(0.06)) : AnyShapeStyle(Color(red: 0.45, green: 0.45, blue: 0.85).gradient))
+                            Image(systemName: up ? cards[i] : "questionmark")
+                                .font(.system(size: 26, weight: .semibold))
+                                .foregroundStyle(up ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.white.opacity(0.85)))
+                        }
+                        .aspectRatio(0.8, contentMode: .fit)
+                        .scaleEffect(x: up ? 1 : 0.98, y: 1)
+                        .opacity(matched.contains(i) ? 0.55 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(up || busy)
+                    .accessibilityLabel(up ? cards[i].replacingOccurrences(of: ".fill", with: "") : "Hidden card \(i + 1)")
+                }
+            }
+            .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: faceUp)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: matched)
+        }
+        .sensoryFeedback(.success, trigger: matched.count) { old, new in new > old }
+    }
+
+    private func flip(_ i: Int) {
+        guard !busy, !faceUp.contains(i), !matched.contains(i) else { return }
+        faceUp.insert(i)
+        guard faceUp.count == 2 else { return }
+        moves += 1
+        let pair = Array(faceUp)
+        if cards[pair[0]] == cards[pair[1]] {
+            matched.formUnion(pair); faceUp.removeAll()
+            if done, bestMoves == 0 || moves < bestMoves { bestMoves = moves }
+        } else {
+            busy = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(750))
+                faceUp.removeAll(); busy = false
+            }
+        }
+    }
+
+    private func restart() {
+        cards = Self.deal(); faceUp = []; matched = []; moves = 0; busy = false
+    }
+}
