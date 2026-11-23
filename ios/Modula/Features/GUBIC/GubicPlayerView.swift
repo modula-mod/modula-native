@@ -274,7 +274,10 @@ private struct GubicWebSurface: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
-            guard let url = action.request.url, handler?.allows(url) == true else { return decisionHandler(.cancel) }
+            guard let url = action.request.url,
+                  handler?.allowsNavigation(to: url, isMainFrame: action.targetFrame?.isMainFrame == true) == true else {
+                return decisionHandler(.cancel)
+            }
             decisionHandler(.allow)
         }
 

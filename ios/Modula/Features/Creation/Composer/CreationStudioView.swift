@@ -689,6 +689,7 @@ struct CreationStudioView: View {
                     ], startPoint: .leading, endPoint: .trailing)
                 }
 
+                ComposerReadingChip(text: store.draft.text)
                 if let limit = caps.characterLimit, limit > 0 {
                     CharacterRing(count: store.draft.text.count, limit: limit, accent: accent)
                 }
@@ -1014,4 +1015,24 @@ private struct ComposerLinkView: UIViewRepresentable {
         return view
     }
     func updateUIView(_ uiView: LPLinkView, context: Context) { uiView.metadata = metadata }
+}
+
+
+/// Word count and reading time, shown once a draft is long enough for it to matter.
+struct ComposerReadingChip: View {
+    let text: String
+    var body: some View {
+        let words = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        if words >= 40 {
+            let minutes = max(1, Int((Double(words) / 230).rounded()))
+            Text("\(words) words · \(minutes) min")
+                .font(.caption2.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .modulaGlass(in: Capsule(), interactive: false)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .accessibilityLabel("\(words) words, about \(minutes) minute read")
+        }
+    }
 }
