@@ -240,6 +240,7 @@
 		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
 		9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */; };
+		AA5E0D1000000000000000A1 /* PendingSignupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5E0D1000000000000000A2 /* PendingSignupStore.swift */; };
 		A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */; };
 		A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000002 /* LI03AppleProviderTests.swift */; };
 		A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */; };
@@ -481,6 +482,7 @@
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
+		AA5E0D1000000000000000B1 /* AuthPendingSignupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5E0D1000000000000000B2 /* AuthPendingSignupTests.swift */; };
 		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 		EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */; };
@@ -731,6 +733,7 @@
 		586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = ../PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityAuthTests.swift; sourceTree = "<group>"; };
 		6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthenticationStore.swift; path = Core/Authentication/AuthenticationStore.swift; sourceTree = "<group>"; };
+		AA5E0D1000000000000000A2 /* PendingSignupStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PendingSignupStore.swift; path = Core/Authentication/PendingSignupStore.swift; sourceTree = "<group>"; };
 		64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceCapability.swift; path = Core/Intelligence/Contracts/IntelligenceCapability.swift; sourceTree = "<group>"; };
 		65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Core/Persistence/KeychainStore.swift; sourceTree = "<group>"; };
 		6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -1018,6 +1021,7 @@
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
+		AA5E0D1000000000000000B2 /* AuthPendingSignupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthPendingSignupTests.swift; sourceTree = "<group>"; };
 		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 		736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCompatibility.swift; path = ModuleRuntime/ModuleCompatibility.swift; sourceTree = "<group>"; };
@@ -1148,6 +1152,7 @@
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
+				AA5E0D1000000000000000B2 /* AuthPendingSignupTests.swift */,
 				CA1100000000000000000100 /* CallTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
@@ -1552,6 +1557,7 @@
 				7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */,
 				007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */,
 				6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */,
+				AA5E0D1000000000000000A2 /* PendingSignupStore.swift */,
 				37BECD2968D22B6943830857 /* SignInView.swift */,
 				C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */,
 				9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */,
@@ -2023,6 +2029,7 @@
 				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
+				AA5E0D1000000000000000B1 /* AuthPendingSignupTests.swift in Sources */,
 				CA1200000000000000000100 /* CallTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
@@ -2329,6 +2336,7 @@
 				118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */,
 				02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */,
 				9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */,
+				AA5E0D1000000000000000A1 /* PendingSignupStore.swift in Sources */,
 				3AD8D6231F5274974F54F780 /* SignInView.swift in Sources */,
 				F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */,
 				40C4F5F54E3A9902F8396AC2 /* GreenfieldClient.swift in Sources */,
