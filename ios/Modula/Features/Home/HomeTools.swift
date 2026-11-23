@@ -600,6 +600,18 @@ final class BoardStore {
         }
     }
 
+    /// Live reorder while dragging on one page: `id` takes `target`'s place (iOS semantics).
+    func reorder(_ id: String, onto target: String, page pageID: String) {
+        guard id != target else { return }
+        mutate { layout in
+            guard let p = layout.pages.firstIndex(where: { $0.id == pageID }),
+                  let from = layout.pages[p].widgets.firstIndex(where: { $0.id == id }),
+                  let to = layout.pages[p].widgets.firstIndex(where: { $0.id == target }) else { return }
+            let moving = layout.pages[p].widgets.remove(at: from)
+            layout.pages[p].widgets.insert(moving, at: min(to, layout.pages[p].widgets.count))
+        }
+    }
+
     func widget(_ id: String) -> BoardWidget? {
         layout.pages.lazy.flatMap(\.widgets).first { $0.id == id }
     }
@@ -681,15 +693,113 @@ enum BoardGridPacker {
 }
 
 // MARK: Board widget rendering
+//
+// Every face is laid out on a fixed design canvas (iOS-like point sizes) and scaled to the
+// tile, so the grid, the gallery preview, the settings preview and Home's rail all show the
+// same layout with nothing clipped. Faces read AppEnvironment as optional: a face rendered
+// outside the shell (previews, drag lifts) must never trap on a missing environment object.
 
-/// One widget's face. Every kind adapts to compact (small/circle/pill) and roomy sizes.
+enum BoardMetrics {
+    static let unit: CGFloat = 80
+    static let gap: CGFloat = 14
+    static let padding: CGFloat = 16
+    static let radius: CGFloat = 22
+
+    static func canvas(_ size: BoardWidgetSize) -> CGSize {
+        let (w, h) = size.span
+        let width = CGFloat(w) * unit + CGFloat(w - 1) * gap
+        let height = CGFloat(h) * unit + CGFloat(h - 1) * gap
+        return CGSize(width: width, height: height)
+    }
+}
+
+/// Layout family for a size: what each face designs for.
+enum BoardFamily {
+    case inline, round, square, wide, big, tall
+    init(_ size: BoardWidgetSize) {
+        switch size {
+        case .pill: self = .inline
+        case .circle: self = .round
+        case .small: self = .square
+        case .medium: self = .wide
+        case .large, .extraLarge: self = .big
+        case .tall: self = .tall
+        }
+    }
+}
+
+/// Tile outline: continuous rounded rect, circle or capsule.
+struct BoardTileShape: Shape {
+    let size: BoardWidgetSize
+    var radius: CGFloat = BoardMetrics.radius
+
+    func path(in rect: CGRect) -> Path {
+        switch size {
+        case .circle: Circle().path(in: rect)
+        case .pill: Capsule(style: .continuous).path(in: rect)
+        default: RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)
+        }
+    }
+}
+
+/// The glass tile around a face. Lays the face out on its design canvas and scales it to fit.
+struct BoardWidgetChrome<Content: View>: View {
+    let size: BoardWidgetSize
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { geo in
+            let canvas = BoardMetrics.canvas(size)
+            let scale = max(0.05, min(geo.size.width / canvas.width, geo.size.height / canvas.height))
+            let fitted = CGSize(width: canvas.width * scale, height: canvas.height * scale)
+            let shape = BoardTileShape(size: size, radius: BoardMetrics.radius * scale)
+            content
+                .frame(width: canvas.width, height: canvas.height)
+                .scaleEffect(scale)
+                .frame(width: fitted.width, height: fitted.height)
+                .clipShape(shape)
+                .modulaGlass(in: shape, interactive: false)
+                .overlay(shape.boardHairline(Color.white.opacity(0.14), lineWidth: 0.7))
+                .contentShape(shape)
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+        }
+    }
+}
+
+private extension Shape {
+    func boardHairline(_ color: Color, lineWidth: CGFloat) -> some View {
+        stroke(color, lineWidth: lineWidth).padding(lineWidth / 2)
+    }
+}
+
+/// Small caps-style header used by every face.
+struct BoardFaceHeader: View {
+    let title: String
+    let symbol: String
+    var trailing: String? = nil
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: symbol).font(.system(size: 12, weight: .bold))
+            Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+            Spacer(minLength: 4)
+            if let trailing {
+                Text(trailing).font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary).monospacedDigit()
+            }
+        }
+        .foregroundStyle(.secondary)
+    }
+}
+
+/// One widget's face.
 struct BoardWidgetView: View {
     let widget: BoardWidget
     var kind: BoardWidgetKind? = nil
-    @Environment(AppEnvironment.self) private var app
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
 
     private var shownKind: BoardWidgetKind { kind ?? widget.kind }
     private var size: BoardWidgetSize { widget.size }
+    private var family: BoardFamily { BoardFamily(size) }
 
     var body: some View {
         Group {
@@ -698,126 +808,65 @@ struct BoardWidgetView: View {
             case .worldClock: BoardWorldClock(size: size, zones: widget.setting("zones", "Europe/London,America/New_York,Asia/Tokyo"))
             case .activity: BoardActivityFace(size: size)
             case .today: BoardTodayFace(size: size)
-            case .notes: notes
+            case .notes: BoardNotesFace(size: size, text: widget.setting("text", ""))
             case .battery: BoardBatteryFace(size: size)
-            case .moliboo: moliboo
-            case .messages: messages
-            case .streak: metric(value: "\(max(BoardStore.shared.streak, MascotProgressStore.shared.streak))", label: "day streak", symbol: "flame.fill")
+            case .moliboo: BoardMolibooFace(size: size)
+            case .messages: BoardMessagesFace(size: size)
+            case .streak: BoardStreakFace(size: size)
             case .quickActions: BoardQuickActions(size: size)
-            case .modules: metric(value: "\(app.catalogue.installedIDs.count)", label: "modules", symbol: "shippingbox.fill")
+            case .modules: BoardModulesFace(size: size)
             case .countdown: BoardCountdownFace(size: size, title: widget.setting("title", "Weekend"), target: widget.setting("date", ""))
             case .stopwatch: BoardStopwatchFace(size: size)
             case .callsFavourites: BoardFavouritesFace(size: size)
-            case .connectNumber: connect
-            case .weather, .nowPlaying, .photos: gated
+            case .connectNumber: BoardConnectFace(size: size)
+            case .weather, .nowPlaying, .photos: BoardGatedFace(kind: shownKind, size: size)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
 
-    private var notes: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Note", systemImage: "note.text").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-            Text(widget.setting("text", "Tap Edit, then this note, to write something."))
-                .font(size.isCompact ? .footnote.weight(.medium) : .body.weight(.medium))
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .padding(14)
-    }
+/// Big number + caption, shared by streak / modules / unread at compact sizes.
+struct BoardMetricFace: View {
+    let size: BoardWidgetSize
+    let value: String
+    let label: String
+    let symbol: String
+    var tint: Color = .primary
 
-    private var moliboo: some View {
-        VStack(spacing: 4) {
-            MolibooEmptyArt(mood: .happy, size: size == .large || size == .tall ? 64 : 36)
-            if !size.isCompact || size == .small {
-                Text(HomeMolibooGreeting.mood(hour: Calendar.current.component(.hour, from: Date()), streak: MascotProgressStore.shared.streak))
-                    .font(.caption.weight(.semibold)).multilineTextAlignment(.center).foregroundStyle(.primary)
-                    .padding(.horizontal, 8)
+    var body: some View {
+        switch BoardFamily(size) {
+        case .inline:
+            HStack(spacing: 10) {
+                Image(systemName: symbol).font(.system(size: 20, weight: .semibold)).foregroundStyle(tint)
+                Text(value).font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit().contentTransition(.numericText())
+                Text(label).font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 0)
             }
-        }
-        .padding(8)
-    }
-
-    private var messages: some View {
-        let unread = app.messaging.accountUnreadCount ?? 0
-        let recent = Array(app.messaging.visibleConversations.prefix(size == .large ? 5 : 3))
-        return Group {
-            if size.isCompact {
-                metric(value: "\(unread)", label: unread == 1 ? "unread chat" : "unread chats", symbol: "bubble.left.and.bubble.right.fill")
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Label("Chats", systemImage: "bubble.left.and.bubble.right.fill").font(.caption.weight(.bold))
-                        Spacer()
-                        if unread > 0 { Text("\(unread)").font(.caption.weight(.heavy)).contentTransition(.numericText()) }
-                    }
-                    ForEach(recent) { c in
-                        HStack(spacing: 8) {
-                            let p = c.participants.first
-                            ModulaAvatar(initials: p?.initials ?? "?", url: p?.avatarURL, size: 26, name: c.title)
-                            Text(c.title).font(.footnote.weight(c.isUnread ? .bold : .regular)).lineLimit(1)
-                            Spacer(minLength: 0)
-                            if c.isUnread { Circle().fill(Color.primary).frame(width: 7, height: 7) }
-                        }
-                    }
-                    if recent.isEmpty { Text("No chats yet").font(.footnote).foregroundStyle(.secondary) }
-                    Spacer(minLength: 0)
-                }
-                .padding(14)
+            .padding(.horizontal, 24)
+        case .round:
+            VStack(spacing: 2) {
+                Image(systemName: symbol).font(.system(size: 22, weight: .semibold)).foregroundStyle(tint)
+                Text(value).font(.system(size: 48, weight: .bold, design: .rounded)).monospacedDigit().contentTransition(.numericText())
+                    .minimumScaleFactor(0.5).lineLimit(1)
+                Text(label).font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
             }
-        }
-    }
-
-    private var connect: some View {
-        let raw = ModulaNumberStore.shared.number
-        let shown = raw.count > 4 ? raw.prefix(4) + " " + raw.dropFirst(4) : Substring(raw)
-        return VStack(alignment: .leading, spacing: 6) {
-            ModulaConnectMark(size: size.isCompact ? 26 : 32, animated: false)
-            Spacer(minLength: 0)
-            Text(String(shown)).font(.system(size: size.isCompact ? 18 : 26, weight: .bold, design: .rounded)).monospacedDigit()
-                .minimumScaleFactor(0.6).lineLimit(1)
-            Text("Modula Number").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-    }
-
-    private var gated: some View {
-        VStack(spacing: 6) {
-            Image(systemName: shownKind.symbol).font(.title2.weight(.semibold)).symbolEffect(.pulse, options: .repeating.speed(0.4))
-            Text(shownKind.title).font(.footnote.weight(.bold))
-            if !size.isCompact || size == .small {
-                Text("Coming soon").font(.caption2).foregroundStyle(.secondary)
+            .padding(24)
+        default:
+            VStack(alignment: .leading, spacing: 2) {
+                Image(systemName: symbol).font(.system(size: 22, weight: .semibold)).foregroundStyle(tint)
+                Spacer(minLength: 0)
+                Text(value).font(.system(size: 52, weight: .bold, design: .rounded)).monospacedDigit().contentTransition(.numericText())
+                    .minimumScaleFactor(0.5).lineLimit(1)
+                Text(label).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(BoardMetrics.padding)
         }
-        .padding(10)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(shownKind.title), coming soon")
-    }
-
-    private func metric(value: String, label: String, symbol: String) -> some View {
-        Group {
-            if size == .pill {
-                HStack(spacing: 10) {
-                    Image(systemName: symbol).font(.headline)
-                    Text(value).font(.title3.weight(.heavy)).contentTransition(.numericText())
-                    Text(label).font(.subheadline).foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 16)
-            } else {
-                VStack(spacing: 2) {
-                    Image(systemName: symbol).font(size == .circle ? .callout : .title3).symbolEffect(.bounce, value: value)
-                    Text(value).font(.system(size: size == .circle ? 26 : 34, weight: .heavy, design: .rounded))
-                        .contentTransition(.numericText()).minimumScaleFactor(0.5).lineLimit(1)
-                    Text(label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                }
-                .padding(10)
-            }
-        }
-        .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: Clock
 
 struct BoardClockFace: View {
     let style: String
@@ -826,21 +875,43 @@ struct BoardClockFace: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: showsSeconds ? 1 : 30)) { ctx in
-            let date = ctx.date
-            if style == "digital" || size == .pill || size == .medium {
-                VStack(alignment: size == .pill ? .center : .leading, spacing: 2) {
-                    Text(date, format: .dateTime.hour().minute())
-                        .font(.system(size: size == .pill ? 28 : (size == .large ? 64 : 44), weight: .bold, design: .rounded))
-                        .monospacedDigit().contentTransition(.numericText()).minimumScaleFactor(0.5).lineLimit(1)
-                    if size != .pill {
-                        Text(date, format: .dateTime.weekday(.wide).day().month(.wide)).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
-                    }
+            let now = ctx.date
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 12) {
+                    BoardAnalogClock(date: now, showsSeconds: false).frame(width: 52, height: 52)
+                    Text(now, format: .dateTime.hour().minute()).font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit()
+                    Spacer(minLength: 0)
+                    Text(now, format: .dateTime.weekday(.abbreviated).day()).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: size == .pill ? .center : .leading)
                 .padding(.horizontal, 16)
-                .animation(.snappy, value: date)
-            } else {
-                BoardAnalogClock(date: date, showsSeconds: showsSeconds).padding(size == .large ? 22 : 12)
+            case .wide:
+                HStack(spacing: 18) {
+                    BoardAnalogClock(date: now, showsSeconds: showsSeconds).frame(width: 142, height: 142)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(now, format: .dateTime.weekday(.wide)).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                        Text(now, format: .dateTime.hour().minute()).font(.system(size: 44, weight: .semibold, design: .rounded)).monospacedDigit()
+                            .minimumScaleFactor(0.6).lineLimit(1)
+                        Text(now, format: .dateTime.day().month(.wide)).font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(BoardMetrics.padding)
+            default:
+                if style == "digital" {
+                    VStack(spacing: 2) {
+                        Text(now, format: .dateTime.weekday(.wide)).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                        Text(now, format: .dateTime.hour().minute()).font(.system(size: size == .small || size == .circle ? 46 : 86, weight: .semibold, design: .rounded))
+                            .monospacedDigit().minimumScaleFactor(0.5).lineLimit(1)
+                        if showsSeconds {
+                            Text(now, format: .dateTime.second(.twoDigits)).font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(BoardMetrics.padding)
+                } else {
+                    BoardAnalogClock(date: now, showsSeconds: showsSeconds).padding(size == .circle ? 10 : 14)
+                }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -853,32 +924,37 @@ struct BoardAnalogClock: View {
     var showsSeconds = true
 
     var body: some View {
-        Canvas { ctx, s in
-            let r = min(s.width, s.height) / 2
-            let c = CGPoint(x: s.width / 2, y: s.height / 2)
+        Canvas { ctx, canvasSize in
+            let r = min(canvasSize.width, canvasSize.height) / 2
+            let c = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(.white.opacity(0.92)))
             for i in 0..<60 {
                 let a = Double(i) / 60 * 2 * .pi
-                let long = i % 5 == 0
-                let p1 = CGPoint(x: c.x + sin(a) * r * (long ? 0.82 : 0.9), y: c.y - cos(a) * r * (long ? 0.82 : 0.9))
-                let p2 = CGPoint(x: c.x + sin(a) * r * 0.97, y: c.y - cos(a) * r * 0.97)
-                var p = Path(); p.move(to: p1); p.addLine(to: p2)
-                ctx.stroke(p, with: .color(.primary.opacity(long ? 0.9 : 0.3)), lineWidth: long ? 2 : 1)
+                let major = i % 5 == 0
+                let inner = r * (major ? 0.82 : 0.88)
+                var p = Path()
+                p.move(to: CGPoint(x: c.x + sin(a) * inner, y: c.y - cos(a) * inner))
+                p.addLine(to: CGPoint(x: c.x + sin(a) * r * 0.93, y: c.y - cos(a) * r * 0.93))
+                ctx.stroke(p, with: .color(.black.opacity(major ? 0.85 : 0.3)), style: StrokeStyle(lineWidth: major ? r * 0.035 : r * 0.012, lineCap: .round))
             }
-            let comps = Calendar.current.dateComponents([.hour, .minute, .second, .nanosecond], from: date)
-            let sec = Double(comps.second ?? 0)
-            let min = Double(comps.minute ?? 0) + sec / 60
-            let hr = Double((comps.hour ?? 0) % 12) + min / 60
-            func hand(_ f: Double, _ len: Double, _ w: Double, _ color: Color) {
-                let a = f * 2 * .pi
-                var p = Path(); p.move(to: c)
-                p.addLine(to: CGPoint(x: c.x + sin(a) * r * len, y: c.y - cos(a) * r * len))
-                ctx.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: w, lineCap: .round))
+            let cal = Calendar.current
+            let comps = cal.dateComponents([.hour, .minute, .second, .nanosecond], from: date)
+            let s = Double(comps.second ?? 0)
+            let m = Double(comps.minute ?? 0) + s / 60
+            let h = Double((comps.hour ?? 0) % 12) + m / 60
+            func hand(_ fraction: Double, _ length: CGFloat, _ width: CGFloat, _ color: Color) {
+                let a = fraction * 2 * .pi
+                var p = Path()
+                p.move(to: CGPoint(x: c.x - sin(a) * r * 0.08, y: c.y + cos(a) * r * 0.08))
+                p.addLine(to: CGPoint(x: c.x + sin(a) * length, y: c.y - cos(a) * length))
+                ctx.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round))
             }
-            hand(hr / 12, 0.5, 4, .primary)
-            hand(min / 60, 0.74, 3, .primary)
-            if showsSeconds { hand(sec / 60, 0.84, 1.2, .orange) }
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 3.5, y: c.y - 3.5, width: 7, height: 7)), with: .color(.primary))
+            hand(h / 12, r * 0.5, r * 0.07, .black)
+            hand(m / 60, r * 0.74, r * 0.05, .black)
+            if showsSeconds { hand(s / 60, r * 0.82, r * 0.018, .orange) }
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - r * 0.05, y: c.y - r * 0.05, width: r * 0.1, height: r * 0.1)), with: .color(showsSeconds ? .orange : .black))
         }
+        .aspectRatio(1, contentMode: .fit)
     }
 }
 
@@ -886,127 +962,476 @@ struct BoardWorldClock: View {
     let size: BoardWidgetSize
     let zones: String
 
-    var body: some View {
+    private var cities: [TimeZone] {
         let ids = zones.split(separator: ",").map(String.init).compactMap(TimeZone.init(identifier:))
+        return ids.isEmpty ? [TimeZone.current] : ids
+    }
+
+    static func city(_ tz: TimeZone) -> String {
+        (tz.identifier.split(separator: "/").last.map(String.init) ?? tz.identifier).replacingOccurrences(of: "_", with: " ")
+    }
+
+    static func offset(_ tz: TimeZone, at date: Date) -> String {
+        let diff = (tz.secondsFromGMT(for: date) - TimeZone.current.secondsFromGMT(for: date)) / 3600
+        return diff == 0 ? "Local" : (diff > 0 ? "+\(diff)h" : "\(diff)h")
+    }
+
+    var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { ctx in
-            Group {
-                if size.isCompact, let first = ids.first {
-                    VStack(spacing: 2) {
-                        Text(city(first)).font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                        Text(time(ctx.date, first)).font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit()
+            let now = ctx.date
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 18) {
+                    ForEach(cities.prefix(3), id: \.identifier) { tz in
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(Self.city(tz)).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).lineLimit(1)
+                            Text(time(now, tz)).font(.system(size: 20, weight: .semibold, design: .rounded)).monospacedDigit()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                } else {
-                    HStack(spacing: 0) {
-                        ForEach(ids.prefix(size == .large ? 4 : 3), id: \.identifier) { zone in
-                            VStack(spacing: 4) {
-                                BoardAnalogClock(date: shifted(ctx.date, zone), showsSeconds: false).frame(width: 54, height: 54)
-                                Text(city(zone)).font(.caption.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
-                                Text(time(ctx.date, zone)).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                            }
-                            .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 24)
+            case .wide:
+                HStack(spacing: 10) {
+                    ForEach(cities.prefix(4), id: \.identifier) { tz in
+                        VStack(spacing: 6) {
+                            BoardAnalogClock(date: shifted(now, tz), showsSeconds: false).frame(width: 64, height: 64)
+                            Text(Self.city(tz)).font(.system(size: 13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                            Text(Self.offset(tz, at: now)).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(BoardMetrics.padding)
+            case .round, .square:
+                VStack(alignment: .leading, spacing: 8) {
+                    BoardFaceHeader(title: "World", symbol: "globe")
+                    ForEach(cities.prefix(size == .circle ? 2 : 3), id: \.identifier) { tz in
+                        HStack {
+                            Text(Self.city(tz)).font(.system(size: 14, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                            Spacer(minLength: 4)
+                            Text(time(now, tz)).font(.system(size: 16, weight: .semibold, design: .rounded)).monospacedDigit()
                         }
                     }
-                    .padding(10)
+                    Spacer(minLength: 0)
                 }
+                .padding(size == .circle ? 30 : BoardMetrics.padding)
+            case .big, .tall:
+                VStack(alignment: .leading, spacing: 12) {
+                    BoardFaceHeader(title: "World Clock", symbol: "globe")
+                    ForEach(cities.prefix(6), id: \.identifier) { tz in
+                        HStack(spacing: 12) {
+                            BoardAnalogClock(date: shifted(now, tz), showsSeconds: false).frame(width: 40, height: 40)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(Self.city(tz)).font(.system(size: 16, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                                Text(Self.offset(tz, at: now)).font(.system(size: 13)).foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 4)
+                            Text(time(now, tz)).font(.system(size: 22, weight: .semibold, design: .rounded)).monospacedDigit()
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(BoardMetrics.padding)
             }
         }
     }
 
-    private func city(_ zone: TimeZone) -> String {
-        zone.identifier.split(separator: "/").last.map { $0.replacingOccurrences(of: "_", with: " ") } ?? zone.identifier
+    private func time(_ date: Date, _ tz: TimeZone) -> String {
+        var style = Date.FormatStyle.dateTime.hour().minute()
+        style.timeZone = tz
+        return date.formatted(style)
     }
-    private func time(_ date: Date, _ zone: TimeZone) -> String {
-        var f = Date.FormatStyle.dateTime.hour().minute()
-        f.timeZone = zone
-        return date.formatted(f)
-    }
-    /// Analog hands read the local calendar, so shift the instant by the zone offset difference.
-    private func shifted(_ date: Date, _ zone: TimeZone) -> Date {
-        date.addingTimeInterval(TimeInterval(zone.secondsFromGMT(for: date) - TimeZone.current.secondsFromGMT(for: date)))
+
+    /// The analog dial uses the device calendar, so shift the instant by the zone difference.
+    private func shifted(_ date: Date, _ tz: TimeZone) -> Date {
+        date.addingTimeInterval(TimeInterval(tz.secondsFromGMT(for: date) - TimeZone.current.secondsFromGMT(for: date)))
     }
 }
+
+// MARK: Activity / streak
 
 struct BoardActivityFace: View {
     let size: BoardWidgetSize
+    private let goal = 30
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { _ in
-            let store = BoardStore.shared
-            let days = (0..<7).reversed().map { store.minutes(daysAgo: $0) }
-            let peak = max(days.max() ?? 1, 30)
-            let today = days.last ?? 0
-            Group {
-                if size.isCompact {
-                    ZStack {
-                        Circle().stroke(Color.primary.opacity(0.12), lineWidth: 8)
-                        Circle().trim(from: 0, to: min(1, Double(today) / 60)).stroke(Color.primary, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                        VStack(spacing: 0) {
-                            Text("\(today)").font(.title3.weight(.heavy)).contentTransition(.numericText())
-                            Text("min").font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(16)
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Label("Activity", systemImage: "chart.bar.fill").font(.caption.weight(.bold))
-                            Spacer()
-                            Text("\(today) min today").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                        }
-                        HStack(alignment: .bottom, spacing: 6) {
-                            ForEach(Array(days.enumerated()), id: \.offset) { i, m in
-                                Capsule().fill(Color.primary.opacity(i == 6 ? 1 : 0.35))
-                                    .frame(height: max(4, CGFloat(m) / CGFloat(peak) * 60))
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .frame(maxHeight: .infinity, alignment: .bottom)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: days)
-                    }
-                    .padding(14)
+        let store = BoardStore.shared
+        let today = store.minutesToday()
+        let week = (0..<7).reversed().map { store.minutes(daysAgo: $0) }
+        let peak = max(goal, week.max() ?? 1)
+        let progress = min(1, Double(today) / Double(goal))
+        Group {
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 12) {
+                    ring(progress, line: 7).frame(width: 40, height: 40)
+                    Text("\(today)").font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit()
+                    Text("min today").font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    bars(week, peak: peak, height: 30, width: 6)
                 }
+                .padding(.horizontal, 24)
+            case .round:
+                ZStack {
+                    ring(progress, line: 12)
+                    VStack(spacing: 0) {
+                        Text("\(today)").font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("min").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(22)
+            case .square:
+                VStack(alignment: .leading, spacing: 6) {
+                    BoardFaceHeader(title: "Activity", symbol: "chart.bar.fill")
+                    Spacer(minLength: 0)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(today)").font(.system(size: 44, weight: .bold, design: .rounded)).monospacedDigit()
+                        Text("min").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                    bars(week, peak: peak, height: 34, width: 10)
+                }
+                .padding(BoardMetrics.padding)
+            case .wide, .big, .tall:
+                VStack(alignment: .leading, spacing: 10) {
+                    BoardFaceHeader(title: "Activity", symbol: "chart.bar.fill", trailing: "Goal \(goal) min")
+                    HStack(alignment: .bottom, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("\(today)").font(.system(size: 52, weight: .bold, design: .rounded)).monospacedDigit()
+                            Text("minutes today").font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        ring(progress, line: 10).frame(width: 74, height: 74)
+                    }
+                    Spacer(minLength: 0)
+                    bars(week, peak: peak, height: size == .medium ? 34 : 120, width: size == .tall ? 12 : 22, labelled: true)
+                    if size == .large || size == .extraLarge || size == .tall {
+                        HStack {
+                            stat("Week", "\(week.reduce(0, +)) min")
+                            Spacer()
+                            stat("Average", "\(week.reduce(0, +) / 7) min")
+                            Spacer()
+                            stat("Streak", "\(store.streak) d")
+                        }
+                    }
+                }
+                .padding(BoardMetrics.padding)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Activity: \(BoardStore.shared.minutesToday()) minutes in Modula today")
+        .accessibilityLabel("Activity: \(today) minutes in Modula today")
     }
-}
 
-struct BoardTodayFace: View {
-    let size: BoardWidgetSize
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { ctx in
-            let cal = Calendar.current
-            let start = cal.startOfDay(for: ctx.date)
-            let progress = ctx.date.timeIntervalSince(start) / 86_400
-            VStack(alignment: .leading, spacing: 6) {
-                Text(ctx.date, format: .dateTime.weekday(.wide)).font(.caption.weight(.bold)).foregroundStyle(.orange)
-                Text(ctx.date, format: .dateTime.day()).font(.system(size: size.isCompact ? 40 : 52, weight: .heavy, design: .rounded))
-                if !size.isCompact || size == .small {
-                    ProgressView(value: progress).tint(.primary)
-                    Text("\(Int(progress * 100))% of today").font(.caption2).foregroundStyle(.secondary)
-                }
-                if size == .medium || size == .large || size == .tall {
-                    HStack(spacing: 4) {
-                        ForEach(-3...3, id: \.self) { offset in
-                            let d = cal.date(byAdding: .day, value: offset, to: ctx.date) ?? ctx.date
-                            VStack(spacing: 2) {
-                                Text(d, format: .dateTime.weekday(.narrow)).font(.caption2).foregroundStyle(.secondary)
-                                Text(d, format: .dateTime.day()).font(.caption.weight(offset == 0 ? .heavy : .regular))
-                                    .frame(width: 26, height: 26)
-                                    .background(Circle().fill(offset == 0 ? Color.primary.opacity(0.15) : .clear))
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
+    private func ring(_ progress: Double, line: CGFloat) -> some View {
+        ZStack {
+            Circle().stroke(Color.primary.opacity(0.14), lineWidth: line)
+            Circle().trim(from: 0, to: max(0.02, progress))
+                .stroke(Color.green, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+    }
+
+    private func bars(_ values: [Int], peak: Int, height: CGFloat, width: CGFloat, labelled: Bool = false) -> some View {
+        let cal = Calendar.current
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(values.indices, id: \.self) { i in
+                VStack(spacing: 3) {
+                    Capsule()
+                        .fill(i == values.count - 1 ? Color.green : Color.primary.opacity(0.35))
+                        .frame(width: width, height: max(4, height * CGFloat(values[i]) / CGFloat(max(peak, 1))))
+                        .frame(height: height, alignment: .bottom)
+                    if labelled {
+                        let day = cal.date(byAdding: .day, value: i - (values.count - 1), to: Date()) ?? Date()
+                        Text(day, format: .dateTime.weekday(.narrow)).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                     }
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: labelled ? .infinity : nil)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func stat(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            Text(value).font(.system(size: 17, weight: .bold, design: .rounded)).monospacedDigit()
         }
     }
 }
+
+struct BoardStreakFace: View {
+    let size: BoardWidgetSize
+    var body: some View {
+        let streak = max(BoardStore.shared.streak, MascotProgressStore.shared.streak)
+        switch BoardFamily(size) {
+        case .wide, .big, .tall:
+            VStack(alignment: .leading, spacing: 12) {
+                BoardFaceHeader(title: "Streak", symbol: "flame.fill")
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(streak)").font(.system(size: 56, weight: .bold, design: .rounded)).monospacedDigit()
+                    Text(streak == 1 ? "day" : "days").font(.system(size: 17, weight: .semibold)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    ForEach(0..<7, id: \.self) { i in
+                        let lit = (6 - i) < streak
+                        let day = Calendar.current.date(byAdding: .day, value: i - 6, to: Date()) ?? Date()
+                        VStack(spacing: 4) {
+                            Image(systemName: lit ? "flame.fill" : "circle").font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(lit ? Color.orange : Color.primary.opacity(0.25))
+                            Text(day, format: .dateTime.weekday(.narrow)).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+            .padding(BoardMetrics.padding)
+        default:
+            BoardMetricFace(size: size, value: "\(streak)", label: streak == 1 ? "day streak" : "day streak", symbol: "flame.fill", tint: .orange)
+        }
+    }
+}
+
+// MARK: Today
+
+struct BoardTodayFace: View {
+    let size: BoardWidgetSize
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { ctx in
+            let now = ctx.date
+            let cal = Calendar.current
+            let progress = now.timeIntervalSince(cal.startOfDay(for: now)) / 86_400
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 10) {
+                    Text(now, format: .dateTime.weekday(.wide)).font(.system(size: 17, weight: .semibold)).foregroundStyle(.red)
+                    Text(now, format: .dateTime.day().month(.wide)).font(.system(size: 17, weight: .semibold))
+                    Spacer(minLength: 0)
+                    Text("\(Int(progress * 100))%").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary).monospacedDigit()
+                }
+                .padding(.horizontal, 24)
+            case .round:
+                VStack(spacing: 0) {
+                    Text(now, format: .dateTime.weekday(.abbreviated)).font(.system(size: 15, weight: .bold)).foregroundStyle(.red).textCase(.uppercase)
+                    Text(now, format: .dateTime.day()).font(.system(size: 64, weight: .light, design: .rounded))
+                }
+            case .square:
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(now, format: .dateTime.weekday(.wide)).font(.system(size: 13, weight: .bold)).foregroundStyle(.red).textCase(.uppercase)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Text(now, format: .dateTime.day()).font(.system(size: 56, weight: .light, design: .rounded))
+                        .lineLimit(1).padding(.top, -2)
+                    Text(now, format: .dateTime.month(.wide)).font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    ProgressView(value: progress).tint(.primary)
+                    Text("\(Int(progress * 100))% of today").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).padding(.top, 4)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(BoardMetrics.padding)
+            case .wide:
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(now, format: .dateTime.weekday(.wide)).font(.system(size: 13, weight: .bold)).foregroundStyle(.red).textCase(.uppercase)
+                        Text(now, format: .dateTime.day()).font(.system(size: 56, weight: .light, design: .rounded))
+                        Text(now, format: .dateTime.month(.wide)).font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                    .frame(width: 110, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 10) {
+                        weekStrip(now)
+                        Spacer(minLength: 0)
+                        ProgressView(value: progress).tint(.primary)
+                        Text("\(Int(progress * 100))% of today · week \(cal.component(.weekOfYear, from: now))")
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(BoardMetrics.padding)
+            case .big, .tall:
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(now, format: .dateTime.month(.wide)).font(.system(size: 17, weight: .bold)).foregroundStyle(.red)
+                        Spacer(minLength: 0)
+                        Text(now, format: .dateTime.weekday(.wide).day()).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                    monthGrid(now, compact: size == .tall)
+                    Spacer(minLength: 0)
+                    ProgressView(value: progress).tint(.primary)
+                    Text("\(Int(progress * 100))% of today").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                }
+                .padding(BoardMetrics.padding)
+            }
+        }
+    }
+
+    private func weekStrip(_ now: Date) -> some View {
+        let cal = Calendar.current
+        return HStack(spacing: 2) {
+            ForEach(-3...3, id: \.self) { offset in
+                let d = cal.date(byAdding: .day, value: offset, to: now) ?? now
+                VStack(spacing: 3) {
+                    Text(d, format: .dateTime.weekday(.narrow)).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    Text(d, format: .dateTime.day()).font(.system(size: 14, weight: offset == 0 ? .bold : .regular, design: .rounded))
+                        .foregroundStyle(offset == 0 ? Color.white : Color.primary)
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(offset == 0 ? Color.red : .clear))
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func monthGrid(_ now: Date, compact: Bool) -> some View {
+        let cal = Calendar.current
+        let start = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
+        let days = cal.range(of: .day, in: .month, for: now)?.count ?? 30
+        let lead = (cal.component(.weekday, from: start) - cal.firstWeekday + 7) % 7
+        let today = cal.component(.day, from: now)
+        let cells: [Int] = Array(repeating: 0, count: lead) + Array(1...days)
+        let symbols = cal.veryShortStandaloneWeekdaySymbols
+        let ordered = Array(symbols[(cal.firstWeekday - 1)...] + symbols[..<(cal.firstWeekday - 1)])
+        return VStack(spacing: compact ? 4 : 6) {
+            HStack(spacing: 0) {
+                ForEach(Array(ordered.enumerated()), id: \.offset) { _, s in
+                    Text(s).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                }
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: compact ? 4 : 6) {
+                ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
+                    Text(day == 0 ? "" : "\(day)")
+                        .font(.system(size: compact ? 11 : 14, weight: day == today ? .bold : .regular, design: .rounded))
+                        .foregroundStyle(day == today ? Color.white : Color.primary)
+                        .frame(width: compact ? 20 : 30, height: compact ? 20 : 30)
+                        .background(Circle().fill(day == today ? Color.red : .clear))
+                }
+            }
+        }
+    }
+}
+
+// MARK: Notes / Moliboo / Connect / gated
+
+struct BoardNotesFace: View {
+    let size: BoardWidgetSize
+    let text: String
+
+    var body: some View {
+        let empty = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let shown = empty ? "Tap Edit, then this note, to write something." : text
+        VStack(alignment: .leading, spacing: 8) {
+            BoardFaceHeader(title: "Note", symbol: "note.text")
+            Text(shown)
+                .font(.system(size: size == .small ? 15 : 17, weight: empty ? .regular : .medium))
+                .foregroundStyle(empty ? .secondary : .primary)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .padding(size == .circle ? 30 : BoardMetrics.padding)
+        .background(alignment: .top) {
+            LinearGradient(colors: [Color.yellow.opacity(0.22), .clear], startPoint: .top, endPoint: .center)
+        }
+    }
+}
+
+struct BoardMolibooFace: View {
+    let size: BoardWidgetSize
+    var body: some View {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let line = HomeMolibooGreeting.mood(hour: hour, streak: MascotProgressStore.shared.streak)
+        switch BoardFamily(size) {
+        case .round, .inline:
+            MolibooEmptyArt(mood: .happy, size: size == .pill ? 52 : 92)
+        case .square:
+            VStack(spacing: 6) {
+                MolibooEmptyArt(mood: .happy, size: 84)
+                Text(line).font(.system(size: 13, weight: .semibold)).multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.7)
+            }
+            .padding(BoardMetrics.padding)
+        case .wide:
+            HStack(spacing: 14) {
+                MolibooEmptyArt(mood: .happy, size: 112)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Moliboo").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+                    Text(line).font(.system(size: 17, weight: .semibold)).minimumScaleFactor(0.7)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(BoardMetrics.padding)
+        case .big, .tall:
+            VStack(spacing: 12) {
+                Spacer(minLength: 0)
+                MolibooEmptyArt(mood: .happy, size: 150)
+                Text(line).font(.system(size: 19, weight: .semibold)).multilineTextAlignment(.center).minimumScaleFactor(0.7)
+                Text("\(MascotProgressStore.shared.streak)-day streak").font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding(BoardMetrics.padding)
+        }
+    }
+}
+
+struct BoardConnectFace: View {
+    let size: BoardWidgetSize
+    var body: some View {
+        let raw = ModulaNumberStore.shared.number
+        let shown = raw.count > 4 ? String(raw.prefix(4)) + " " + String(raw.dropFirst(4)) : raw
+        switch BoardFamily(size) {
+        case .inline:
+            HStack(spacing: 12) {
+                ModulaConnectMark(size: 34, animated: false)
+                Text(shown.isEmpty ? "Modula Number" : shown).font(.system(size: 22, weight: .bold, design: .rounded)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 22)
+        case .round:
+            VStack(spacing: 6) {
+                ModulaConnectMark(size: 48, animated: false)
+                Text("Connect").font(.system(size: 14, weight: .semibold))
+            }
+        default:
+            VStack(alignment: .leading, spacing: 4) {
+                ModulaConnectMark(size: 36, animated: false)
+                Spacer(minLength: 0)
+                Text("Modula Number").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+                Text(shown.isEmpty ? "Get yours" : shown).font(.system(size: size == .small ? 24 : 32, weight: .bold, design: .rounded))
+                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(BoardMetrics.padding)
+        }
+    }
+}
+
+struct BoardGatedFace: View {
+    let kind: BoardWidgetKind
+    let size: BoardWidgetSize
+    var body: some View {
+        Group {
+            if size == .pill {
+                HStack(spacing: 10) {
+                    Image(systemName: kind.symbol).font(.system(size: 20, weight: .semibold))
+                    Text(kind.title).font(.system(size: 17, weight: .semibold))
+                    Spacer(minLength: 0)
+                    Text("Coming soon").font(.system(size: 14, weight: .medium)).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 24)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: kind.symbol).font(.system(size: size == .small || size == .circle ? 30 : 44, weight: .semibold))
+                        .symbolRenderingMode(.multicolor)
+                        .symbolEffect(.pulse, options: .repeating.speed(0.4))
+                    Text(kind.title).font(.system(size: 16, weight: .semibold))
+                    Text("Coming soon").font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                }
+                .padding(BoardMetrics.padding)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(kind.title), coming soon")
+    }
+}
+
+// MARK: Battery
 
 struct BoardBatteryFace: View {
     let size: BoardWidgetSize
@@ -1015,19 +1440,34 @@ struct BoardBatteryFace: View {
 
     var body: some View {
         let pct = level < 0 ? nil : Int(level * 100)
-        ZStack {
-            Circle().stroke(Color.primary.opacity(0.12), lineWidth: 8)
-            Circle().trim(from: 0, to: CGFloat(max(0, level)))
-                .stroke(pct.map { $0 <= 20 } == true ? Color.red : Color.green, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: level)
-            VStack(spacing: 0) {
-                Image(systemName: charging ? "bolt.fill" : "iphone").font(.caption.weight(.bold))
-                    .symbolEffect(.pulse, options: .repeating, isActive: charging)
-                Text(pct.map { "\($0)%" } ?? "—").font(.headline.weight(.heavy)).contentTransition(.numericText())
+        let tint: Color = pct.map { $0 <= 20 } == true ? .red : .green
+        Group {
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 12) {
+                    Image(systemName: charging ? "bolt.fill" : "iphone").font(.system(size: 18, weight: .semibold))
+                    Capsule().fill(Color.primary.opacity(0.14)).frame(height: 12)
+                        .overlay(alignment: .leading) {
+                            GeometryReader { g in Capsule().fill(tint).frame(width: g.size.width * CGFloat(max(0.03, level))) }
+                        }
+                    Text(pct.map { "\($0)%" } ?? "—").font(.system(size: 20, weight: .bold, design: .rounded)).monospacedDigit()
+                }
+                .padding(.horizontal, 24)
+            case .round, .square:
+                ring(pct, tint: tint, line: 10, font: 26).padding(size == .circle ? 22 : 26)
+            case .wide, .big, .tall:
+                HStack(spacing: 20) {
+                    ring(pct, tint: tint, line: 12, font: 30).frame(width: 130, height: 130)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("iPhone").font(.system(size: 17, weight: .semibold))
+                        Text(charging ? "Charging" : (pct.map { $0 <= 20 } == true ? "Low battery" : "On battery"))
+                            .font(.system(size: 15)).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(BoardMetrics.padding)
             }
         }
-        .padding(18)
         .onAppear {
             UIDevice.current.isBatteryMonitoringEnabled = true
             level = UIDevice.current.batteryLevel
@@ -1040,41 +1480,224 @@ struct BoardBatteryFace: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Battery \(pct.map { "\($0) percent" } ?? "unknown")\(charging ? ", charging" : "")")
     }
+
+    private func ring(_ pct: Int?, tint: Color, line: CGFloat, font: CGFloat) -> some View {
+        ZStack {
+            Circle().stroke(Color.primary.opacity(0.14), lineWidth: line)
+            Circle().trim(from: 0, to: CGFloat(max(0, level)))
+                .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: level)
+            VStack(spacing: 2) {
+                Image(systemName: charging ? "bolt.fill" : "iphone").font(.system(size: 16, weight: .bold))
+                    .symbolEffect(.pulse, options: .repeating, isActive: charging)
+                Text(pct.map { "\($0)%" } ?? "—").font(.system(size: font, weight: .bold, design: .rounded)).monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+        }
+    }
+}
+
+// MARK: App-backed faces (AppEnvironment optional)
+
+struct BoardMessagesFace: View {
+    let size: BoardWidgetSize
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
+
+    var body: some View {
+        let unread = app?.messaging.accountUnreadCount ?? 0
+        let all = app?.messaging.visibleConversations ?? []
+        switch BoardFamily(size) {
+        case .inline, .round, .square:
+            BoardMetricFace(size: size, value: "\(unread)", label: unread == 1 ? "unread chat" : "unread chats", symbol: "bubble.left.and.bubble.right.fill")
+        case .wide, .big, .tall:
+            let recent = Array(all.prefix(size == .medium ? 2 : 6))
+            VStack(alignment: .leading, spacing: 10) {
+                BoardFaceHeader(title: "Messages", symbol: "bubble.left.and.bubble.right.fill", trailing: unread > 0 ? "\(unread) unread" : nil)
+                if recent.isEmpty {
+                    Spacer(minLength: 0)
+                    HStack { Spacer(); Label("All caught up", systemImage: "checkmark.circle").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary); Spacer() }
+                    Spacer(minLength: 0)
+                } else {
+                    ForEach(recent) { c in
+                        HStack(spacing: 10) {
+                            let p = c.participants.first
+                            ModulaAvatar(initials: p?.initials ?? "?", url: p?.avatarURL, size: 36, name: c.title)
+                            Text(c.title).font(.system(size: 15, weight: c.isUnread ? .bold : .medium)).lineLimit(1).minimumScaleFactor(0.8)
+                            Spacer(minLength: 4)
+                            if c.isUnread { Circle().fill(Color.primary).frame(width: 8, height: 8) }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(BoardMetrics.padding)
+        }
+    }
+}
+
+struct BoardModulesFace: View {
+    let size: BoardWidgetSize
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
+
+    var body: some View {
+        let ids = app?.catalogue.installedIDs ?? []
+        let products = (app?.catalogue.products ?? []).filter { ids.contains($0.moduleId) }
+        switch BoardFamily(size) {
+        case .inline, .round, .square:
+            BoardMetricFace(size: size, value: "\(ids.count)", label: ids.count == 1 ? "module" : "modules", symbol: "shippingbox.fill")
+        case .wide, .big, .tall:
+            VStack(alignment: .leading, spacing: 12) {
+                BoardFaceHeader(title: "Modules", symbol: "shippingbox.fill", trailing: "\(ids.count) installed")
+                if products.isEmpty {
+                    Spacer(minLength: 0)
+                    Text("Install modules from Product Hub.").font(.system(size: 15)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                } else {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 12) {
+                        ForEach(products.prefix(size == .medium ? 4 : 12)) { product in
+                            Button {
+                                app?.navigation.open(.module(product.moduleId, localPath: nil))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                VStack(spacing: 4) {
+                                    ProductArtwork(product: product, size: 52)
+                                    Text(product.name).font(.system(size: 11, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                                }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(BoardMetrics.padding)
+        }
+    }
 }
 
 struct BoardQuickActions: View {
     let size: BoardWidgetSize
-    @Environment(AppEnvironment.self) private var app
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
 
-    private var actions: [(String, String, AppRoute)] {
-        [("Write", "square.and.pencil", .compose(.post)), ("Search", "magnifyingglass", .search(.root(nil))),
-         ("Chats", "bubble.left.and.bubble.right", .messages(.inbox)), ("Calls", "phone", .messages(.calls))]
-    }
+    private static let all: [(String, String, AppRoute)] = [
+        ("Write", "square.and.pencil", .compose(.post)), ("Search", "magnifyingglass", .search(.root(nil))),
+        ("Chats", "bubble.left.and.bubble.right", .messages(.inbox)), ("Calls", "phone", .messages(.calls)),
+        ("Saved", "bookmark", .saved(.root)), ("Drafts", "doc.text", .drafts(.root)),
+        ("Reels", "play.rectangle", .reels(.feed)), ("Settings", "gearshape", .settings(.root))
+    ]
 
     var body: some View {
-        let shown = size == .small ? Array(actions.prefix(4)) : actions
-        let columns = size == .small ? 2 : 4
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 8) {
-            ForEach(shown, id: \.0) { item in
-                Button {
-                    HapticEngine.shared.play(.navigation)
-                    app.navigation.push(item.2)
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: item.1).font(.system(size: 17, weight: .semibold))
-                            .frame(width: 40, height: 40)
-                            .background(Circle().fill(Color.modulaPrimaryFill))
-                            .foregroundStyle(Color.modulaOnPrimary)
-                        if size != .pill && size != .small { Text(item.0).font(.caption2.weight(.semibold)).foregroundStyle(.primary) }
-                    }
+        switch BoardFamily(size) {
+        case .inline:
+            HStack(spacing: 0) {
+                ForEach(Self.all.prefix(4), id: \.0) { item in button(item, diameter: 50, labelled: false).frame(maxWidth: .infinity) }
+            }
+            .padding(.horizontal, 14)
+        case .round, .square:
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                ForEach(Self.all.prefix(4), id: \.0) { item in button(item, diameter: 60, labelled: false) }
+            }
+            .padding(size == .circle ? 26 : BoardMetrics.padding)
+        case .wide:
+            VStack(alignment: .leading, spacing: 14) {
+                BoardFaceHeader(title: "Quick Actions", symbol: "bolt.fill")
+                HStack(spacing: 0) {
+                    ForEach(Self.all.prefix(4), id: \.0) { item in button(item, diameter: 52, labelled: true).frame(maxWidth: .infinity) }
                 }
-                .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
-                .accessibilityLabel(item.0)
+                Spacer(minLength: 0)
+            }
+            .padding(BoardMetrics.padding)
+        case .big, .tall:
+            VStack(alignment: .leading, spacing: 16) {
+                BoardFaceHeader(title: "Quick Actions", symbol: "bolt.fill")
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: size == .tall ? 2 : 4), spacing: 18) {
+                    ForEach(Self.all, id: \.0) { item in button(item, diameter: 56, labelled: true) }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(BoardMetrics.padding)
+        }
+    }
+
+    private func button(_ item: (String, String, AppRoute), diameter: CGFloat, labelled: Bool) -> some View {
+        Button {
+            HapticEngine.shared.play(.navigation)
+            app?.navigation.push(item.2)
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: item.1).font(.system(size: diameter * 0.36, weight: .semibold))
+                    .foregroundStyle(Color.modulaOnPrimary)
+                    .frame(width: diameter, height: diameter)
+                    .background(Circle().fill(Color.modulaPrimaryFill))
+                if labelled {
+                    Text(item.0).font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.8)
+                }
             }
         }
-        .padding(12)
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+        .accessibilityLabel(item.0)
     }
 }
+
+struct BoardFavouritesFace: View {
+    let size: BoardWidgetSize
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
+
+    var body: some View {
+        let favs: [CallsContact] = app.map { app in app.calls.favourites.compactMap { CallsDirectory.contact(forConversation: $0, app: app) } } ?? []
+        let family = BoardFamily(size)
+        let limit = family == .inline ? 4 : (family == .square || family == .round ? 4 : (family == .wide ? 4 : 8))
+        let shown = Array(favs.prefix(limit))
+        Group {
+            if shown.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "star.circle.fill").font(.system(size: 30, weight: .semibold)).foregroundStyle(.yellow)
+                    Text("No favourites").font(.system(size: 15, weight: .semibold))
+                    if family != .inline {
+                        Text("Star people in Calls").font(.system(size: 13)).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(BoardMetrics.padding)
+            } else {
+                switch family {
+                case .inline:
+                    HStack(spacing: 0) { ForEach(shown) { c in avatar(c, 50, labelled: false).frame(maxWidth: .infinity) } }
+                        .padding(.horizontal, 14)
+                case .round, .square:
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(shown) { c in avatar(c, 60, labelled: false) }
+                    }
+                    .padding(size == .circle ? 26 : BoardMetrics.padding)
+                case .wide, .big, .tall:
+                    VStack(alignment: .leading, spacing: 14) {
+                        BoardFaceHeader(title: "Favourites", symbol: "star.fill")
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: size == .tall ? 2 : 4), spacing: 16) {
+                            ForEach(shown) { c in avatar(c, 56, labelled: true) }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(BoardMetrics.padding)
+                }
+            }
+        }
+    }
+
+    private func avatar(_ c: CallsContact, _ d: CGFloat, labelled: Bool) -> some View {
+        Button {
+            if let app, let id = c.conversationID { CallsActions.call(id, kind: .audio, app: app) }
+        } label: {
+            VStack(spacing: 5) {
+                ModulaAvatar(initials: c.initials, url: c.avatarURL, size: d, name: c.name)
+                if labelled { Text(c.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.7) }
+            }
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .selection))
+        .accessibilityLabel("Call \(c.name)")
+    }
+}
+
+// MARK: Countdown / stopwatch
 
 struct BoardCountdownFace: View {
     let size: BoardWidgetSize
@@ -1083,27 +1706,44 @@ struct BoardCountdownFace: View {
 
     private var targetDate: Date {
         if let d = ISO8601DateFormatter().date(from: target) { return d }
-        // Default: next Saturday.
         let cal = Calendar.current
         return cal.nextDate(after: Date(), matching: DateComponents(weekday: 7), matchingPolicy: .nextTime) ?? Date()
     }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { ctx in
-            let days = max(0, Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: ctx.date),
-                                                              to: Calendar.current.startOfDay(for: targetDate)).day ?? 0)
-            VStack(alignment: size == .pill ? .center : .leading, spacing: 2) {
-                if size == .pill {
-                    Text("\(title) in \(days) \(days == 1 ? "day" : "days")").font(.headline)
-                } else {
-                    Label(title, systemImage: "hourglass").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Text("\(days)").font(.system(size: size.isCompact ? 40 : 54, weight: .heavy, design: .rounded)).contentTransition(.numericText())
-                    Text(days == 1 ? "day to go" : "days to go").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            let cal = Calendar.current
+            let days = max(0, cal.dateComponents([.day], from: cal.startOfDay(for: ctx.date), to: cal.startOfDay(for: targetDate)).day ?? 0)
+            let unit = days == 1 ? "day" : "days"
+            switch BoardFamily(size) {
+            case .inline:
+                HStack(spacing: 10) {
+                    Image(systemName: "hourglass").font(.system(size: 18, weight: .semibold))
+                    Text(title).font(.system(size: 17, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                    Spacer(minLength: 4)
+                    Text("\(days)").font(.system(size: 26, weight: .bold, design: .rounded)).monospacedDigit()
+                    Text(unit).font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, 24)
+            case .round:
+                VStack(spacing: 0) {
+                    Text("\(days)").font(.system(size: 54, weight: .bold, design: .rounded)).monospacedDigit()
+                    Text(unit).font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                    Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.6).padding(.horizontal, 30)
+                }
+            default:
+                VStack(alignment: .leading, spacing: 2) {
+                    BoardFaceHeader(title: title, symbol: "hourglass")
+                    Spacer(minLength: 0)
+                    Text("\(days)").font(.system(size: size == .small ? 56 : 72, weight: .bold, design: .rounded)).monospacedDigit()
+                        .contentTransition(.numericText())
+                    Text("\(unit) to go").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary)
+                    Text(targetDate, format: .dateTime.weekday(.wide).day().month(.wide)).font(.system(size: 13)).foregroundStyle(.secondary)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .padding(BoardMetrics.padding)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: size == .pill ? .center : .leading)
-            .padding(14)
         }
     }
 }
@@ -1117,40 +1757,72 @@ struct BoardStopwatchFace: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: started == nil ? 60 : 0.1)) { ctx in
             let total = elapsed + (started.map { ctx.date.timeIntervalSince($0) } ?? 0)
-            let content = HStack(spacing: 12) {
-                Text(Self.format(total)).font(.system(size: size == .pill ? 26 : 34, weight: .bold, design: .rounded)).monospacedDigit()
-                    .contentTransition(.numericText()).minimumScaleFactor(0.5).lineLimit(1)
-                Spacer(minLength: 0)
-                Button { toggle() } label: {
-                    Image(systemName: started == nil ? "play.fill" : "pause.fill")
-                        .contentTransition(.symbolEffect(.replace))
-                        .frame(width: 40, height: 40)
-                        .background(Circle().fill(Color.modulaPrimaryFill)).foregroundStyle(Color.modulaOnPrimary)
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: .selection))
-                .accessibilityLabel(started == nil ? "Start" : "Pause")
-                Button {
-                    if started != nil { laps.insert(total, at: 0) } else { elapsed = 0; laps = [] }
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Image(systemName: started != nil ? "flag.fill" : "arrow.counterclockwise")
-                        .frame(width: 40, height: 40).modulaGlass(in: Circle(), interactive: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(started != nil ? "Lap" : "Reset")
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                content
-                if !size.isCompact {
-                    ForEach(Array(laps.prefix(size == .large ? 6 : 2).enumerated()), id: \.offset) { i, lap in
-                        HStack { Text("Lap \(laps.count - i)").foregroundStyle(.secondary); Spacer(); Text(Self.format(lap)).monospacedDigit() }
-                            .font(.footnote).transition(.move(edge: .top).combined(with: .opacity))
+            let family = BoardFamily(size)
+            Group {
+                switch family {
+                case .inline:
+                    HStack(spacing: 10) {
+                        time(total, 30)
+                        Spacer(minLength: 0)
+                        controls(total, 44)
                     }
+                    .padding(.leading, 26).padding(.trailing, 18)
+                case .round, .square:
+                    VStack(spacing: 12) {
+                        time(total, 34)
+                        HStack(spacing: 12) { controls(total, 48) }
+                    }
+                    .padding(BoardMetrics.padding)
+                default:
+                    VStack(alignment: .leading, spacing: 10) {
+                        BoardFaceHeader(title: "Stopwatch", symbol: "stopwatch")
+                        HStack {
+                            time(total, 46)
+                            Spacer(minLength: 0)
+                            controls(total, 50)
+                        }
+                        ForEach(Array(laps.prefix(family == .wide ? 1 : 6).enumerated()), id: \.offset) { i, lap in
+                            HStack {
+                                Text("Lap \(laps.count - i)").foregroundStyle(.secondary)
+                                Spacer()
+                                Text(Self.format(lap)).monospacedDigit()
+                            }
+                            .font(.system(size: 15))
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(BoardMetrics.padding)
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
             .animation(.snappy, value: laps)
         }
+    }
+
+    private func time(_ total: TimeInterval, _ font: CGFloat) -> some View {
+        Text(Self.format(total)).font(.system(size: font, weight: .semibold, design: .rounded)).monospacedDigit()
+            .lineLimit(1).minimumScaleFactor(0.5)
+    }
+
+    @ViewBuilder
+    private func controls(_ total: TimeInterval, _ d: CGFloat) -> some View {
+        Button {
+            if started != nil { laps.insert(total, at: 0) } else { elapsed = 0; laps = [] }
+            HapticEngine.shared.play(.selection)
+        } label: {
+            Image(systemName: started != nil ? "flag.fill" : "arrow.counterclockwise").font(.system(size: d * 0.36, weight: .semibold))
+                .frame(width: d, height: d).background(Circle().fill(Color.primary.opacity(0.14)))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+        .accessibilityLabel(started != nil ? "Lap" : "Reset")
+        Button { toggle() } label: {
+            Image(systemName: started == nil ? "play.fill" : "pause.fill").font(.system(size: d * 0.38, weight: .bold))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: d, height: d)
+                .background(Circle().fill(Color.modulaPrimaryFill)).foregroundStyle(Color.modulaOnPrimary)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: .selection))
+        .accessibilityLabel(started == nil ? "Start" : "Pause")
     }
 
     private func toggle() {
@@ -1163,82 +1835,69 @@ struct BoardStopwatchFace: View {
     }
 }
 
-struct BoardFavouritesFace: View {
-    let size: BoardWidgetSize
-    @Environment(AppEnvironment.self) private var app
-
-    var body: some View {
-        let favs = app.calls.favourites.compactMap { id in CallsDirectory.contact(forConversation: id, app: app) }
-        let shown = Array(favs.prefix(size == .large ? 8 : (size.isCompact ? 2 : 4)))
-        Group {
-            if shown.isEmpty {
-                VStack(spacing: 4) {
-                    Image(systemName: "star").font(.title3)
-                    Text("Add favourites in Calls").font(.caption.weight(.semibold)).multilineTextAlignment(.center).foregroundStyle(.secondary)
-                }
-                .padding(10)
-            } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: size.isCompact ? 2 : 4), spacing: 8) {
-                    ForEach(shown) { c in
-                        Button { if let id = c.conversationID { CallsActions.call(id, kind: .audio, app: app) } } label: {
-                            VStack(spacing: 3) {
-                                ModulaAvatar(initials: c.initials, url: c.avatarURL, size: size.isCompact ? 36 : 44, name: c.name)
-                                if !size.isCompact { Text(c.name).font(.caption2.weight(.semibold)).lineLimit(1) }
-                            }
-                        }
-                        .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .selection))
-                        .accessibilityLabel("Call \(c.name)")
-                    }
-                }
-                .padding(10)
-            }
-        }
-    }
-}
-
 // MARK: Board screen
 
 struct BoardView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var phase
+    @Environment(\.colorScheme) private var systemScheme
     private var store: BoardStore { BoardStore.shared }
     @State private var editing = false
     @State private var page = 0
     @State private var showsGallery = false
-    @State private var configuring: BoardWidget?
-    @State private var dragging: String?
+    @State private var configuringID: BoardConfigTarget?
     @State private var renaming = false
     @State private var pageName = ""
-    @Namespace private var widgetNS
+    // Custom reorder (no system drag preview: it renders outside the app environment).
+    @State private var dragID: String?
+    @State private var dragOrigin: CGPoint = .zero
+    @State private var dragTranslation: CGSize = .zero
+    @State private var lastSwap = Date.distantPast
 
-    private static let gap: CGFloat = 14
+    static let gap: CGFloat = 14
+    static let labelRoom: CGFloat = 22
 
     var body: some View {
         let layout = store.layout
-        ZStack {
-            BoardWallpaper(name: layout.wallpaper).ignoresSafeArea()
-            TabView(selection: $page) {
-                ForEach(Array(layout.pages.enumerated()), id: \.element.id) { index, boardPage in
-                    pageView(boardPage).tag(index)
+        GeometryReader { outer in
+            let bottomClearance = outer.safeAreaInsets.bottom + 44
+            ZStack {
+                BoardWallpaper(name: layout.wallpaper).ignoresSafeArea()
+                TabView(selection: $page) {
+                    ForEach(Array(layout.pages.enumerated()), id: \.element.id) { index, boardPage in
+                        pageView(boardPage, bottomClearance: bottomClearance).tag(index)
+                    }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                // Widgets scroll under the floating glass tab bar (so it reads as glass, not a slab).
+                .ignoresSafeArea(.container, edges: .bottom)
             }
-            .tabViewStyle(.page(indexDisplayMode: layout.pages.count > 1 ? .always : .never))
-            .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+            .overlay(alignment: .bottom) {
+                if layout.pages.count > 1 { pageDots(count: layout.pages.count).padding(.bottom, 10) }
+            }
         }
+        .environment(\.colorScheme, layout.wallpaper == "none" ? systemScheme : .dark)
         .navigationTitle(layout.pages.indices.contains(page) ? layout.pages[page].name : "Board")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
-        .sheet(isPresented: $showsGallery) { BoardWidgetGallery(page: page) }
-        .sheet(item: $configuring) { widget in BoardWidgetSettingsSheet(widgetID: widget.id) }
+        .sheet(isPresented: $showsGallery) { BoardWidgetGallery(page: min(page, max(0, store.layout.pages.count - 1))) }
+        .sheet(item: $configuringID) { target in BoardWidgetSettingsSheet(widgetID: target.id) }
         .alert("Rename Page", isPresented: $renaming) {
             TextField("Name", text: $pageName)
             Button("Save") {
                 let name = pageName.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !name.isEmpty else { return }
-                store.mutate { $0.pages[min(page, $0.pages.count - 1)].name = String(name.prefix(24)) }
+                let index = page
+                store.mutate { layout in
+                    guard layout.pages.indices.contains(index) else { return }
+                    layout.pages[index].name = String(name.prefix(24))
+                }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .onChange(of: store.layout.pages.count) { _, count in
+            if page >= count { page = max(0, count - 1) }
         }
         .onAppear { store.appBecameActive() }
         .onChange(of: phase) { _, p in
@@ -1247,11 +1906,27 @@ struct BoardView: View {
         .accessibilityIdentifier("board.root")
     }
 
+    private func pageDots(count: Int) -> some View {
+        HStack(spacing: 7) {
+            ForEach(0..<count, id: \.self) { i in
+                Capsule()
+                    .fill(Color.white.opacity(i == page ? 0.95 : 0.4))
+                    .frame(width: i == page ? 18 : 7, height: 7)
+                    .onTapGesture { withAnimation(.snappy) { page = i } }
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .modulaGlass(in: Capsule(), interactive: false)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: page)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Page \(page + 1) of \(count)")
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             if editing {
-                Button { withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { editing = false } } label: {
+                Button { stopEditing() } label: {
                     Text("Done").font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.modulaPrimary)
@@ -1288,7 +1963,9 @@ struct BoardView: View {
                     }
                     Toggle("Widget Labels", isOn: Binding(get: { store.layout.showsLabels }, set: { v in store.mutate { $0.showsLabels = v } }))
                     Button("Reset Board", systemImage: "arrow.counterclockwise", role: .destructive) {
-                        withAnimation(.spring) { store.reset(); page = 0 }
+                        dragID = nil
+                        page = 0
+                        withAnimation(.spring) { store.reset() }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle").font(.body.weight(.semibold))
@@ -1305,55 +1982,101 @@ struct BoardView: View {
     }
 
     private func startEditing() {
+        guard !editing else { return }
         HapticEngine.shared.play(.success)
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { editing = true }
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) { editing = true }
     }
 
-    private func pageView(_ boardPage: BoardPage) -> some View {
+    private func stopEditing() {
+        dragID = nil
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { editing = false }
+    }
+
+    private func pageView(_ boardPage: BoardPage, bottomClearance: CGFloat) -> some View {
         GeometryReader { geo in
             let inset = ModulaLayout.contentInset
-            let cell = (geo.size.width - inset * 2 - Self.gap * 3) / 4
-            let packed = BoardGridPacker.pack(boardPage.widgets)
-            let labelRoom: CGFloat = store.layout.showsLabels ? 18 : 0
-            let rowHeight = cell + (labelRoom / 2)
+            let cell = max(40, (geo.size.width - inset * 2 - Self.gap * 3) / 4)
+            let widgets = boardPage.widgets
+            let packed = BoardGridPacker.pack(widgets)
+            let labelRoom: CGFloat = store.layout.showsLabels ? Self.labelRoom : 0
+            let rowHeight = cell + labelRoom / 2
+            let frames = Self.frames(packed.slots, cell: cell, rowHeight: rowHeight, labelRoom: labelRoom)
             ScrollView {
                 ZStack(alignment: .topLeading) {
-                    Color.clear.frame(height: CGFloat(packed.rows) * (rowHeight + Self.gap) + 120)
-                    ForEach(boardPage.widgets) { widget in
-                        if let slot = packed.slots[widget.id] {
-                            let w = CGFloat(slot.w) * cell + CGFloat(slot.w - 1) * Self.gap
-                            let h = CGFloat(slot.h) * rowHeight + CGFloat(slot.h - 1) * Self.gap - labelRoom
-                            BoardWidgetTile(widget: widget, editing: editing, dragging: dragging == widget.id, showsLabel: store.layout.showsLabels,
+                    Color.clear.frame(height: CGFloat(packed.rows) * (rowHeight + Self.gap))
+                    ForEach(widgets) { widget in
+                        if let frame = frames[widget.id] {
+                            let isDragged = dragID == widget.id
+                            let origin = isDragged
+                                ? CGPoint(x: dragOrigin.x + dragTranslation.width, y: dragOrigin.y + dragTranslation.height)
+                                : frame.origin
+                            BoardWidgetTile(widget: widget, editing: editing, lifted: isDragged, showsLabel: store.layout.showsLabels,
+                                            labelRoom: labelRoom,
                                             onTap: { tapped(widget) },
-                                            onRemove: { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { store.remove(widget.id) } },
-                                            onLongPress: { if !editing { startEditing() } })
-                                .frame(width: w, height: h + labelRoom)
-                                .matchedGeometryEffect(id: widget.id, in: widgetNS)
-                                .offset(x: CGFloat(slot.x) * (cell + Self.gap), y: CGFloat(slot.y) * (rowHeight + Self.gap))
-                                .draggable(widget.id) {
-                                    BoardWidgetChrome(size: widget.size) { BoardWidgetView(widget: widget) }
-                                        .frame(width: w, height: h).onAppear { dragging = widget.id }
-                                }
-                                .dropDestination(for: String.self) { ids, _ in
-                                    guard let id = ids.first else { return false }
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) { store.move(id, before: widget.id) }
-                                    HapticEngine.shared.play(.selection)
-                                    dragging = nil
-                                    return true
-                                }
-                                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                                            onRemove: { remove(widget.id) },
+                                            onLongPress: { startEditing() })
+                                .frame(width: frame.width, height: frame.height)
+                                .offset(x: origin.x, y: origin.y)
+                                .zIndex(isDragged ? 10 : 0)
+                                .highPriorityGesture(reorderGesture(widget.id, frame: frame, frames: frames, pageID: boardPage.id),
+                                                     including: editing ? .all : .subviews)
+                                .transition(.scale(scale: 0.5).combined(with: .opacity))
                         }
                     }
                 }
                 .padding(.horizontal, inset)
-                .padding(.top, 12)
-                .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.8), value: boardPage.widgets)
-                if boardPage.widgets.isEmpty { emptyPage }
+                .padding(.top, 14)
+                .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.8), value: widgets)
+                if widgets.isEmpty { emptyPage }
+                Color.clear.frame(height: bottomClearance)
             }
             .scrollIndicators(.hidden)
+            .scrollDisabled(dragID != nil)
             .contentShape(Rectangle())
-            .onLongPressGesture(minimumDuration: 0.5) { if !editing { startEditing() } }
+            .onLongPressGesture(minimumDuration: 0.5) { startEditing() }
         }
+    }
+
+    static func frames(_ slots: [String: BoardGridPacker.Slot], cell: CGFloat, rowHeight: CGFloat, labelRoom: CGFloat) -> [String: CGRect] {
+        slots.mapValues { slot in
+            let w = CGFloat(slot.w) * cell + CGFloat(slot.w - 1) * gap
+            let h = CGFloat(slot.h) * rowHeight + CGFloat(slot.h - 1) * gap
+            return CGRect(x: CGFloat(slot.x) * (cell + gap), y: CGFloat(slot.y) * (rowHeight + gap), width: w, height: h)
+        }
+    }
+
+    private func reorderGesture(_ id: String, frame: CGRect, frames: [String: CGRect], pageID: String) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { value in
+                guard editing else { return }
+                if dragID != id {
+                    dragOrigin = frame.origin
+                    dragID = id
+                    HapticEngine.shared.play(.selection)
+                }
+                dragTranslation = value.translation
+                let center = CGPoint(x: dragOrigin.x + value.translation.width + frame.width / 2,
+                                     y: dragOrigin.y + value.translation.height + frame.height / 2)
+                guard Date().timeIntervalSince(lastSwap) > 0.22,
+                      let target = frames.first(where: { $0.key != id && $0.value.insetBy(dx: 10, dy: 10).contains(center) })?.key else { return }
+                lastSwap = Date()
+                withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) { store.reorder(id, onto: target, page: pageID) }
+                HapticEngine.shared.play(.selection)
+            }
+            .onEnded { _ in
+                guard dragID != nil else { return }
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+                    dragID = nil
+                    dragTranslation = .zero
+                }
+            }
+    }
+
+    private func remove(_ id: String) {
+        if dragID == id { dragID = nil }
+        if configuringID?.id == id { configuringID = nil }
+        HapticEngine.shared.play(.warning)
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) { store.remove(id) }
     }
 
     private var emptyPage: some View {
@@ -1370,8 +2093,9 @@ struct BoardView: View {
     }
 
     private func tapped(_ widget: BoardWidget) {
+        guard store.widget(widget.id) != nil else { return }
         if editing {
-            configuring = widget
+            configuringID = BoardConfigTarget(id: widget.id)
             return
         }
         HapticEngine.shared.play(.navigation)
@@ -1382,104 +2106,113 @@ struct BoardView: View {
         case .connectNumber: app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
         case .moliboo: app.navigation.push(.settings(.moliboo))
         case .quickActions, .stopwatch: break
-        default: configuring = widget
+        default: configuringID = BoardConfigTarget(id: widget.id)
         }
     }
 }
 
-/// The glass shape around a widget: rounded rect, circle or capsule.
-struct BoardWidgetChrome<Content: View>: View {
-    let size: BoardWidgetSize
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        Group {
-            switch size {
-            case .circle:
-                content.clipShape(Circle()).modulaGlass(in: Circle(), interactive: true)
-            case .pill:
-                content.clipShape(Capsule()).modulaGlass(in: Capsule(), interactive: true)
-            default:
-                let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
-                content.clipShape(shape).modulaGlass(in: shape, interactive: true)
-            }
-        }
-    }
-}
+/// Sheet item that carries only the id, so the sheet re-reads the live widget (or closes if it's gone).
+struct BoardConfigTarget: Identifiable, Hashable { let id: String }
 
 struct BoardWidgetTile: View {
     let widget: BoardWidget
     let editing: Bool
-    var dragging = false
+    var lifted = false
     var showsLabel = true
+    var labelRoom: CGFloat = 22
     var onTap: () -> Void
     var onRemove: () -> Void
     var onLongPress: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var wiggle = false
     @State private var stackIndex = 0
+    /// Per-tile jiggle character: random phase, amplitude and tempo, like the Home Screen.
+    @State private var amp = Double.random(in: 1.1...1.8)
+    @State private var tempo = Double.random(in: 0.12...0.16)
+    @State private var phaseDelay = Double.random(in: 0...0.12)
+    @State private var startsLeft = Bool.random()
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             BoardWidgetChrome(size: widget.size) {
                 if widget.stack.isEmpty {
                     BoardWidgetView(widget: widget)
                 } else {
+                    let kinds = widget.kinds
                     TabView(selection: $stackIndex) {
-                        ForEach(Array(widget.kinds.enumerated()), id: \.offset) { i, kind in
+                        ForEach(Array(kinds.enumerated()), id: \.offset) { i, kind in
                             BoardWidgetView(widget: widget, kind: kind).tag(i)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .overlay(alignment: .trailing) {
-                        VStack(spacing: 3) {
-                            ForEach(widget.kinds.indices, id: \.self) { i in
-                                Capsule().fill(Color.primary.opacity(i == stackIndex ? 0.9 : 0.25)).frame(width: 4, height: i == stackIndex ? 12 : 5)
+                        VStack(spacing: 4) {
+                            ForEach(kinds.indices, id: \.self) { i in
+                                Capsule().fill(Color.primary.opacity(i == stackIndex ? 0.9 : 0.3)).frame(width: 5, height: i == stackIndex ? 14 : 6)
                             }
                         }
-                        .padding(.trailing, 6)
+                        .padding(.trailing, 7)
                         .animation(.snappy, value: stackIndex)
                     }
+                    .onChange(of: kinds.count) { _, count in if stackIndex >= count { stackIndex = 0 } }
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onTap() }
-            .onLongPressGesture(minimumDuration: 0.45) { onLongPress() }
-            .overlay(alignment: .topLeading) {
-                if editing {
-                    Button(action: onRemove) {
-                        Image(systemName: "minus").font(.system(size: 13, weight: .heavy))
-                            .foregroundStyle(Color.modulaOnPrimary)
-                            .frame(width: 26, height: 26)
-                            .background(Circle().fill(Color.modulaPrimaryFill))
-                            .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: -8, y: -8)
-                    .transition(.scale.combined(with: .opacity))
-                    .accessibilityLabel("Remove \(widget.kind.title)")
-                }
-            }
+            .allowsHitTesting(!editing)
+            .scaleEffect(lifted ? 1.06 : 1)
+            .shadow(color: .black.opacity(lifted ? 0.35 : 0.12), radius: lifted ? 18 : 6, y: lifted ? 10 : 3)
             if showsLabel {
                 Text(widget.stack.isEmpty ? widget.kind.title : "Smart Stack")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.primary.opacity(0.85))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
                     .lineLimit(1)
-                    .frame(height: 14)
+                    .minimumScaleFactor(0.8)
+                    .frame(height: labelRoom - 6)
+                    .opacity(lifted ? 0 : 1)
             }
         }
-        .opacity(dragging ? 0.4 : 1)
-        .rotationEffect(.degrees(editing && !reduceMotion ? (wiggle ? 1.4 : -1.4) : 0))
-        .animation(editing && !reduceMotion
-                   ? .easeInOut(duration: 0.13 + Double(abs(widget.id.hashValue % 5)) * 0.01).repeatForever(autoreverses: true)
-                   : .spring(response: 0.3), value: wiggle)
-        .onChange(of: editing) { _, on in wiggle = on }
-        .onAppear { if editing { wiggle = true } }
+        // Remove badge sits outside the top-left corner, above the content (Home Screen style).
+        .overlay(alignment: .topLeading) {
+            if editing && !lifted {
+                Button(action: onRemove) {
+                    Image(systemName: "minus")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(.black)
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(Color(white: 0.92)))
+                        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.85, haptic: nil))
+                .offset(x: -19, y: -19)
+                .transition(.scale(scale: 0.2).combined(with: .opacity))
+                .accessibilityLabel("Remove \(widget.kind.title)")
+                .accessibilityIdentifier("board.remove.\(widget.kind.rawValue)")
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .onLongPressGesture(minimumDuration: 0.45) { if !editing { onLongPress() } }
+        .rotationEffect(.degrees(editing && !lifted && !reduceMotion ? (wiggle == startsLeft ? amp : -amp) : 0))
+        .onChange(of: editing) { _, on in on ? beginJiggle() : endJiggle() }
+        .onChange(of: lifted) { _, up in if !up && editing { beginJiggle() } }
+        .onAppear { if editing { beginJiggle() } }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(widget.kind.title)
         .accessibilityHint(editing ? "Opens widget settings. Drag to reorder." : "Long-press to edit the Board")
         .accessibilityAction(named: "Remove") { onRemove() }
         .accessibilityIdentifier("board.widget.\(widget.kind.rawValue)")
+    }
+
+    private func beginJiggle() {
+        guard !reduceMotion else { return }
+        wiggle = false
+        withAnimation(.easeInOut(duration: tempo).repeatForever(autoreverses: true).delay(phaseDelay)) { wiggle = true }
+    }
+
+    private func endJiggle() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { wiggle = false }
     }
 }
 
@@ -1495,6 +2228,7 @@ struct BoardWallpaper: View {
         }
     }
 }
+
 
 // MARK: Gallery and settings
 
