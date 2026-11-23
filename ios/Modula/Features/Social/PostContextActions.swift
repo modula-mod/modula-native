@@ -494,6 +494,9 @@ private struct PostMenuOverlay: View {
                             if caps.muteAuthor { row("mute-author", "Mute @\(handle)", "speaker.slash") }
                         }
                         row("hide", "Hide post", "rectangle.slash")
+                        ForEach(PostMuteCandidates.tags(in: request.post.text, muted: app.home.mutedWords), id: \.self) { tag in
+                            row("mute-word:\(tag)", "Mute \(tag)", "text.badge.minus")
+                        }
                         if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
                         if handle != nil { row("block-author", "Block", "nosign", destructive: true) }
                         row("report", "Report post", "flag", destructive: true)
@@ -870,6 +873,11 @@ enum PostMenuExecutor {
             app.navigation.presented = .collectionPicker(postID: post.id)
         case "translate":
             hooks.onTranslate?()
+        case let value where value.hasPrefix("mute-word:"):
+            let word = String(value.dropFirst("mute-word:".count))
+            app.home.setMutedWords(app.home.mutedWords + [word])
+            HapticEngine.shared.play(.success)
+            app.navigation.flash("Muted \(word). Undo in Settings › Muted Words", symbol: "text.badge.minus")
         case "interactions":
             let caps = app.postActions.capabilities
             if caps.reactionsList || caps.reactionsSummary {
@@ -1250,5 +1258,25 @@ enum PostFirstLink {
         if cache.count > 300 { cache.removeAll() }
         cache[text] = url
         return url
+    }
+}
+
+
+/// Up to two #tags from a post that you could mute from its long-press menu (t235u).
+enum PostMuteCandidates {
+    static func tags(in text: String?, muted: [String]) -> [String] {
+        guard let text, text.contains("#") else { return [] }
+        let mutedSet = Set(muted.map { $0.lowercased() })
+        var seen = Set<String>()
+        var out: [String] = []
+        guard let regex = try? Regex("#[\\p{L}\\p{N}_]{2,40}") else { return [] }
+        for match in text.matches(of: regex) {
+            let tag = String(text[match.range])
+            let key = tag.lowercased()
+            guard !mutedSet.contains(key), !mutedSet.contains(String(key.dropFirst())), seen.insert(key).inserted else { continue }
+            out.append(tag)
+            if out.count == 2 { break }
+        }
+        return out
     }
 }
