@@ -5,18 +5,42 @@ struct CommunityRootView: View {
 
     var body: some View {
         Group {
-            switch route {
-            case .modulaBuilders: CommunityBuildersView()
-            case .settings: CommunitySettingsView()
-            case .poll: CommunityPollView()
-            case .event: CommunityEventView()
-            default: CommunityHubView(route: route)
+            if CommunityAPIFeatureFlags.isEnabled {
+                liveBody
+            } else if CommunityFeatureFlags.isEnabled {
+                localBody
+            } else {
+                CommunityUnavailableView()
             }
         }
         .modulaCanvas()
-        .navigationTitle(route.navigationTitle)
+        .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(accessibilityID)
+    }
+
+    private var navigationTitle: String {
+        (CommunityAPIFeatureFlags.isEnabled || CommunityFeatureFlags.isEnabled) ? route.navigationTitle : CommunityCopy.title
+    }
+
+    @ViewBuilder private var liveBody: some View {
+        switch route {
+        case .modulaBuilders: CommunityBuildersView()
+        case .settings: CommunitySettingsView()
+        case .poll: CommunityPollView()
+        case .event: CommunityEventView()
+        default: CommunityHubView(route: route)
+        }
+    }
+
+    @ViewBuilder private var localBody: some View {
+        switch route {
+        case .modulaBuilders: CommunityLocalBuildersView()
+        case .settings: CommunityLocalSettingsView()
+        case .poll: CommunityLocalPollView()
+        case .event: CommunityLocalEventView()
+        default: CommunityLocalHubView(route: route)
+        }
     }
 
     private var accessibilityID: String {
@@ -632,15 +656,39 @@ struct CommunityPanel<Content: View>: View {
     }
 }
 
+struct CommunityUnavailableView: View {
+    var body: some View {
+        ModulaEmptyState(
+            title: CommunityCopy.title,
+            message: "\(CommunityCopy.comingSoon). \(CommunityCopy.noRoutes)",
+            symbol: "person.3"
+        )
+    }
+}
+
 #if DEBUG
 struct CommunityDeveloperEntry: View {
     @Environment(AppEnvironment.self) private var app
+    @State private var shellEnabled = CommunityFeatureFlags.isEnabled
+    @State private var apiEnabled = CommunityAPIFeatureFlags.isEnabled
 
     var body: some View {
-        Button("Open Community") {
-            app.navigation.open(.community(.hub))
+        Toggle("Community shell", isOn: $shellEnabled)
+            .onChange(of: shellEnabled) { _, value in
+                CommunityFeatureFlags.setEnabled(value)
+            }
+            .accessibilityIdentifier("developer.community.toggle")
+        Toggle("GreenField community APIs", isOn: $apiEnabled)
+            .onChange(of: apiEnabled) { _, value in
+                CommunityAPIFeatureFlags.setEnabled(value)
+            }
+            .accessibilityIdentifier("developer.community.api.toggle")
+        if shellEnabled || apiEnabled {
+            Button("Open Community") {
+                app.navigation.open(.community(.hub))
+            }
+            .accessibilityIdentifier("developer.community.open")
         }
-        .accessibilityIdentifier("developer.community.open")
     }
 }
 #endif

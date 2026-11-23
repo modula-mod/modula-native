@@ -1,12 +1,59 @@
 import Foundation
 import Observation
 
-/// Communities are a shipped GreenField capability. This invariant remains typed so
-/// older deep links and the developer diagnostics entry do not need a second route.
+/// Community shell gate. Release builds are always off, including when a debug
+/// default was copied onto a device. Debug defaults on so the local preview shell
+/// can be reviewed — this matches main. The live GreenField community API is a
+/// separate flag and is off by default in Debug and always off in Release.
 enum CommunityFeatureFlags {
-    static var isEnabled: Bool { true }
+    static let storageKey = "dev.community.shell"
 
-    static func isEnabled(defaults _: UserDefaults, release _: Bool) -> Bool { true }
+    static var isEnabled: Bool { isEnabled(defaults: .standard, release: isReleaseBuild) }
+
+    static var isReleaseBuild: Bool {
+        #if DEBUG
+        false
+        #else
+        true
+        #endif
+    }
+
+    static func isEnabled(defaults: UserDefaults, release: Bool) -> Bool {
+        if release { return false }
+        guard defaults.object(forKey: storageKey) != nil else { return true }
+        return defaults.bool(forKey: storageKey)
+    }
+
+    static func setEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
+        guard !isReleaseBuild else { return }
+        defaults.set(enabled, forKey: storageKey)
+    }
+}
+
+/// Live GreenField `/v1/communities` client, membership, posts, polls and events.
+/// Off by default in Debug (key unset or false). Always off in Release.
+enum CommunityAPIFeatureFlags {
+    static let storageKey = "dev.community.api"
+
+    static var isEnabled: Bool { isEnabled(defaults: .standard, release: isReleaseBuild) }
+
+    static var isReleaseBuild: Bool {
+        #if DEBUG
+        false
+        #else
+        true
+        #endif
+    }
+
+    static func isEnabled(defaults: UserDefaults, release: Bool) -> Bool {
+        if release { return false }
+        return defaults.bool(forKey: storageKey)
+    }
+
+    static func setEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
+        guard !isReleaseBuild else { return }
+        defaults.set(enabled, forKey: storageKey)
+    }
 }
 
 enum CommunityRoute: String, CaseIterable, Codable, Hashable, Identifiable {
@@ -316,12 +363,98 @@ struct CommunitySettingsDraft: Equatable, Sendable {
 enum CommunityCopy {
     static let title = "Community"
     static let subtitle = "Creators, builders and explorers. Together on Modula."
+    static let comingSoon = "Coming soon"
+    static let noRoutes = "Greenfield has no communities routes, so this is not a live member list, post, or event."
     static let searchPrompt = "Search communities"
     static let buildersTitle = "Modula Builders"
     static let postsEmpty = "No community posts yet."
     static let membersEmpty = "No members to show."
     static let pollsEmpty = "No community polls yet."
     static let eventsEmpty = "No community events scheduled."
+}
+
+/// Device-only preferences used by the local preview shell. Nothing here is a
+/// member count, a post, or a server write.
+struct CommunityLocalSettings: Codable, Equatable, Sendable {
+    var displayName: String = ""
+    var summary: String = ""
+    var isPrivate = false
+    var joinApproval = false
+    var inviteLinks = false
+    var adminsOnlyPosting = false
+    var allowAttachments = true
+    var reactions = true
+    var featuredPosts = false
+    var notifyMentions = true
+    var weeklyDigest = false
+    var eventReminders = false
+    var interestedOnDevice = false
+    var blockedWords: String = ""
+
+    static let storageKey = "community.local.settings"
+
+    static func load(defaults: UserDefaults = .standard) -> Self {
+        guard let data = defaults.data(forKey: storageKey),
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return Self() }
+        return value
+    }
+
+    func save(defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        defaults.set(data, forKey: Self.storageKey)
+    }
+
+    var shownName: String {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? CommunityLocalCopy.buildersTitle : trimmed
+    }
+}
+
+/// Copy for the local-first Community shell (matches main when the API flag is off).
+enum CommunityLocalCopy {
+    static let title = "Community"
+    static let subtitle = "Creators, builders and explorers. Together on Modula."
+    static let comingSoon = "Coming soon"
+    static let preview = "Preview · off in Release"
+    static let noRoutes = "Greenfield has no communities routes, so this is not a live member list, post, or event."
+    static let searchPrompt = "Search people, posts, topics"
+    static let searchFootnote = "Communities aren’t searchable yet. Search still covers people, posts and topics."
+    static let buildersTitle = "Modula Builders"
+    static let buildersStatus = "Preview shell · not a live community"
+    static let settingsFootnote = "Saved on this device only. There is no community settings endpoint."
+    static let pollFootnote = "Community polls aren’t a feed. If a post you name has a comment poll, voting uses that poll."
+    static let eventFootnote = "No community event is scheduled. Interest stays on this device."
+    static let eventShareText = "Community events aren’t available on Modula yet."
+    static let analyticsUnavailable = "Analytics aren’t available yet."
+    static let postsEmpty = "No community posts to show."
+    static let membersEmpty = "No member list. Communities aren’t on the server."
+    static let savedOnDevice = "Saved on this device"
+
+    static var catalogued: [String] {
+        [title, subtitle, comingSoon, preview, noRoutes, searchPrompt, searchFootnote, buildersTitle, buildersStatus, settingsFootnote, pollFootnote, eventFootnote, eventShareText, analyticsUnavailable, postsEmpty, membersEmpty, savedOnDevice]
+    }
+}
+
+/// `PUT /v1/comments/:commentId/poll/vote` helpers used by the local poll shell.
+enum CommunityPollListing {
+    static func rows(in comments: [SocialComment]) -> [CommunityPollRow] {
+        comments.compactMap { comment in
+            guard let poll = comment.media.compactMap(\.poll).first else { return nil }
+            return CommunityPollRow(comment: comment, poll: poll)
+        }
+    }
+
+    static func acceptsPostID(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed.count <= 160
+            && trimmed.range(of: "^[A-Za-z0-9._:-]+$", options: .regularExpression) != nil
+    }
+}
+
+struct CommunityPollRow: Identifiable, Equatable, Sendable {
+    var comment: SocialComment
+    var poll: CommentPoll
+    var id: String { comment.id }
 }
 
 /// Comment polls remain a social-post feature and use a different contract from
@@ -636,6 +769,9 @@ final class CommunityStore {
 
     init(client: GreenfieldClient) { repository = GreenfieldCommunityRepository(client: client) }
 
+    private var liveAPIEnabled: Bool { CommunityAPIFeatureFlags.isEnabled }
+
+
     var capabilities: CommunityCapabilities { .derive(from: selectedCommunity, settings: settings) }
 
     func select(_ community: CommunitySummary) {
@@ -647,6 +783,7 @@ final class CommunityStore {
     }
 
     func loadDirectory(query: String? = nil, membership: String? = nil, reset: Bool = true) async {
+        guard liveAPIEnabled else { return }
         if directoryState == .loading { return }
         let cursor = reset ? nil : directoryNextCursor
         if !reset && cursor == nil { return }
@@ -667,6 +804,7 @@ final class CommunityStore {
     }
 
     func loadBuildersIfNeeded(signedIn: Bool) async {
+        guard liveAPIEnabled else { return }
         if selectedID == nil {
             await loadDirectory(query: CommunityCopy.buildersTitle)
             guard let builders = communities.first(where: {
@@ -683,6 +821,7 @@ final class CommunityStore {
     }
 
     func refreshSelected(signedIn: Bool) async {
+        guard liveAPIEnabled else { return }
         guard let id = selectedID ?? selectedCommunity?.id else { contentState = .empty; return }
         contentState = .loading
         actionError = nil
@@ -716,6 +855,7 @@ final class CommunityStore {
     func loadMoreEvents() async { await loadMore(kind: .events) }
 
     func join(signedIn: Bool) async {
+        guard liveAPIEnabled else { return }
         guard signedIn, let id = selectedID else { actionError = "Sign in to join this community."; return }
         await perform {
             try await repository.join(id)
@@ -724,7 +864,7 @@ final class CommunityStore {
     }
 
     func leave() async {
-        guard let id = selectedID else { return }
+        guard liveAPIEnabled, let id = selectedID else { return }
         await perform {
             try await repository.leave(id)
             await refreshSelected(signedIn: true)
@@ -732,6 +872,7 @@ final class CommunityStore {
     }
 
     func createPost(text: String, idempotencyKey: String) async -> Bool {
+        guard liveAPIEnabled else { return false }
         guard let id = selectedID, capabilities.canPost else {
             actionError = "Your community role does not allow posting."
             return false
@@ -749,6 +890,7 @@ final class CommunityStore {
     }
 
     func vote(pollID: String, optionID: String) async {
+        guard liveAPIEnabled else { return }
         guard let id = selectedID, capabilities.canVoteAndRSVP else {
             actionError = "Join this community before voting."
             return
@@ -760,6 +902,7 @@ final class CommunityStore {
     }
 
     func respond(eventID: String, response: CommunityEventResponse?) async {
+        guard liveAPIEnabled else { return }
         guard let id = selectedID, capabilities.canVoteAndRSVP else {
             actionError = "Join this community before responding."
             return
@@ -771,6 +914,7 @@ final class CommunityStore {
     }
 
     func saveSettings(_ draft: CommunitySettingsDraft) async -> Bool {
+        guard liveAPIEnabled else { return false }
         guard let current = selectedCommunity, let currentSettings = settings else { return false }
         let canManage = capabilities.canManage
         var succeeded = false
@@ -809,7 +953,7 @@ final class CommunityStore {
     private enum PageKind { case members, posts, polls, events }
 
     private func loadMore(kind: PageKind) async {
-        guard let id = selectedID else { return }
+        guard liveAPIEnabled, let id = selectedID else { return }
         do {
             switch kind {
             case .members:
