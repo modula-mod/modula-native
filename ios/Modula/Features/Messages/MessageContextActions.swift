@@ -9,7 +9,8 @@ enum MessageContextActions {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc"),
                      ModulaContextAction(id: "forward", title: "Forward", systemImage: "arrowshape.turn.up.right"),
                      ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2"),
-                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate")]
+                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate"),
+                     ModulaContextAction(id: "remind", title: "Remind Me", systemImage: "alarm")]
         if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
@@ -29,7 +30,8 @@ enum MessageContextActions {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc"),
                      ModulaContextAction(id: "forward", title: "Forward", systemImage: "arrowshape.turn.up.right"),
                      ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2"),
-                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate")]
+                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate"),
+                     ModulaContextAction(id: "remind", title: "Remind Me", systemImage: "alarm")]
         if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
@@ -295,7 +297,7 @@ struct MessageFocusOverlay: View {
     var onMoreReactions: () -> Void
     var onDismiss: () -> Void
 
-    static let quickReactions = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
+    static var quickReactions: [String] { QuickReactionPrefs.current }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

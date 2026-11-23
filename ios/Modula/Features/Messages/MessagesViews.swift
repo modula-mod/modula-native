@@ -96,6 +96,7 @@ struct ConversationListView: View {
     @State private var titleCollapsed = false
     /// Inbox › title menu › "Show filter chips" (off: the ▾ title menu is the filter).
     @AppStorage("messages.inbox.showChips") private var showFilterChips = false
+    @State private var showsQuickReactions = false
     @State private var showsModulaNumber = false
 
     private enum InboxDestination: Hashable, Identifiable {
@@ -434,6 +435,7 @@ struct ConversationListView: View {
                     Button("Modula Number", systemImage: "circle.grid.3x3") { showsModulaNumber = true }
                     Button("Calls", systemImage: "phone") { app.navigation.replaceTop(with: .messages(.calls)) }
                     Button("Chat Settings", systemImage: "gearshape") { app.navigation.push(.settings(.chats(.root))) }
+                    Button("Quick Reactions", systemImage: "face.smiling") { showsQuickReactions = true }
                     Toggle(isOn: $showFilterChips) { Label("Show Filter Chips", systemImage: "line.3.horizontal.decrease") }
                 }
                 Section {
@@ -464,6 +466,7 @@ struct ConversationListView: View {
             Spacer(minLength: 0)
         }
         .sheet(isPresented: $showsModulaNumber) { ModulaNumberSheet() }
+        .sheet(isPresented: $showsQuickReactions) { QuickReactionsEditor() }
     }
 
     private func titleFilterButton(_ item: InboxFilter) -> some View {
@@ -1471,6 +1474,8 @@ struct ConversationView: View {
     @State private var reactionGridFor: Message?
     @State private var reactorsFor: Message?
     @State private var receiptsFor: Message?
+    @State private var remindFor: Message?
+    private var chatLock: ChatLockStore { ChatLockStore.shared }
     @AppStorage("messages.gestureTip.dismissed") private var gestureTipDismissed = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var searching = false
@@ -1595,6 +1600,26 @@ struct ConversationView: View {
                         )
                     }
                 }
+            }
+            .overlay {
+                if chatLock.needsUnlock(conversationID) {
+                    ChatLockOverlay(conversationID: conversationID, title: conversation?.title ?? "Chat")
+                        .transition(.opacity)
+                }
+            }
+            .animation(.smooth(duration: 0.25), value: chatLock.needsUnlock(conversationID))
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { chatLock.relockAll() }
+            }
+            .confirmationDialog("Remind me", isPresented: Binding(get: { remindFor != nil }, set: { if !$0 { remindFor = nil } }),
+                                titleVisibility: .visible, presenting: remindFor) { message in
+                ForEach(MessageReminders.When.allCases) { when in
+                    Button(when.title) {
+                        MessageReminders.schedule(message, chatTitle: conversation?.title ?? "Chat", when: when, app: app)
+                    }
+                }
+            } message: { _ in
+                Text("You'll get a notification that opens this chat.")
             }
             .sheet(item: $forwarding) { message in
                 Group {
@@ -2419,6 +2444,8 @@ struct ConversationView: View {
             Task { await app.messaging.retry(message: message, viewer: viewer) }
         case "forward":
             forwarding = message
+        case "remind":
+            remindFor = message
         case "reactors":
             reactorsFor = message
         case "receipts":
@@ -4583,6 +4610,19 @@ struct ChatInfoSheet: View {
                                 infoRow("Group info", symbol: "person.3", value: conversation?.group.map { "\($0.memberCount) people" } ?? "Members")
                             }
                             .buttonStyle(.plain)
+                        }
+                    }
+                    if MessagePrivacyAuth.isAvailable {
+                        infoGroup("Privacy", footer: "Locked chats ask for \(ChatLockStore.biometryTitle) each time you open the app. Only this iPhone is affected.") {
+                            HStack(spacing: 12) {
+                                rowIcon("lock")
+                                Toggle("Lock with \(ChatLockStore.biometryTitle)", isOn: Binding(
+                                    get: { ChatLockStore.shared.isLocked(conversationID) },
+                                    set: { on in Task { _ = await ChatLockStore.shared.setLocked(on, conversationID) } }
+                                ))
+                            }
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("messages.chatInfo.lock")
                         }
                     }
                     infoGroup("Customise", footer: "Only you see your nickname and wallpaper.") {
