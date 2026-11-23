@@ -496,6 +496,9 @@ struct CallsHomeView: View {
                 MessagesScopePicker(selection: .calls)
                 if !app.calls.capabilities.canCall {
                     CallsComingSoonCard().padding(.horizontal, ModulaLayout.contentInset).padding(.bottom, 6)
+                    if tab == .favourites {
+                        ConnectPromoCard().padding(.horizontal, ModulaLayout.contentInset).padding(.bottom, 6)
+                    }
                 }
             }
             Group {
@@ -2407,7 +2410,7 @@ struct ConnectPhoneNumbersRow: View {
     var body: some View {
         Button { app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil)) } label: {
             HStack(spacing: 12) {
-                Image(systemName: "simcard").font(.body.weight(.semibold)).frame(width: 28)
+                ModulaConnectMark(size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Phone Numbers").font(.headline)
                     Text("Modula Connect · Preview").font(.footnote).foregroundStyle(.secondary)
@@ -2431,10 +2434,7 @@ struct ConnectDockTile: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                Image(systemName: "phone.connection.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .modulaGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                ModulaConnectMark(size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Modula Connect").font(.subheadline.weight(.semibold))
                     Text("Get your Modula Number · Preview").font(.caption).foregroundStyle(.secondary)
@@ -2448,6 +2448,143 @@ struct ConnectDockTile: View {
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
         .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityIdentifier("accessory.module.connect")
+    }
+}
+
+// MARK: - Modula Connect brand (t237u)
+
+/// The Modula Connect mark: a black/white squircle with a signal dot and two arcs.
+/// Arcs pulse outward once on appear (static under Reduce Motion).
+struct ModulaConnectMark: View {
+    var size: CGFloat = 44
+    var animated = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lit = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+        ZStack {
+            shape.fill(Color.modulaPrimaryFill)
+            ModulaConnectGlyph(progress: lit || reduceMotion || !animated ? 1 : 0.0)
+                .stroke(Color.modulaOnPrimary, style: StrokeStyle(lineWidth: max(1.6, size * 0.075), lineCap: .round))
+                .frame(width: size * 0.58, height: size * 0.58)
+            Circle().fill(Color.modulaOnPrimary)
+                .frame(width: size * 0.16, height: size * 0.16)
+                .offset(x: -size * 0.12, y: size * 0.12)
+        }
+        .frame(width: size, height: size)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
+        .onAppear {
+            guard animated, !reduceMotion else { return }
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) { lit = true }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Two quarter arcs from the bottom-left corner; `progress` draws them in.
+struct ModulaConnectGlyph: Shape {
+    var progress: Double
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let origin = CGPoint(x: rect.minX + rect.width * 0.29, y: rect.maxY - rect.height * 0.29)
+        for (i, r) in [0.42, 0.72].enumerated() {
+            let radius = rect.width * r
+            let sweep = 90.0 * max(0, min(1, progress * 1.4 - Double(i) * 0.4))
+            guard sweep > 0 else { continue }
+            p.move(to: CGPoint(x: origin.x, y: origin.y - radius))
+            p.addRelativeArc(center: origin, radius: radius, startAngle: .degrees(-90), delta: .degrees(sweep))
+        }
+        return p
+    }
+}
+
+/// Mark + "Modula Connect" wordmark, optionally with the hero line.
+struct ModulaConnectLogo: View {
+    var markSize: CGFloat = 32
+    var showsTagline = false
+    var animated = true
+
+    var body: some View {
+        HStack(spacing: markSize * 0.32) {
+            ModulaConnectMark(size: markSize, animated: animated)
+            VStack(alignment: .leading, spacing: 1) {
+                (Text("Modula ").font(.system(size: markSize * 0.5, weight: .regular))
+                 + Text("Connect").font(.system(size: markSize * 0.5, weight: .heavy)))
+                    .foregroundStyle(.primary)
+                    .fixedSize()
+                if showsTagline {
+                    Text("Your number. Your way.")
+                        .font(.system(size: max(11, markSize * 0.32), weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showsTagline ? "Modula Connect. Your number. Your way." : "Modula Connect")
+    }
+}
+
+/// Branded opening splash for the Connect module (instead of the generic "Opening…" card).
+struct ConnectOpeningSplash: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var breathe = false
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ModulaConnectMark(size: 76)
+                .scaleEffect(breathe ? 1.04 : 1)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: breathe)
+            VStack(spacing: 4) {
+                (Text("Modula ").font(.title2) + Text("Connect").font(.title2.weight(.heavy)))
+                Text("Your number. Your way.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.regularMaterial)
+        .onAppear { breathe = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Opening Modula Connect")
+        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier("module.host.loading")
+    }
+}
+
+/// "Want a real phone number?" promo into Connect (Modula Number sheet, Calls).
+struct ConnectPromoCard: View {
+    @Environment(AppEnvironment.self) private var app
+    var onOpen: (() -> Void)? = nil
+
+    var body: some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            onOpen?()
+            app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
+        } label: {
+            HStack(spacing: 14) {
+                ModulaConnectMark(size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Want a real phone number?").font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    Text("Modula Connect gives you a UK number inside Modula. Preview.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        .accessibilityIdentifier("connect.promo")
     }
 }
 
@@ -3289,6 +3426,7 @@ struct ModulaNumberSheet: View {
                         }
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
+                    ConnectPromoCard { dismiss() }
                 }
                 .padding(.horizontal, Self.margin)
                 .padding(.top, 8)

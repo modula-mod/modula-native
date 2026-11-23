@@ -618,6 +618,8 @@ struct ShellSidebarView: View {
         var items: [ShellSidebarItem] = [
             .init(id: "vault", title: "Vault Notes", symbol: "lock.doc",
                   route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "vault notes"),
+            .init(id: "connect", title: "Modula Connect", symbol: "antenna.radiowaves.left.and.right",
+                  route: .module(ConnectPreview.moduleID, localPath: nil), requiresSignIn: true, keywords: "connect phone number sim uk"),
         ]
         #if DEBUG
         items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
