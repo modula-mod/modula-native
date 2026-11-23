@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.185",
+  "key": "crembo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#C7EAD7",
+    "accent": "#E2F4EB",
+    "light": "#E2F4EB",
+    "dark": "#B1D0BF"
+  },
+  "form": "Mint frosting crown, buttercream face"
+}

@@ -144,10 +144,13 @@ struct PDFOutlineEntry: Identifiable, Hashable, Sendable {
 extension PDFPageRenderer {
     /// Samples up to 6 pages of text for a reading-time estimate.
     func readingMinutes(url: URL) -> Int {
-        guard let document = PDFDocument(url: url) else { return 1 }
+        if let cached = readingMinutesCache[url] { return cached }
+        guard let document = document(for: url) else { return 1 }
         let count = document.pageCount
         let sample = Array(Set((0..<min(count, 6)).map { $0 * max(1, count / 6) })).filter { $0 < count }
         let words = sample.reduce(0) { $0 + PDFReadingMath.wordCount(document.page(at: $1)?.string ?? "") }
-        return PDFReadingMath.readingMinutes(sampledWords: words, sampledPages: sample.count, pageCount: count)
+        let minutes = PDFReadingMath.readingMinutes(sampledWords: words, sampledPages: sample.count, pageCount: count)
+        readingMinutesCache[url] = minutes
+        return minutes
     }
 }

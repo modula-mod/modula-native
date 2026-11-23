@@ -1,7 +1,8 @@
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Alert, FlatList, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View} from 'react-native';
 import type {Host, ModuleContext} from '@modula/module-sdk';
-import {orderForDisplay, relativeTime, saveData, saveDocumentData, type NotePage, type NoteRow, type NoteSort} from './model';
+import {filterNotes, noteStats, orderForDisplay, relativeTime, saveData, saveDocumentData, sectionsByRecency,
+  type NoteFilter, type NotePage, type NoteRow, type NoteSort} from './model';
 import {normalizeNoteRows} from './rows';
 import {documentFromSegments, isPlainDocument, newSegment, segmentsFromDocument, segmentsFromText, type InsertKind, type Segment} from './editing';
 import {moduleTheme, type ModuleTheme} from '../../ui/theme';
@@ -19,7 +20,12 @@ import {useDebounced} from '../../ui/hooks';
 export const VAULT_NOTES_NATIVE_FALLBACK = {temporary: true, until: 'declarative host renders verified Vault Notes 1.7.0 frontend'} as const;
 
 type Props = {context: ModuleContext; host: Host; lifecycle: string};
-type ListPrefs = {query: string; sort: NoteSort};
+type ListPrefs = {query: string; sort: NoteSort; filter: NoteFilter};
+type ListItem = {kind: 'header'; key: string; title: string; count: number} | {kind: 'note'; key: string; row: NoteRow};
+
+const FILTERS: {value: NoteFilter; label: string}[] = [
+  {value: 'all', label: 'All'}, {value: 'pinned', label: 'Pinned'}, {value: 'favourites', label: 'Starred'}, {value: 'archived', label: 'Archive'},
+];
 
 const SORTS: {value: NoteSort; label: string}[] = [
   {value: 'updatedAt', label: 'Recent'}, {value: 'createdAt', label: 'Created'}, {value: 'title', label: 'A–Z'},
@@ -34,7 +40,7 @@ export function VaultNotes({context, host, lifecycle}: Props) {
   const [editor, setEditor] = useState<{record?: NoteRow} | null>(context.initialPath === '/new' ? {} : null);
   const [revision, setRevision] = useState(0);
   // Search and sort survive opening and closing a note.
-  const [prefs, setPrefs] = useState<ListPrefs>({query: '', sort: 'updatedAt'});
+  const [prefs, setPrefs] = useState<ListPrefs>({query: '', sort: 'updatedAt', filter: 'all'});
   const theme = useMemo(() => moduleTheme(context.environment), [context.environment]);
   const openProfile = useCallback(() => {
     void host.request('navigation.open', {route: 'profile', userId: context.userID ?? 'me'}).catch(() => {});
@@ -62,17 +68,24 @@ export function VaultNotes({context, host, lifecycle}: Props) {
   </View>;
 }
 
-const NoteCard = memo(function NoteCard({row, theme, open}: {row: NoteRow; theme: ModuleTheme; open: (row: NoteRow) => void}) {
+const NoteCard = memo(function NoteCard({row, theme, open, togglePin}: {
+  row: NoteRow; theme: ModuleTheme; open: (row: NoteRow) => void; togglePin: (row: NoteRow) => void;
+}) {
   const preview = row.data.plainTextProjection.trim().replace(/\s+/g, ' ');
   const edited = relativeTime(row.updated_at);
   const rich = !isPlainDocument(row.data.document);
   const badges = [
     ...(row.data.pinned ? [{label: 'Pinned', tone: 'accent' as const}] : []),
+    ...(row.data.favourite ? [{label: 'Starred', tone: 'accent' as const}] : []),
+    ...(row.data.archived ? [{label: 'Archived', tone: 'neutral' as const}] : []),
     ...(rich ? [{label: 'Rich', tone: 'neutral' as const}] : []),
   ];
   const onPress = useCallback(() => open(row), [open, row]);
+  const onLongPress = useCallback(() => togglePin(row), [togglePin, row]);
   return <RecordRow theme={theme} title={row.data.title} subtitle={preview || 'No content yet'}
-    meta={edited ? `Edited ${edited}` : undefined} badges={badges} onPress={onPress}/>;
+    meta={edited ? `Edited ${edited}` : undefined} badges={badges} onPress={onPress}
+    onLongPress={row.data.archived ? undefined : onLongPress} longPressLabel={row.data.pinned ? 'Unpin note' : 'Pin note'}
+    testID={`vault.note.${row.record_id}`}/>;
 });
 
 function Notes({host, theme, initialNoteID, prefs, setPrefs, open, create}: {
@@ -139,14 +152,43 @@ function Notes({host, theme, initialNoteID, prefs, setPrefs, open, create}: {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (query !== prefs.query) setPrefs({...prefs, query}); }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const visible = useMemo(() => orderForDisplay(rows.filter(row => !row.data.archived)), [rows]);
-  const renderItem = useCallback(({item}: {item: NoteRow}) => <NoteCard row={item} theme={theme} open={open}/>, [theme, open]);
+  // Quick pin from the list (long press or VoiceOver action) through the same records.update route the editor uses,
+  // with optimistic concurrency (expectedRevision). Saves a round trip into the editor for a one-bit change.
+  const togglePin = useCallback(async (row: NoteRow) => {
+    const pinned = !row.data.pinned;
+    setRows(old => old.map(item => item.record_id === row.record_id ? {...item, data: {...item.data, pinned}} : item));
+    void host.request('haptics.selection').catch(() => {});
+    try {
+      const saved = await host.request<NoteRow>('backend.records.update',
+        {collection: 'note', recordID: row.record_id, expectedRevision: row.revision, data: {...row.data, pinned}});
+      const [safe] = normalizeNoteRows([saved]);
+      if (safe && alive.current) setRows(old => old.map(item => item.record_id === safe.record_id ? safe : item));
+    } catch (error) {
+      if (!alive.current) return;
+      setRows(old => old.map(item => item.record_id === row.record_id ? row : item));
+      setMoreError(message(error, pinned ? 'Could not pin the note.' : 'Could not unpin the note.'));
+    }
+  }, [host]);
+
+  const visible = useMemo(() => orderForDisplay(filterNotes(rows, prefs.filter)), [rows, prefs.filter]);
+  const items = useMemo<ListItem[]>(() => {
+    const sections = prefs.sort === 'updatedAt' && !query && prefs.filter !== 'archived'
+      ? sectionsByRecency(visible) : [{title: '', rows: visible}];
+    return sections.flatMap(section => [
+      ...(section.title ? [{kind: 'header' as const, key: `h:${section.title}`, title: section.title, count: section.rows.length}] : []),
+      ...section.rows.map(row => ({kind: 'note' as const, key: row.record_id, row})),
+    ]);
+  }, [visible, prefs.sort, prefs.filter, query]);
+  const renderItem = useCallback(({item}: {item: ListItem}) => item.kind === 'header'
+    ? <ThemedText theme={theme} role="headline" accessibilityRole="header" style={{marginTop: theme.spacing.sm}}>
+        {item.title} · {item.count}</ThemedText>
+    : <NoteCard row={item.row} theme={theme} open={open} togglePin={row => void togglePin(row)}/>, [theme, open, togglePin]);
   const firstLoad = loading && rows.length === 0;
   const gap = theme.spacing.sm;
   const searching = query.length > 0;
   return <FlatList
-    data={visible}
-    keyExtractor={row => row.record_id}
+    data={items}
+    keyExtractor={item => item.key}
     renderItem={renderItem}
     initialNumToRender={10}
     maxToRenderPerBatch={10}
@@ -166,15 +208,24 @@ function Notes({host, theme, initialNoteID, prefs, setPrefs, open, create}: {
         <View style={styles.flex}><ModuleButton theme={theme} title="Reload notes" variant="secondary" disabled={loading} onPress={() => void load()}/></View>
       </Toolbar>
       <SearchField theme={theme} value={searchText} onChangeText={setSearchText} label="Search notes" placeholder="Search notes" testID="vault.search"/>
+      <SegmentedControl theme={theme} label="Show notes" options={FILTERS} value={prefs.filter}
+        onChange={filter => { setPrefs({...prefs, filter}); void host.request('haptics.selection').catch(() => {}); }}/>
       <SegmentedControl theme={theme} label="Sort notes" options={SORTS} value={prefs.sort}
         onChange={sort => { setPrefs({...prefs, sort}); void host.request('haptics.selection').catch(() => {}); }}/>
       {loading && !firstLoad && <LoadingRow theme={theme} label="Loading notes"/>}
       {firstLoad && <View style={{gap: theme.spacing.sm}}><LoadingRow theme={theme} label="Loading notes"/><SkeletonRows theme={theme}/></View>}
       {error && <ModuleFallback theme={theme} title="Notes couldn’t load" message={error} action={{title: 'Try again', onPress: () => void load()}}/>}
       {!loading && !error && <ThemedText theme={theme} role="caption" secondary testID="vault.loaded">Notes loaded</ThemedText>}
+      {!loading && !error && visible.length > 0 && prefs.filter === 'all' && <ThemedText theme={theme} role="caption" secondary>
+        Tip: long-press a note to pin it.</ThemedText>}
     </View>}
     ListEmptyComponent={!loading && !error
-      ? searching
+      ? prefs.filter !== 'all' && !searching
+        ? <ModuleFallback theme={theme} title={prefs.filter === 'archived' ? 'Archive is empty' : prefs.filter === 'pinned' ? 'No pinned notes' : 'No starred notes'}
+            message={prefs.filter === 'archived' ? 'Archived notes stay here, out of your way, until you unarchive them.'
+              : prefs.filter === 'pinned' ? 'Long-press a note or use “Pin to top” in the editor.' : 'Star notes you come back to in the editor.'}
+            action={{title: 'Show all notes', onPress: () => setPrefs({...prefs, filter: 'all'})}} testID="vault.filterEmpty"/>
+      : searching
         ? <ModuleFallback theme={theme} title="No matching notes" message={`Nothing matches “${query}”. Try other words or clear the search.`}
             action={{title: 'Clear search', onPress: () => setSearchText('')}} testID="vault.noResults"/>
         : <ModuleFallback theme={theme} title="Your Vault is empty" message="Notes you write stay private to your account. Create your first note."
@@ -203,19 +254,24 @@ function Editor({record, host, theme, close}: {record?: NoteRow; host: Host; the
   const [segments, setSegments] = useState<Segment[] | null>(record && !isPlainDocument(record.data.document)
     ? segmentsFromDocument(record.data.document) : null);
   const [pinned, setPinned] = useState(record?.data.pinned ?? false);
+  const [favourite, setFavourite] = useState(record?.data.favourite ?? false);
+  const [archived, setArchived] = useState(record?.data.archived ?? false);
   const [busy, setBusy] = useState(Boolean(record));
   const [status, setStatus] = useState(record ? 'Loading note…' : 'New note');
-  const [baseline, setBaseline] = useState(() => snapshot(record?.data.title ?? '', record?.data.plainTextProjection ?? '', segments, record?.data.pinned ?? false));
+  const [baseline, setBaseline] = useState(() => snapshot(record?.data.title ?? '', record?.data.plainTextProjection ?? '', segments,
+    record?.data.pinned ?? false, record?.data.favourite ?? false, record?.data.archived ?? false));
   const alive = useRef(true);
 
-  function snapshot(t: string, x: string, s: Segment[] | null, p: boolean) { return JSON.stringify([t, s ? null : x, s, p]); }
-  const dirty = snapshot(title, text, segments, pinned) !== baseline;
+  function snapshot(t: string, x: string, s: Segment[] | null, p: boolean, f: boolean, a: boolean) { return JSON.stringify([t, s ? null : x, s, p, f, a]); }
+  const dirty = snapshot(title, text, segments, pinned, favourite, archived) !== baseline;
+  const stats = noteStats(segments ? segments.map(segment => segment.kind === 'text' ? segment.text : '').join(' ') : text);
 
   function adopt(row: NoteRow) {
     const rich = !isPlainDocument(row.data.document);
     const nextSegments = rich ? segmentsFromDocument(row.data.document) : null;
     setCurrent(row); setTitle(row.data.title); setText(row.data.plainTextProjection); setSegments(nextSegments); setPinned(row.data.pinned);
-    setBaseline(snapshot(row.data.title, row.data.plainTextProjection, nextSegments, row.data.pinned));
+    setFavourite(row.data.favourite); setArchived(row.data.archived);
+    setBaseline(snapshot(row.data.title, row.data.plainTextProjection, nextSegments, row.data.pinned, row.data.favourite, row.data.archived));
   }
 
   useEffect(() => {
@@ -234,8 +290,8 @@ function Editor({record, host, theme, close}: {record?: NoteRow; host: Host; the
     if (busy) return; setBusy(true); setStatus('Saving…');
     try {
       const data = segments
-        ? saveDocumentData(title, documentFromSegments(segments, current?.data.document), current?.data, {pinned})
-        : saveData(title, text, current?.data, {pinned});
+        ? saveDocumentData(title, documentFromSegments(segments, current?.data.document), current?.data, {pinned, favourite, archived})
+        : saveData(title, text, current?.data, {pinned, favourite, archived});
       const row = await host.request<NoteRow>(current ? 'backend.records.update' : 'backend.records.create', current
         ? {collection: 'note', recordID: current.record_id, expectedRevision: current.revision, data} : {collection: 'note', data});
       const [saved] = normalizeNoteRows([row]);
@@ -290,7 +346,11 @@ function Editor({record, host, theme, close}: {record?: NoteRow; host: Host; the
             accessibilityHint={`Adds a ${item.label.toLowerCase()} at the end of the note`} onPress={() => insert(item.kind)}/>)}
         </Toolbar>
       </View>
+      <ThemedText theme={theme} role="caption" secondary testID="vault.stats">
+        {stats.words === 0 ? 'Start writing' : `${stats.words} ${stats.words === 1 ? 'word' : 'words'} · ${stats.minutes} min read`}</ThemedText>
       <ToggleRow theme={theme} label="Pin to top" value={pinned} onChange={setPinned} disabled={busy} testID="vault.pin"/>
+      <ToggleRow theme={theme} label="Star" value={favourite} onChange={setFavourite} disabled={busy} testID="vault.favourite"/>
+      {current && <ToggleRow theme={theme} label="Archive (hide from All)" value={archived} onChange={setArchived} disabled={busy} testID="vault.archive"/>}
       <ThemedText theme={theme} role="caption" secondary accessibilityRole="alert" testID="vault.saveStatus">{status}</ThemedText>
       <ModuleButton theme={theme} title="Save note" onPress={() => void save()} disabled={busy}/>
       {current && <ModuleButton theme={theme} title="Move to Trash" variant="destructive" disabled={busy}

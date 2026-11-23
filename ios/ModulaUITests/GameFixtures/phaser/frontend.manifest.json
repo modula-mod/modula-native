@@ -1,0 +1,216 @@
+{
+  "$schema": "https://modula.digital/schemas/product-standard/1.0/frontend.schema.json",
+  "accessibility": {
+    "declaration": "host-baseline-with-product-semantics",
+    "keyboardNavigation": true,
+    "reduceMotion": true,
+    "scalableText": true,
+    "screenReader": true
+  },
+  "actions": [
+    {
+      "family": "route.open",
+      "id": "openSettings",
+      "label": "Open settings",
+      "route": "/settings"
+    },
+    {
+      "family": "settings.update",
+      "id": "saveSettings",
+      "label": "Save settings",
+      "settingsKey": "orbit-phaser.preferences"
+    },
+    {
+      "family": "dismiss",
+      "id": "dismiss",
+      "label": "Dismiss"
+    }
+  ],
+  "entry": "home",
+  "frontendSchemaVersion": "1.0.0",
+  "hostRuntime": {
+    "versionRange": ">=1.0.0 <2.0.0"
+  },
+  "mode": "declarative",
+  "mpsVersion": "1.0",
+  "navigation": {
+    "backBehavior": "host",
+    "rootView": "home",
+    "tabs": [
+      {
+        "icon": "system.house",
+        "id": "home",
+        "label": "Home",
+        "viewId": "home"
+      },
+      {
+        "icon": "system.gear",
+        "id": "settings",
+        "label": "Settings",
+        "viewId": "settings"
+      }
+    ]
+  },
+  "platformRequirements": {
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ]
+  },
+  "productId": "digital.modula.orbit-phaser",
+  "releaseVersion": "0.1.0",
+  "routes": [
+    {
+      "path": "/",
+      "viewId": "home"
+    },
+    {
+      "path": "/settings",
+      "viewId": "settings"
+    }
+  ],
+  "schema": "modula.frontend.1.0",
+  "settings": {
+    "viewId": "settings"
+  },
+  "views": [
+    {
+      "id": "home",
+      "kind": "dashboard",
+      "root": {
+        "accessibility": {
+          "label": "Orbit Arena 2D home"
+        },
+        "children": [
+          {
+            "text": "Welcome to Orbit Arena 2D",
+            "type": "text"
+          },
+          {
+            "text": "Orbit Arena 2D is a Modula module.",
+            "type": "label"
+          },
+          {
+            "accessibility": {
+              "label": "Orbit Arena 2D navigation"
+            },
+            "children": [
+              {
+                "action": "openSettings",
+                "text": "Open settings",
+                "type": "button"
+              }
+            ],
+            "type": "toolbar"
+          }
+        ],
+        "type": "section"
+      },
+      "states": {
+        "capabilityUnavailable": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "CAPABILITY_UNAVAILABLE",
+          "type": "errorState"
+        },
+        "empty": {
+          "text": "Orbit Arena 2D has nothing to show yet.",
+          "type": "emptyState"
+        },
+        "error": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Orbit Arena 2D could not be loaded.",
+          "type": "errorState"
+        },
+        "loading": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Loading Orbit Arena 2D",
+          "type": "loadingState"
+        },
+        "permissionDenied": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "This surface needs a permission the user has not granted.",
+          "type": "errorState"
+        }
+      },
+      "title": "Orbit Arena 2D"
+    },
+    {
+      "bindings": [
+        {
+          "id": "preferences",
+          "settingsKey": "orbit-phaser.preferences",
+          "source": "settings"
+        }
+      ],
+      "id": "settings",
+      "kind": "settings",
+      "root": {
+        "accessibility": {
+          "label": "Orbit Arena 2D settings",
+          "role": "form"
+        },
+        "children": [
+          {
+            "binding": "preferences",
+            "field": {
+              "id": "compactHome",
+              "label": "Compact home",
+              "type": "boolean"
+            },
+            "type": "field"
+          },
+          {
+            "action": "saveSettings",
+            "text": "Save",
+            "type": "button"
+          }
+        ],
+        "type": "section"
+      },
+      "states": {
+        "capabilityUnavailable": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "CAPABILITY_UNAVAILABLE",
+          "type": "errorState"
+        },
+        "empty": {
+          "text": "Settings are empty.",
+          "type": "emptyState"
+        },
+        "error": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Settings could not be loaded.",
+          "type": "errorState"
+        },
+        "loading": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "Loading settings",
+          "type": "loadingState"
+        },
+        "permissionDenied": {
+          "accessibility": {
+            "role": "status"
+          },
+          "text": "This surface needs a permission the user has not granted.",
+          "type": "errorState"
+        }
+      },
+      "title": "Orbit Arena 2D settings"
+    }
+  ]
+}

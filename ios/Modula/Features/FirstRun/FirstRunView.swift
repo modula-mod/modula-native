@@ -121,7 +121,7 @@ struct FirstRunView: View {
             .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
         }
         .buttonStyle(.borderedProminent)
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
         .disabled(busy)
         .frame(maxWidth: .infinity, minHeight: 48)
         .accessibilityIdentifier("firstrun.continue")

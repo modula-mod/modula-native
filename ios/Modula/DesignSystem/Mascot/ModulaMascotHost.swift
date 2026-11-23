@@ -178,6 +178,7 @@ struct ModulaLiveMascot: View {
     @State private var visible = false
     @State private var motionOn = false
     @State private var frame: CGRect = .zero
+    @State private var frozenFrame: CGRect?
     private let context = MascotContext.shared
 
     /// Whole view's size: figure canvas plus room for glow, bubbles and particles.
@@ -187,7 +188,9 @@ struct ModulaLiveMascot: View {
 
     var body: some View {
         let conditions = context.conditions(dark: colorScheme == .dark)
-        let fps: Double = conditions.lowPower ? 30 : 60
+        // 30 fps idle is visually identical for the mascot's slow idle motion and halves
+        // its main-thread cost while typing; scrolling/low power drop further.
+        let fps: Double = (conditions.lowPower || ModulaScrollActivity.shared.isScrolling) ? 15 : 30
         let c = Self.container(size)
         let foot = kind.footFraction * size
         TimelineView(.animation(minimumInterval: 1.0 / fps, paused: paused)) { timeline in
@@ -208,7 +211,11 @@ struct ModulaLiveMascot: View {
             }
             .frame(width: c.width, height: c.height)
         }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { if !ShellChromeFreeze.isSidebarDragging { frame = $0 } else { frozenFrame = $0 } }
+        .onReceive(NotificationCenter.default.publisher(for: ShellChromeFreeze.didThaw)) { _ in
+            if let frozenFrame { frame = frozenFrame }
+            frozenFrame = nil
+        }
         .onAppear { visible = true; context.start(); brain.jiggle = kind == .tofu ? 0.05 : 0.025; syncMotion() }
         .onDisappear { visible = false; syncMotion() }
         .onReceive(NotificationCenter.default.publisher(for: ModulaMascotEvent.notification)) { note in
@@ -398,9 +405,14 @@ extension View {
 
     /// Draws the mascot (if enabled for `placement`) above everything in this composer, perched on the
     /// `modulaMascotPerch()` bar (or this view's own bounds), `trailingInset` in from its right edge.
-    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26) -> some View {
-        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset))
+    func modulaComposerMascot(_ placement: ModulaMascotPlacement, busy: Bool = false, text: String = "", attachmentCount: Int = 0, trailingInset: CGFloat = 26, lift: CGFloat = 0, slotted: Bool = false, hidden: Bool = false) -> some View {
+        modifier(ModulaComposerMascotModifier(placement: placement, busy: busy, text: text, attachmentCount: attachmentCount, trailingInset: trailingInset, slotted: slotted, hidden: hidden, lift: lift))
     }
+}
+
+final class MascotTypingBox {
+    var last = Date.distantPast
+    var settle: Task<Void, Never>?
 }
 
 struct ModulaComposerMascotModifier: ViewModifier {
@@ -409,12 +421,22 @@ struct ModulaComposerMascotModifier: ViewModifier {
     var text: String
     var attachmentCount: Int
     var trailingInset: CGFloat
+    /// When true the mascot sits *inside* the `modulaMascotPerch()` slot (centred, scaled to fit)
+    /// instead of standing on top of the bar, so it can never cover neighbouring controls.
+    var slotted: Bool = false
+    /// Fades the mascot out (keeping view identity, so the composer never loses focus).
+    var hidden: Bool = false
+    /// Extra rise above the perch (e.g. while a formatting bar fills the card's top edge).
+    var lift: CGFloat = 0
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
     @AppStorage private var shown: Bool
     @State private var touch: CGPoint?
     private let size: CGFloat = 48
 
-    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat) {
+    init(placement: ModulaMascotPlacement, busy: Bool, text: String, attachmentCount: Int, trailingInset: CGFloat, slotted: Bool = false, hidden: Bool = false, lift: CGFloat = 0) {
+        self.lift = lift
+        self.slotted = slotted
+        self.hidden = hidden
         self.placement = placement
         self.busy = busy
         self.text = text
@@ -439,17 +461,26 @@ struct ModulaComposerMascotModifier: ViewModifier {
             content
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                        .onChanged { touch = $0.location }
+                        // Coarse updates only: a re-render per pixel of finger travel was wasted work.
+                        .onChanged { value in
+                            if let t = touch, abs(t.x - value.location.x) + abs(t.y - value.location.y) < 12 { return }
+                            touch = value.location
+                        }
                         .onEnded { _ in touch = nil }
                 )
                 .overlayPreferenceValue(MascotPerchKey.self) { anchor in
                     GeometryReader { proxy in
                         let bar = anchor.map { proxy[$0] } ?? CGRect(origin: .zero, size: proxy.size)
-                        let x = bar.maxX - trailingInset - size * kind.bodySize.width / 2
-                        // Feet sink ~6pt into the bar's top edge.
-                        let y = bar.minY + 6 - kind.footFraction * size
-                        ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: size, custom: custom) { kindRaw = $0.rawValue }
+                        let s: CGFloat = slotted ? min(bar.height, bar.width) * 0.95 : size
+                        let x = slotted ? bar.midX : bar.maxX - trailingInset - size * kind.bodySize.width / 2
+                        // Slotted: feet rest on the slot floor. Perched: feet sink ~6pt into the bar's top edge.
+                        let y = slotted ? bar.maxY - 2 - kind.footFraction * s : bar.minY + 6 - lift - kind.footFraction * size
+                        ModulaComposerMascot(kind: kind, busy: busy, touch: touch, text: text, attachmentCount: attachmentCount, placement: placement, size: s, custom: custom) { kindRaw = $0.rawValue }
                             .position(x: x, y: y)
+                            .opacity(hidden ? 0 : 1)
+                            .allowsHitTesting(!hidden)
+                            .accessibilityHidden(hidden)
+                            .animation(.easeOut(duration: 0.18), value: hidden)
                     }
                 }
                 .zIndex(50)
@@ -485,7 +516,10 @@ struct ModulaComposerMascot: View {
     @State private var holdTask: Task<Void, Never>?
     @State private var lastTap: Date = .distantPast
     @State private var moved = false
-    @State private var typingSettle: Task<Void, Never>?
+    /// Non-observed typing scratch: throttles reactions without a state write per keystroke.
+    @State private var typing = MascotTypingBox()
+    /// Global top of the mascot: the picker grows upward from here, so its grid is capped to the room above.
+    @State private var mascotTop: CGFloat = 800
     private let context = MascotContext.shared
     private var wardrobe = MascotWardrobeStore.shared
 
@@ -548,9 +582,11 @@ struct ModulaComposerMascot: View {
             .scaleEffect(picking ? 1.1 : 1, anchor: .bottom)
             .contentShape(Ellipse().scale(x: 0.42, y: 0.46))
             .gesture(pressGesture)
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { mascotTop = $0 }
             .overlay(alignment: .bottomTrailing) {
                 if picking {
-                    ModulaMascotPicker(selected: kind, hovered: hovered, onFrames: { tileFrames = $0 }) { choice in
+                    // Room above the mascot minus the status bar + navigation bar (~110pt) and the picker's lift.
+                    ModulaMascotPicker(selected: kind, hovered: hovered, availableHeight: mascotTop + size * 0.25 - 110, onFrames: { tileFrames = $0 }) { choice in
                         commit(choice)
                     } onClose: {
                         withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) { picking = false }
@@ -604,13 +640,20 @@ struct ModulaComposerMascot: View {
         } else if !old.isEmpty && new.isEmpty && !busy {
             sent()
         } else if !new.isEmpty {
-            if brain.poke() { MascotSound.shared.play(.wake) }
-            brain.keystroke()
-            let line = new.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? new
-            brain.caret = CGFloat(min(Double(line.count % 36) / 36, 1))
-            if new.count > old.count, let last = new.last { emojiReaction(last) }
-            typingSettle?.cancel()
-            typingSettle = Task { @MainActor in
+            if new.count > old.count, let last = new.last, last.unicodeScalars.contains(where: { $0.properties.isEmoji && $0.value > 0xFF }) {
+                emojiReaction(last)
+            }
+            // At most ~6 typing reactions a second, not one per key.
+            let now = Date()
+            if now.timeIntervalSince(typing.last) >= 0.16 {
+                typing.last = now
+                if brain.poke() { MascotSound.shared.play(.wake) }
+                brain.keystroke()
+                let line = new.split(separator: "\n", omittingEmptySubsequences: false).last.map(String.init) ?? new
+                brain.caret = CGFloat(min(Double(line.count % 36) / 36, 1))
+            }
+            typing.settle?.cancel()
+            typing.settle = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(1500))
                 guard !Task.isCancelled else { return }
                 brain.react(.pleased)
@@ -701,11 +744,17 @@ struct ModulaComposerMascot: View {
 struct ModulaMascotPicker: View {
     let selected: ModulaMascotKind
     var hovered: ModulaMascotKind?
+    /// Vertical room the whole picker may take (it springs upward from the mascot).
+    var availableHeight: CGFloat = 640
     var onFrames: ([ModulaMascotKind: CGRect]) -> Void
     var onSelect: (ModulaMascotKind) -> Void
     var onClose: () -> Void
     var onDressUp: (() -> Void)? = nil
     @State private var frames: [ModulaMascotKind: CGRect] = [:]
+    /// Family page shown in the grid (starts on the selected Moliboo's family). 115 Moliboos never fit one panel.
+    @State private var family: MolibooFamily?
+    /// Visible grid viewport (global): slide-to-pick only targets tiles you can actually see.
+    @State private var gridViewport: CGRect = .zero
     @State private var brains: [ModulaMascotKind: MascotBrain] = Dictionary(uniqueKeysWithValues: ModulaMascotKind.allCases.map { ($0, MascotBrain()) })
     @State private var appeared = false
     @State private var bob = false
@@ -717,17 +766,48 @@ struct ModulaMascotPicker: View {
     private let gap: CGFloat = 5
     private var columns: [GridItem] { Array(repeating: GridItem(.fixed(tile), spacing: gap), count: 5) }
     private var ink: Color { ambience.isDark ? .white : .primary }
+    private var families: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.isDraft && !$0.kinds.isEmpty } }
+    private var currentFamily: MolibooFamily { family ?? selected.family }
+    private static let tileHeight: CGFloat = 66
+    /// Hero, chips, Dress up, paddings and gaps around the grid.
+    private var chromeHeight: CGFloat { 64 + 30 + (onDressUp != nil ? 38 + 8 : 0) + 8 * 2 + 20 }
+    /// Grid height: the family's rows, capped at 3½ rows (and at the room above the mascot, never below 1½ rows).
+    private var gridHeight: CGFloat {
+        let rows = CGFloat((currentFamily.kinds.count + 4) / 5)
+        let full = rows * Self.tileHeight + max(0, rows - 1) * gap
+        let cap = 3.5 * Self.tileHeight + 3 * gap
+        let room = max(1.5 * Self.tileHeight + gap, availableHeight - chromeHeight)
+        return min(full, cap, room)
+    }
     private var subInk: Color { ambience.isDark ? .white.opacity(0.75) : .secondary }
 
     var body: some View {
         let focus = hovered ?? selected
         VStack(alignment: .leading, spacing: 8) {
             hero(focus)
-            LazyVGrid(columns: columns, spacing: gap) {
-                ForEach(Array(ModulaMascotKind.allCases.enumerated()), id: \.element) { index, kind in
-                    tileView(kind, index: index)
+            familyChips
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    LazyVGrid(columns: columns, spacing: gap) {
+                        ForEach(Array(currentFamily.kinds.enumerated()), id: \.element) { index, kind in
+                            tileView(kind, index: index).id(kind)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: gridHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { gridViewport = $0; publishFrames() }
+                .onAppear { proxy.scrollTo(selected, anchor: .center) }
+                .onChange(of: currentFamily) { _, f in
+                    frames = [:]
+                    publishFrames()
+                    if f == selected.family { proxy.scrollTo(selected, anchor: .center) }
                 }
             }
+            .accessibilityIdentifier("moliboo.picker.grid")
             if onDressUp != nil {
                 Button { onDressUp?() } label: {
                     Label("Dress up", systemImage: "tshirt.fill")
@@ -755,6 +835,46 @@ struct ModulaMascotPicker: View {
         .onChange(of: hovered) { _, kind in if let kind { brains[kind]?.hop(burst: nil, height: 6) } }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("moliboo.picker")
+    }
+
+    /// Only tiles of the shown family whose centre is inside the visible grid are slide-to-pick targets.
+    private func publishFrames() {
+        let shown = Set(currentFamily.kinds)
+        onFrames(frames.filter { shown.contains($0.key) && gridViewport.contains(CGPoint(x: $0.value.midX, y: $0.value.midY)) })
+    }
+
+    /// Family chips in the Moliboos (rounded, heavy) face; the selected family takes its Moliboo's colour.
+    private var familyChips: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(families) { f in
+                        let on = f == currentFamily
+                        let tint = (f == selected.family ? selected : (f.kinds.first ?? selected)).palette.dark
+                        Button {
+                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) { family = f }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Text(f.label)
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .lineLimit(1).fixedSize()
+                                .foregroundStyle(on ? Color.white : ink.opacity(0.8))
+                                .padding(.horizontal, 12).frame(height: 30)
+                                .background(Capsule().fill(on ? AnyShapeStyle(tint.gradient) : AnyShapeStyle(Color.primary.opacity(ambience.isDark ? 0.16 : 0.07))))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .id(f)
+                        .accessibilityLabel(f.name)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                        .accessibilityIdentifier("moliboo.picker.family.\(f.rawValue)")
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .frame(height: 30)
+            .onAppear { proxy.scrollTo(currentFamily, anchor: .center) }
+        }
     }
 
     /// Hero preview of the focused character with a gentle idle bob (still under Reduce Motion).
@@ -830,7 +950,7 @@ struct ModulaMascotPicker: View {
         .buttonStyle(.plain)
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             frames[kind] = frame
-            onFrames(frames)
+            publishFrames()
         }
         .accessibilityLabel("\(kind.name)\(kind.isPremium ? ", Premium" : ""). \(kind.personality)")
         .accessibilityIdentifier("moliboo.picker.tile.\(kind.rawValue)")
@@ -1120,7 +1240,7 @@ struct ComposerMascotSettingsSection: View {
         }
         Section("Choose") {
             LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(ModulaMascotKind.allCases) { k in tile(k) }
+                ForEach(ModulaMascotKind.roster) { k in tile(k) }
                 offTile
             }
             .padding(.vertical, 6)
@@ -1608,7 +1728,7 @@ private struct CelebrationMoment: View {
     }
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         let selection = MascotSelection.resolve(raw: kindRaw)
         ZStack {
             Color.black.opacity(0.28)

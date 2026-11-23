@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.117",
+  "key": "calyra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#FFA5B6",
+    "accent": "#FFD1DA",
+    "light": "#FFD1DA",
+    "dark": "#E393A2"
+  },
+  "form": "Coral-pink fan ears, pearled cheeks"
+}

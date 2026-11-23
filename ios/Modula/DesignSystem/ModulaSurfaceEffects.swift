@@ -56,12 +56,16 @@ struct ModulaRadarScope: View {
     var tint: Color
     var energy: Double
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    /// Perf: the 60 fps shader timeline stops while scrolled off-screen or the scene is inactive.
+    @State private var visible = true
     /// System Reduce Motion or Settings → Battery & Data → Extra motion reduction.
     private var reduceMotion: Bool { systemReduceMotion || ModulaPreferences.extraMotionReduction }
 
     var body: some View {
         let animate = energy > 0 && !reduceMotion
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !animate)) { context in
+        let running = animate && visible && scenePhase == .active
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !running)) { context in
             let time = animate ? ModulaSurfaceClock.seconds(context.date) : 0.9
             let shownEnergy = reduceMotion ? min(energy, 0.6) : energy
             Rectangle()
@@ -78,6 +82,7 @@ struct ModulaRadarScope: View {
                 }
         }
         .aspectRatio(1, contentMode: .fit)
+        .onScrollVisibilityChange(threshold: 0.02) { visible = $0 }
         .accessibilityHidden(true)
     }
 }

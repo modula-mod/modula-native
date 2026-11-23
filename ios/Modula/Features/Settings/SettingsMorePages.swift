@@ -66,7 +66,7 @@ struct CameraSettingsHost: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(app.appearance.accent.color)
+                .tint(app.appearance.liveAccent)
                 SettingsAPIFootnote(text: "Shows the access you’ve given Modula in iOS Settings.")
             }
             .navigationTitle("Permissions")
@@ -188,7 +188,7 @@ struct LocationSettingsHost: View {
                     ("Nearby", "Local discovery", "binoculars"),
                     ("Clear history", "Forget places", "trash")
                 ],
-                apiNote: "Location features aren’t available yet. Location access is managed in iOS Settings."
+                apiNote: "Location access is managed in iOS Settings."
             )
         case .map:
             SettingsScrollCanvas {
@@ -221,7 +221,7 @@ struct WidgetsSettingsHost: View {
                     widgetPreview("Module", "shippingbox")
                     widgetPreview("Compose", "plus")
                 }
-                SettingsAPIFootnote(text: "Widgets aren’t available yet. These are previews only.")
+                SettingsAPIFootnote(text: "Previews of Modula widgets.")
             }
             .navigationTitle("Widgets")
             .navigationBarTitleDisplayMode(.inline)
@@ -275,7 +275,7 @@ struct LabsSettingsHost: View {
         case .root:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Labs", subtitle: "Optional experiments on this device — not the Features registry.", symbol: "flask")
-                SettingsSceneGraphic(style: .pulse)
+                SproutIllustrationView(illustration: .science, height: 148)
                 SettingsToggleCard {
                     Toggle("Experimental bottom chrome", isOn: $experimentalChrome)
                     Toggle("Debug overlay", isOn: $debugOverlays)

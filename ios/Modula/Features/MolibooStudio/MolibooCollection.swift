@@ -1,19 +1,123 @@
 import SwiftUI
 import UIKit
 
+/// Single source of truth for what a Moliboo wears. Studio's wardrobe edits and persists the equipped outfit in
+/// `MascotWardrobeStore` (key `composer.mascot.outfit`, ownership-sanitised on load); Home, the stage, cards,
+/// thumbnails and Studio all resolve through here so they can never disagree. Reading `store.outfit` inside a
+/// view body registers Observation, so Home refreshes live when you come back from Studio.
+@MainActor
+enum MolibooOutfit {
+    static func equipped(for kind: ModulaMascotKind, store: MascotWardrobeStore = .shared) -> MascotOutfit {
+        wearsOutfits(kind) ? store.outfit : .empty
+    }
+    /// Legends wear their own look by design.
+    static func wearsOutfits(_ kind: ModulaMascotKind) -> Bool { kind.family.supportsWardrobe }
+}
+
 /// MOL-03 C: pre-rendered portraits (Tools/moliboo/engine/render_portraits.py, transparent 512², rendered from the
 /// shipped USDZs). Used wherever loading RealityKit would be too heavy: collection picker, Settings, composer, Home.
 @MainActor
 enum MolibooPortrait {
     private static var cache: [String: UIImage] = [:]
     static func image(for id: String) -> UIImage? {
-        guard let d = MolibooRegistry.descriptor(for: id) else { return nil }   // only real 3D characters have portraits
+        guard MolibooFeatureFlags.native3DEnabled else { return render2D(id, pointSize: 180, scale: 2) }
+        guard let d = MolibooRegistry.descriptor(for: id) else { return render2D(id, pointSize: 180, scale: 2) }
         if let i = cache[d.id] { return i }
         guard let url = Bundle.main.url(forResource: "Portrait_\(d.displayName)", withExtension: "png"),
-              let i = UIImage(contentsOfFile: url.path) else { return nil }
+              let i = UIImage(contentsOfFile: url.path) else { return render2D(id, pointSize: 180, scale: 2) }
         cache[d.id] = i
         return i
     }
+
+    /// Small static thumb for scrolling roster tiles. Never live SwiftUI figures.
+    /// `dressed`: roster tiles show the bare catalogue figure; the selected Moliboo's own tile shows its outfit.
+    static func thumb(for id: String, dressed: Bool = false) -> UIImage? {
+        render2D(id, pointSize: 64, scale: 2, cachePrefix: "thumb|", dressed: dressed)
+    }
+
+    /// 2D-only Moliboos: ImageRenderer snapshot of the figure, cached. Cap is large enough for all 100
+    /// characters + a few outfit variants so scroll never thrash-clears and re-renders.
+    private static var cache2D: [String: UIImage] = [:]
+    private static let cache2DCap = 256
+
+    private static func outfitKey(_ outfit: MascotOutfit) -> String {
+        outfit.items.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            + "|" + outfit.dyes.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+    }
+
+    private static func render2D(_ id: String, pointSize: CGFloat, scale: CGFloat, cachePrefix: String = "", dressed: Bool = true) -> UIImage? {
+        guard let kind = ModulaMascotKind(rawValue: id) else { return nil }
+        // Root cause of "dressed in Studio, undressed on Home": this keyed the cache on the outfit but always
+        // rendered `outfit: .empty`. Portraits now render the same equipped outfit Studio shows.
+        let outfit = dressed ? MolibooOutfit.equipped(for: kind) : .empty
+        let key = cachePrefix + id + "|" + outfitKey(outfit) + "|\(Int(pointSize))x\(Int(scale))"
+        if let i = cache2D[key] { return i }
+        let s = pointSize
+        // Render on a canvas wider than any character (wings, tails, boards, props), then crop to
+        // the real drawn bounds. The old fixed 1.45s frame cut wide Moliboos (Rumble, Skid, Asteri…)
+        // off at the sides everywhere the snapshot is shown.
+        let r = ImageRenderer(content: ModulaMascotFigure(kind: kind, pose: .still(), size: s, outfit: outfit)
+            .frame(width: s * renderCanvas, height: s * renderCanvas))
+        r.scale = scale
+        guard let raw = r.cgImage, let i = fittedToDrawnBounds(raw, pointSize: s, scale: scale) else { return nil }
+        if cache2D.count >= cache2DCap {
+            // Drop oldest half (dict order is insertion order) instead of wiping — keeps warm thumbs.
+            let drop = cache2D.keys.prefix(cache2DCap / 2)
+            for k in drop { cache2D.removeValue(forKey: k) }
+        }
+        cache2D[key] = i
+        return i
+    }
+
+    /// Side of the square render canvas, in figure sizes (figure canvas is 2.0 × 1.9).
+    private static let renderCanvas: CGFloat = 2.6
+    /// Minimum crop (the old fixed frame), so regular-width characters keep their usual scale.
+    private static let minimumCrop: CGFloat = 1.45
+
+    /// Crops a centred render to the smallest centred rect that contains every drawn pixel (plus a
+    /// little air), never smaller than `minimumCrop`. Symmetric about the centre so every character
+    /// keeps the same anchor; only wide/tall ones grow, and `scaledToFit` callers then fit them whole.
+    private static func fittedToDrawnBounds(_ image: CGImage, pointSize s: CGFloat, scale: CGFloat) -> UIImage? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0 else { return nil }
+        var alpha = [UInt8](repeating: 0, count: w * h)
+        let drawn: CGRect? = alpha.withUnsafeMutableBytes { buf -> CGRect? in
+            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return nil }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            var minX = w, maxX = -1, minY = h, maxY = -1
+            let px = buf.bindMemory(to: UInt8.self)
+            for y in 0..<h {
+                let row = y * w
+                for x in 0..<w where px[row + x] > 8 {
+                    if x < minX { minX = x }
+                    if x > maxX { maxX = x }
+                    if y < minY { minY = y }
+                    if y > maxY { maxY = y }
+                }
+            }
+            guard maxX >= minX, maxY >= minY else { return nil }
+            return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+        }
+        let cx = CGFloat(w) / 2, cy = CGFloat(h) / 2
+        let air = s * scale * 0.06
+        let minHalf = s * scale * minimumCrop / 2
+        var halfW = minHalf, halfH = minHalf
+        if let d = drawn {
+            halfW = max(minHalf, max(cx - d.minX, d.maxX - cx) + air)
+            halfH = max(minHalf, max(cy - d.minY, d.maxY - cy) + air)
+        }
+        let crop = CGRect(x: cx - halfW, y: cy - halfH, width: halfW * 2, height: halfH * 2)
+            .integral.intersection(CGRect(x: 0, y: 0, width: w, height: h))
+        guard let cropped = image.cropping(to: crop) else { return nil }
+        return UIImage(cgImage: cropped, scale: scale, orientation: .up)
+    }
+
+    /// Warm tile thumbs off the critical path so Choose-your-Moliboo scroll never ImageRenderer-stalls.
+    static func warmThumbs(ids: [String]) {
+        for id in ids { _ = thumb(for: id) }
+    }
+
     /// Lightweight 3D presentation (portrait, no RealityKit) is used only with the dev flag on.
     static func usesPortrait(_ id: String) -> Bool { MolibooFeatureFlags.native3DEnabled && image(for: id) != nil }
 }
@@ -51,7 +155,7 @@ struct MolibooPortraitCompanion: View {
 struct MolibooCollectionView: View {
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
-        case threeD = "3D Ready"
+        case threeD = "In Studio"
         case owned = "Unlocked"
         case comingLater = "Coming Later"
         var id: String { rawValue }
@@ -80,10 +184,10 @@ struct MolibooCollectionView: View {
             if !q.isEmpty {
                 let name = (MolibooRegistry.manifest?.character(id: id)?.displayName ?? id).lowercased()
                 let bio = (kind?.personality ?? "").lowercased()
-                let num = String(format: "%03d", idx + 1)
+                let num = String(format: "%03d", kind?.number ?? idx + 1)
                 guard name.contains(q) || bio.contains(q) || num.contains(q) else { return nil }
             }
-            return (idx + 1, id)
+            return (kind?.number ?? idx + 1, id)
         }
     }
 
@@ -106,6 +210,7 @@ struct MolibooCollectionView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search Originals by name or #")
         .navigationDestination(item: $studioFor) { id in MolibooLivingStudioView(characterID: id) }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private var headerCard: some View {
@@ -113,7 +218,7 @@ struct MolibooCollectionView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("The Originals")
                     .font(.system(.title3, design: .rounded).weight(.heavy))
-                Text("\(MolibooRegistry.available3D.count) of \(MolibooCosmetics.originals.count) Originals are alive in 3D")
+                Text("\(MolibooRegistry.available3D.count) of \(MolibooCosmetics.originals.count) Originals are ready to play")
                     .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
                     .accessibilityIdentifier("collection.summary")
             }
@@ -237,19 +342,18 @@ struct MolibooCollectionView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(selected ? teal : Color.primary.opacity(0.08), lineWidth: selected ? 2.5 : 1)
+                    .strokeBorder(selected ? teal : Color.primary.opacity(0.06), lineWidth: selected ? 1.5 : 0.5)
             )
-            .shadow(color: selected ? teal.opacity(0.28) : .black.opacity(0.05), radius: selected ? 10 : 4, y: 3)
         }
         .buttonStyle(MolibooSpringPressStyle())
         .accessibilityIdentifier("collection.\(id)")
-        .accessibilityLabel("\(name), number \(number), \(has3D ? "3D" : "3D coming later")")
+        .accessibilityLabel("\(name), number \(number), \(has3D ? "in Studio" : "coming later")")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder private func statusBadge(has3D: Bool, kind: ModulaMascotKind?, unlocked: Bool) -> some View {
         if has3D {
-            Text("3D")
+            Text("Studio")
                 .font(.caption2.weight(.heavy))
                 .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(teal, in: Capsule())

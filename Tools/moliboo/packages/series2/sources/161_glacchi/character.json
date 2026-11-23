@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.161",
+  "key": "glacchi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#93D7F6",
+    "accent": "#C8EBFA",
+    "light": "#C8EBFA",
+    "dark": "#83BFDB"
+  },
+  "form": "Rounded icy ears, cobalt toes"
+}

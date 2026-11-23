@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.147",
+  "key": "spriggo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#B5E6AA",
+    "accent": "#D9F2D4",
+    "light": "#D9F2D4",
+    "dark": "#A1CD97"
+  },
+  "form": "Mint seed-shaped body, sprout antenna"
+}

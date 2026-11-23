@@ -24,7 +24,11 @@ struct SettingsDestinationHost: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        destination.modulaSoftScrollEdge()
+        destination
+            .modulaSoftScrollEdge()
+            // Forms/Lists: keep the last row (and footers) clear of the tab bar and floating buttons.
+            .contentMargins(.bottom, SettingsInsets.bottom, for: .scrollContent)
+            .onAppear { SettingsRecents.record(route) }
     }
 
     @ViewBuilder
@@ -41,8 +45,6 @@ struct SettingsDestinationHost: View {
             AppIconPickerView()
         case .appearance(.preview):
             AppearancePreviewScreen()
-        case .appearance(.edgePicker):
-            EdgePickerSettingsView()
         case .appearance(let focus):
             AppearanceSettingsView(focus: focus)
         case .personalisation(let nested):
@@ -51,6 +53,8 @@ struct SettingsDestinationHost: View {
             IntelligenceSettingsHost(route: nested)
         case .moliboo:
             MolibooWorldView()
+        case .premium(let nested):
+            PremiumDestination(route: nested)
         case .chats(let nested):
             ChatsSettingsHost(route: nested)
         case .audio(let nested):
@@ -61,38 +65,32 @@ struct SettingsDestinationHost: View {
             MediaSettingsHost(route: nested)
         case .feed(let nested):
             FeedSettingsHost(route: nested)
-        case .battery(let nested):
-            BatterySettingsHost(route: nested)
+        case .battery, .network:
+            BatteryNetworkSettingsPage()
         case .safety(let nested):
             SafetySettingsHost(route: nested)
         case .camera(let nested):
             CameraSettingsHost(route: nested)
-        case .gestures(let nested):
-            GesturesSettingsHost(route: nested)
-        case .finder(let nested):
-            FinderSettingsHost(route: nested)
-        case .sharing(let nested):
-            SharingSettingsHost(route: nested)
+        case .gestures, .finder, .sharing, .keyboard, .photos, .focus:
+            GeneralBehaviourSettingsPage()
         case .location(let nested):
             LocationSettingsHost(route: nested)
         case .widgets(let nested):
             WidgetsSettingsHost(route: nested)
         case .labs(let nested):
             LabsSettingsHost(route: nested)
-        case .photos(let nested):
-            PhotosSettingsHost(route: nested)
-        case .network(let nested):
-            NetworkSettingsHost(route: nested)
+
         case .digests(let nested):
             DigestsSettingsHost(route: nested)
         case .help(let nested):
             HelpSettingsHost(route: nested)
         case .whatsNew(let nested):
             WhatsNewSettingsHost(route: nested)
+        case .migration(let nested):
+            MigrationSettingsHost(route: nested)
         case .creator(let nested):
             CreatorSettingsHost(route: nested)
-        case .focus(let nested):
-            FocusSettingsHost(route: nested)
+
         case .passkeys(let nested):
             PasskeysSettingsHost(route: nested)
         case .translate(let nested):
@@ -103,8 +101,7 @@ struct SettingsDestinationHost: View {
             FamilySettingsHost(route: nested)
         case .timeUnits(let nested):
             TimeUnitsSettingsHost(route: nested)
-        case .keyboard(let nested):
-            KeyboardSettingsHost(route: nested)
+
         case .connectors(let nested):
             ConnectorsSettingsHost(route: nested)
         case .integrations(let nested):
@@ -151,7 +148,7 @@ struct NotificationSettingsHost: View {
                 NotificationStackGraphic()
                 SettingsGroup(title: "Categories") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Push", subtitle: "Device authorization", symbol: "iphone.radiowaves.left.and.right") {
+                        SettingsNavigationRow(title: "Push", subtitle: "Permission, categories and quiet hours", symbol: "iphone.radiowaves.left.and.right") {
                             app.navigation.open(.settings(.notifications(.push)))
                         }
                         SettingsDivider()
@@ -172,14 +169,14 @@ struct NotificationSettingsHost: View {
                         }
                     }
                 }
-                SettingsAPIFootnote(text: "Notification permission comes from iOS. More notification options are coming.")
+                SettingsAPIFootnote(text: "Notification permission comes from iOS. Push categories and quiet hours sync to your account.")
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier("settings.notifications")
         case .push:
-            PushAuthorizationView()
+            PushNotificationSettingsView()
         case .social:
             NotificationCategoriesView(scope: .social)
         case .modules:
@@ -252,78 +249,12 @@ struct PrivacySecurityHost: View {
 
     var body: some View {
         switch route {
-        case .root:
-            SettingsScrollCanvas {
-                SettingsHeroBanner(
-                    title: "Privacy & Security",
-                    subtitle: "Locks, biometrics, and account protection.",
-                    symbol: "lock.shield"
-                )
-                PrivacyLayersGraphic()
-                SettingsGroup(title: "Privacy") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Privacy", subtitle: "Profile visibility", symbol: "hand.raised") {
-                            app.navigation.open(.settings(.privacy(.privacy)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Glass Privacy", subtitle: "Conversation levels", symbol: "bubble.left.and.bubble.right") {
-                            app.navigation.open(.settings(.privacy(.glassPrivacy)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Blocked Accounts", subtitle: "People you’ve blocked", symbol: "nosign") {
-                            app.navigation.open(.settings(.privacy(.blocked)))
-                        }
-                    }
-                }
-                SettingsGroup(title: "Security") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Security", subtitle: "Account & device", symbol: "lock") {
-                            app.navigation.open(.settings(.privacy(.security)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "App Lock", subtitle: "Passcode for this device", symbol: "lock.fill") {
-                            app.navigation.open(.settings(.privacy(.appLock)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Face ID & Biometrics", subtitle: "Unlock with biometrics", symbol: "faceid") {
-                            app.navigation.open(.settings(.privacy(.biometrics)))
-                        }
-                    }
-                }
-            }
-            .modulaSoftScrollEdge()
-            .navigationTitle("Privacy & Security")
-            .navigationBarTitleDisplayMode(.inline)
-            .accessibilityIdentifier("settings.privacy-security")
-        case .privacy:
-            Form {
-                Section {
-                    Text("Your email and phone number are never shown on your profile.")
-                }
-                Section("Your data") {
-                    Button {
-                        app.navigation.open(.settings(.dataStorage(.export)))
-                    } label: {
-                        Label("Export your data", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        app.navigation.open(.settings(.help(.contact)))
-                    } label: {
-                        Label("Make a privacy request", systemImage: "hand.raised")
-                    }
-                }
-            }
-            .modulaSoftScrollEdge()
-            .navigationTitle("Privacy")
         case .security:
-            Form {
-                Button("App Lock") { app.navigation.open(.settings(.privacy(.appLock))) }
-                Button("Face ID") { app.navigation.open(.settings(.privacy(.biometrics))) }
-                Button("Sessions") { app.navigation.open(.settings(.account(.sessions))) }
-                Button("Password") { app.navigation.open(.settings(.account(.password))) }
-            }
-            .modulaSoftScrollEdge()
-            .navigationTitle("Security")
+            // Security Center: sign-in methods, recovery, devices and this iPhone's lock in one hierarchy.
+            SettingsSecurityCenter()
+        case .root, .privacy, .appLock, .biometrics:
+            // One page: Privacy + App Lock + Face ID (old sub-routes land here).
+            PrivacySafetySettingsPage()
         case .glassPrivacy:
             SettingsDesignedUnavailableCanvas(
                 title: "Glass Privacy",
@@ -347,10 +278,6 @@ struct PrivacySecurityHost: View {
             )
         case .blocked:
             RelationshipListView(kind: .blocked)
-        case .appLock:
-            AppLockSettingsView()
-        case .biometrics:
-            BiometricsSettingsView()
         }
     }
 }
@@ -390,7 +317,7 @@ struct AppLockSettingsView: View {
                             Spacer()
                             if lock.settings.interval == interval {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                             }
                         }
                     }
@@ -659,6 +586,10 @@ struct DataStorageHost: View {
                             app.navigation.open(.settings(.dataStorage(.storage)))
                         }
                         SettingsDivider()
+                        SettingsNavigationRow(title: "Storage & Downloads", subtitle: "Packages and shared runtimes", symbol: "square.stack.3d.up") {
+                            app.navigation.open(.settings(.dataStorage(.packages)))
+                        }
+                        SettingsDivider()
                         SettingsNavigationRow(title: "Cache", subtitle: "Clear rebuildable cache", symbol: "xmark.bin") {
                             app.navigation.open(.settings(.dataStorage(.cache)))
                         }
@@ -683,26 +614,19 @@ struct DataStorageHost: View {
             .modulaSoftScrollEdge()
             .navigationTitle("Data & Storage")
             .navigationBarTitleDisplayMode(.inline)
+        case .packages:
+            PackageStorageDownloadsView(accountID: app.catalogue.accountID)
         case .storage:
-            Form {
-                if let usage {
-                    LabeledContent("Caches", value: usage.caches)
-                    LabeledContent("Temporary", value: usage.temporary)
-                    LabeledContent("Application support", value: usage.applicationSupport)
-                    LabeledContent("Draft Media", value: usage.draftMedia)
-                    Text("Figures are measured from this device. Drafts, draft media, and Keychain sessions are not included as cache.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ProgressView("Measuring…")
-                }
+            ModulaStorageOverview(usage: usage) {
+                usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value
             }
-            .modulaSoftScrollEdge()
             .navigationTitle("Storage")
+            .navigationBarTitleDisplayMode(.inline)
             // Walking the cache folders can take a while; measure off the main thread.
             .task { usage = await Task.detached(priority: .utility) { StorageUsageSnapshot.measure() }.value }
         case .cache:
             Form {
-                Text("Clears URLCache and temporary files only. Account session, drafts and offline module data are kept.")
+                Text("Clears cached network responses only. Account sessions, drafts and offline module data are kept.")
                     .foregroundStyle(.secondary)
                 Button("Clear Cache", role: .destructive) {
                     confirmingClearCache = true
@@ -713,7 +637,7 @@ struct DataStorageHost: View {
                     Button("Clear Cache", role: .destructive) {
                         clearingCache = true
                         Task {
-                            // File deletion off the main thread.
+                            // Clear only the known rebuildable response cache.
                             await Task.detached(priority: .userInitiated) { StorageUsageSnapshot.clearCache() }.value
                             clearingCache = false
                             cleared = true
@@ -746,31 +670,46 @@ struct StorageUsageSnapshot: Sendable {
     var temporary: String
     var applicationSupport: String
     var draftMedia: String
+    var cachesBytes: Int64 = 0
+    var temporaryBytes: Int64 = 0
+    var applicationSupportBytes: Int64 = 0
+    var draftMediaBytes: Int64 = 0
+    var deviceTotalBytes: Int64? = nil
+    var deviceAvailableBytes: Int64? = nil
+    var totalBytes: Int64 { cachesBytes + temporaryBytes + applicationSupportBytes + draftMediaBytes }
 
     static func measure() -> StorageUsageSnapshot {
         let fm = FileManager.default
-        func size(of directory: FileManager.SearchPathDirectory) -> String {
-            guard let url = fm.urls(for: directory, in: .userDomainMask).first else { return "—" }
-            return byteCount(folderSize(url))
+        func bytes(of directory: FileManager.SearchPathDirectory) -> Int64 {
+            guard let url = fm.urls(for: directory, in: .userDomainMask).first else { return 0 }
+            return folderSize(url)
         }
+        let caches = bytes(of: .cachesDirectory)
+        let temp = folderSize(URL(fileURLWithPath: NSTemporaryDirectory()))
+        let support = bytes(of: .applicationSupportDirectory)
+        let drafts = DraftMediaStore().byteCount()
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        let volume = try? home.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey])
         return StorageUsageSnapshot(
-            caches: size(of: .cachesDirectory),
-            temporary: byteCount(folderSize(URL(fileURLWithPath: NSTemporaryDirectory()))),
-            applicationSupport: size(of: .applicationSupportDirectory),
-            draftMedia: byteCount(DraftMediaStore().byteCount())
+            caches: byteCount(caches),
+            temporary: byteCount(temp),
+            applicationSupport: byteCount(support),
+            draftMedia: byteCount(drafts),
+            cachesBytes: caches,
+            temporaryBytes: temp,
+            applicationSupportBytes: support,
+            draftMediaBytes: drafts,
+            deviceTotalBytes: volume?.volumeTotalCapacity.map(Int64.init),
+            deviceAvailableBytes: volume?.volumeAvailableCapacityForImportantUsage
         )
     }
 
     static func clearCache() {
+        // Other Caches and tmp children may belong to a draft, an in-flight
+        // transfer, or another subsystem. Only the URL response cache is known
+        // to be rebuildable here.
         URLCache.shared.removeAllCachedResponses()
-        let fm = FileManager.default
-        if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first,
-           let items = try? fm.contentsOfDirectory(at: caches, includingPropertiesForKeys: nil) {
-            for item in items { try? fm.removeItem(at: item) }
-        }
-        if let items = try? fm.contentsOfDirectory(at: URL(fileURLWithPath: NSTemporaryDirectory()), includingPropertiesForKeys: nil) {
-            for item in items { try? fm.removeItem(at: item) }
-        }
+        ModulaImageDiskCache.clear()
     }
 
     private static func folderSize(_ url: URL) -> Int64 {
@@ -790,6 +729,213 @@ struct StorageUsageSnapshot: Sendable {
     }
 }
 
+private struct DownloadedPackageRow: Identifiable, Sendable {
+    let id: String
+    let version: String
+    let isGame: Bool
+    let bytes: Int64
+    let runtimeDigest: String?
+}
+
+private struct PackageStorageSnapshot: Sendable {
+    let coreBytes: Int64
+    let moduleBytes: Int64
+    let gameBytes: Int64
+    let runtimeBytes: Int64
+    let modelBytes: Int64
+    let assetBytes: Int64
+    let temporaryBytes: Int64
+    let packages: [DownloadedPackageRow]
+    let runtimeDigests: [String]
+
+    var optionalBytes: Int64 { moduleBytes + gameBytes + runtimeBytes + modelBytes + assetBytes + temporaryBytes }
+
+    static func measure(accountID: String?) -> Self {
+        let manager = FileManager.default
+        let cache = ModuleArtifactStore()
+        var packages: [DownloadedPackageRow] = []
+        var moduleBytes: Int64 = 0
+        var gameBytes: Int64 = 0
+        if let accountID {
+            let accountRoot = cache.moduleRoot(accountID: accountID, moduleId: "_").deletingLastPathComponent()
+            if let modules = try? manager.contentsOfDirectory(at: accountRoot, includingPropertiesForKeys: [.isDirectoryKey]) {
+                for module in modules {
+                    guard let release = cache.release(in: .active, accountID: accountID, moduleId: module.lastPathComponent) else { continue }
+                    let bytes = size(module)
+                    let isGame = release.hostManifest.runtime == "web-game"
+                    packages.append(DownloadedPackageRow(id: module.lastPathComponent, version: release.version,
+                                                         isGame: isGame, bytes: bytes, runtimeDigest: release.runtimeSha256))
+                    if isGame { gameBytes += bytes } else { moduleBytes += bytes }
+                }
+            }
+        }
+        let runtimeRoot = cache.root.appendingPathComponent("SharedWebRuntimes", isDirectory: true)
+        let runtimeDigests = SharedWebRuntimeStore(moduleCacheRoot: cache.root).installedDigests()
+        let support = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        return Self(coreBytes: size(Bundle.main.bundleURL), moduleBytes: moduleBytes, gameBytes: gameBytes,
+                    runtimeBytes: size(runtimeRoot),
+                    modelBytes: support.map { size($0.appendingPathComponent("Modula/Packages/ModelData")) } ?? 0,
+                    assetBytes: support.map { size($0.appendingPathComponent("Modula/Packages/AssetPacks")) } ?? 0,
+                    temporaryBytes: Int64(URLCache.shared.currentDiskUsage) + ModulaImageDiskCache.byteCount(),
+                    packages: packages.sorted { $0.id < $1.id }, runtimeDigests: runtimeDigests)
+    }
+
+    private static func size(_ url: URL) -> Int64 {
+        let manager = FileManager.default
+        guard let iterator = manager.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let file as URL in iterator {
+            guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                  values.isRegularFile == true else { continue }
+            total += Int64(values.fileSize ?? 0)
+        }
+        return total
+    }
+}
+
+private struct PackageStorageDownloadsView: View {
+    let accountID: String?
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage("settings.downloads.allowCellular") private var allowCellular = false
+    @State private var usage: PackageStorageSnapshot?
+    @State private var packageToRemove: DownloadedPackageRow?
+    @State private var confirmingCacheClear = false
+    @State private var confirmingReclaim = false
+    @State private var errorMessage: String?
+    @State private var refreshGeneration = 0
+
+    private func bytes(_ value: Int64) -> String { ByteCountFormatter.string(fromByteCount: value, countStyle: .file) }
+
+    var body: some View {
+        SettingsScrollCanvas {
+            SettingsHeroBanner(title: "Storage & Downloads", subtitle: "Measured optional content on this device.", symbol: "square.stack.3d.up")
+            ShellSceneImage(scene: .storageCloud)
+                .scaledToFit()
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
+            if let usage {
+                SettingsGroup(title: "Usage") {
+                    VStack(spacing: 0) {
+                        LabeledContent("Modula Core", value: bytes(usage.coreBytes))
+                        SettingsDivider()
+                        LabeledContent("Modules", value: bytes(usage.moduleBytes))
+                        SettingsDivider()
+                        LabeledContent("Games", value: bytes(usage.gameBytes))
+                        SettingsDivider()
+                        LabeledContent("Shared Runtimes", value: bytes(usage.runtimeBytes))
+                            .accessibilityIdentifier("storage.sharedRuntimeBytes")
+                            .accessibilityValue(bytes(usage.runtimeBytes))
+                        SettingsDivider()
+                        LabeledContent("AI Models", value: bytes(usage.modelBytes))
+                        SettingsDivider()
+                        LabeledContent("Media & Assets", value: bytes(usage.assetBytes))
+                        SettingsDivider()
+                        LabeledContent("Temporary Cache", value: bytes(usage.temporaryBytes))
+                        SettingsDivider()
+                        LabeledContent("Total Optional Storage", value: bytes(usage.optionalBytes)).fontWeight(.semibold)
+                    }
+                    .labeledContentStyle(StorageUsageRowStyle())
+                    .padding(.horizontal, ModulaSpacing.md)
+                    .padding(.vertical, ModulaSpacing.xxs)
+                }
+                SettingsGroup(title: "Downloaded packages") {
+                    if usage.packages.isEmpty {
+                        Text("No downloaded modules or games for this account.").foregroundStyle(.secondary).padding(16)
+                    } else {
+                        ForEach(usage.packages) { package in
+                            SettingsTileRow(title: package.id, subtitle: "Version \(package.version) · \(bytes(package.bytes))",
+                                            symbol: package.isGame ? "gamecontroller.fill" : "shippingbox.fill") {
+                                packageToRemove = package
+                            }
+                            if package.id != usage.packages.last?.id { SettingsDivider() }
+                        }
+                    }
+                }
+                SettingsGroup(title: "Shared runtimes") {
+                    if usage.runtimeDigests.isEmpty {
+                        Text("No shared web runtimes are downloaded.").foregroundStyle(.secondary).padding(16)
+                    } else {
+                        ForEach(usage.runtimeDigests, id: \.self) { digest in
+                            let owners = usage.packages.filter { $0.runtimeDigest == digest }.count
+                            LabeledContent(String(digest.prefix(12)) + "…", value: "\(owners) game\(owners == 1 ? "" : "s")")
+                                .padding(14)
+                        }
+                    }
+                }
+                SettingsGroup(title: "Manage downloads") {
+                    VStack(spacing: 0) {
+                        SettingsNavigationRow(title: "Find optional content", subtitle: "Open Product Hub", symbol: "square.grid.2x2") {
+                            app.navigation.open(.productHub(.featured))
+                        }
+                        SettingsDivider()
+                        SettingsNavigationRow(title: "Refresh storage", subtitle: "Measure downloads on this device", symbol: "arrow.clockwise") {
+                            Task { await refresh() }
+                        }
+                        SettingsDivider()
+                        Button("Remove unused dependencies", role: .destructive) { confirmingReclaim = true }
+                            .padding(16)
+                        SettingsDivider()
+                        Button("Clear eligible temporary cache", role: .destructive) { confirmingCacheClear = true }
+                            .padding(16)
+                        SettingsDivider()
+                        Toggle("Allow downloads over cellular", isOn: $allowCellular).padding(16)
+                    }
+                }
+                Text("Removing a download keeps account records, game progress, documents and permission grants. Delete user data is a separate account action.")
+                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 14)
+            } else {
+                ProgressView("Measuring storage…")
+            }
+            if let errorMessage { Text(errorMessage).foregroundStyle(.red).font(.footnote) }
+        }
+        .modulaSoftScrollEdge()
+        .navigationTitle("Storage & Downloads")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await refresh() }
+        .confirmationDialog("Remove downloaded package?", isPresented: Binding(get: { packageToRemove != nil }, set: { if !$0 { packageToRemove = nil } }), titleVisibility: .visible) {
+            if let packageToRemove {
+                Button("Remove \(packageToRemove.id) download", role: .destructive) { remove(packageToRemove) }
+            }
+        } message: { Text("Account records, progress and grants are kept. The package can download again when you choose to open it.") }
+        .confirmationDialog("Remove unused dependencies?", isPresented: $confirmingReclaim, titleVisibility: .visible) {
+            Button("Remove unused dependencies", role: .destructive) { reclaim() }
+        } message: { Text("Runtimes needed by active, staged or rollback packages stay on this device.") }
+        .confirmationDialog("Clear temporary cache?", isPresented: $confirmingCacheClear, titleVisibility: .visible) {
+            Button("Clear temporary cache", role: .destructive) { clearTemporaryCache() }
+        } message: { Text("Only rebuildable cache is removed. Account records and downloads are kept.") }
+    }
+
+    private func refresh() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let measured = await Task.detached(priority: .utility) { PackageStorageSnapshot.measure(accountID: accountID) }.value
+        guard generation == refreshGeneration else { return }
+        usage = measured
+    }
+
+    private func remove(_ package: DownloadedPackageRow) {
+        guard let accountID else { return }
+        do {
+            try ModuleArtifactStore().removeModule(accountID: accountID, moduleId: package.id)
+            Task { await refresh() }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func reclaim() {
+        do {
+            _ = try SharedWebRuntimeStore(moduleCacheRoot: ModuleArtifactStore().root).reclaimUnused()
+            Task { await refresh() }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func clearTemporaryCache() {
+        URLCache.shared.removeAllCachedResponses()
+        ModulaImageDiskCache.clear()
+        Task { await refresh() }
+    }
+}
+
 // MARK: - Accessibility / Features / Updates / Developer / About
 
 struct AccessibilitySettingsHost: View {
@@ -797,51 +943,78 @@ struct AccessibilitySettingsHost: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.legibilityWeight) private var legibilityWeight
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.openURL) private var openURL
 
+    // Psychology: "status, then explanation, then the one place to change it" lowers decision cost; every row
+    // shows the live system value (visibility of system status) and nothing here overrides an iOS setting.
     var body: some View {
         Form {
             switch route {
             case .root, .text:
-                AccessibilityPreviewGraphic(
-                    sample: "Modula text follows the system size you choose.",
-                    scale: dynamicTypeSize.isAccessibilitySize ? 1.35 : 1
-                )
-                LabeledContent("Dynamic Type", value: dynamicTypeSize.settingsLabel)
-                Text("Modula follows system text size. Appearance Text Size is an additional product scale and does not override Dynamic Type.")
-                    .foregroundStyle(.secondary)
-                if route == .root {
-                    Section("More") {
-                        Button {
-                            app.navigation.open(.settings(.accessibility(.contrast)))
-                        } label: {
-                            LabeledContent { Text(contrast == .increased ? "Increased" : "Standard") } label: { Label("Contrast", systemImage: "circle.lefthalf.filled") }
-                        }
-                        Button {
-                            app.navigation.open(.settings(.accessibility(.motion)))
-                        } label: {
-                            LabeledContent { Text(reduceMotion ? "Reduced" : "Full") } label: { Label("Motion", systemImage: "figure.walk.motion") }
-                        }
-                        Button {
-                            app.navigation.open(.settings(.appearance(.textSize)))
-                        } label: {
+                Section {
+                    AccessibilityPreviewGraphic(
+                        sample: "Modula text follows the system size you choose.",
+                        scale: dynamicTypeSize.isAccessibilitySize ? 1.35 : 1
+                    )
+                    LabeledContent("Dynamic Type", value: dynamicTypeSize.settingsLabel)
+                    LabeledContent("Bold Text", value: legibilityWeight == .bold ? "On" : "Off")
+                    if route == .root {
+                        Button { app.navigation.open(.settings(.appearance(.textSize))) } label: {
                             Label("Modula Text Size", systemImage: "textformat.size")
                         }
+                        .foregroundStyle(.primary)
+                    }
+                } header: { Text("Text") } footer: {
+                    Text("Modula follows the text size and Bold Text you set in iOS. Modula Text Size adds a small extra scale on top and never overrides Dynamic Type.")
+                }
+                if route == .root {
+                    Section {
+                        Button { app.navigation.open(.settings(.accessibility(.motion))) } label: {
+                            LabeledContent { Text(reduceMotion ? "Reduced" : "Full") } label: { Label("Motion", systemImage: "figure.walk.motion") }
+                        }
+                        LabeledContent { Text(reduceTransparency ? "On" : "Off") } label: { Label("Reduce Transparency", systemImage: "square.on.square.intersection.dashed") }
+                        Button { app.navigation.open(.settings(.accessibility(.contrast))) } label: {
+                            LabeledContent { Text(contrast == .increased ? "Increased" : "Standard") } label: { Label("Contrast", systemImage: "circle.lefthalf.filled") }
+                        }
+                    } header: { Text("Vision & motion") } footer: {
+                        Text("With Reduce Motion on, Moliboos hold a still pose and screens fade instead of sliding. With Reduce Transparency on, glass surfaces become solid so text stays readable.")
                     }
                     .foregroundStyle(.primary)
+                    Section {
+                        LabeledContent { Text(voiceOver ? "Running" : "Off") } label: { Label("VoiceOver", systemImage: "speaker.wave.2") }
+                    } header: { Text("Screen reader") } footer: {
+                        Text("Buttons, Moliboos and list rows have spoken labels, and long-press actions are also offered in the VoiceOver rotor.")
+                    }
+                    Section {
+                        Button("Open iOS Accessibility Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        }
+                    } footer: {
+                        Text("These are system settings, so changing them affects every app on your iPhone.")
+                    }
                 }
             case .contrast:
-                LabeledContent("System contrast", value: contrast == .increased ? "Increased" : "Standard")
-                Text("Increase Contrast in iOS Settings is respected. Appearance Contrast & Transparency can raise contrast further without disabling system settings.")
-                    .foregroundStyle(.secondary)
+                Section {
+                    LabeledContent("System contrast", value: contrast == .increased ? "Increased" : "Standard")
+                    LabeledContent("Reduce Transparency", value: reduceTransparency ? "On" : "Off")
+                } footer: {
+                    Text("Increase Contrast in iOS Settings is respected. Appearance › Contrast & Transparency can raise contrast further without disabling system settings.")
+                }
             case .motion:
-                LabeledContent("Reduce Motion", value: reduceMotion ? "On" : "Off")
-                Text("Modula does not override Reduce Motion. Motion Personality only applies when the system allows motion.")
-                    .foregroundStyle(.secondary)
+                Section {
+                    LabeledContent("Reduce Motion", value: reduceMotion ? "On" : "Off")
+                } footer: {
+                    Text("Modula never overrides Reduce Motion. Motion Personality only applies when the system allows motion; otherwise animations become simple fades.")
+                }
             }
         }
         .modulaSoftScrollEdge()
         .navigationTitle(route == .root ? "Accessibility" : settingsDisplayTitle(route.rawValue))
+        .accessibilityIdentifier("settings.accessibility")
     }
 }
 
@@ -919,6 +1092,7 @@ struct DeveloperSettingsHost: View {
         switch route {
         case .root:
             Form {
+                CommunityDeveloperEntry()
                 Button("Module Studio") { app.navigation.open(.developer(.studio)) }
                     .accessibilityIdentifier("developer.settings.studio")
                 Button("Runtime") { app.navigation.open(.settings(.developer(.runtime))) }
@@ -1017,17 +1191,25 @@ struct AboutSettingsHost: View {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                     LabeledContent("Build", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")
                     LabeledContent("Name", value: "Modula")
+                } header: { Text("This app") } footer: {
+                    Text("Include the version and build when you contact support so we can find the right fix faster.")
                 }
                 if route == .root {
-                    Section("Legal") {
-                        Button { app.navigation.open(.settings(.about(.licenses))) } label: { Label("Licenses", systemImage: "doc.plaintext") }
+                    AboutPerformanceSection()
+                    Section {
                         Button { app.navigation.open(.settings(.about(.privacy))) } label: { Label("Privacy Policy", systemImage: "hand.raised") }
                         Button { app.navigation.open(.settings(.about(.terms))) } label: { Label("Terms of Service", systemImage: "doc.text") }
+                        Button { app.navigation.open(.settings(.about(.licenses))) } label: { Label("Open-source licenses", systemImage: "doc.plaintext") }
+                    } header: { Text("Legal") } footer: {
+                        Text("The Privacy Policy explains what Modula stores and why; the Terms explain the rules for using it. Both open inside the app.")
                     }
                     .foregroundStyle(.primary)
-                    Section("Service") {
+                    Section {
                         Button { app.navigation.open(.settings(.help(.status))) } label: { Label("Service Status", systemImage: "waveform.path.ecg") }
                         Button { app.navigation.open(.settings(.whatsNew(.root))) } label: { Label("What’s New", systemImage: "sparkles") }
+                        Button { app.navigation.open(.settings(.help(.root))) } label: { Label("Help & Support", systemImage: "questionmark.circle") }
+                    } header: { Text("Service") } footer: {
+                        Text("Status shows live health from Modula’s servers, so you can tell whether a problem is on our side.")
                     }
                     .foregroundStyle(.primary)
                 }
@@ -1040,5 +1222,338 @@ struct AboutSettingsHost: View {
         .modulaSoftScrollEdge()
         .navigationTitle(route == .root ? "About" : settingsDisplayTitle(route.rawValue))
         .accessibilityIdentifier("settings.about")
+    }
+}
+
+
+/// Storage usage rows: full-contrast label, readable secondary value, 44pt rows (was low-contrast grey caption text).
+private struct StorageUsageRowStyle: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: ModulaSpacing.sm) {
+            configuration.label
+                .font(.body)
+                .foregroundStyle(.primary)
+            Spacer(minLength: ModulaSpacing.xs)
+            configuration.content
+                .font(.body.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .frame(minHeight: ModulaLayout.minimumTouch)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+
+// MARK: - Storage overview (reference: ring chart, breakdown, quick actions, premium card)
+//
+// Every figure is measured on this device. There is no account cloud-storage endpoint, so the
+// ring shows how Modula's own on-device footprint splits up, plus real device free space.
+struct ModulaStorageOverview: View {
+    let usage: StorageUsageSnapshot?
+    var refresh: () async -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    private struct Slice: Identifiable { let id: String; let title: String; let symbol: String; let color: Color; let bytes: Int64 }
+
+    private func slices(_ u: StorageUsageSnapshot) -> [Slice] {
+        [
+            Slice(id: "support", title: "Modules & app data", symbol: "shippingbox.fill", color: app.appearance.liveAccent, bytes: u.applicationSupportBytes),
+            Slice(id: "caches", title: "Cached media", symbol: "photo.fill", color: .blue, bytes: u.cachesBytes),
+            Slice(id: "drafts", title: "Draft media", symbol: "doc.richtext.fill", color: .pink, bytes: u.draftMediaBytes),
+            Slice(id: "temp", title: "Temporary", symbol: "clock.fill", color: .orange, bytes: u.temporaryBytes)
+        ]
+    }
+
+    private func fmt(_ v: Int64) -> String { ByteCountFormatter.string(fromByteCount: v, countStyle: .file) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                if let usage {
+                    ringCard(usage)
+                } else {
+                    ProgressView("Measuring storage…")
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false)
+                }
+                premiumCard
+                quickActions
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.bottom, 40)
+        }
+        .modulaCanvas()
+        .modulaSoftScrollEdge()
+        .refreshable { await refresh() }
+        .onAppear { appeared = true }
+    }
+
+    private var header: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Storage").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
+                Text("More room for what matters.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Image("SceneStorageCloud")
+                .resizable().scaledToFit()
+                .frame(width: 130, height: 100)
+                .accessibilityHidden(true)
+        }
+        .padding(.top, 8)
+    }
+
+    private func ringCard(_ u: StorageUsageSnapshot) -> some View {
+        let parts = slices(u)
+        let total = max(u.totalBytes, 1)
+        var start = 0.0
+        let arcs: [(Slice, Double, Double)] = parts.map { slice in
+            let len = Double(slice.bytes) / Double(total)
+            defer { start += len }
+            return (slice, start, start + len)
+        }
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 18) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.08), lineWidth: 16)
+                    ForEach(arcs, id: \.0.id) { arc in
+                        Circle()
+                            .trim(from: arc.1, to: appeared || reduceMotion ? max(arc.1, arc.2 - 0.004) : arc.1)
+                            .stroke(arc.0.color.gradient, style: StrokeStyle(lineWidth: 16, lineCap: .butt))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    VStack(spacing: 2) {
+                        Text(fmt(u.totalBytes)).font(.title3.bold().monospacedDigit()).minimumScaleFactor(0.6).lineLimit(1)
+                        Text("used by Modula").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .padding(18)
+                }
+                .frame(width: 140, height: 140)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.9), value: appeared)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Modula uses \(fmt(u.totalBytes)) on this device")
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(parts) { slice in
+                        HStack(spacing: 8) {
+                            Image(systemName: slice.symbol)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 24, height: 24)
+                                .background(slice.color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            Text(slice.title).font(.caption).lineLimit(1).minimumScaleFactor(0.8)
+                            Spacer(minLength: 4)
+                            Text(fmt(slice.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+            if let totalDevice = u.deviceTotalBytes, let free = u.deviceAvailableBytes {
+                Divider()
+                Label("\(fmt(free)) free of \(fmt(totalDevice)) on this iPhone", systemImage: "iphone")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false, specular: true)
+    }
+
+    private var premiumCard: some View {
+        Button {
+            app.navigation.open(.settings(.premium(.root)))
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 12) {
+                Image("SceneStorageCloud").resizable().scaledToFit().frame(width: 72).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MODULA PREMIUM").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.liveAccent)
+                    Text("More room. More freedom.").font(.headline)
+                    Text("Horizon adds unlimited modules and exclusive scenes.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(minHeight: 96)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: true, tint: app.appearance.liveAccent.opacity(0.18), specular: true)
+    }
+
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Manage space").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+            action("Clear cache", "Free cached images and responses", "sparkles", .green) { app.navigation.open(.settings(.dataStorage(.cache))) }
+            action("Downloads", "Media saved for offline", "arrow.down.circle.fill", .blue) { app.navigation.open(.settings(.dataStorage(.downloads))) }
+            action("Packages & runtimes", "Optional module content", "square.stack.3d.up.fill", .purple) { app.navigation.open(.settings(.dataStorage(.packages))) }
+            action("Export your data", "Download a copy of your account", "square.and.arrow.up.fill", .pink) { app.navigation.open(.settings(.dataStorage(.export))) }
+        }
+    }
+
+    private func action(_ title: String, _ subtitle: String, _ symbol: String, _ tint: Color, _ run: @escaping () -> Void) -> some View {
+        Button {
+            run()
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.semibold))
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(minHeight: 64)
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+    }
+}
+
+
+/// Last-launch timings recorded on this device by `ModulaPerf` (never uploaded).
+private struct AboutPerformanceSection: View {
+    private let d = UserDefaults.standard
+    /// Same keys as Settings → Battery / Feed, surfaced here as speed switches.
+    @AppStorage("settings.battery.reduceMotionExtra") private var reduceEffects = false
+    @AppStorage("settings.feed.showReplies") private var expandThreads = true
+    @State private var imageCacheBytes: Int64?
+    @AppStorage(ModulaGlassSettings.glassBubblesKey) private var glassBubbles = false
+
+    var body: some View {
+        Section {
+            #if DEBUG
+            LabeledContent("Build type", value: "Debug (slower)")
+            #else
+            LabeledContent("Build type", value: "Release (optimised)")
+            #endif
+            row("First frame", key: "modula.perf.firstFrame")
+            row("Ready", key: "modula.perf.gateReady")
+            row("Home feed", key: "modula.perf.firstFeedRow")
+            if d.object(forKey: "modula.perf.launchFrames") != nil {
+                let frames = d.integer(forKey: "modula.perf.launchFrames")
+                let hitches = d.integer(forKey: "modula.perf.launchHitches")
+                LabeledContent("Dropped frames (first 12 s)", value: "\(hitches) of \(frames)")
+            }
+            Toggle(isOn: $reduceEffects) {
+                Label("Lighter effects", systemImage: "hare")
+            }
+            .accessibilityHint("Turns off scroll reveal and decorative motion for a faster feel")
+            Toggle(isOn: $expandThreads) {
+                Label("Auto-open reply threads", systemImage: "text.bubble")
+            }
+            .accessibilityHint("Off makes the comments sheet open with fewer requests")
+            Toggle(isOn: $glassBubbles) {
+                Label("Glass message bubbles", systemImage: "bubble.left")
+            }
+            .accessibilityHint("Off draws received messages with a flat fill, which scrolls faster")
+            Button {
+                let info = Bundle.main.infoDictionary
+                let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+                let build = info?["CFBundleVersion"] as? String ?? "?"
+                let device = UIDevice.current
+                UIPasteboard.general.string = "Modula \(version) (\(build)) · \(device.systemName) \(device.systemVersion)"
+                HapticEngine.shared.play(.confirmation)
+            } label: {
+                Label("Copy version info", systemImage: "doc.on.doc")
+            }
+            Button {
+                ModulaImageDiskCache.clear()
+                imageCacheBytes = 0
+                HapticEngine.shared.play(.selection)
+            } label: {
+                LabeledContent {
+                    Text(imageCacheBytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "…")
+                } label: {
+                    Label("Clear image cache", systemImage: "photo.stack")
+                }
+            }
+            .disabled(imageCacheBytes == 0)
+            .task {
+                imageCacheBytes = await Task.detached(priority: .utility) { ModulaImageDiskCache.byteCount() }.value
+            }
+        } header: { Text("Performance") } footer: {
+            Text("Timings are measured on this device on the last launch, from process start, and stay on your phone.")
+        }
+    }
+
+    @ViewBuilder
+    private func row(_ title: String, key: String) -> some View {
+        if d.object(forKey: key) != nil {
+            LabeledContent(title, value: "\(d.integer(forKey: key)) ms")
+        }
+    }
+}
+
+
+/// The last few settings pages opened, shown at the top of Settings. Local only.
+enum SettingsRecents {
+    static let key = "settings.recentRoutes"
+
+    static func record(_ route: SettingsRoute) {
+        guard route != .root, SettingsRegistry.destination(for: route) != nil else { return }
+        let path = RouteSerializer.serialize(.settings(route))
+        var list = UserDefaults.standard.stringArray(forKey: key) ?? []
+        list.removeAll { $0 == path }
+        list.insert(path, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(3)), forKey: key)
+    }
+
+    static func load() -> [SettingsDestination] {
+        (UserDefaults.standard.stringArray(forKey: key) ?? []).compactMap { path in
+            guard case .settings(let route)? = RouteRegistry.parse(path) else { return nil }
+            return SettingsRegistry.destination(for: route)
+        }
+    }
+
+    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+}
+
+struct SettingsRecentsCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var recents: [SettingsDestination] = []
+
+    var body: some View {
+        Group {
+            if !recents.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Recently opened")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Clear") {
+                            SettingsRecents.clear()
+                            withAnimation(.snappy) { recents = [] }
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityIdentifier("settings.recents.clear")
+                    }
+                    .padding(.horizontal, 4)
+                    TelegramSettingsCard {
+                        ForEach(Array(recents.enumerated()), id: \.element.id) { index, item in
+                            if index > 0 { TelegramDivider() }
+                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent) {
+                                app.navigation.open(.settings(item.route))
+                            }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("settings.recents")
+            }
+        }
+        .onAppear { recents = SettingsRecents.load() }
     }
 }

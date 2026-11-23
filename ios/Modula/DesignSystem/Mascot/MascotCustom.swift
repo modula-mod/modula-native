@@ -188,6 +188,9 @@ enum MascotSelection: Equatable {
         }
     }
 
+    /// False for Legends, which wear their own look (custom Moliboos and Off keep the wardrobe).
+    var supportsWardrobe: Bool { stockKind?.supportsWardrobe ?? true }
+
     /// Anatomy rig for fitting wardrobe items (Pip stands in when the mascot is off).
     var rig: MascotRig {
         switch self {

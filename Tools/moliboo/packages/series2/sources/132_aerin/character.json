@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.132",
+  "key": "aerin",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#EAF3FA",
+    "accent": "#F4F9FC",
+    "light": "#F4F9FC",
+    "dark": "#D0D8DE"
+  },
+  "form": "White crescent winglets, indigo eyes"
+}

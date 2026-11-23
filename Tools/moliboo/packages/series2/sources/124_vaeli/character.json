@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.124",
+  "key": "vaeli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#75D9F0",
+    "accent": "#B9ECF7",
+    "light": "#B9ECF7",
+    "dark": "#68C1D6"
+  },
+  "form": "Aqua wave brows, ribbonlike fins"
+}

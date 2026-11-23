@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.166",
+  "key": "tocko",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#E3CBA5",
+    "accent": "#F1E4D1",
+    "light": "#F1E4D1",
+    "dark": "#CAB593"
+  },
+  "form": "Brass circular eye rings, cream face"
+}

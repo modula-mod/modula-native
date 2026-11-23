@@ -27,7 +27,8 @@ enum PostRendererKind: Equatable, Sendable {
 @MainActor @Observable
 final class FeedVideoCoordinator {
     private(set) var activeVideoID: AttachmentID?
-    private var visibility: [AttachmentID: Double] = [:]
+    // Written on every scroll frame by each visible video; not observed so cards don't re-render.
+    @ObservationIgnored private var visibility: [AttachmentID: Double] = [:]
     let activationThreshold: Double
 
     init(activationThreshold: Double = 0.55) {
@@ -35,16 +36,21 @@ final class FeedVideoCoordinator {
     }
 
     func updateVisibility(id: AttachmentID, fraction: Double) {
-        visibility[id] = min(max(fraction, 0), 1)
-        activeVideoID = visibility
+        // Quantise to 5 % steps: per-frame jitter no longer recomputes anything.
+        let clamped = (min(max(fraction, 0), 1) * 20).rounded() / 20
+        guard visibility[id] != clamped else { return }
+        visibility[id] = clamped
+        let next = visibility
             .filter { $0.value >= activationThreshold }
             .max { lhs, rhs in lhs.value < rhs.value }?.key
+        if next != activeVideoID { activeVideoID = next }
     }
 
     func remove(id: AttachmentID) {
         visibility[id] = nil
         if activeVideoID == id {
-            activeVideoID = visibility.filter { $0.value >= activationThreshold }.max { $0.value < $1.value }?.key
+            let next = visibility.filter { $0.value >= activationThreshold }.max { $0.value < $1.value }?.key
+            if next != activeVideoID { activeVideoID = next }
         }
     }
 }
@@ -149,7 +155,7 @@ private struct AttachmentRemoteStateSurface: View {
         HStack(spacing: ModulaSpacing.sm) {
             Image(systemName: symbol)
                 .font(.title3)
-                .foregroundStyle(attachment.resolvedRemoteState.isTerminalFailure ? Color.secondary : app.appearance.accent.color)
+                .foregroundStyle(attachment.resolvedRemoteState.isTerminalFailure ? Color.secondary : app.appearance.liveAccent)
                 .frame(width: 44, height: 44)
                 .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             VStack(alignment: .leading, spacing: 3) {
@@ -191,7 +197,7 @@ struct ModulaPostImage: View {
         ModulaRemoteImage(
             url: attachment.bestPreviewURL ?? attachment.playableURL,
             cacheKey: "attachment:\(attachment.id):feed-image",
-            maximumPixelSize: 2_000,
+            maximumPixelSize: ModulaFeedImage.maxPixels,
             retryID: retryID
         ) { phase in
             switch phase {
@@ -274,7 +280,10 @@ struct ModulaVideoSurface: View {
     var controlsTopInset: CGFloat = 0
     /// Immersive feed card: no expand button (the rail has one), thin progress bar + time.
     var immersive = false
-    @State private var controller = ModulaVideoPlaybackController()
+    /// Optional host-owned controller (Reels drives pause/speed/mute from its own gestures).
+    var externalController: ModulaVideoPlaybackController? = nil
+    @State private var ownController = ModulaVideoPlaybackController()
+    private var controller: ModulaVideoPlaybackController { externalController ?? ownController }
     @State private var download = AttachmentDownloadModel()
     @State private var decodedPoster: UIImage?
     @State private var waitingForTap = false
@@ -358,7 +367,7 @@ struct ModulaVideoSurface: View {
             }
         }
         .overlay {
-            if immersive, controller.player != nil, controller.state != .playing {
+            if immersive, controller.player != nil, controller.state == .paused {
                 Image(systemName: "play.fill")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(.white)
@@ -543,16 +552,16 @@ struct ModulaDocumentCard: View {
         if let previewURL = attachment.bestPreviewURL {
             ModulaRemoteImage(url: previewURL, cacheKey: "attachment:\(attachment.id):document-preview", maximumPixelSize: 320) { phase in
                 if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() }
-                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.accent.color) }
+                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.liveAccent) }
             }
             .frame(width: 48, height: 52).clipped()
-            .background(app.appearance.accent.color.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+            .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
         } else {
             Image(systemName: attachment.kind.defaultSystemImage)
-                .font(.title2).foregroundStyle(app.appearance.accent.color)
+                .font(.title2).foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 48, height: 52)
-                .background(app.appearance.accent.color.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
+                .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
         }
     }
 }
@@ -573,7 +582,7 @@ struct ModulaAudioSurface: View {
                 } label: {
                     Image(systemName: audio.isPlaying ? "pause.fill" : "play.fill")
                         .font(.title3.bold()).foregroundStyle(.white).frame(width: 48, height: 48)
-                        .background(app.appearance.accent.color, in: Circle())
+                        .background(app.appearance.liveAccent, in: Circle())
                 }
                 .accessibilityLabel(audio.isPlaying ? "Pause" : "Play")
                 .disabled(playableURL == nil)
@@ -582,7 +591,7 @@ struct ModulaAudioSurface: View {
                     Text(attachment.metadata.creator ?? "Audio").font(.caption).foregroundStyle(.secondary)
                     HStack(spacing: 3) {
                         ForEach(0..<22, id: \.self) { index in
-                            Capsule().fill(index < Int(audio.progress * 22) ? app.appearance.accent.color : Color.secondary.opacity(0.3))
+                            Capsule().fill(index < Int(audio.progress * 22) ? app.appearance.liveAccent : Color.secondary.opacity(0.3))
                                 .frame(width: 3, height: CGFloat(7 + ((index * 7) % 13)))
                         }
                     }
@@ -648,7 +657,7 @@ struct ModulaLinkPreview: View {
                     .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(content.domain ?? content.destination?.host ?? "Link").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.accent.color)
+                    Text(content.domain ?? content.destination?.host ?? "Link").font(.caption2.weight(.bold)).foregroundStyle(app.appearance.liveAccent)
                     if let title = content.title { Text(title).font(.subheadline.weight(.semibold)).lineLimit(2) }
                     if let description = content.description { Text(description).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                 }

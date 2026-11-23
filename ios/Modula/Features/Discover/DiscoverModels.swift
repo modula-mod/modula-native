@@ -426,10 +426,7 @@ enum DiscoverPayloadDecoder {
 
     static func decodeDate(_ raw: String?) -> Date? {
         guard let raw else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: raw) { return date }
-        return ISO8601DateFormatter().date(from: raw)
+        return ModulaISODate.parse(raw)
     }
 
     private static func emptyToNil(_ value: String?) -> String? {
@@ -446,7 +443,8 @@ extension DiscoverPost {
             SocialAuthor(id: $0.id, handle: $0.handle, displayName: $0.displayName, avatarURL: $0.avatarURL)
         }
         let media: [SocialPostMedia] = {
-            guard let media else { return [] }
+            // Colour-only placeholders (no URL) aren't real media; render as a text post.
+            guard let media, media.url != nil else { return [] }
             return [
                 SocialPostMedia(
                     id: "\(id)-media",

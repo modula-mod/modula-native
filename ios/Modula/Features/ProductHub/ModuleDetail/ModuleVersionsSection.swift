@@ -91,7 +91,7 @@ private struct ModuleVersionRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("Version \(option.version)").font(.headline)
-                        if option.isLatest { tag("Latest", tint: app.appearance.accent.color) }
+                        if option.isLatest { tag("Latest", tint: app.appearance.liveAccent) }
                         if option.isCurrent { tag("Installed", tint: .green) }
                         if option.releaseState == "superseded" { tag("Superseded", tint: .secondary) }
                     }
@@ -159,8 +159,8 @@ private struct ModuleVersionRow: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .frame(minWidth: 84, minHeight: 34)
-                .foregroundStyle(action == .update ? Color.white : app.appearance.accent.color)
-                .background(action == .update ? app.appearance.accent.color : app.appearance.accent.color.opacity(0.12), in: Capsule())
+                .foregroundStyle(action == .update ? Color.white : app.appearance.liveAccent)
+                .background(action == .update ? app.appearance.liveAccent : app.appearance.liveAccent.opacity(0.12), in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(accessibilityTitle)
@@ -197,6 +197,7 @@ struct ModuleVersionSwitchSheet: View {
     let moduleName: String
     let option: ModuleVersionOption
     let phase: Phase
+    let packagePlan: PackageInstallPlan?
     let onConfirm: (ModuleVersionPreview) -> Void
     let onCancel: () -> Void
     @Environment(AppEnvironment.self) private var app
@@ -262,6 +263,32 @@ struct ModuleVersionSwitchSheet: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("From version \(preview.fromVersion) to version \(preview.toVersion)")
+
+        if let packagePlan {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Download plan").font(.headline)
+                ForEach(packagePlan.packages, id: \.id) { package in
+                    HStack {
+                        Text(package.id == packagePlan.requested ? "Content" : package.category == "web-runtime" ? "Shared runtime" : package.category.capitalized)
+                        Spacer()
+                        Text(ByteCountFormatter.string(fromByteCount: package.compressedBytes, countStyle: .file))
+                    }
+                    .font(.subheadline)
+                    Text("\(package.id) \(package.version) · \(String(package.sha256.prefix(12)))…")
+                        .font(.caption.monospaced()).foregroundStyle(.secondary)
+                    if packagePlan.reusedDigests.contains(package.sha256) {
+                        Text("Already downloaded and verified").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Divider()
+                LabeledContent("New download", value: ByteCountFormatter.string(fromByteCount: packagePlan.newDownloadBytes, countStyle: .file))
+                LabeledContent("Installed estimate", value: ByteCountFormatter.string(fromByteCount: packagePlan.aggregateInstalledBytes, countStyle: .file))
+                Text("Installation lock \(String(packagePlan.lockSha256.prefix(12)))…")
+                    .font(.caption.monospaced()).foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+        }
 
         if let warning = preview.downgradeWarning {
             HStack(alignment: .top, spacing: 10) {
@@ -351,7 +378,7 @@ struct ModuleVersionSwitchSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 50)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(preview.isDowngrade ? .orange : app.appearance.accent.color)
+                .tint(preview.isDowngrade ? .orange : app.appearance.liveAccent)
                 .disabled(!preview.allowed)
                 .accessibilityIdentifier("module.version-switch.confirm")
             }

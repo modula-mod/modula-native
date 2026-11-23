@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.204",
+  "key": "datto",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#91ACDA",
+    "accent": "#C7D5EC",
+    "light": "#C7D5EC",
+    "dark": "#8199C2"
+  },
+  "form": "Deep-blue spotted tail, bright eyes"
+}

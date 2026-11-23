@@ -5,10 +5,18 @@ import UIKit
 /// at launch and whenever Settings changes them.
 @MainActor
 enum ModulaRuntimePreferences {
+    /// Perf: RootView calls `apply()` on every `UserDefaults.didChangeNotification`, which
+    /// fires for any defaults write anywhere in the app (feeds, drafts, caches). Only touch
+    /// UIKit when the two preferences we mirror actually changed.
+    private static var lastApplied: (shakeToUndo: Bool, edgeSwipeBack: Bool)?
+
     static func apply() {
         // Settings → Gestures → "Shake to undo compose". iOS enables shake-to-undo
         // by default; Modula keeps it off unless you turn it on.
-        UIApplication.shared.applicationSupportsShakeToEdit = ModulaPreferences.shakeToUndo
+        let current = (shakeToUndo: ModulaPreferences.shakeToUndo, edgeSwipeBack: ModulaPreferences.edgeSwipeBack)
+        if let lastApplied, lastApplied == current { return }
+        lastApplied = current
+        UIApplication.shared.applicationSupportsShakeToEdit = current.shakeToUndo
         EdgeSwipeBackRegistry.applyAll()
     }
 }

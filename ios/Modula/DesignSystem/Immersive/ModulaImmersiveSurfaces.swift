@@ -290,7 +290,7 @@ struct OnboardingHeroScene: View {
             LinearGradient(
                 colors: [
                     Color(hex: scheme == .dark ? "#041416" : "#082F34"),
-                    app.appearance.accent.color.opacity(scheme == .dark ? 0.42 : 0.62),
+                    app.appearance.liveAccent.opacity(scheme == .dark ? 0.42 : 0.62),
                     Color(hex: scheme == .dark ? "#02080A" : "#071C20")
                 ],
                 startPoint: .topLeading,

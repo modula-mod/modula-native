@@ -9,6 +9,7 @@ struct ModuleHost: View {
     @ScaledMetric private var textScale: Double = 1
     @State private var session: ModuleSession?
     @State private var showsModuleInfo = false
+    @State private var launchTask: Task<Void, Never>?
     #if DEBUG
     @State private var showLifecycleLab = false
     @AppStorage("modula.developer.moduleDebugEnabled") private var moduleDebugEnabled = false
@@ -38,7 +39,7 @@ struct ModuleHost: View {
                     } description: {
                         Text(session.error ?? "Module unavailable")
                     } actions: {
-                        Button("Retry") { retry() }.buttonStyle(.borderedProminent).tint(app.appearance.accent.color)
+                        Button("Retry") { retry() }.buttonStyle(.borderedProminent).tint(app.appearance.liveAccent)
                         Button("Close") { app.navigation.close() }
                     }
                     .accessibilityIdentifier("module.host.failed")
@@ -50,6 +51,9 @@ struct ModuleHost: View {
                         retryTitle: "Reopen",
                         showsProductHub: false
                     )
+                } else if session.runtimeKind == .webGame, let entry = session.webGameEntry {
+                    WebGameHost(name: session.manifest.name, entry: entry) { app.navigation.close() }
+                        .id(session.id)
                 } else if session.runtimeKind == .declarativeProductUI, let document = session.productUI {
                     ProductUIHostView(session: session, document: document)
                         .id(session.id)
@@ -60,7 +64,7 @@ struct ModuleHost: View {
                         .background(palette.canvas)
                         .overlay {
                             if session.state == .loadingModule || session.state == .startingRuntime {
-                                ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.accent.color, reduceMotion: reduceMotion)
+                                ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.liveAccent, reduceMotion: reduceMotion)
                                     .transition(reduceMotion ? .identity : .opacity)
                             }
                         }
@@ -160,13 +164,16 @@ struct ModuleHost: View {
                 // Back from a tab switch or a pushed route: same surface, same React state.
                 app.runtime.resume(session)
             } else if session == nil || session?.isValid == false && session?.state != .expired {
-                session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+                openSession()
             }
         }
         .onChange(of: appearance) { _, value in if let session { app.runtime.update(value, session: session) } }
         // Hidden ≠ closed: suspend so tab switches and pushed routes keep the module alive.
         // Real teardown happens when the surface is dismantled (ReactNativeViewController.stop).
-        .onDisappear { if let session { app.runtime.suspend(session) } }
+        .onDisappear {
+            launchTask?.cancel()
+            if let session { app.runtime.suspend(session) }
+        }
     }
     /// Native gate states decided before any module JavaScript runs.
     private func gateContent(for session: ModuleSession) -> AnyView? {
@@ -204,7 +211,7 @@ struct ModuleHost: View {
         } actions: {
             Button(retryTitle) { retry() }
                 .buttonStyle(.borderedProminent)
-                .tint(app.appearance.accent.color)
+                .tint(app.appearance.liveAccent)
                 .frame(minHeight: ModulaLayout.minimumTouch)
             if showsProductHub {
                 Button("View in Product Hub") {
@@ -224,7 +231,21 @@ struct ModuleHost: View {
 
     private func reloadSession() {
         if let session { app.runtime.unmount(session) }
-        session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+        session = nil
+        openSession()
+    }
+
+    private func openSession() {
+        launchTask?.cancel()
+        guard app.catalogue.isWebGameCached(moduleID) else {
+            session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+            return
+        }
+        launchTask = Task { @MainActor in
+            await app.catalogue.refreshRollbackEligibility(for: moduleID)
+            guard !Task.isCancelled else { return }
+            session = app.runtime.prepare(moduleID: moduleID, environment: appearance, initialLocalPath: initialLocalPath)
+        }
     }
 }
 

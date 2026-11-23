@@ -75,9 +75,9 @@ export function SegmentedControl<T extends string>({theme, options, value, onCha
  * Memoised; pass stable callbacks. Accessibility label is the title so tests and
  * VoiceOver find rows by name; subtitle and meta are read as the hint.
  */
-export const RecordRow = memo(function RecordRow({theme, title, subtitle, meta, badges, leading, onPress, testID}: {
+export const RecordRow = memo(function RecordRow({theme, title, subtitle, meta, badges, leading, onPress, onLongPress, longPressLabel, testID}: {
   theme: ModuleTheme; title: string; subtitle?: string; meta?: string; badges?: {label: string; tone?: Tone}[];
-  leading?: ReactNode; onPress?: () => void; testID?: string;
+  leading?: ReactNode; onPress?: () => void; onLongPress?: () => void; longPressLabel?: string; testID?: string;
 }) {
   const hint = [subtitle, meta].filter(Boolean).join('. ').slice(0, 160) || undefined;
   const body = <>
@@ -94,7 +94,11 @@ export const RecordRow = memo(function RecordRow({theme, title, subtitle, meta, 
   const style: StyleProp<ViewStyle> = [styles.row, styles.card, {backgroundColor: theme.colors.surface, borderRadius: theme.radius.card,
     padding: theme.spacing.md, gap: theme.spacing.sm, minHeight: 72, borderColor: theme.colors.border, alignItems: 'flex-start'}];
   if (!onPress) return <View style={style} testID={testID}>{body}</View>;
+  // Long press is mirrored as a VoiceOver custom action so it is never a hidden-only gesture.
+  const actions = onLongPress && longPressLabel ? [{name: 'longpress', label: longPressLabel}] : undefined;
   return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={hint} onPress={onPress} testID={testID}
+    onLongPress={onLongPress} accessibilityActions={actions}
+    onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'longpress') onLongPress?.(); }}
     style={({pressed}) => [style, {opacity: pressed && !theme.reduceMotion ? 0.85 : 1}]}>{body}</Pressable>;
 });
 

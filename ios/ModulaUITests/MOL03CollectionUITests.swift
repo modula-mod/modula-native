@@ -5,7 +5,7 @@ final class MOL03CollectionUITests: XCTestCase {
 
     private func launch(_ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "YES",
+        app.launchArguments = ["--uitest-skip-first-run", "-MOLWorldNoLaunchWake", "-composer.mascot.kind", "pip", "-dev.moliboo.native3D", "NO",
                                "--debug-settings-route", "/settings/moliboo", "-moliboo.onboarded.v1", "YES"] + extra
         app.launch()
         return app
@@ -17,35 +17,23 @@ final class MOL03CollectionUITests: XCTestCase {
         try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
     }
 
-    private func reveal(_ app: XCUIApplication, _ e: XCUIElement) -> Bool {
-        // MOL-03 World: Settings → Moliboo opens the Living World; the classic settings form is behind "More".
-        let more = app.buttons["world.more"]
-        if more.waitForExistence(timeout: 20) {
-            more.tap()
-            let item = app.buttons["Moliboo settings"]
-            guard item.waitForExistence(timeout: 5) else { return false }
-            item.tap()
-        }
-        guard app.descendants(matching: .any)["moliboo.hub.logo"].waitForExistence(timeout: 20) else { return false }
-        for _ in 0..<8 where !(e.exists && e.isHittable) { app.swipeUp() }
-        return e.exists && e.isHittable
-    }
-
-    /// One structure: the hub's Studio card opens the single (3D) Studio, whose "More" panel carries the old
-    /// 2D Studio features (coins, rewards, custom, assistant). No separate Collection screen or duplicate links.
+    /// The Moliboo World opens the current 2D Studio and its rewards, custom and assistant controls.
     func testHubStudioCardOpensTheOneStudio() {
         let app = launch()
         XCTAssertFalse(app.buttons["moliboo.settings.collection"].exists, "separate Collection link removed")
-        let b = app.buttons["moliboo.hub.studio"]
-        XCTAssertTrue(reveal(app, b))
+        let b = app.buttons["world.nav.studio"]
+        XCTAssertTrue(b.waitForExistence(timeout: 20))
+        XCTAssertTrue(b.isHittable)
         XCTAssertFalse(app.buttons["moliboo.settings.studio"].exists, "duplicate 'Open …'s Studio' link removed")
         b.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["studio.rail.play"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.descendants(matching: .any)["studio.scene"].waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["moliboo3d.entry"].exists, "no 'Open 3D Studio (dev)' button")
-        // Opens on Wardrobe (Dress up); switch to the More section from the sheet's tabs.
-        let more = app.buttons["studio.sheet.tab.more"].waitForExistence(timeout: 8) ? app.buttons["studio.sheet.tab.more"] : app.buttons["studio.rail.more"]
-        XCTAssertTrue(more.exists)
-        more.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["studio.more"].waitForExistence(timeout: 10), "rewards/custom/assistant live in the one Studio")
+        for section in ["Rewards", "Custom", "Assistant", "Wardrobe"] {
+            let tab = app.buttons[section]
+            XCTAssertTrue(tab.waitForExistence(timeout: 8), "Missing Studio section \(section)")
+            tab.tap()
+            XCTAssertTrue(tab.isSelected, "Studio did not select \(section)")
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["studio.scene"].exists)
     }
 }

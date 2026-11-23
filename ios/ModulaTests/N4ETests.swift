@@ -45,6 +45,38 @@ final class AppGateTests: XCTestCase {
         XCTAssertNil(gate.takePendingDestination())
     }
 
+    @MainActor
+    func testDeepLinkSurvivesRelaunchDuringSignIn() {
+        let defaults = UserDefaults(suiteName: "n4e.pending.\(UUID().uuidString)")!
+        let captured = Date()
+        AppGate.persist(PendingDestination(route: .post("456", .root), capturedAt: captured), defaults: defaults)
+        XCTAssertEqual(AppGate.restorePending(defaults: defaults, now: captured.addingTimeInterval(60))?.route, .post("456", .root))
+        XCTAssertNil(AppGate.restorePending(defaults: defaults, now: captured.addingTimeInterval(AppGate.pendingLifetime + 1)))
+        // Expired links are cleared, not kept for later.
+        XCTAssertNil(AppGate.restorePending(defaults: defaults, now: captured))
+        AppGate.persist(PendingDestination(route: .auth(.login), capturedAt: captured), defaults: defaults)
+        XCTAssertNil(AppGate.restorePending(defaults: defaults, now: captured))
+    }
+
+    @MainActor
+    func testRecoveryKindClassification() {
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: "anything", isOnline: false), .offline)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: APIError.unauthenticated.userFacingMessage, isOnline: true), .signedOut)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: APIError.rejected(500, "X").userFacingMessage, isOnline: true), .unavailable)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: APIError.invalidResponse.userFacingMessage, isOnline: true), .unavailable)
+        XCTAssertEqual(ModulaRecoveryKind.classify(message: "Couldn't load posts.", isOnline: true), .failed)
+        XCTAssertEqual(ModulaRecoveryKind.failed.detail(for: "Couldn't load posts."), "Couldn't load posts.")
+    }
+
+    @MainActor
+    func testPushReadinessIsHonest() {
+        XCTAssertEqual(PushReadiness.signing(fromProfileData: Data("<plist><key>aps-environment</key><string>development</string></plist>".utf8)), .allowsPush)
+        XCTAssertEqual(PushReadiness.signing(fromProfileData: Data("<plist><key>get-task-allow</key><true/></plist>".utf8)), .noPush)
+        let readiness = PushReadiness(authorizationTitle: "Allowed", flagEnabled: false, signing: .noPush, registration: .idle)
+        XCTAssertEqual(readiness.rows.map(\.ok), [true, false, false, false])
+        XCTAssertFalse(readiness.rows.contains { $0.label.localizedCaseInsensitiveContains("deliver") })
+    }
+
     func testBootRouteIsNotHome() {
         XCTAssertEqual(RouteParser.parse("/"), .boot)
         XCTAssertNotEqual(RouteParser.parse("/"), .home(.following))
@@ -53,11 +85,11 @@ final class AppGateTests: XCTestCase {
 
 final class OnboardingTests: XCTestCase {
     func testFiveStepsAndSkipSemantics() {
-        XCTAssertEqual(OnboardingStep.count, 5)
-        XCTAssertEqual(OnboardingStep.world.progressLabel, "1 / 5")
-        XCTAssertEqual(OnboardingStep.world.accessibilityProgress, "Step 1 of 5")
-        XCTAssertEqual(OnboardingStep.control.next, nil)
-        XCTAssertEqual(OnboardingStep.world.next, .profile)
+        XCTAssertEqual(OnboardingStep.count, 6)
+        XCTAssertEqual(OnboardingStep.intro.progressLabel, "1 / 6")
+        XCTAssertEqual(OnboardingStep.intro.accessibilityProgress, "Step 1 of 6")
+        XCTAssertEqual(OnboardingStep.finale.next, nil)
+        XCTAssertEqual(OnboardingStep.intro.next, .you)
     }
 
     func testOnboardingIsNotAuthentication() {
@@ -151,8 +183,8 @@ final class AppLockTests: XCTestCase {
     @MainActor
     func testAttemptDelay() {
         XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 1), .seconds(0))
-        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 6), .seconds(5))
-        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 12), .seconds(60))
+        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 6), .seconds(60))
+        XCTAssertEqual(AppLockAttemptPolicy.delay(afterFailureCount: 12), .seconds(3600))
     }
 
     @MainActor
@@ -186,6 +218,58 @@ final class AppLockTests: XCTestCase {
         store.resetAfterSignOut()
         XCTAssertFalse(store.enabled)
         XCTAssertFalse(try credentials.hasPasscode())
+    }
+
+    @MainActor
+    private func faceIDStore(_ suite: String, result: BiometricAuthResult = .success) throws -> AppLockStore {
+        let credentials = InMemoryAppLockCredentialStore()
+        try credentials.setPasscode("246801")
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let store = AppLockStore(
+            credentials: credentials,
+            biometrics: StubBiometricAuthService(availabilityValue: .available(.faceID), result: result),
+            defaults: defaults,
+            startsLockedIfEnabled: false
+        )
+        try store.setEnabled(true)
+        store.setBiometricsEnabled(true)
+        return store
+    }
+
+    @MainActor
+    func testFaceIDSuccessDoesNotRelockOnInactiveBounce() async throws {
+        let store = try faceIDStore("n4e.applock.bounce")
+        XCTAssertTrue(store.requiresUnlock)
+        let ok = await store.unlockWithBiometrics()
+        XCTAssertTrue(ok)
+        XCTAssertFalse(store.isAuthenticating)
+        // Face ID sheet: .inactive → .active, no background.
+        store.evaluateForeground()
+        XCTAssertFalse(store.requiresUnlock)
+        XCTAssertFalse(store.consumeAutoPrompt())
+    }
+
+    @MainActor
+    func testRealBackgroundRelocksAndAutoPromptsOnce() async throws {
+        let store = try faceIDStore("n4e.applock.bg")
+        _ = await store.unlockWithBiometrics()
+        store.recordBackground()
+        store.evaluateForeground()
+        XCTAssertTrue(store.requiresUnlock)
+        XCTAssertTrue(store.consumeAutoPrompt())
+        XCTAssertFalse(store.consumeAutoPrompt())
+    }
+
+    @MainActor
+    func testFaceIDFailureLeavesKeypadUsable() async throws {
+        let store = try faceIDStore("n4e.applock.fail", result: .failed)
+        let ok = await store.unlockWithBiometrics()
+        XCTAssertFalse(ok)
+        XCTAssertTrue(store.requiresUnlock)
+        XCTAssertFalse(store.isAuthenticating)
+        XCTAssertFalse(store.consumeAutoPrompt())
+        XCTAssertTrue(store.unlock(withPasscode: "246801"))
     }
 
     func testIntervalsAreExplicit() {

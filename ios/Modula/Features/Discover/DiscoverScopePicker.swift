@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiscoverScopePicker: View {
     let selection: DiscoverRoute
+    var compact: Bool = false
     var onSelect: (DiscoverRoute) -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,7 +11,14 @@ struct DiscoverScopePicker: View {
         ScrollView(.horizontal, showsIndicators: false) {
             scopeRow
                 .padding(.vertical, 2)
+                .padding(.horizontal, 2)
         }
+        .scrollClipDisabled()
+        .mask(
+            LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.03),
+                                   .init(color: .black, location: 0.92), .init(color: .clear, location: 1)],
+                           startPoint: .leading, endPoint: .trailing)
+        )
         .animation(ModulaMotion.animation(.selection, personality: app.appearance.motion, reduceMotion: reduceMotion), value: selection)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Discover scope")
@@ -37,11 +45,22 @@ struct DiscoverScopePicker: View {
             onSelect(scope)
             HapticEngine.shared.play(.selection)
         } label: {
-            Text(title(scope))
-                .font(.subheadline.weight(selected ? .semibold : .medium))
+            HStack(spacing: 6) {
+                Image(systemName: symbol(scope))
+                    .font(.caption.weight(.bold))
+                    .accessibilityHidden(true)
+                Text(title(scope))
+                    .font(.subheadline.weight(selected ? .semibold : .medium))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
                 .padding(.horizontal, 14)
-                .frame(minHeight: 36)
-                .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+                .padding(.horizontal, compact ? -2 : 0)
+                .frame(minHeight: compact ? 32 : 34)
+                // Selected text sits on accent-tinted glass, so it must contrast with the tint
+                // (it used to be accent-on-accent, which rendered the "Trending" chip blank).
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .modifier(DiscoverScopeGlass(selected: selected))
@@ -59,6 +78,16 @@ struct DiscoverScopePicker: View {
         case .modules: "Modules"
         }
     }
+
+    private func symbol(_ route: DiscoverRoute) -> String {
+        switch route {
+        case .trending: "flame.fill"
+        case .people: "person.fill"
+        case .topics: "number"
+        case .posts: "doc.text.fill"
+        case .modules: "shippingbox.fill"
+        }
+    }
 }
 
 private struct DiscoverScopeGlass: ViewModifier {
@@ -70,14 +99,14 @@ private struct DiscoverScopeGlass: ViewModifier {
         let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
         if #available(iOS 26.0, *), !opaque {
             if selected {
-                content.glassEffect(.regular.tint(app.appearance.accent.color).interactive(), in: Capsule())
+                content.glassEffect(.regular.tint(app.appearance.liveAccent).interactive(), in: Capsule())
             } else {
                 content.glassEffect(.regular.interactive(), in: Capsule())
             }
         } else {
             content
                 .background(opaque ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial), in: Capsule())
-                .overlay(Capsule().stroke(selected ? app.appearance.accent.color.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: selected ? 1.25 : 0.75))
+                .overlay(Capsule().stroke(selected ? app.appearance.liveAccent.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: selected ? 1.25 : 0.75))
         }
     }
 }

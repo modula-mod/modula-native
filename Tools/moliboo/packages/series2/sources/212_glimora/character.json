@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.212",
+  "key": "glimora",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#5F88AF",
+    "accent": "#ADC2D6",
+    "light": "#ADC2D6",
+    "dark": "#55799C"
+  },
+  "form": "Navy round body, golden firefly tail"
+}

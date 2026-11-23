@@ -136,10 +136,10 @@ struct NodusPluginSheet: View {
                 if isOn(plugin) {
                     Text("On")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(app.appearance.accent.color)
+                        .foregroundStyle(app.appearance.liveAccent)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(app.appearance.accent.color.opacity(0.12), in: Capsule())
+                        .background(app.appearance.liveAccent.opacity(0.12), in: Capsule())
                 }
             }
         }
@@ -291,10 +291,10 @@ struct NodusMessageReactions: View {
             ForEach(symbols, id: \.self) { symbol in
                 Image(systemName: symbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(app.appearance.accent.color.opacity(0.12), in: Capsule())
+                    .background(app.appearance.liveAccent.opacity(0.12), in: Capsule())
                     .transition(.scale(scale: 0.7).combined(with: .opacity))
             }
         }
@@ -610,9 +610,9 @@ struct NodusStudioGlyph: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.body.weight(.semibold))
-            .foregroundStyle(app.appearance.accent.color)
+            .foregroundStyle(app.appearance.liveAccent)
             .frame(width: size, height: size)
-            .background(app.appearance.accent.color.opacity(0.14), in: Circle())
+            .background(app.appearance.liveAccent.opacity(0.14), in: Circle())
     }
 }
 
@@ -654,7 +654,7 @@ struct NodusThinkBudgetPopover: View {
                 in: 1...5,
                 step: 1
             )
-            .tint(app.appearance.accent.color)
+            .tint(app.appearance.liveAccent)
             .accessibilityLabel("Reply budget")
             .accessibilityValue(step.detail)
             HStack {
@@ -710,7 +710,7 @@ struct NodusModelSheet: View {
                     }
                     Section {
                         Label("Runs on this iPhone", systemImage: "iphone")
-                            .foregroundStyle(app.appearance.accent.color)
+                            .foregroundStyle(app.appearance.liveAccent)
                         Text("Nodus uses this bundle only. If it is missing, the chat does not switch to another model.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -1028,7 +1028,7 @@ struct NodusMarketplaceSheet: View {
                 Text(prompt.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 Text(prompt.category.title)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
             }
             .padding(14)
             .frame(width: 210, alignment: .leading)
@@ -1045,7 +1045,7 @@ struct NodusMarketplaceSheet: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .foregroundStyle(on ? Color.white : Color.primary)
-                .background(on ? AnyShapeStyle(app.appearance.accent.color) : AnyShapeStyle(Color.secondary.opacity(0.12)), in: Capsule())
+                .background(on ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(Color.secondary.opacity(0.12)), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -1083,7 +1083,7 @@ struct NodusMarketplaceSheet: View {
         .font(.subheadline.weight(.semibold))
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .foregroundStyle(isSaved(prompt) ? Color.secondary : app.appearance.accent.color)
+        .foregroundStyle(isSaved(prompt) ? Color.secondary : app.appearance.liveAccent)
         .background(Color.secondary.opacity(isSaved(prompt) ? 0.12 : 0.14), in: Capsule())
         .buttonStyle(.plain)
         .accessibilityLabel(isSaved(prompt) ? "Remove \(prompt.title)" : "Add \(prompt.title)")
@@ -1098,7 +1098,7 @@ struct NodusMarketplaceSheet: View {
                         Text(prompt.title).font(.title3.weight(.semibold))
                         Text(prompt.category.title)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(app.appearance.accent.color)
+                            .foregroundStyle(app.appearance.liveAccent)
                     }
                 }
                 .padding(.vertical, 4)
@@ -1258,7 +1258,7 @@ struct NodusCustomiseSheet: View {
                         .font(model.messageFont)
                         .padding(model.messageDensity == "compact" ? 8 : 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(selectedTint.color(accent: app.appearance.accent.color).opacity(0.22), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(selectedTint.color(accent: app.appearance.liveAccent).opacity(0.22), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .animation(.spring(duration: 0.35, bounce: 0.2), value: model.messageTextSize)
                         .animation(.spring(duration: 0.35, bounce: 0.2), value: model.messageDensity)
                         .animation(.spring(duration: 0.35, bounce: 0.25), value: selectedTint)
@@ -1279,7 +1279,7 @@ struct NodusCustomiseSheet: View {
                                 Task { await model.setColor(conversation, color: tint == .accent ? "" : tint.rawValue) }
                             } label: {
                                 Circle()
-                                    .fill(tint.color(accent: app.appearance.accent.color))
+                                    .fill(tint.color(accent: app.appearance.liveAccent))
                                     .frame(width: selected ? 36 : 28, height: selected ? 36 : 28)
                                     .overlay {
                                         if selected {

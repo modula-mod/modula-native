@@ -38,10 +38,8 @@ struct ProfileCover: View {
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
-            let stretch: CGFloat = {
-                guard !reduceMotion, proxy.frame(in: .global).minY > 0 else { return 0 }
-                return min(proxy.frame(in: .global).minY * 0.22, 36)
-            }()
+            // Stretch is applied to the whole cover below (scale from the bottom edge).
+            let stretch: CGFloat = 0
             ZStack(alignment: .bottom) {
                 fallbackComposition
                     .opacity(coverURL == nil ? 1 : 0.001)
@@ -49,18 +47,22 @@ struct ProfileCover: View {
                     ModulaRemoteImage(
                         url: coverURL,
                         cacheKey: "cover:\(coverURL.path)",
-                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale,
+                        maximumPixelSize: max(width, coverHeight) * UIScreen.main.scale * 1.5,
                         retryID: retryID
                     ) { phase in
                         switch phase {
                         case .success(let image):
+                            // The whole banner stays readable: it's shown at full width below the
+                            // status bar (aspect fit), over a blurred fill of itself, so baked-in
+                            // text is never cropped off the sides or hidden behind the nav bar.
+                            // Edge to edge, aspect-fill, sharp (no letterbox / blurred side fill).
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
                                 .frame(width: width, height: coverHeight + stretch)
                                 .clipped()
-                                // Banner softens as the page scrolls (and a touch while stretching).
-                                .blur(radius: coverBlur(stretch: stretch), opaque: true)
+                            // Banner softens as the page scrolls (and a touch while stretching).
+                            .blur(radius: coverBlur(stretch: stretch), opaque: true)
                         case .failure:
                             fallbackComposition.overlay(alignment: .topTrailing) {
                                 Button("Retry cover", systemImage: "arrow.clockwise") { retryID += 1 }
@@ -79,7 +81,7 @@ struct ProfileCover: View {
                 }
 
                 // Animated banner overlay (v2) — aurora drift + spark particles.
-                ProfileBannerFX(accent: tint ?? app.appearance.accent.color)
+                ProfileBannerFX(accent: tint ?? app.appearance.liveAccent)
                     .frame(width: width, height: coverHeight + stretch)
                     .opacity(0.55 + 0.25 * Double(1 - dissolve))
                     .blendMode(.plusLighter)
@@ -99,7 +101,7 @@ struct ProfileCover: View {
 
                 // Liquid bottom fade — soft multi-stop dissolve into the page background.
                 liquidBottomFade
-                    .frame(height: coverHeight * 0.62)
+                    .frame(height: coverHeight * (coverURL == nil ? 0.62 : 0.3))
                     .opacity(0.92 + (0.08 * Double(dissolve)))
                     .allowsHitTesting(false)
             }
@@ -109,8 +111,6 @@ struct ProfileCover: View {
                 let minY = proxy.frame(in: .scrollView).minY
                 return content.offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
             }
-            .offset(y: reduceMotion ? 0 : -CGFloat(dissolve) * 22)
-            .opacity(1 - (0.32 * Double(dissolve)))
             .mask {
                 if let pocketCenterX, let pocketRadius {
                     // Inverted pocket: a concave notch carved up into the banner's bottom edge.
@@ -125,12 +125,26 @@ struct ProfileCover: View {
                     ProfileCoverNotchRim(
                         centerX: pocketCenterX,
                         radius: pocketRadius,
-                        tint: tint ?? app.appearance.accent.color
+                        tint: tint ?? app.appearance.liveAccent
                     )
                 }
             }
         }
         .frame(height: coverHeight)
+        // Stretchy header: on pull-down the cover scales from its bottom edge to fill the gap
+        // (no blank strip). On scroll-up it stays sharp until it slides under the header bar,
+        // then blurs progressively.
+        .visualEffect { [reduceMotion, coverHeight, safeAreaTop] content, proxy in
+            let minY = proxy.frame(in: .scrollView).minY
+            let pull = max(0, minY)
+            let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
+            let headerBottom = safeAreaTop + 44
+            let under = max(0, -minY - (coverHeight - headerBottom - 40))
+            let radius = reduceMotion ? 0 : min(under / 80 * 14, 14)
+            return content
+                .scaleEffect(x: scale, y: scale, anchor: .bottom)
+                .blur(radius: radius, opaque: true)
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             onTap?()
@@ -162,7 +176,7 @@ struct ProfileCover: View {
 
     private func coverBlur(stretch: CGFloat) -> CGFloat {
         guard !reduceMotion else { return 0 }
-        return CGFloat(dissolve) * 12 + min(stretch * 0.12, 4)
+        return 0
     }
 
     /// Soft, liquid-feeling seam from photography into the content canvas.
@@ -226,7 +240,7 @@ struct ProfileCover: View {
             )
             // Soft Modula geometry — intentional, not empty lavender disks.
             RoundedRectangle(cornerRadius: 48, style: .continuous)
-                .fill(app.appearance.accent.color.opacity(0.14))
+                .fill(app.appearance.liveAccent.opacity(0.14))
                 .frame(width: 220, height: 120)
                 .rotationEffect(.degrees(-18))
                 .offset(x: 70, y: -28)
@@ -422,31 +436,21 @@ struct ProfileAvatarPocket: View {
                 HapticEngine.shared.play(.lightImpact)
             } label: {
                 ZStack {
+                    // Clean stack: the photo, one thin ring (or the chosen frame), a soft round
+                    // shadow. The thick canvas stroke and the shimmer halo drew a black block and a
+                    // jagged edge over the full-bleed cover.
                     decoratedAvatarContent
-                        .overlay(
-                            Circle()
-                                .strokeBorder(canvas, lineWidth: ring)
-                        )
                         .overlay {
                             if overlayStore.frameID == ProfileAvatarFrame.none.id {
-                                ModulaGlowRing(
-                                    tint: tint ?? app.appearance.accent.color,
-                                    lineWidth: storyRing == nil ? 3 : 1.5,
-                                    glow: storyRing == nil
-                                )
-                                .padding(-1.5)
+                                Circle()
+                                    .strokeBorder(Color.white.opacity(0.9), lineWidth: storyRing == nil ? 2 : 1)
                             }
                         }
-                        .shadow(color: (tint ?? .black).opacity(0.25), radius: 12, y: 4)
-                        .overlay {
-                            if isOwnProfile, let badge = overlayStore.badge {
-                                ProfileFrameShimmer(color: badge.resolvedColor(customHex: overlayStore.customBadgeColorHex))
-                                    .padding(-5)
-                            }
-                        }
+                        .compositingGroup()
+                        .shadow(color: .black.opacity(0.22), radius: 10, y: 3)
 
                     if let storyRing {
-                        StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.accent.color, showsAddBadge: false)
+                        StoryRing(state: storyRing, size: avatarSize, accent: app.appearance.liveAccent, showsAddBadge: false)
                     }
                 }
             }
@@ -518,15 +522,27 @@ struct ProfileIdentityBlock: View {
     @Environment(\.profileAccentColor) private var profileAccent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bioExpanded = false
+    @State private var premiumStore = PremiumEntitlementStore.shared
 
     private var bioIsLong: Bool { profile.bio.count > 160 || profile.bio.contains("\n") }
-    private var accent: Color { profileAccent ?? app.appearance.accent.color }
+    private var accent: Color { profileAccent ?? app.appearance.liveAccent }
+
+    /// Own profile only. Other profiles have no membership field we are allowed to read.
+    private var showsOwnPremiumBadge: Bool {
+        guard premiumStore.showsOwnBadge else { return false }
+        if profile.id == app.auth.account?.accountId { return true }
+        let handle = app.auth.account?.primaryHandle ?? ""
+        return !handle.isEmpty && profile.handle.caseInsensitiveCompare(handle) == .orderedSame
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 ModulaText(text: profile.displayName, role: .title)
                     .lineLimit(2)
+                if showsOwnPremiumBadge {
+                    PremiumProfileBadge(plan: premiumStore.plan)
+                }
                 if profile.isVerified {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.title3)
@@ -561,6 +577,19 @@ struct ProfileIdentityBlock: View {
                 }
             }
             .accessibilityElement(children: .combine)
+            .contentShape(Rectangle())
+            .contextMenu {
+                Button("Copy @\(profile.handle)", systemImage: "at") {
+                    UIPasteboard.general.string = "@\(profile.handle)"
+                    HapticEngine.shared.play(.confirmation)
+                    ModulaToastCenter.shared.show("Handle copied", symbol: "at", tone: .info)
+                }
+                Button("Copy profile link", systemImage: "link") {
+                    UIPasteboard.general.string = profile.shareURL.absoluteString
+                    HapticEngine.shared.play(.confirmation)
+                    ModulaToastCenter.shared.show("Link copied", symbol: "link", tone: .info)
+                }
+            }
             .accessibilityIdentifier("profile.handle")
 
             if let headline = profile.headline, !headline.isEmpty {
@@ -694,10 +723,10 @@ struct ProfileActionsRow: View {
             VStack(spacing: 2) {
                 ModulaCountUpText(value: value, format: ProfileCountFormatter.compact)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+                    .foregroundStyle(selected ? app.appearance.liveAccent : .primary)
                 Text(label)
                     .font(.caption2.weight(selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                    .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -707,7 +736,7 @@ struct ProfileActionsRow: View {
             .overlay(alignment: .bottom) {
                 if selected {
                     Capsule()
-                        .fill(app.appearance.accent.color)
+                        .fill(app.appearance.liveAccent)
                         .frame(width: 18, height: 3)
                         .offset(y: 2)
                 }
@@ -785,7 +814,7 @@ struct ProfileToolActions: View {
     }
 
     private var primaryBackground: some ShapeStyle {
-        AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+        AnyShapeStyle(isFollowing ? Color.primary.opacity(0.08) : app.appearance.liveAccent)
     }
 
     private var primaryStroke: Color {
@@ -840,7 +869,7 @@ struct ProfileAboutGrid: View {
                         if let action = row.2 {
                             Button(row.1, action: action)
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(app.appearance.accent.color)
+                                .foregroundStyle(app.appearance.liveAccent)
                                 .buttonStyle(.plain)
                                 .lineLimit(2)
                         } else {
@@ -888,12 +917,19 @@ struct ProfileInfoChips: View {
         let action: (() -> Void)?
     }
 
-    private var accent: Color { profileAccent ?? app.appearance.accent.color }
+    private var accent: Color { profileAccent ?? app.appearance.liveAccent }
 
     private var chips: [Chip] {
         var items: [Chip] = []
+        // One accurate status: a focus/status message that talks about visibility
+        // ("Sharing publicly") is replaced by the profile's real visibility below.
         if let focus = profile.focusStatus {
-            items.append(Chip(id: "focus", symbol: "circle.fill", title: focus.message ?? focus.label, action: nil))
+            let text = focus.message ?? focus.label
+            let lower = text.lowercased()
+            let talksPrivacy = lower.contains("public") || lower.contains("private") || lower.contains("sharing")
+            if !talksPrivacy {
+                items.append(Chip(id: "focus", symbol: "circle.fill", title: text, action: nil))
+            }
         }
         if let location = profile.location?.label, !location.isEmpty, ProfileFieldPrivacy.isPublic(profile.location?.visibility) {
             items.append(Chip(id: "location", symbol: "mappin.and.ellipse", title: location, action: nil))
@@ -937,6 +973,8 @@ struct ProfileInfoChips: View {
                 .font(.caption.weight(.semibold))
                 .imageScale(chip.id == "focus" ? .small : .medium)
                 .foregroundStyle(chip.id == "focus" ? Color.green : (tappable ? accent : Color.secondary))
+                // Fixed icon box so Joined / Private / etc. share one baseline.
+                .frame(width: 16, height: 16)
             Text(chip.title)
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(tappable ? accent : Color.primary)
@@ -956,8 +994,11 @@ struct ProfileInfoChips: View {
             .accessibilityLabel("Website, \(chip.title)")
             .accessibilityIdentifier("profile.chip.\(chip.id)")
         } else {
+            // Plain metadata (Joined, Private…) reads as one clean line, not a pile of pills.
             label
-                .modulaGlass(in: Capsule(), interactive: false)
+                .padding(.horizontal, -11)
+                .padding(.trailing, 6)
+                .foregroundStyle(.secondary)
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("profile.chip.\(chip.id)")
         }
@@ -1047,8 +1088,7 @@ struct ProfileHeroActions: View {
                         pill(messageTitle, symbol: "bubble.left.and.bubble.right", prominent: false, id: "message", action: onMessage)
                             .accessibilityIdentifier("profile.message.cta")
                     }
-                    icon("Notifications", symbol: "bell", id: "notify", action: onNotify)
-                        .accessibilityIdentifier("profile.notify")
+                    // Notifications bell removed: it only flashed "coming soon".
                     if !moreActions.isEmpty {
                         moreMenu
                     }
@@ -1075,7 +1115,7 @@ struct ProfileHeroActions: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-        .modulaGlass(in: Capsule(), interactive: true, tint: prominent ? tint : nil, prominent: prominent, specular: true)
+        .modifier(ProfilePillSurface(prominent: prominent, tint: tint))
         .modulaGlassID(id, in: glass)
         .accessibilityLabel(title)
     }
@@ -1123,7 +1163,9 @@ struct ProfileHeroActions: View {
                 .contentShape(Circle())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-        .modulaGlass(in: Circle(), interactive: true, specular: true)
+        // Non-interactive glass: interactive glass swallowed most taps (QR needed ~5 taps).
+        .modulaGlass(in: Circle(), interactive: false, specular: true)
+        .contentShape(Circle())
         .modulaGlassID(id, in: glass)
         .accessibilityLabel(title)
     }
@@ -1403,7 +1445,7 @@ struct ProfilePeopleRow: View {
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.caption)
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                                     .accessibilityLabel("Verified")
                             }
                         }
@@ -1441,7 +1483,7 @@ struct ProfilePeopleRow: View {
                         .frame(minHeight: ModulaLayout.minimumTouch)
                         .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
                         .background(
-                            Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
+                            Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.liveAccent)
                         )
                 }
                 .buttonStyle(.plain)
@@ -1570,7 +1612,7 @@ struct ProfilePrimaryCTA: View {
             .frame(minHeight: 44)
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .background(
-                Capsule().fill(prominent ? app.appearance.accent.color : Color.primary.opacity(0.08))
+                Capsule().fill(prominent ? app.appearance.liveAccent : Color.primary.opacity(0.08))
             )
             .overlay(
                 Capsule().stroke(Color.primary.opacity(prominent ? 0 : 0.12), lineWidth: 1)
@@ -1616,7 +1658,8 @@ struct ProfileAvatarContent: View {
 
     var body: some View {
         let selection = MascotSelection.resolve(raw: kindRaw)
-        if useMascot, selection != .off {
+        // The real photo wins wherever one exists, so the profile matches posts/Settings.
+        if useMascot, selection != .off, profile.avatarURL == nil {
             MascotAvatarView(size: size)
         } else {
             ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)
@@ -2036,8 +2079,11 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 .overlay { animatedFrameLayer }
 
             if presence != .offline {
+                // Sit the pip on the circle's 45° edge (inside the frame) so the cover
+                // notch / parent clip can never cut it in half.
                 presencePip
-                    .offset(x: -2, y: -2)
+                    // Centre the pip exactly on the outer ring at 45°: (D/2)(1 - cos45°) from the corner.
+                    .offset(x: -((size + ringPad * 2) * 0.1464 - pipSize / 2), y: -((size + ringPad * 2) * 0.1464 - pipSize / 2))
             }
         }
         .frame(width: size + ringPad * 2, height: size + ringPad * 2)
@@ -2096,9 +2142,10 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         case .pixels(let color):
             Circle().strokeBorder(color, lineWidth: 2)
             ForEach(0..<8, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
+                // Smooth dots instead of square pixels (read as a jagged halo at hero size).
+                Circle()
                     .fill(color)
-                    .frame(width: 5, height: 5)
+                    .frame(width: max(4, size * 0.035), height: max(4, size * 0.035))
                     .offset(y: -(size / 2 + ringPad - 1))
                     .rotationEffect(.degrees(Double(i) * 45))
             }
@@ -2225,10 +2272,12 @@ struct ModulaDecoratedAvatar<Content: View>: View {
         }
     }
 
+    private var pipSize: CGFloat { max(12, min(size * 0.2, 26)) }
+
     private var presencePip: some View {
         Circle()
             .fill(presence.color)
-            .frame(width: max(12, size * 0.22), height: max(12, size * 0.22))
+            .frame(width: pipSize, height: pipSize)
             .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2.5))
             .accessibilityLabel(presence.title)
     }
@@ -2258,7 +2307,7 @@ struct ProfileAvatarOverlayEditor: View {
     private static let swatches = ["#2E8B3E", "#7A3FE0", "#0A66C2", "#0E9A94", "#E8641B", "#D23C86", "#D99A00", "#1C1C1E"]
 
     private var reduce: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
-    private var accent: Color { app.appearance.accent.color }
+    private var accent: Color { app.appearance.liveAccent }
     private var selectionSpring: Animation? { reduce ? nil : .spring(response: 0.38, dampingFraction: 0.78) }
 
     private var hasChanges: Bool {
@@ -2284,7 +2333,7 @@ struct ProfileAvatarOverlayEditor: View {
                     buildingSection
                     ringSection
                     presenceSection
-                    Text("Frames are saved on this device for now and show wherever your avatar appears in Modula. Other people will see them once Modula’s profile service supports frames.")
+                    Text("Your frame shows wherever your photo appears in Modula.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2301,6 +2350,8 @@ struct ProfileAvatarOverlayEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .tint(.primary)
+                        .foregroundStyle(.primary)
                 }
             }
             .onAppear(perform: loadDraft)
@@ -2326,9 +2377,9 @@ struct ProfileAvatarOverlayEditor: View {
             .animation(selectionSpring, value: frameID)
 
             VStack(spacing: 4) {
-                Text(badge?.title ?? "No frame")
+                Text(previewTitle)
                     .font(.title3.weight(.semibold))
-                Text(badge?.detail ?? "Pick a frame to let people know what you’re up to.")
+                Text(badge?.detail ?? (selectedRing.id == ProfileAvatarFrame.none.id ? "Pick a frame to let people know what you’re up to." : "Ring frame"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -2341,7 +2392,20 @@ struct ProfileAvatarOverlayEditor: View {
         .padding(.horizontal, 16)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false, specular: true)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Preview, \(badge?.title ?? "no frame")")
+        .accessibilityLabel("Preview, \(previewTitle)")
+    }
+
+    private var selectedRing: ProfileAvatarFrame { ProfileAvatarFrame.frame(id: frameID) }
+
+    /// Header mirrors whatever is selected below: banner, ring, or both.
+    private var previewTitle: String {
+        let ring = selectedRing.id == ProfileAvatarFrame.none.id ? nil : selectedRing.title
+        switch (badge?.title, ring) {
+        case let (b?, r?): return "\(b) · \(r)"
+        case let (b?, nil): return b
+        case let (nil, r?): return r
+        default: return "No frame"
+        }
     }
 
     @ViewBuilder
@@ -2392,15 +2456,17 @@ struct ProfileAvatarOverlayEditor: View {
                 .background {
                     if selected {
                         Circle()
-                            .strokeBorder(item?.resolvedColor(customHex: customHex) ?? accent, lineWidth: 2.5)
+                            .strokeBorder(accent, lineWidth: 2.5)
                             .matchedGeometryEffect(id: "status.selection", in: selection)
                     }
                 }
                 Text(item?.title ?? "None")
                     .font(.caption.weight(selected ? .semibold : .medium))
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                    .frame(width: 80)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 80, alignment: .top)
             }
             .contentShape(Rectangle())
         }
@@ -2471,13 +2537,14 @@ struct ProfileAvatarOverlayEditor: View {
                             .labelStyle(.titleAndIcon)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
-                            .foregroundStyle(selected ? Color.primary : Color.secondary)
+                            .foregroundStyle(selected ? Color.white : Color.secondary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 40)
                             .background {
                                 if selected {
                                     Capsule()
-                                        .fill(accent.opacity(0.18))
+                                        .fill(accent)
+                                        .shadow(color: accent.opacity(0.3), radius: 6, y: 2)
                                         .matchedGeometryEffect(id: "visibility.pill", in: selection)
                                 }
                             }
@@ -2587,10 +2654,15 @@ struct ProfileAvatarOverlayEditor: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-        .modulaGlass(in: Capsule(), interactive: true, tint: accent, prominent: true, specular: true)
+        .background(accent, in: Capsule())
+        .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
         .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.top, 10)
         .padding(.bottom, 8)
+        .background(alignment: .top) {
+            Rectangle().fill(.bar).ignoresSafeArea(edges: .bottom)
+                .mask(LinearGradient(colors: [.clear, .black, .black], startPoint: .top, endPoint: .bottom))
+        }
         .accessibilityIdentifier("profile.frames.apply")
     }
 
@@ -2973,5 +3045,22 @@ struct ProfileBuildingStatusLine: View {
         .disabled(onEdit == nil)
         .accessibilityLabel("Currently building \(text)")
         .accessibilityIdentifier("profile.building")
+    }
+}
+
+
+/// Primary profile CTA (Edit profile) is a solid, clearly-enabled fill — glass over a pale
+/// avatar tint read as disabled. Secondary pills stay Liquid Glass.
+private struct ProfilePillSurface: ViewModifier {
+    var prominent: Bool
+    var tint: Color
+
+    func body(content: Content) -> some View {
+        if prominent {
+            // Same filled accent CTA as the rest of the app (was a darkened cover tint).
+            content.modulaAccentCTA()
+        } else {
+            content.modulaGlass(in: Capsule(), interactive: true, specular: true)
+        }
     }
 }

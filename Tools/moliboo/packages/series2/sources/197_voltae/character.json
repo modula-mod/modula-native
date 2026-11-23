@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.197",
+  "key": "voltae",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#BEFD83",
+    "accent": "#DEFEC0",
+    "light": "#DEFEC0",
+    "dark": "#A9E175"
+  },
+  "form": "Neon-lime lightning cheek marks"
+}

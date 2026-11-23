@@ -44,7 +44,7 @@ struct PollEditor: View {
                 Text("Duration \(poll.durationHours) hours")
             }
             .fontDesign(.default)
-            Text("Votes, counts, and expiry are owned by Greenfield when polls are enabled.")
+            Text("People can vote once the poll is posted.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

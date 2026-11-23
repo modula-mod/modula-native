@@ -20,7 +20,7 @@ struct AudiencePicker: View {
             HStack(spacing: 5) {
                 Image(systemName: audienceSymbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                 Text(selection.title)
                     .font(.subheadline.weight(.semibold))
                 Image(systemName: "chevron.down")
@@ -32,7 +32,7 @@ struct AudiencePicker: View {
             .modulaGlass(
                 in: Capsule(),
                 interactive: true,
-                tint: app.appearance.accent.color.opacity(0.22),
+                tint: app.appearance.liveAccent.opacity(0.22),
                 specular: true
             )
         }

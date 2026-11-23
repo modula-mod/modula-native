@@ -6,17 +6,33 @@ import UIKit
 /// selection is the existing mascot kind key, care state is `MolibooCareStore`, Studio/Wardrobe are the Living Studio.
 struct MolibooWorldView: View {
     enum Section: String, CaseIterable, Identifiable {
-        case home, studio, wardrobe, stickers, care
+        // Home · Studio · Stickers. Wardrobe lives inside Studio; Care is Activities on Home.
+        case home, studio, stickers
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
         var symbol: String {
             switch self {
-            case .home: "house"; case .studio: "paintbrush.pointed"; case .wardrobe: "tshirt"
-            case .stickers: "face.smiling"; case .care: "heart"
+            case .home: "house"
+            case .studio: "paintbrush.pointed"
+            case .stickers: "face.smiling"
+            }
+        }
+        var selectedSymbol: String {
+            switch self {
+            case .home: "house.fill"
+            case .studio: "paintbrush.pointed.fill"
+            case .stickers: "face.smiling.inverse"
+            }
+        }
+        var accessibilityHint: String {
+            switch self {
+            case .home: "Your Moliboo's home"
+            case .studio: "Opens the Studio and wardrobe"
+            case .stickers: "Opens stickers"
             }
         }
     }
-    enum Route: Hashable { case studio(String), wardrobe(String), photo(String), collection, cards, settings }
+    enum Route: Hashable { case studio(String), photo(String), collection, cards, settings, classicStudio(MascotStudioView.StudioTab) }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.scenePhase) private var scenePhase
@@ -29,8 +45,16 @@ struct MolibooWorldView: View {
     @State private var stage = MolibooStageState()
     @State private var route: Route?
     @State private var showSwitcher = false
+    @State private var showCareSheet = false
     @State private var sheet: Section?
     @State private var scrollY: CGFloat = 0
+    /// Global bottom of the pinned header and top of the inline family tabs: once the tabs reach the
+    /// header they stick under it (like a pinned section header) instead of fading out beneath it.
+    @State private var headerBottom: CGFloat = 0
+    @State private var headerHeight: CGFloat = 0
+    @State private var inlineTabsTop: CGFloat = .greatestFiniteMagnitude
+    private var tabsPinned: Bool { shows("collection") && inlineTabsTop < headerBottom + 4 }
+    @State private var scrollPosition = ScrollPosition(edge: .top)
     @State private var toast: String?
     @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
     @FocusState private var composerFocused: Bool
@@ -42,6 +66,15 @@ struct MolibooWorldView: View {
     @Namespace private var heroNS
     @Namespace private var zoomNS
     @Namespace private var glassNS
+    @State private var speech: String?
+    @State private var speechToken = UUID()
+    /// Segment shown as selected in the Home · Studio · Stickers switcher. Studio / Stickers open their own
+    /// screens, so the capsule glides there first and glides back to Home when they close.
+    @State private var navSelection: Section = .home
+    @Namespace private var navNS
+    /// Family page shown in "Choose your Moliboo" (tab strip and pager share it).
+    @State private var pickerFamily: MolibooFamily?
+    @Namespace private var familyTabNS
     #if DEBUG
     @AppStorage("moliboo.world.debugHour") private var debugHour = -1
     #endif
@@ -72,36 +105,85 @@ struct MolibooWorldView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            if shows("backdrop") { MolibooRoomBackdrop(period: period, scrollY: scrollY, animating: motionAllowed && stage.awake, figurines: figurineIDs) }
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+            LinearGradient(
+                colors: [
+                    Color(uiColor: .systemBackground),
+                    Color(uiColor: .secondarySystemBackground).opacity(0.45),
+                    Color(uiColor: .systemBackground)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            // Scene art is drawn inside a fixed-size, clipped box: a bare `scaledToFill()` image widened the
+            // whole ZStack past the screen, clipping every Moliboo page off the left/right edges.
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 220)
+                .overlay(alignment: .top) { ShellSceneImage(scene: .misty).scaledToFill() }
+                .clipped()
+                .mask(
+                    LinearGradient(colors: [.white, .white.opacity(0.92), .clear], startPoint: .top, endPoint: .bottom)
+                )
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             ScrollView {
-                VStack(spacing: 20) {
-                    if shows("header") { header }
-                    if shows("stage") { navBar; stageArea }
-                    if shows("identity") || shows("stage") {
-                        heroDashboardCard
+                VStack(spacing: 32) {
+                    if shows("stage") {
+                        navBar.padding(.top, 6)
+                        stageArea.padding(.top, 12)
                     }
-                    if shows("quick") { quickActions }
-                    if shows("composer") { composer }
-                    if shows("activities") { activities }
-                    if shows("collection") { collection }
+                    if shows("identity") || shows("stage") { heroDashboardCard }
+                    if shows("activities") { careSections }
+                    if shows("collection") { collection.padding(.top, 12).padding(.horizontal, -24) }
                 }
-                .padding(.horizontal, 16).padding(.bottom, 28)
+                // Extra bottom room so the last cards settle fully above the floating chat field.
+                .padding(.horizontal, 24).padding(.bottom, 72)
             }
             .scrollIndicators(.hidden)
+            .scrollPosition($scrollPosition)
             // Clear the floating tab bar so Activities / Choose your Moliboo never clip under it.
-            .contentMargins(.bottom, 110, for: .scrollContent)
+            .contentMargins(.bottom, 36, for: .scrollContent)
             // Nothing scrolls under the clock: content fades out beneath a scene-coloured status-bar scrim.
-            .mask {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 14)
-                    Color.black
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 8 { scrollY = y } }
+            .modifier(MolibooSoftTopEdge())
+            // Sticky chat bar: pinned above the safe area / keyboard (safeAreaInset follows the keyboard), over a
+            // progressive bottom blur; the inset also pads the scroll content so nothing hides beneath it.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if shows("composer") {
+                    // Floating field and buttons only: no bar or blur strip behind them.
+                    composer
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 8)
                 }
             }
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in if route == nil, abs(y - scrollY) >= 1 { scrollY = y } }
-            .modifier(MolibooSoftTopEdge())
-            // Collapsing header: once the hero scrolls away, a compact glass bar (portrait + name + stats) takes the top
-            // edge so content never floats under the status bar with nothing behind it.
-            if scrollY > 260 { compactHeader.transition(.move(edge: .top).combined(with: .opacity)) }
+            // Header (back · moliboos title · sparkle · more) is pinned below the safe area (never under
+            // the Dynamic Island) and stays put while content scrolls, over a progressive blur strip.
+            .safeAreaInset(edge: .top, spacing: 8) {
+                if shows("header") {
+                    header
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { headerBottom = $0.maxY; headerHeight = $0.height }
+                        .background(alignment: .top) {
+                            MolibooProgressiveHeaderBlur()
+                                .opacity(min(1, max(0, (scrollY - 8) / 28)))
+                        }
+                        .overlay(alignment: .top) {
+                            if tabsPinned {
+                                // Sticky family tabs just below the header. Overlay = layout-neutral, so the scroll
+                                // content never jumps when they pin / unpin.
+                                familyTabs
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .offset(y: headerHeight)
+                                    .transition(.opacity)
+                                    .accessibilityIdentifier("world.family.tabs.pinned")
+                            }
+                        }
+                }
+            }
             if let toast { toastView(toast) }
             if showWelcome {
                 // First visit: the welcome lives over the World; "Let's go" morphs its hero onto the pedestal.
@@ -110,21 +192,35 @@ struct MolibooWorldView: View {
                     .zIndex(10)
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82), value: scrollY > 260)
         .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear { if !onboarded { showWelcome = true } }
         .navigationDestination(item: $route) { r in destination(r) }
         .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }
         .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $showCareSheet) {
+            MolibooCareSheet(characterID: characterID, name: displayName, care: care) { a in
+                if a == .photo { showCareSheet = false }
+                performAction(a)
+            }
+                .presentationDetents([.medium, .large])
+        }
         .task {
             #if DEBUG
             if let k = MOL03DebugHarness.arg("-MOLWorldKind"), !didApplyDebugKind { didApplyDebugKind = true; kindRaw = k }
+            if let f = MOL03DebugHarness.arg("-MOLWorldFamily").flatMap(MolibooFamily.init(rawValue:)) { pickerFamily = f }
+            if let y = MOL03DebugHarness.arg("-MOLWorldScrollY").flatMap(Double.init) {
+                Task { try? await Task.sleep(for: .seconds(1.5)); scrollPosition.scrollTo(y: y) }
+            }
             if MOL03DebugHarness.arg("-MOLWorldPush") == "studio", route == nil { try? await Task.sleep(for: .seconds(2)); route = .studio(characterID) }
             #endif
             if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
             care.refresh(characterID)
             stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds)   // brief hello, then settle
             stage.startAmbient { motionAllowed && route == nil && sheet == nil }
+            // Prefetch static roster thumbs so family grids never ImageRenderer mid-scroll.
+            let ids = MolibooFamily.allCases.filter { !$0.isDraft }.flatMap { $0.kinds.map(\.rawValue) }
+            Task(priority: .utility) { MolibooPortrait.warmThumbs(ids: ids) }
         }
         .onChange(of: scenePhase) { _, p in
             if p == .active { care.refresh(characterID); stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds) } else { stage.sleepNow() }
@@ -140,8 +236,8 @@ struct MolibooWorldView: View {
         #endif
     }
 
-    /// Tinted Liquid Glass for panels over the scene: a cool tint at night, warm white by day, plus a soft drop shadow.
-    private var glassTint: Color { period.isDark ? Color(red: 0.30, green: 0.32, blue: 0.70).opacity(0.28) : Color.white.opacity(0.22) }
+    /// Neutral Liquid Glass for chrome only (top bar, segment, actions, chat).
+    private var glassTint: Color { Color.primary.opacity(0.04) }
 
     private func shows(_ s: String) -> Bool {
         #if DEBUG
@@ -156,15 +252,9 @@ struct MolibooWorldView: View {
     private var header: some View {
         ModulaGlassGroup(spacing: 10) {
             ZStack {
-                Image("MoliboosLogo").resizable().scaledToFit().frame(maxWidth: 200).frame(height: 50)
-                    .shadow(color: .white.opacity(0.55), radius: 1, y: -1)          // glossy top edge
-                    .shadow(color: .black.opacity(0.25), radius: 6, y: 4)
-                    .overlay(alignment: .topTrailing) {
-                        Image(systemName: "sparkle").font(.system(size: 18, weight: .bold)).foregroundStyle(.yellow)
-                            .shadow(color: .yellow.opacity(0.7), radius: 6).offset(x: 10, y: -8)
-                            .phaseAnimator([0.8, 1.15], trigger: stage.awake) { v, s in v.scaleEffect(motionAllowed && stage.awake ? s : 1) }
-                    }
-                    .accessibilityLabel("Moliboos").accessibilityIdentifier("world.logo")
+                // 28 pt keeps the centred logo clear of the 44 pt back / sparkle / more buttons on every iPhone width.
+                MoliboosWordmark(height: 28)
+                    .accessibilityIdentifier("world.logo")
                 HStack(spacing: 10) {
                     MolibooWorldBackButton()
                     Spacer()
@@ -189,7 +279,7 @@ struct MolibooWorldView: View {
                 }
             }
         }
-        .foregroundStyle(period.isDark ? .white : .primary)
+        .foregroundStyle(.primary)
         .padding(.top, 4)
     }
 
@@ -202,148 +292,201 @@ struct MolibooWorldView: View {
 
     // MARK: Stage
 
+    /// Extra drawing room around the stage pet for the tap wave effects.
+    private static let waveRoom: CGFloat = 72
+
     private var stageArea: some View {
-        // Character dominates the first viewport; identity card sits below as secondary chrome.
-        Color.clear.frame(maxWidth: .infinity).frame(height: 328)
+        // Large unclipped pet + soft contact shadow. No platform glow, arches, or clip masks.
+        Color.clear.frame(maxWidth: .infinity).frame(height: 292)
+            // Soft tinted stage in the character's own colour fills what was an empty white area.
+            .background { stageBackdrop }
             .overlay {
                 ZStack {
-                    Circle()
-                        .fill(.clear)
-                        .frame(width: 310, height: 310)
-                        .molibooStageAura(kind?.palette.accent ?? teal, strength: period.isDark ? 0.68 : 0.45, animated: motionAllowed && stage.awake)
+                    Ellipse()
+                        .fill(Color.primary.opacity(0.10))
+                        .frame(width: 140, height: 26)
+                        .blur(radius: reduceMotion ? 0 : 8)
+                        .offset(y: 108)
                         .allowsHitTesting(false)
-                    MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed,
+                    MolibooStageCharacter(characterID: characterID, emotion: emotion, stage: stage, animating: motionAllowed && scrollY < 90,
                                           gaze: chat?.isTyping == true ? 1 : 0)
-                        .frame(width: 318, height: 318)
-                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 150, y: 170))
+                        .frame(width: 248, height: 248)
+                        // Room for the tap ripple / joy wave: the effects only draw inside the view's
+                        // bounds, so they ran into the 248pt square's edges. Pad, apply, un-pad.
+                        .padding(Self.waveRoom)
+                        .molibooRipple(trigger: rippleTick, origin: CGPoint(x: 124 + Self.waveRoom, y: 130 + Self.waveRoom))
                         .molibooJoyPulse(trigger: joyPulseTick, tint: kind?.palette.accent ?? teal)
+                        .padding(-Self.waveRoom)
                         .opacity(showWelcome ? 0 : 1)
                         .modifier(MolibooHeroMorph(ns: showWelcome ? nil : heroNS))
-                        // Picking in the carousel flies the new Moliboo up into the hero spot.
                         .id(characterID)
-                        .transition(reduceMotion ? .opacity : .asymmetric(insertion: .scale(scale: 0.35, anchor: .bottom).combined(with: .offset(y: 260)).combined(with: .opacity),
-                                                                          removal: .scale(scale: 0.6).combined(with: .opacity)))
+                        .transition(.opacity)
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { composerFocused = true; stage.react(.curious, allowed: motionAllowed) }
-                        .onTapGesture { rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1) }
+                        .onTapGesture { rippleTick += 1; joyPulseTick += 1; stage.bounce(allowed: motionAllowed); care.interact(characterID, mood: 1, bond: 1); say(emotion.speech) }
                         .onLongPressGesture(minimumDuration: 0.5) { showSwitcher = true }
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("\(displayName), \(emotion.label)")
                         .accessibilityHint("Tap to bounce, double-tap to chat, hold to switch Moliboo")
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("world.stage")
-                        // Studio / Wardrobe / Photo zoom out of the character itself (real morph, not a cut).
-                        .matchedTransitionSource(id: "world.hero", in: zoomNS) { $0.clipShape(RoundedRectangle(cornerRadius: 40, style: .continuous)) }
+                        .matchedTransitionSource(id: "world.hero", in: zoomNS)
+                    if let speech {
+                        Text(speech)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .modulaGlass(in: Capsule(), interactive: false)
+                            .offset(y: -150)
+                            .transition(reduceMotion ? .opacity : .scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+                            .allowsHitTesting(false)
+                            .accessibilityIdentifier("world.speech")
+                    }
                 }
             }
+            .padding(.vertical, 16)
     }
 
-    /// Compact section switcher — icon-first so it never reads as a second Modula tab bar.
+    private var stageAccent: Color { kind?.palette.accent ?? teal }
+
+    /// Static gradient stage (no blur, no animation): cheap to draw and calm behind the 2D rig.
+    private var stageBackdrop: some View {
+        let shape = RoundedRectangle(cornerRadius: 36, style: .continuous)
+        return shape
+            .fill(LinearGradient(colors: [stageAccent.opacity(0.24), stageAccent.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+            .overlay {
+                RadialGradient(colors: [Color.white.opacity(0.42), .clear], center: UnitPoint(x: 0.5, y: 0.42), startRadius: 8, endRadius: 170)
+                    .clipShape(shape)
+                    .opacity(0.35)
+            }
+            .overlay { shape.strokeBorder(stageAccent.opacity(0.18), lineWidth: 0.75) }
+            .padding(.horizontal, -8)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    /// Home · Studio · Stickers — Wardrobe is inside Studio; Care is Activities on Home.
+    /// Native Liquid Glass segmented switcher: icon + short label, one glass capsule track the same 44 pt height as
+    /// the header buttons, and a selection capsule that glides between segments (no motion under Reduce Motion).
     private var navBar: some View {
-        ModulaGlassGroup(spacing: 4) {
+        ModulaGlassGroup(spacing: 0) {
             HStack(spacing: 2) {
                 ForEach(Section.allCases) { s in
-                    Button { open(s) } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: s == .home ? "house.fill" : s.symbol).font(.caption.weight(.semibold))
-                            if !navCollapsed { Text(s.title).font(.caption2.weight(.semibold)).lineLimit(1) }
+                    let selected = navSelection == s
+                    Button { select(s) } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: selected ? s.selectedSymbol : s.symbol)
+                                .font(.footnote.weight(.semibold))
+                                .frame(width: 18)
+                            Text(s.title)
+                                .font(.footnote.weight(.semibold))
+                                .lineLimit(1)
+                                .fixedSize()
                         }
-                        .padding(.horizontal, navCollapsed ? 0 : 5).frame(maxWidth: .infinity, minHeight: 32)
+                        .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
                         .background {
-                            if s == .home { Capsule().fill(.white.opacity(period.isDark ? 0.20 : 0.45)).modulaGlassID("world.nav.selected", in: glassNS) }
+                            if selected {
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.09))
+                                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
+                                    .matchedGeometryEffect(id: "world.nav.selection", in: navNS)
+                            }
                         }
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("world.nav.\(s.rawValue)").accessibilityLabel(s.title)
+                    .accessibilityIdentifier("world.nav.\(s.rawValue)")
+                    .accessibilityLabel(s.title)
+                    .accessibilityHint(s.accessibilityHint)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
-                Button { withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.75)) { navCollapsed.toggle() } } label: {
-                    Image(systemName: navCollapsed ? "chevron.right" : "chevron.left").font(.caption2.weight(.bold))
-                        .frame(width: 26, height: 32).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("world.nav.toggle").accessibilityLabel(navCollapsed ? "Expand menu" : "Collapse menu")
             }
-            .padding(3)
-            .modulaGlass(in: Capsule(), interactive: false, tint: glassTint.opacity(0.85), specular: true)
+            .padding(4)
+            .frame(height: 44)
+            .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
             .modulaGlassID("world.nav", in: glassNS)
-            .shadow(color: .black.opacity(0.16), radius: 8, y: 4)
         }
-        .foregroundStyle(period.isDark ? .white.opacity(0.92) : .primary)
-        .padding(.bottom, 4)
+        .frame(maxWidth: 320)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Moliboo sections")
+        .onChange(of: route) { _, r in if r == nil { settleNav() } }
+        .onChange(of: sheet) { _, s in if s == nil { settleNav() } }
     }
 
-    /// Unified Hero Dashboard Card: combines Character Identity (Primary) + Trait Pills + Mood/Energy/Bond Meters (Secondary)
-    /// into one cohesive Liquid Glass surface with specular rim and subtle holo sheen.
+    private var navAnimation: Animation? { reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82) }
+
+    /// Glide the capsule to the tapped segment, then open it (immediately under Reduce Motion).
+    private func select(_ s: Section) {
+        guard s != .home else { withAnimation(navAnimation) { navSelection = .home }; return }
+        withAnimation(navAnimation) { navSelection = s }
+        let delay: Duration = reduceMotion ? .zero : .milliseconds(180)
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            open(s)
+        }
+    }
+
+    private func settleNav() {
+        guard navSelection != .home else { return }
+        withAnimation(navAnimation) { navSelection = .home }
+    }
+
+    /// Open typography on the clean surface — no glass card under the pet.
     private var heroDashboardCard: some View {
-        let canonNum = MolibooRegistry.descriptor(for: characterID)?.canonicalNumber
-            ?? ((MolibooCosmetics.originals.firstIndex(of: characterID) ?? 0) + 1)
-        return VStack(spacing: 12) {
+        // The selected character's own catalogue number. 2D-only characters have no 3D descriptor,
+        // and the old fallback (index in the Originals list, else 0 → "#001") pinned them all to #001.
+        let canonNum: Int? = kind?.number
+            ?? MolibooRegistry.descriptor(for: characterID)?.canonicalNumber
+            ?? MolibooCosmetics.originals.firstIndex(of: characterID).map { $0 + 1 }
+        let familyName = (kind?.family.displayTitle ?? "The Originals").uppercased()
+        return VStack(alignment: .center, spacing: 16) {
             if shows("identity") {
-                VStack(spacing: 5) {
-                    HStack(spacing: 6) {
-                        Text(String(format: "#%03d", canonNum))
-                            .font(.caption2.weight(.heavy).monospaced())
-                            .foregroundStyle(teal)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(teal.opacity(0.22), in: Capsule())
-                        Text("ORIGINALS")
-                            .font(.caption2.weight(.bold).monospaced())
-                            .tracking(1.2)
-                            .foregroundStyle(period.isDark ? .white.opacity(0.72) : .secondary)
-                    }
-                    (Text("Hi, I'm ") + Text(displayName).foregroundStyle(teal) + Text("!"))
-                        .font(.system(.title2, design: .rounded).weight(.heavy))
+                VStack(alignment: .center, spacing: 10) {
+                    Text(canonNum.map { String(format: "#%03d  ·  %@", $0, familyName) } ?? familyName)
+                        .font(.caption2.weight(.bold))
+                        .tracking(0.8)
+                        .foregroundStyle(stageAccent)
+                        .textCase(.uppercase)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(stageAccent.opacity(0.14), in: Capsule())
+                        .accessibilityIdentifier("world.identity.caption")
+                    Text(displayName)
+                        .font(.system(.largeTitle, design: .rounded).weight(.bold))
                         .accessibilityIdentifier("world.identity.name")
                     Text(kind?.personality ?? "A brand new Moliboo friend.")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(period.isDark ? .white.opacity(0.88) : .secondary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
-                    HStack(spacing: 6) {
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                    HStack(spacing: 8) {
                         ForEach(traits, id: \.1) { t in
-                            HStack(spacing: 4) {
-                                Image(systemName: t.0).foregroundStyle(t.2)
+                            HStack(spacing: 5) {
+                                Image(systemName: t.0)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(t.2)
                                 Text(t.1)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
                             }
-                            .font(.caption.weight(.semibold)).lineLimit(1)
-                            .padding(.horizontal, 10).padding(.vertical, 5)
-                            .background(t.2.opacity(period.isDark ? 0.22 : 0.14), in: Capsule())
-                            .overlay(Capsule().strokeBorder(t.2.opacity(0.35), lineWidth: 0.8))
+                            .padding(.horizontal, 11).padding(.vertical, 7)
+                            .background(t.2.opacity(0.13), in: Capsule())
+                            .overlay(Capsule().strokeBorder(t.2.opacity(0.22), lineWidth: 0.6))
                         }
                     }
-                    .padding(.top, 2)
+                    .padding(.top, 4)
                     .accessibilityIdentifier("world.identity.traits")
                 }
             }
-            if shows("stage") {
-                statsRow
-            }
         }
-        .foregroundStyle(period.isDark ? .white : .primary)
-        .padding(.vertical, 14).padding(.horizontal, 14).frame(maxWidth: .infinity)
-        .overlay(alignment: .topTrailing) { Image(systemName: "sparkle").foregroundStyle(teal.opacity(0.85)).padding(14) }
-        .background {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(period.isDark ? Color.black.opacity(0.42) : Color.white.opacity(0.55))
-        }
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false, tint: glassTint, specular: true)
-        .shadow(color: .black.opacity(0.22), radius: 16, y: 8)
-        .padding(.top, -4)
-    }
-
-    /// Mood / energy / bond as three high-contrast glass meters inside the hero dashboard.
-    private var statsRow: some View {
-        ModulaGlassGroup(spacing: 8) {
-            HStack(spacing: 8) {
-                stat("heart.fill", .pink, "\(Int(careState.mood))%", "Mood", id: "mood")
-                stat("bolt.fill", .yellow, "\(Int(careState.energy))%", "Energy", id: "energy")
-                stat("star.fill", .orange, "Lv. \(careState.bondLevel)", "Bond", id: "bond")
-            }
-        }
-        .foregroundStyle(period.isDark ? .white : .primary)
-        .contentTransition(.numericText())
-        .animation(reduceMotion ? nil : .spring, value: careState)
+        .foregroundStyle(.primary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
     }
 
     private var compactHeader: some View {
@@ -356,32 +499,12 @@ struct MolibooWorldView: View {
             Label("\(Int(careState.mood))%", systemImage: "heart.fill").font(.caption.weight(.bold)).labelStyle(.titleAndIcon)
             Label("Lv. \(careState.bondLevel)", systemImage: "star.fill").font(.caption.weight(.bold))
         }
-        .foregroundStyle(period.isDark ? .white : .primary)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 14).frame(height: 52)
-        .molibooGlassBackground(Capsule(), tint: glassTint)
+        .background(.regularMaterial, in: Capsule())
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .top)
         .accessibilityIdentifier("world.compactHeader")
-    }
-
-    private func stat(_ symbol: String, _ tint: Color, _ value: String, _ label: String, id: String) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: symbol).font(.caption.weight(.bold)).foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background(tint.gradient, in: Circle())
-                .shadow(color: tint.opacity(0.5), radius: 4)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(value).font(.subheadline.weight(.heavy)).monospacedDigit()
-                Text(label)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(period.isDark ? .white.opacity(0.78) : .secondary)
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity)
-        .background(period.isDark ? Color.black.opacity(0.38) : Color.white.opacity(0.55), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(period.isDark ? 0.18 : 0.35), lineWidth: 0.8))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("world.stat.\(id)")
     }
 
     // MARK: Identity
@@ -396,6 +519,7 @@ struct MolibooWorldView: View {
     @ViewBuilder private var composer: some View {
         if let chat {
             VStack(alignment: .leading, spacing: 8) {
+                if chat.phase != .composing { chatStatus(chat) }
                 ModulaGlassGroup(spacing: 8) {
                     HStack(spacing: 10) {
                         Image(systemName: "sparkles")
@@ -406,8 +530,17 @@ struct MolibooWorldView: View {
                                 Circle().fill(LinearGradient(colors: [teal, teal.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing))
                             )
                             .modulaGlass(in: Circle(), interactive: false, tint: teal.opacity(0.35), specular: true)
-                        TextField("Chat with \(displayName)…", text: Binding(get: { chat.draft }, set: { chat.draft = $0; if chat.phase != .composing && !$0.isEmpty { chat.reset() } }))
+                        HStack(spacing: 6) {
+                        TextField("", text: Binding(get: { chat.draft }, set: { chat.draft = $0; if chat.phase != .composing && !$0.isEmpty { chat.reset() } }))
                             .font(.body)
+                            // Higher-contrast placeholder than the system default over the scene.
+                            .background(alignment: .leading) {
+                                if chat.draft.isEmpty {
+                                    Text("Chat with \(displayName)…")
+                                        .foregroundStyle(Color.secondary)
+                                        .allowsHitTesting(false)
+                                }
+                            }
                             .focused($composerFocused)
                             .submitLabel(.send)
                             .onSubmit { send() }
@@ -417,10 +550,14 @@ struct MolibooWorldView: View {
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 34, height: 34)
-                                .modulaGlass(in: Circle(), interactive: true, specular: true)
+                                .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("world.composer.attach").accessibilityLabel("Add \(displayName)'s mood emoji")
+                        }
+                        .padding(.leading, 16).padding(.trailing, 6)
+                        .frame(minHeight: 46)
+                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
                         ModulaGlassSendButton(
                             ready: chat.canSend,
                             busy: chat.phase == .submitting || chat.phase == .awaiting,
@@ -429,12 +566,8 @@ struct MolibooWorldView: View {
                         ) { send() }
                         .accessibilityIdentifier("world.composer.send")
                     }
-                    .padding(7)
-                    .foregroundStyle(period.isDark ? .white : .primary)
-                    .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
-                    .shadow(color: teal.opacity(period.isDark ? 0.18 : 0.08), radius: 12, y: 4)
+                    .foregroundStyle(.primary)
                 }
-                chatStatus(chat)
             }
         }
     }
@@ -465,171 +598,229 @@ struct MolibooWorldView: View {
         composerFocused = false
     }
 
-    // MARK: Quick actions
+    // MARK: Care (status · activities · moments)
 
-    private var quickActions: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                quick("Say hi", "Take a moment to say hi", "bubble.left.fill", .blue, id: "sayhi") {
-                    joyPulseTick += 1
-                    care.interact(characterID, mood: 3, bond: 3); stage.react(.happy, allowed: motionAllowed); flash("\(displayName) waves back!")
+    private var careSections: some View {
+        let life = care.life(for: characterID)
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("How \(displayName) is doing").font(.headline).accessibilityAddTraits(.isHeader)
+                Spacer()
+                // The single entry point to the Care sheet (details + full moments log).
+                Button { showCareSheet = true } label: {
+                    Label("Care", systemImage: "chevron.right").labelStyle(.titleOnly).font(.footnote.weight(.semibold))
                 }
-                quick("Play", "Play together", "gamecontroller.fill", .purple, id: "play") { doActivity(.play) }
-                quick("Treat", "Give a treat", "carrot.fill", .orange, id: "treat") { doActivity(.feed) }
-                quick("Photo", "Take photo", "camera.fill", .cyan, id: "photo") { openStudio(.photo(characterID)) }
-                if MolibooCardFlags.enabled {
-                    quick("Cards", "Trading Cards", "rectangle.portrait.on.rectangle.portrait.angled.fill", .pink, id: "cards") { route = .cards }
-                }
+                .accessibilityIdentifier("world.care.open").accessibilityHint("Opens Care details")
             }
-            .padding(.horizontal, 2)
-            .padding(.vertical, 4)
+            MolibooStatusPanel(state: careState, life: life) { checkIn() }
+            Text("Activities").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooActionGrid(life: life, asleep: careState.asleep, columns: 4) { performAction($0) }
+            Text("Recent moments").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooMomentsList(moments: life.moments)
         }
     }
 
-    private func quick(_ title: String, _ a11y: String, _ symbol: String, _ tint: Color, id: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol).foregroundStyle(tint)
-                Text(title).lineLimit(1).fixedSize(horizontal: true, vertical: false)
-            }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(period.isDark ? .white : .primary)
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(tint.opacity(period.isDark ? 0.22 : 0.14), in: Capsule())
-            .overlay(Capsule().strokeBorder(tint.opacity(0.45), lineWidth: 1))
-            .shadow(color: .black.opacity(0.16), radius: 6, y: 3)
-        }
-        .buttonStyle(MolibooSpringPressStyle())
-        .accessibilityIdentifier("world.quick.\(id)")
-        .accessibilityLabel(a11y)
-    }
-
-    // MARK: Activities (Care)
-
-    private var activities: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Activities") { sheet = .care }
-            ScrollView(.horizontal) {
-                HStack(spacing: 12) {
-                    ForEach(MolibooActivity.allCases) { a in activityCard(a) }
-                }
-                .padding(.vertical, 4)
-            }
-            .scrollIndicators(.hidden)
-        }
-    }
-
-    private func activityCard(_ a: MolibooActivity) -> some View {
-        Button { doActivity(a) } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                MolibooActivityScene(activity: a, characterID: characterID)
-                    .frame(height: 128)
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20))
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(a == .sleep && careState.asleep ? "Wake up" : a.title).font(.subheadline.weight(.bold))
-                        Text(a.subtitle)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(period.isDark ? .white.opacity(0.78) : .secondary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 2)
-                    Image(systemName: "chevron.right").font(.caption2.weight(.bold)).opacity(0.6)
-                }
-                .padding(10)
-            }
-            .frame(width: 156)
-            .foregroundStyle(period.isDark ? .white : .primary)
-            .background(period.isDark ? Color.black.opacity(0.36) : Color.white.opacity(0.5), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true, tint: glassTint, specular: true)
-            .shadow(color: .black.opacity(0.22), radius: 12, y: 6)
-        }
-        .buttonStyle(MolibooSpringPressStyle())
-        .accessibilityIdentifier("world.activity.\(a.rawValue)")
-    }
-
-    private func doActivity(_ a: MolibooActivity) {
-        let ok = care.perform(a, for: characterID)
-        if ok {
+    /// Runs a care action through the shared store and shows the pet's reaction (pose, pulse, speech, haptic).
+    private func performAction(_ a: MolibooCareAction) {
+        switch care.perform(a, for: characterID, name: displayName) {
+        case .done(let line):
+            UIImpactFeedbackGenerator(style: a == .dance || a == .play ? .medium : .soft).impactOccurred()
             joyPulseTick += 1
-            switch a {
-            case .sleep: stage.react(careState.asleep ? .sleepy : .happy, allowed: motionAllowed)
-            case .play: stage.bounce(allowed: motionAllowed); stage.react(.excited, allowed: motionAllowed)
-            case .clean, .feed: stage.react(.happy, allowed: motionAllowed)
-            }
-            flash(message(after: a))
-        } else {
-            flash(careState.asleep ? "\(displayName) is asleep. Wake them first." : "\(displayName) is too tired. Try Sleep.")
+            if a == .play || a == .dance || a == .feed { stage.bounce(allowed: motionAllowed) }
+            stage.react(a == .nap ? (careState.asleep ? .sleepy : .happy) : a.reaction, allowed: motionAllowed)
+            say(line)
+            if a == .photo { openStudio(.photo(characterID)) }
+        case .blocked(let why):
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            flash(why)
         }
     }
 
-    private func message(after a: MolibooActivity) -> String {
-        let s = careState
-        switch a {
-        case .sleep: return s.asleep ? "\(displayName) is napping. Energy will refill." : "\(displayName) woke up!"
-        case .play: return "Fun! Mood \(Int(s.mood))%, energy \(Int(s.energy))%."
-        case .clean: return "Squeaky clean!"
-        case .feed: return "Yum! Energy \(Int(s.energy))%."
+    private func checkIn() {
+        if care.checkIn(characterID, name: displayName) {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            joyPulseTick += 1
+            stage.react(.happy, allowed: motionAllowed)
+            say("You came back! Day \(care.life(for: characterID).streak)")
+        }
+    }
+
+    /// Mood-reactive speech bubble over the pet for a couple of seconds.
+    private func say(_ line: String) {
+        let token = UUID()
+        speechToken = token
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) { speech = line }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.6))
+            guard speechToken == token else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { speech = nil }
         }
     }
 
     // MARK: Collection
 
+    /// Families with members, read from data (new families such as Legends appear automatically).
+    private var pickerFamilies: [MolibooFamily] { MolibooFamily.allCases.filter { !$0.isDraft && !$0.kinds.isEmpty } }
+    private var currentPickerFamily: MolibooFamily { pickerFamily ?? kind?.family ?? pickerFamilies.first ?? .originals }
+
+    private static let pickerColumns = 4
+    private static let pickerTileHeight: CGFloat = 112
+    private static let pickerSpacing: CGFloat = 10
+    private static let pickerPageHeader: CGFloat = 64
+
+    private func pickerPageHeight(_ f: MolibooFamily) -> CGFloat {
+        let rows = CGFloat((f.kinds.count + Self.pickerColumns - 1) / Self.pickerColumns)
+        return Self.pickerPageHeader + rows * Self.pickerTileHeight + max(0, rows - 1) * Self.pickerSpacing + 8
+    }
+
     private var collection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Choose your Moliboo") { route = .settings }
+        VStack(alignment: .leading, spacing: 14) {
+            // "See all" was a duplicate of More → Collection, so the picker title stands alone.
+            Text("Choose your Moliboo").font(.headline)
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.horizontal, 24)
+            familyTabs
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { inlineTabsTop = $0 }
+                .opacity(tabsPinned ? 0 : 1)
+                .accessibilityHidden(tabsPinned)
+            familyPages
+        }
+        .onAppear { if pickerFamily == nil { pickerFamily = kind?.family ?? pickerFamilies.first } }
+    }
+
+    /// Liquid Glass family tab strip, kept in sync with the pager below.
+    private var familyTabs: some View {
+        ScrollViewReader { proxy in
             ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    ForEach(MolibooRegistry.available3D.map(\.id), id: \.self) { id in collectionTile(id) }
+                // Each family is its own glass chip (the old single capsule read as clipped at the screen edge).
+                ModulaGlassGroup(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(pickerFamilies) { f in
+                            let selected = f == currentPickerFamily
+                            Button {
+                                withAnimation(navAnimation) { pickerFamily = f }
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            } label: {
+                                Text(f.displayTitle)
+                                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                                    .lineLimit(1).fixedSize()
+                                    .foregroundStyle(selected ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 38)
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: Capsule(), interactive: true,
+                                         tint: selected ? app.appearance.liveAccent : glassTint, prominent: selected, specular: true)
+                            .id(f)
+                            .accessibilityIdentifier("world.family.tab.\(f.rawValue)")
+                            .accessibilityLabel(f.displayTitle)
+                            .accessibilityAddTraits(selected ? .isSelected : [])
+                        }
+                    }
                 }
+                .padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.horizontal, 24, for: .scrollContent)
+            .modulaHorizontalEdgeFade()
+            .onChange(of: currentPickerFamily) { _, f in
+                withAnimation(navAnimation) { proxy.scrollTo(f, anchor: .center) }
+            }
+            .onAppear { proxy.scrollTo(currentPickerFamily, anchor: .center) }
         }
+    }
+
+    /// One page per family, paged horizontally. Height follows the visible page so short families leave no gap.
+    private var familyPages: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(alignment: .top, spacing: 0) {
+                ForEach(pickerFamilies) { f in
+                    familyPage(f)
+                        .padding(.horizontal, 24)
+                        .containerRelativeFrame(.horizontal)
+                        .id(f)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollIndicators(.hidden)
+        .scrollPosition(id: Binding(get: { Optional(currentPickerFamily) }, set: { if let f = $0 { withAnimation(navAnimation) { pickerFamily = f } } }))
+        .frame(height: pickerPageHeight(currentPickerFamily), alignment: .top)
+        .animation(navAnimation, value: currentPickerFamily)
+        .accessibilityIdentifier("world.family.pages")
+    }
+
+    private func familyPage(_ f: MolibooFamily) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                MolibooFamilyTitle(text: f.displayTitle)
+                // Region under the title; skip it when it just repeats the title (The Underground).
+                let numbers = String(format: "#%03d–%03d", f.range.lowerBound, f.range.upperBound)
+                Text(f.world == f.displayTitle ? numbers : "\(f.world) · \(numbers)")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            .frame(height: Self.pickerPageHeader - 12, alignment: .bottomLeading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            // Tiles are static UIImage thumbs, never live figures (scroll performance).
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.pickerSpacing), count: Self.pickerColumns),
+                      spacing: Self.pickerSpacing) {
+                ForEach(f.kinds.map(\.rawValue), id: \.self) { id in collectionTile(id) }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier("world.family.page.\(f.rawValue)")
     }
 
     private func collectionTile(_ id: String) -> some View {
         let selected = id == characterID
-        let num = MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? ((MolibooCosmetics.originals.firstIndex(of: id) ?? 0) + 1)
-        return Button { withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6)) { kindRaw = id } } label: {
+        let kind = ModulaMascotKind(rawValue: id)
+        let num = kind?.number ?? MolibooRegistry.descriptor(for: id)?.canonicalNumber ?? 0
+        let premium = kind?.isPremium == true
+        return Button { kindRaw = id } label: {
             VStack(spacing: 4) {
-                if let img = MolibooPortrait.image(for: id) {
-                    Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(height: 74)
-                        .molibooPortraitEdge()
-                        .shadow(color: .black.opacity(0.3), radius: 4, y: 3)
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if let img = MolibooPortrait.thumb(for: id, dressed: id == characterID) ?? MolibooPortrait.image(for: id) {
+                            Image(uiImage: img).resizable().interpolation(.medium).scaledToFit()
+                        } else {
+                            Color(uiColor: .tertiarySystemFill)
+                        }
+                    }
+                    .frame(width: 60, height: 60)
+                    if premium {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .padding(4)
+                    }
                 }
                 Text(String(format: "#%03d", num))
-                    .font(.caption2.weight(.bold).monospaced())
-                    .opacity(0.82)
-                Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id.capitalized).font(.caption.weight(.bold))
-                if ModulaMascotKind(rawValue: id)?.isPremium == true {
-                    Label("Premium", systemImage: "crown.fill").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
-                }
+                    .font(.caption2.monospaced()).foregroundStyle(.secondary)
+                Text(kind?.name ?? id.capitalized)
+                    .font(.caption.weight(.semibold)).lineLimit(1)
             }
-            .padding(.vertical, 10).padding(.horizontal, 6).frame(width: 98)
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-            .background {
-                // Character-coloured gradient card with a soft inner glow behind the portrait.
-                let pal = ModulaMascotKind(rawValue: id)?.palette
-                ZStack {
-                    LinearGradient(colors: [(pal?.light ?? .white).opacity(0.85), (pal?.dark ?? .indigo).opacity(0.85)], startPoint: .top, endPoint: .bottom)
-                    RadialGradient(colors: [.white.opacity(0.55), .clear], center: UnitPoint(x: 0.5, y: 0.32), startRadius: 2, endRadius: 52)
-                    if selected { Color.white.opacity(0.18).molibooHoloFoil(0.6, animated: motionAllowed) }   // holo foil behind the portrait
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            }
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(selected ? teal : .white.opacity(0.35), lineWidth: selected ? 2 : 0.8))
-            .shadow(color: selected ? teal.opacity(0.75) : (ModulaMascotKind(rawValue: id)?.palette.mid ?? .clear).opacity(0.45), radius: selected ? 14 : 8, y: 4)
+            .padding(.vertical, 10).padding(.horizontal, 6)
+            .frame(maxWidth: .infinity).frame(height: Self.pickerTileHeight)
+            .foregroundStyle(.primary)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(selected ? teal.opacity(0.9) : Color.primary.opacity(0.06), lineWidth: selected ? 1.5 : 0.5)
+            )
             .overlay(alignment: .topTrailing) {
                 if selected {
-                    Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(.white, teal).padding(5)
-                        .transition(.scale.combined(with: .opacity))
+                    Image(systemName: "checkmark.circle.fill").font(.body).foregroundStyle(.white, teal).padding(4)
                 }
             }
-            .scaleEffect(selected ? 1.04 : 1)
         }
-        .buttonStyle(MolibooSpringPressStyle())
+        .buttonStyle(.plain)
         .accessibilityIdentifier("world.collection.\(id)")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -641,7 +832,9 @@ struct MolibooWorldView: View {
             Button("See all", action: seeAll).font(.footnote.weight(.semibold))
                 .accessibilityIdentifier("world.seeall.\(t.lowercased().replacingOccurrences(of: " ", with: "-"))")
         }
-        .foregroundStyle(period.isDark ? .white : .primary)
+        .foregroundStyle(.primary)
+        // Sections bleed edge to edge (padding -24), so the title restores the page margin.
+        .padding(.horizontal, 24)
     }
 
     // MARK: Navigation
@@ -649,15 +842,15 @@ struct MolibooWorldView: View {
     private func open(_ s: Section) {
         switch s {
         case .home: break
-        case .studio: openStudio(.studio(characterID))
-        case .wardrobe: openStudio(.wardrobe(characterID))
-        case .stickers, .care: sheet = s
+        case .studio: openStudio(.studio(characterID))  // Living Studio includes Wardrobe
+        case .stickers: sheet = .stickers
         }
     }
 
     private func openStudio(_ r: Route) {
-        guard MolibooRegistry.descriptor(for: characterID) != nil, MolibooFeatureFlags.native3DEnabled else {
-            flash("\(displayName)'s Studio needs 3D Moliboos (Settings → Moliboo → 3D).")
+        guard MolibooRegistry.descriptor(for: characterID) != nil else {
+            // Family 002+ Moliboos have no stage descriptor: open the full 2D Studio (wardrobe, emotes, photo).
+            route = .classicStudio(.wardrobe)
             return
         }
         route = r
@@ -666,19 +859,18 @@ struct MolibooWorldView: View {
     @ViewBuilder private func destination(_ r: Route) -> some View {
         switch r {
         case .studio(let id): MolibooLivingStudioView(characterID: id).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
-        case .wardrobe(let id): MolibooLivingStudioView(characterID: id, initialPanel: .wardrobe).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .photo(let id): MolibooLivingStudioView(characterID: id, startInPhoto: true).navigationTransition(.zoom(sourceID: "world.hero", in: zoomNS))
         case .collection: MolibooCollectionView()
-        case .cards: MolibooCardBinderView()
+        case .cards: MolibooCardsHomeView()
         case .settings: MolibooSettingsView()
+        case .classicStudio(let tab): MascotStudioView(initialTab: tab)
         }
     }
 
     @ViewBuilder private func sectionSheet(_ s: Section) -> some View {
         switch s {
-        case .care: MolibooCareSheet(characterID: characterID, name: displayName, care: care) { a in doActivity(a) }
         case .stickers: MolibooStickerSheet(characterID: characterID, name: displayName) { flash($0) }
-        default: EmptyView()
+        case .home, .studio: EmptyView()
         }
     }
 
@@ -700,9 +892,7 @@ struct MolibooWorldView: View {
     }
 
     private func flash(_ s: String) {
-        toast = s
-        UIAccessibility.post(notification: .announcement, argument: s)
-        Task { try? await Task.sleep(for: .seconds(2.2)); if toast == s { toast = nil } }
+        ModulaToastCenter.shared.show(s, symbol: "sparkles", tone: .info)
     }
 
     private func toastView(_ s: String) -> some View {
@@ -747,7 +937,7 @@ final class MolibooStageState {
     /// How long the stage keeps animating after the last interaction (test hook: `moliboo.world.awakeSeconds`).
     static var awakeSeconds: Double {
         let v = UserDefaults.standard.double(forKey: "moliboo.world.awakeSeconds")
-        return v > 0 ? v : 20
+        return v > 0 ? v : 10
     }
 
     func wake(allowed: Bool, for seconds: Double? = nil) {
@@ -843,4 +1033,9 @@ struct MolibooSoftTopEdge: ViewModifier {
             content
         }
     }
+}
+
+extension MolibooFamily {
+    /// Chip colour for the selected family tab: the family's first Moliboo's deep tone.
+    var chipTint: Color { (kinds.first?.palette.dark ?? .accentColor).opacity(0.9) }
 }

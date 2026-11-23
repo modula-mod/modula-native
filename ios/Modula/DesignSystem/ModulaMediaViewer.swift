@@ -221,8 +221,9 @@ struct ModulaMediaViewerPage: View {
             .contentShape(Rectangle())
             .gesture(magnifyGesture)
             .simultaneousGesture(panGesture)
-            .onTapGesture { onToggleControls() }
+            // Enhancements-50: double-tap registered first so it isn't swallowed by the single tap.
             .onTapGesture(count: 2, perform: toggleZoom)
+            .onTapGesture { onToggleControls() }
             .onChange(of: isSelected) { _, selected in if !selected { reset() } }
             .accessibilityLabel(item.accessibilityDescription)
             .accessibilityAddTraits(.isImage)
@@ -239,8 +240,17 @@ struct ModulaMediaViewerPage: View {
                 case .success(let image): Image(uiImage: image).resizable().scaledToFit()
                 case .loading: ProgressView().tint(.white)
                 case .failure: fallback.overlay(alignment: .bottom) {
-                    Button("Retry", systemImage: "arrow.clockwise") { retryID += 1 }
-                        .buttonStyle(.bordered).tint(.white).padding(.bottom, 44)
+                    Button {
+                        HapticEngine.shared.play(.lightImpact)
+                        retryID += 1
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                            .font(.body.weight(.semibold))
+                            .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaAccentCTA()
+                    .padding(.bottom, 44)
                 }
                 }
             }
@@ -270,8 +280,12 @@ struct ModulaMediaViewerPage: View {
     private var magnifyGesture: some Gesture {
         MagnificationGesture()
             .onChanged { value in
-                guard !reduceMotion else { return }
-                scale = min(max(settledScale * value, 1), 4)
+                // Enhancements-50: pinch is direct manipulation, not motion — it now works with
+                // Reduce Motion on. A tick marks the 4× limit (feedback at the boundary).
+                let raw = settledScale * value
+                let next = min(max(raw, 1), 4)
+                if next == 4, scale < 4 { HapticEngine.shared.play(.dragThreshold) }
+                scale = next
                 onZoomChanged(scale > 1.05)
             }
             .onEnded { _ in

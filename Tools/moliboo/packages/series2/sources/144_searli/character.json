@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.144",
+  "key": "searli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#EF7891",
+    "accent": "#F7BAC7",
+    "light": "#F7BAC7",
+    "dark": "#D56B81"
+  },
+  "form": "Rose ember shape, heartlike feet"
+}

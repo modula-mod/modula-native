@@ -123,8 +123,17 @@ struct ImmersivePostCard: View {
     var onOpenMedia: (@MainActor (SocialPostMedia) -> Void)? = nil
     var onOpenModule: (@MainActor (SocialPostModule) -> Void)? = nil
     var videoCoordinator: FeedVideoCoordinator? = nil
+    /// Post detail shows comments inline below, so the card drops its comment button and
+    /// "Add a comment…" strip there (comment intents focus the inline composer instead).
+    var showsCommentAffordances: Bool = true
+    /// `.detail` renders the same shell flush and full-width (no card radius, stroke, fill or
+    /// shadow) and drops the in-card "…" because the detail nav bar owns the post menu.
+    var style: Style = .feed
+    enum Style: Sendable { case feed, detail }
+    private var isDetail: Bool { style == .detail }
 
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.dynamicTypeSize) private var postTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
@@ -138,7 +147,6 @@ struct ImmersivePostCard: View {
     @State private var showsReactions = false
     @State private var hoveredReaction: String?
     @State private var showsReactionGrid = false
-    @State private var moreFrame: CGRect = .zero
     @State private var viewer: ImmersiveViewerItem?
     @State private var reactionFrames: [String: CGRect] = [:]
     @State private var heartFrame: CGRect = .zero
@@ -155,7 +163,7 @@ struct ImmersivePostCard: View {
     @State private var barSize: CGSize = .zero
     @State private var bursts: [ReactionBurst] = []
 
-    private let radius: CGFloat = 24
+    private var radius: CGFloat { isDetail ? 0 : 24 }
     private var space: String { "immersive.\(post.id)" }
     private var calm: Bool { reduceMotion || ModulaPreferences.extraMotionReduction }
 
@@ -178,7 +186,7 @@ struct ImmersivePostCard: View {
             .allowsHitTesting(false)
         }
         .zIndex(showsReactions || !bursts.isEmpty ? 5 : 0)
-        .padding(.vertical, 6)
+        .padding(.vertical, ModulaSpacing.xxs)
         // Gate post share/save pans while the dock or full emoji grid is up.
         .postReactionPickerPresented(showsReactions || showsReactionGrid)
         .accessibilityElement(children: .contain)
@@ -190,7 +198,9 @@ struct ImmersivePostCard: View {
         .accessibilityAction(named: "Save", onSave)
         .accessibilityAction(named: "Share") { share() }
         .accessibilityAction(named: "Open Author", onOpenAuthor)
-        .accessibilityAction(named: "More actions") { }
+        .accessibilityAction(named: "Copy Link") {
+            PostMenuExecutor.run("copy-link", request: menuRequest(anchor: .zero), app: app)
+        }
         .accessibilityAction(named: "Who reacted") { openReactors() }
         .sheet(isPresented: $showsReactionGrid) {
             ReactionGridSheet { emoji in
@@ -236,7 +246,8 @@ struct ImmersivePostCard: View {
 
     /// Native aspect, clamped so photos fill the card: 4:5 tallest, 1.2:1 widest (rail always fits).
     private func stageRatio(_ attachment: ModulaAttachment?) -> CGFloat {
-        guard let size = attachment?.dimensions, size.width > 0, size.height > 0 else { return 0.86 }
+        // Unknown size (e.g. media still loading or missing): a shorter landscape stage instead of a tall dark slab.
+        guard let size = attachment?.dimensions, size.width > 0, size.height > 0 else { return 1.2 }
         return min(max(size.width / size.height, 0.8), 1.2)
     }
 
@@ -275,17 +286,41 @@ struct ImmersivePostCard: View {
                 .overlay(alignment: .bottomLeading) { captionBlock(canonical, pages: pages, current: current, isVideo: isVideo) }
                 .postMenuLongPress(enabled: !showsReactions && !suppressHeartTap) { menuRequest(anchor: $0) }
                 .environment(\.colorScheme, appScheme)
-                .overlay(alignment: .bottom) { mediaCommentStrip(isVideo: isVideo) }
+                .overlay(alignment: .bottom) {
+                    if showsCommentAffordances { mediaCommentStrip(isVideo: isVideo) }
+                }
             rail(expandable: expandable, gallery: pages)
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .overlay { mediaCardStroke }
-        .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .overlay { if !isDetail { mediaCardStroke } }
+        // Shadows are cast by a plain shape behind the (opaque) media instead of the whole
+        // media/video/overlay tree: shadowing the tree forced an offscreen render pass for
+        // every card on every scroll frame.
+        .background {
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black)
+                    .shadow(color: glow.opacity(0.28), radius: 18, y: 8)
+                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            }
+        }
         .environment(\.colorScheme, .dark)
     }
 
+    @ViewBuilder
     private func mediaStageBase(pages: [ModulaAttachment]) -> some View {
+        if pages.allSatisfy(\.isMissingMedia) {
+            // Every page is missing (no URL, failed, expired or rejected): a short, honest stage
+            // instead of a tall empty dark slab. Header and caption overlays still sit on top.
+            MediaUnavailableStage(kind: pages.first?.kind ?? .image, count: pages.count)
+                .frame(maxWidth: .infinity)
+                .frame(height: ModulaLayout.mediaUnavailableHeight)
+        } else {
+            mediaStageBaseLoaded(pages: pages)
+        }
+    }
+
+    private func mediaStageBaseLoaded(pages: [ModulaAttachment]) -> some View {
         Color.black
             .aspectRatio(stageRatio(pages.first), contentMode: .fit)
             .frame(maxWidth: .infinity)
@@ -318,7 +353,7 @@ struct ImmersivePostCard: View {
 
     private var glow: Color {
         if let hex = post.glowColour, let color = Color(immersiveHex: hex) { return color }
-        return app.appearance.accent.color
+        return app.appearance.liveAccent
     }
 
     @ViewBuilder
@@ -348,7 +383,9 @@ struct ImmersivePostCard: View {
     @ViewBuilder
     private func mediaPage(_ attachment: ModulaAttachment, gallery: [ModulaAttachment]) -> some View {
         Group {
-            if attachment.resolvedRemoteState != .ready {
+            if attachment.isMissingMedia {
+                MediaUnavailableStage(kind: attachment.kind, count: 1)
+            } else if attachment.resolvedRemoteState != .ready {
                 ZStack {
                     Color(white: 0.12)
                     VStack(spacing: 8) {
@@ -418,7 +455,7 @@ struct ImmersivePostCard: View {
                     .modulaGlass(in: Capsule(), interactive: false)
                     .accessibilityLabel("Item \(current + 1) of \(pages.count)")
             }
-            moreButton(onMedia: true)
+            if !isDetail { moreButton(onMedia: true) }
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -449,10 +486,15 @@ struct ImmersivePostCard: View {
     }
 
     private func authorNameRow(onMedia: Bool) -> some View {
-        HStack(spacing: 4) {
+        // Accessibility text sizes: stack name and time so neither truncates to "…".
+        let large = postTypeSize.isAccessibilitySize
+        let layout = large
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(spacing: 4))
+        return layout {
             Text(post.author?.displayName ?? "Modula")
                 .font(.system(.subheadline, design: font, weight: .semibold))
-                .lineLimit(1)
+                .lineLimit(large ? 3 : 1)
             if post.author?.isVerified == true {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 13, weight: .semibold))
@@ -462,7 +504,7 @@ struct ImmersivePostCard: View {
             }
             Text("· \(ActivityRelativeTime.string(from: post.createdAt))")
                 .font(.system(.caption, design: font))
-                .foregroundStyle(onMedia ? Color.white.opacity(0.75) : Color.secondary.opacity(0.7))
+                .foregroundStyle(onMedia ? Color.white.opacity(0.9) : Color.primary.opacity(0.62))
                 .lineLimit(1)
                 .layoutPriority(-1)
         }
@@ -505,7 +547,6 @@ struct ImmersivePostCard: View {
             .environment(\.colorScheme, appScheme)
         }
         .frame(width: PostGestureThresholds.minimumHitTarget, height: PostGestureThresholds.minimumHitTarget)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { moreFrame = $0 }
         .accessibilityIdentifier("post.more.\(post.id)")
     }
 
@@ -535,10 +576,10 @@ struct ImmersivePostCard: View {
         VStack(alignment: .leading, spacing: 8) {
             reactionSummaryChip(onMedia: true)
             if let text = post.text, !text.isEmpty {
-                Text(PostTextLinks.attributed(text))
+                Text(ModulaRichText.attributed(text, revealSpoilers: false))
                     .font(.system(.subheadline, design: font))
                     .foregroundStyle(.white)
-                    .tint(app.appearance.accent.color.mix(with: .white, by: 0.55))
+                    .tint(app.appearance.liveAccent.mix(with: .white, by: 0.55))
                     .lineLimit(captionExpanded ? 8 : 2)
                     .multilineTextAlignment(.leading)
                     .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
@@ -618,11 +659,13 @@ struct ImmersivePostCard: View {
     private func rail(expandable: ModulaAttachment?, gallery: [ModulaAttachment]) -> some View {
         VStack(spacing: 0) {
             heartControl(vertical: true)
-            railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
-                HapticEngine.shared.play(.contextOpen)
-                onComment()
-            }
+            if showsCommentAffordances {
+                railButton("Comment", symbol: "bubble.right.fill", count: post.replyCount, active: false) {
+                    HapticEngine.shared.play(.contextOpen)
+                    onComment()
+                }
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
+            }
             railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
                 saveBounce += 1
                 HapticEngine.shared.play(.confirmation)
@@ -669,7 +712,7 @@ struct ImmersivePostCard: View {
             VStack(spacing: 1) {
                 Image(systemName: symbol)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(active ? (tint ?? app.appearance.accent.color) : .white)
+                    .foregroundStyle(active ? (tint ?? app.appearance.liveAccent) : .white)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: symbol.contains("bookmark") ? saveBounce : 0)
                     .scaleEffect(railPressed == title ? 0.82 : 1)
@@ -872,13 +915,11 @@ struct ImmersivePostCard: View {
                                 .transition(.scale.combined(with: .opacity))
                         }
                     }
-                    Text(ModulaCountFormat.compact(reactionCount) ?? "\(reactionCount)")
-                        .font(.system(size: 11, weight: .semibold, design: font).monospacedDigit())
-                        .foregroundStyle(onMedia ? Color.white.opacity(0.92) : Color.secondary)
-                        .contentTransition(.numericText())
+                    // The heart beside this already shows the count; the chip is just the stacked
+                    // top reactions, so the same number never appears twice.
                 }
                 .padding(.leading, 4)
-                .padding(.trailing, 9)
+                .padding(.trailing, 4)
                 .padding(.vertical, 3)
                 .modulaGlass(in: Capsule(), interactive: true)
                 .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
@@ -894,8 +935,9 @@ struct ImmersivePostCard: View {
         if app.postActions.capabilities.reactionsList {
             app.navigation.push(.post(post.id, .reactions))
             HapticEngine.shared.play(.navigation)
-        } else {
-            app.navigation.flash("Who reacted is coming soon", symbol: "face.smiling")
+        } else if app.postActions.capabilities.likesList {
+            app.navigation.push(.post(post.id, .likes))
+            HapticEngine.shared.play(.navigation)
         }
     }
 
@@ -1035,7 +1077,7 @@ struct ImmersivePostCard: View {
         Button(action: onComment) {
             HStack(spacing: 8) {
                 if let profile = app.profile.ownProfile {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 18)
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
@@ -1051,9 +1093,9 @@ struct ImmersivePostCard: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white.opacity(0.55))
             }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(.white.opacity(0.12), in: Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(.white.opacity(0.09), in: Capsule())
         }
         .buttonStyle(.plain)
         .padding(.leading, 12)
@@ -1079,7 +1121,7 @@ struct ImmersivePostCard: View {
         Button(action: onComment) {
             HStack(spacing: 8) {
                 if let profile = app.profile.ownProfile {
-                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 22)
+                    ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 18)
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: 18))
@@ -1088,13 +1130,13 @@ struct ImmersivePostCard: View {
                 }
                 Text("Add a comment…")
                     .font(.system(.caption, design: font, weight: .medium))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(Color.secondary.opacity(0.8))
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(Color.primary.opacity(0.06), in: Capsule())
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(Color.primary.opacity(0.035), in: Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -1131,7 +1173,7 @@ struct ImmersivePostCard: View {
                 HStack(alignment: .center, spacing: 10) {
                     authorButton(canonical, onMedia: false)
                     Spacer(minLength: 6)
-                    moreButton(onMedia: false)
+                    if !isDetail { moreButton(onMedia: false) }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
@@ -1185,38 +1227,60 @@ struct ImmersivePostCard: View {
                         .allowsHitTesting(false)
                 }
 
-            commentBar
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
-                .padding(.bottom, 10)
+            if showsCommentAffordances {
+                commentBar
+                    .padding(.horizontal, 14)
+                    .padding(.top, 2)
+                    .padding(.bottom, 10)
+            } else {
+                Color.clear.frame(height: 6)
+            }
         }
         .background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.regularMaterial))
+            }
         }
         .background {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(LinearGradient(colors: [glow.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
         }
         .overlay {
+            if !isDetail {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(
                     LinearGradient(colors: [.white.opacity(0.45), Color.primary.opacity(0.05), .white.opacity(0.14)], startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 0.8
                 )
                 .allowsHitTesting(false)
+            }
         }
-        .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        // Shadow cast by a plain shape with its interior cut out (the card stays translucent),
+        // instead of shadowing the whole text/action subtree twice on every scroll frame.
+        .background {
+            if !isDetail {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black)
+                    .shadow(color: glow.opacity(0.16), radius: 16, y: 6)
+                    .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                    .mask(ModulaOutsideRoundedRect(radius: radius).fill(style: FillStyle(eoFill: true)))
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var textActions: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: isDetail ? 10 : 2) {
             heartControl(vertical: false)
                 .foregroundStyle(.secondary)
             reactionSummaryChip(onMedia: false)
-            pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
-                .accessibilityIdentifier("home.action.comment.\(post.id)")
+            if showsCommentAffordances {
+                pillButton("Comment", symbol: "bubble.right", count: post.replyCount, active: false, action: onComment)
+                    .accessibilityIdentifier("home.action.comment.\(post.id)")
+            }
             pillButton("Repost", symbol: "arrow.2.squarepath", count: post.repostCount, active: post.reposted, action: onRepost)
                 .accessibilityIdentifier("home.action.repost.\(post.id)")
             Spacer(minLength: 0)
@@ -1242,7 +1306,7 @@ struct ImmersivePostCard: View {
                         .contentTransition(.numericText())
                 }
             }
-            .foregroundStyle(active ? app.appearance.accent.color : .secondary)
+            .foregroundStyle(active ? app.appearance.liveAccent : .secondary)
             .frame(minWidth: 40, minHeight: 40)
             .padding(.horizontal, 2)
             .contentShape(Rectangle())
@@ -1278,7 +1342,7 @@ struct RingedAvatar: View {
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         ModulaAvatar(initials: author?.initials ?? "M", url: author?.avatarURL, size: size - 6, name: author?.displayName)
             .padding(3)
             .overlay {
@@ -1301,7 +1365,7 @@ struct SmartCropImage: View {
             ModulaRemoteImage(
                 url: attachment.bestPreviewURL ?? attachment.playableURL,
                 cacheKey: "attachment:\(attachment.id):feed-image",
-                maximumPixelSize: 2_000,
+                maximumPixelSize: ModulaFeedImage.maxPixels,
                 retryID: retryID
             ) { phase in
                 switch phase {
@@ -1432,7 +1496,7 @@ struct ImmersivePostContextPanel: View {
 }
 
 /// "+" grid: every emoji maps onto one of the server's 8 reaction types. Searchable by name.
-private struct ReactionGridSheet: View {
+struct ReactionGridSheet: View {
     var onPick: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -1495,8 +1559,28 @@ struct ReactionBurst: Identifiable, Equatable {
 private struct ReactionBurstView: View {
     let burst: ReactionBurst
     @State private var go = false
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
 
     var body: some View {
+        if ModulaEffectGate.reduceMotion(systemReduceMotion) {
+            calmBody
+        } else {
+            burstBody
+        }
+    }
+
+    /// Roadmap #19: Reduce Motion keeps the confirmation (the chosen emoji appears and
+    /// fades where it was picked) without particles, flinging, scaling or rotation.
+    private var calmBody: some View {
+        Text(burst.emoji)
+            .font(.system(size: 40))
+            .opacity(go ? 0 : 1)
+            .position(burst.origin)
+            .allowsHitTesting(false)
+            .onAppear { withAnimation(.easeOut(duration: 0.6).delay(0.2)) { go = true } }
+    }
+
+    private var burstBody: some View {
         ZStack {
             if burst.fling {
                 Text(burst.emoji)
@@ -1580,7 +1664,7 @@ struct ImmersiveMusicPlayer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         HStack(spacing: 12) {
             ZStack {
                 LinearGradient(colors: [accent, accent.mix(with: .purple, by: 0.5), .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -1787,5 +1871,89 @@ struct ImmersiveVideoProgress: View {
     private static func clock(_ seconds: TimeInterval) -> String {
         let value = max(0, Int(seconds.rounded()))
         return String(format: "%d:%02d", value / 60, value % 60)
+    }
+}
+
+// MARK: - Missing media
+
+extension ModulaAttachment {
+    /// Nothing to show and nothing still on its way: no local/remote/preview URL, or the backend
+    /// reported the upload as failed, expired or rejected. Uploads still processing are not missing.
+    var isMissingMedia: Bool {
+        if !isAvailable { return true }
+        switch resolvedRemoteState {
+        case .failed, .expired, .rejected: return true
+        default: return false
+        }
+    }
+}
+
+/// Stage for a media post whose media can't be shown. Soft glass card with the media kind's
+/// symbol and a plain explanation; no fake retry (there is nothing to re-request).
+/// Decorative gradient flattens under Reduce Transparency.
+struct MediaUnavailableStage: View {
+    let kind: AttachmentKind
+    var count: Int = 1
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: reduceTransparency
+                    ? [Color(uiColor: .secondarySystemBackground), Color(uiColor: .secondarySystemBackground)]
+                    : [ModulaBrandPalette.lavenderDeep.opacity(0.45), Color(uiColor: .secondarySystemBackground)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            VStack(spacing: ModulaSpacing.xs) {
+                Image(systemName: symbol)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                    .modulaGlass(in: Circle(), interactive: false)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("It may have been removed or failed to upload.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("post.media.unavailable")
+    }
+
+    private var symbol: String {
+        switch kind {
+        case .video: "video.slash"
+        case .audio: "speaker.slash"
+        case .pdf, .document: "doc.badge.ellipsis"
+        default: "photo.badge.exclamationmark"
+        }
+    }
+
+    private var title: String {
+        let noun: String
+        switch kind {
+        case .video: noun = count > 1 ? "Videos" : "Video"
+        case .audio: noun = "Audio"
+        case .pdf, .document: noun = count > 1 ? "Files" : "File"
+        default: noun = count > 1 ? "Photos" : "Photo"
+        }
+        return "\(noun) unavailable"
+    }
+}
+
+
+
+/// Everything outside a rounded rect (even-odd). Used to keep only a shape's outer shadow.
+struct ModulaOutsideRoundedRect: Shape {
+    var radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect.insetBy(dx: -60, dy: -60))
+        path.addRoundedRect(in: rect, cornerSize: CGSize(width: radius, height: radius), style: .continuous)
+        return path
     }
 }

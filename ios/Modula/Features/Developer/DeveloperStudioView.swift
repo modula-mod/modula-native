@@ -38,6 +38,7 @@ struct DeveloperStudioView: View {
     private var gallery: some View {
         Section("Projects") {
             if projects.isEmpty {
+                SproutIllustrationView(illustration: .builder, height: 140)
                 Text("No modules yet. Generate one below. It installs into this app without another Xcode build.")
                     .foregroundStyle(.secondary)
             }

@@ -11,6 +11,9 @@ struct SignInView: View {
     @State private var emailTouched = false
     @State private var attemptedSubmit = false
     @State private var appeared = false
+    @State private var shake = 0
+    /// Tallest height seen: the layout keeps its rhythm when the keyboard shrinks the view.
+    @State private var stableHeight: CGFloat = 0
     @FocusState private var focused: Field?
     #if DEBUG
     @State private var fixtureUnavailable = false
@@ -25,14 +28,15 @@ struct SignInView: View {
     var body: some View {
         GeometryReader { proxy in
             // Compact heights (iPhone SE, keyboard up, large text) tighten the rhythm.
-            let compact = proxy.size.height < 700 || dynamicTypeSize.isAccessibilitySize
+            let height = max(proxy.size.height, stableHeight)
+            let compact = height < 700 || dynamicTypeSize.isAccessibilitySize
             ScrollViewReader { reader in
                 ScrollView {
                     VStack(spacing: 0) {
                         brand(compact: compact)
-                            .padding(.top, compact ? ModulaSpacing.sm : ModulaSpacing.xl)
-                        Spacer(minLength: compact ? ModulaSpacing.lg : ModulaSpacing.xl)
+                            .padding(.top, ModulaSpacing.sm)
                         form
+                            .padding(.top, compact ? ModulaSpacing.lg : ModulaSpacing.xl)
                         Spacer(minLength: compact ? ModulaSpacing.lg : ModulaSpacing.xl)
                         footer
                     }
@@ -40,12 +44,14 @@ struct SignInView: View {
                     .padding(.bottom, ModulaSpacing.md)
                     .frame(maxWidth: 460)
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: proxy.size.height)
+                    .frame(minHeight: height)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared || reduceMotion ? 0 : 12)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 .scrollBounceBehavior(.basedOnSize)
+                .onAppear { stableHeight = max(stableHeight, proxy.size.height) }
+                .onChange(of: proxy.size.width) { _, _ in stableHeight = proxy.size.height }
                 .onChange(of: focused) { _, field in
                     guard let field else { return }
                     withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
@@ -55,12 +61,13 @@ struct SignInView: View {
                 }
             }
         }
-        .background { SignInBackdrop() }
+        .modulaAuthBackdrop()
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("auth.login")
         .disabled(app.auth.busy)
         .onAppear {
+            if email.isEmpty, let verified = app.auth.lastVerifiedEmail { email = verified }
             guard !appeared else { return }
             withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
                 appeared = true
@@ -77,39 +84,35 @@ struct SignInView: View {
     // MARK: Brand
 
     private func brand(compact: Bool) -> some View {
-        VStack(spacing: compact ? ModulaSpacing.sm : ModulaSpacing.md) {
-            SignInBrandMark(compact: compact)
-            VStack(spacing: ModulaSpacing.xs) {
-                ModulaWordmark(height: 20)
-                    .accessibilityHidden(true)
-                Text("Welcome back")
-                    .font(.system(.largeTitle, design: app.appearance.fontDesign).weight(.bold))
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Sign in to your digital world, your way.")
-                    .font(.body)
+        AuthBrandHeader(title: "Welcome back", subtitle: "Sign in to your digital world, your way.", compact: compact) {
+            if app.gate.pendingDestination != nil {
+                Label("After you sign in, Modula opens the link you followed.", systemImage: "link")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("auth.pendingLink")
             }
-            .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 
     // MARK: Form
 
     private var form: some View {
+        ModulaGlassGroup(spacing: ModulaSpacing.md) { formFields }
+    }
+
+    private var formFields: some View {
         VStack(alignment: .leading, spacing: ModulaSpacing.md) {
-            ModulaFormField(
-                title: "Email or username",
+            AuthGlassField(
+                title: "Email",
                 symbol: "envelope",
                 text: $email,
-                prompt: "Email or username",
+                prompt: "The email you signed up with",
                 message: emailMessage,
                 focus: $focused,
                 focusValue: Field.email,
-                identifier: "auth.email"
+                identifier: "auth.email",
+                shake: shake
             )
             .textContentType(.username)
             .keyboardType(.emailAddress)
@@ -123,7 +126,7 @@ struct SignInView: View {
             .id(Field.email)
 
             VStack(alignment: .trailing, spacing: ModulaSpacing.xxs) {
-                ModulaFormField(
+                AuthGlassField(
                     title: "Password",
                     symbol: "lock",
                     text: $password,
@@ -132,7 +135,8 @@ struct SignInView: View {
                     message: passwordMessage,
                     focus: $focused,
                     focusValue: Field.password,
-                    identifier: "auth.password"
+                    identifier: "auth.password",
+                    shake: shake
                 )
                 .textContentType(.password)
                 .textInputAutocapitalization(.never)
@@ -146,7 +150,7 @@ struct SignInView: View {
                     HapticEngine.shared.play(.navigation)
                 }
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(minHeight: ModulaLayout.minimumTouch)
                 .disabled(app.auth.busy)
                 .accessibilityIdentifier("auth.forgot-password")
@@ -156,19 +160,49 @@ struct SignInView: View {
                 errorBanner(error)
             }
 
-            ModulaButton(title: "Sign In", isLoading: app.auth.busy, loadingTitle: "Signing in…") {
-                Task { await submit() }
+            pendingSignupBanner
+
+            // Per-route 429: count down `retryAfter`, then re-enable.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let wait = Int(app.auth.rateLimitWait(at: context.date).rounded(.up))
+                AuthPrimaryButton(title: wait > 0 ? "Try again in \(VerifyEmailView.clock(wait))" : "Sign In",
+                                  busy: app.auth.busy, enabled: canSubmit && wait == 0) {
+                    Task { await submit() }
+                }
             }
-            .disabled(!canSubmit)
             .accessibilityIdentifier("auth.sign-in")
             .padding(.top, ModulaSpacing.xxs)
         }
-        .padding(ModulaSpacing.lg)
-        .modulaMaterial(.content, in: cardShape, depth: .floating)
-        .overlay(cardShape.strokeBorder(Color.primary.opacity(contrast == .increased ? 0.18 : 0.07), lineWidth: 0.75))
+        // Fields are Liquid Glass themselves, so they float straight on the backdrop
+        // (glass can't sample glass, so no card behind them).
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: app.auth.error)
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: emailMessage)
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: passwordMessage)
+    }
+
+    /// A sign-up waiting for its code never blocks sign-in: it is offered here, and signing
+    /// in to another account forgets it.
+    @ViewBuilder
+    private var pendingSignupBanner: some View {
+        if let pending = app.auth.pendingSignup {
+            // The button sits outside the banner: the banner combines its children for
+            // VoiceOver, which would swallow a nested button.
+            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+                AuthNoticeBanner(message: "Finishing sign-up for \(pending.email)? Enter the code we emailed you.")
+                    .accessibilityIdentifier("auth.pending")
+                Button("Enter verification code") {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(.auth(.verify))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.pending.resume")
+            }
+        } else if let notice = app.auth.pendingNotice {
+            AuthNoticeBanner(message: notice)
+                .accessibilityIdentifier("auth.pending.notice")
+        }
     }
 
     private var cardShape: RoundedRectangle {
@@ -176,18 +210,7 @@ struct SignInView: View {
     }
 
     private func errorBanner(_ error: String) -> some View {
-        VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
-            HStack(alignment: .firstTextBaseline, spacing: ModulaSpacing.xs) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .accessibilityHidden(true)
-                Text(error)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(error)
-                    .accessibilityIdentifier("auth.error")
-            }
+        AuthNoticeBanner(message: error) {
             #if DEBUG
             if let diagnostic = app.auth.lastDiagnostic, diagnostic != error {
                 Text(diagnostic)
@@ -197,10 +220,8 @@ struct SignInView: View {
             }
             #endif
         }
-        .padding(ModulaSpacing.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.red.opacity(scheme == .dark ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: app.appearance.interfaceShape.radius(for: .control), style: .continuous))
-        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+        .accessibilityLabel(error)
+        .accessibilityIdentifier("auth.error")
     }
 
     // MARK: Footer
@@ -225,7 +246,7 @@ struct SignInView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .modulaMaterial(.control, in: Capsule())
+                    .modifier(AuthGlassCapsule())
                     .disabled(app.auth.busy)
                     .accessibilityIdentifier("auth.sign-in-fixture")
                     if fixtureUnavailable {
@@ -255,7 +276,7 @@ struct SignInView: View {
             HapticEngine.shared.play(.navigation)
         }
         .font(.subheadline.weight(.semibold))
-        .foregroundStyle(app.appearance.accent.color)
+        .foregroundStyle(app.appearance.liveAccent)
         .frame(minHeight: ModulaLayout.minimumTouch)
         .disabled(app.auth.busy)
         .accessibilityIdentifier("auth.create-account")
@@ -273,8 +294,10 @@ struct SignInView: View {
 
     private var emailMessage: String? {
         guard emailTouched || attemptedSubmit else { return nil }
-        if trimmedEmail.isEmpty { return "Enter your email or username." }
-        if trimmedEmail.contains("@"), !Self.looksLikeEmail(trimmedEmail) {
+        if trimmedEmail.isEmpty { return "Enter your email." }
+        // Greenfield signs in by email only (authentication/service.ts `login`).
+        if !trimmedEmail.contains("@") { return "Sign in with your email address, not your username." }
+        if !Self.looksLikeEmail(trimmedEmail) {
             return "That email address looks incomplete."
         }
         return nil
@@ -296,9 +319,11 @@ struct SignInView: View {
     }
 
     private func submit() async {
-        guard canSubmit else {
+        guard app.auth.rateLimitWait() == 0 else { return }
+        guard canSubmit, Self.looksLikeEmail(trimmedEmail) else {
             attemptedSubmit = true
-            focused = trimmedEmail.isEmpty ? .email : .password
+            focused = (trimmedEmail.isEmpty || !Self.looksLikeEmail(trimmedEmail)) ? .email : .password
+            shake += 1
             HapticEngine.shared.play(.warning)
             return
         }
@@ -311,7 +336,13 @@ struct SignInView: View {
         if ok {
             HapticEngine.shared.play(.success)
             app.refreshLaunchState()
+        } else if app.auth.resumeVerificationRequested {
+            // Unverified account, fresh code emailed (403 EMAIL_VERIFICATION_REQUIRED).
+            app.auth.resumeVerificationRequested = false
+            HapticEngine.shared.play(.navigation)
+            app.navigation.open(.auth(.verify))
         } else {
+            shake += 1
             HapticEngine.shared.play(.failure)
             // Wait for the busy-disabled form to re-enable before moving focus.
             DispatchQueue.main.async { focused = .password }
@@ -339,55 +370,25 @@ struct SignInView: View {
 }
 
 /// App icon as the brand moment: a soft accent halo behind the real icon.
-private struct SignInBrandMark: View {
+struct SignInBrandMark: View {
     var compact = false
+    /// Fixed side length (e.g. the compact header lockup); nil scales with Dynamic Type.
+    var side: CGFloat? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ScaledMetric(relativeTo: .largeTitle) private var size = 76.0
 
     var body: some View {
-        let side = min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
-        Image("ModulaAppIcon")
-            .resizable()
-            .scaledToFit()
+        let side = self.side ?? min(size * (compact ? 0.82 : 1), compact ? 84 : 112)
+        ModulaUnitTile(variant: .teal)
             .frame(width: side, height: side)
             .clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: side * 0.225, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.75)
             }
-            .shadow(color: app.appearance.accent.color.opacity(reduceTransparency ? 0.2 : 0.45), radius: side * 0.32, y: side * 0.12)
+            .shadow(color: app.appearance.liveAccent.opacity(reduceTransparency ? 0.2 : 0.45), radius: side * 0.32, y: side * 0.12)
             .accessibilityHidden(true)
-    }
-}
-
-/// Full-bleed canvas with a restrained accent wash at the top and a quieter
-/// counter-glow at the bottom; flattens under Reduce Transparency.
-private struct SignInBackdrop: View {
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        let palette = ModulaPalette.resolve(app.appearance, scheme: scheme)
-        let accent = app.appearance.accent.color
-        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        let strength = (scheme == .dark ? 0.34 : 0.22) * (opaque ? 0.5 : 1)
-        ZStack {
-            palette.canvas
-            GeometryReader { proxy in
-                let width = proxy.size.width
-                ZStack {
-                    RadialGradient(colors: [accent.opacity(strength), .clear], center: .top,
-                                   startRadius: 0, endRadius: max(width, 320) * 0.95)
-                    RadialGradient(colors: [accent.opacity(strength * 0.45), .clear], center: .bottomTrailing,
-                                   startRadius: 0, endRadius: max(width, 320) * 0.8)
-                }
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
@@ -408,6 +409,8 @@ struct RegisterPlaceholderView: View {
                 .accessibilityIdentifier("auth.register.back")
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { ModulaAuthBackdrop(calm: true) }
         .modulaSoftScrollEdge()
         .navigationTitle("Create Account")
         .accessibilityIdentifier("auth.register")
@@ -416,59 +419,77 @@ struct RegisterPlaceholderView: View {
 
 struct ForgotPasswordView: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var email = ""
     @State private var sent = false
+    @State private var attempted = false
+    @State private var shake = 0
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable { case email }
+
+    private var trimmed: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        Form {
-            Section {
-                TextField("Email", text: $email)
+        AuthChrome(
+            title: sent ? "Check your email" : "Forgot password?",
+            subtitle: sent ? "We’ve sent reset instructions if an account exists." : "Enter your email and we’ll send you a link to reset it."
+        ) {
+            if sent {
+                AuthSuccessState(
+                    title: "Reset link sent",
+                    message: "If \(trimmed) is registered, a reset message is on its way. It can take a minute; check spam too.",
+                    actionTitle: "Back to Sign In",
+                    action: { app.navigation.open(.auth(.login)) },
+                    secondaryTitle: "Use a different email",
+                    secondaryAction: { withAnimation(reduceMotion ? nil : .snappy) { sent = false } }
+                )
+                .accessibilityIdentifier("auth.forgot.sent")
+            } else {
+                VStack(alignment: .leading, spacing: ModulaSpacing.md) {
+                    AuthGlassField(
+                        title: "Email", symbol: "envelope", text: $email,
+                        message: attempted && !SignInView.looksLikeEmail(trimmed) ? "Enter the email you signed up with." : nil,
+                        focus: $focus, focusValue: Field.email, identifier: "auth.forgot.email", shake: shake
+                    )
                     .textContentType(.username)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .accessibilityIdentifier("auth.forgot.email")
-            } footer: {
-                Text("If an account exists for this email, we’ll send reset instructions.")
-            }
-            Section {
-                Button {
-                    Task {
-                        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-                        sent = await app.auth.requestPasswordReset(email: trimmed)
-                        if sent { HapticEngine.shared.play(.confirmation) }
-                        else { HapticEngine.shared.play(.failure) }
+                    .submitLabel(.send)
+                    .onSubmit { Task { await send() } }
+                    if let error = app.auth.error {
+                        AuthErrorBanner(message: error).accessibilityIdentifier("auth.forgot.error")
                     }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if app.auth.busy { ProgressView() } else { Text("Send Reset Link") }
-                        Spacer()
+                    AuthPrimaryButton(title: "Send Reset Link", busy: app.auth.busy, enabled: !trimmed.isEmpty) {
+                        Task { await send() }
                     }
-                }
-                .disabled(email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.auth.busy)
-                .accessibilityIdentifier("auth.forgot.submit")
-
-                Button("Back to Sign In") {
-                    app.navigation.open(.auth(.login))
-                }
-            }
-            if sent {
-                Section {
-                    Text("If that email is registered, a reset message is on its way.")
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("auth.forgot.sent")
-                }
-            }
-            if let error = app.auth.error {
-                Section {
-                    Text(error).foregroundStyle(.red).accessibilityIdentifier("auth.forgot.error")
+                    .accessibilityIdentifier("auth.forgot.submit")
+                    Button("Back to Sign In") { app.navigation.open(.auth(.login)) }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
                 }
             }
         }
-        .modulaSoftScrollEdge()
-        .navigationTitle("Forgot Password")
         .accessibilityIdentifier("auth.forgot")
+        .onAppear { focus = .email }
+    }
+
+    private func send() async {
+        guard SignInView.looksLikeEmail(trimmed) else {
+            attempted = true
+            shake += 1
+            HapticEngine.shared.play(.warning)
+            return
+        }
+        focus = nil
+        if await app.auth.requestPasswordReset(email: trimmed) {
+            withAnimation(reduceMotion ? nil : .snappy) { sent = true }
+        } else {
+            shake += 1
+            HapticEngine.shared.play(.failure)
+        }
     }
 }
 

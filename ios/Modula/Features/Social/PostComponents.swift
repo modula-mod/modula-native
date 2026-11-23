@@ -346,14 +346,15 @@ struct PostBody: View {
     var body: some View {
         if let text = post.text, !text.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text(PostTextLinks.attributed(displayedText(text)))
+                // Rich markup (<mark>, **bold**, links…) like comments, never raw tags.
+                Text(ModulaRichText.attributed(displayedText(text), revealSpoilers: false))
                     .font(bodyFont)
                     .foregroundStyle(.primary)
                     .lineSpacing(captionSize.lineSpacing)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityLabel(text)
-                    .tint(app.appearance.accent.color)
+                    .tint(app.appearance.liveAccent)
                     .environment(\.openURL, OpenURLAction { url in
                         if let route = PostTextLinks.route(for: url) {
                             app.navigation.push(route)
@@ -373,7 +374,7 @@ struct PostBody: View {
                         }
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .accessibilityLabel(expanded ? "Show less" : "Show more")
                 }
                 PostTranslationControl(text: text)
@@ -404,8 +405,22 @@ struct PostBody: View {
 
 /// Interactive social text uses canonical Search/Profile routes, not a new feed.
 enum PostTextLinks {
+    // Compiled once: building an NSDataDetector/NSRegularExpression per call ran on every
+    // post/comment body evaluation while scrolling. Both are safe to share across threads.
+    private static let tokenRegex = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/@])(?:#[\p{L}\p{N}_]{1,64}|@[\p{L}\p{N}_]+(?:\.[\p{L}\p{N}_]+)*)"#)
+    private static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    private final class Box { let value: AttributedString; init(_ v: AttributedString) { value = v } }
+    nonisolated(unsafe) private static let cache: NSCache<NSString, Box> = { let c = NSCache<NSString, Box>(); c.countLimit = 600; return c }()
+
     static func attributed(_ text: String) -> AttributedString {
-        guard let regex = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/@])(?:#[\p{L}\p{N}_]{1,64}|@[\p{L}\p{N}_]+(?:\.[\p{L}\p{N}_]+)*)"#) else {
+        if let hit = cache.object(forKey: text as NSString) { return hit.value }
+        let value = build(text)
+        cache.setObject(Box(value), forKey: text as NSString)
+        return value
+    }
+
+    private static func build(_ text: String) -> AttributedString {
+        guard let regex = tokenRegex else {
             return AttributedString(text)
         }
         var result = AttributedString()
@@ -413,7 +428,7 @@ enum PostTextLinks {
         let whole = NSRange(text.startIndex..., in: text)
         // Web links (opened in the Modula browser) plus #hashtags and @mentions.
         var tokens: [(Range<String.Index>, URL?)] = []
-        if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
+        if let detector = linkDetector {
             for match in detector.matches(in: text, range: whole) {
                 guard let range = Range(match.range, in: text), let url = match.url,
                       ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { continue }
@@ -478,10 +493,10 @@ struct PostModuleChip: View {
                     }
                 }
             }
-            .foregroundStyle(app.appearance.accent.color)
+            .foregroundStyle(app.appearance.liveAccent)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(app.appearance.accent.color.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
+            .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: ModulaRadius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Module \(module.name ?? module.id)")
@@ -526,7 +541,7 @@ struct PostActions: View {
             Button(action: onSave) {
                 Image(systemName: post.saved ? "bookmark.fill" : "bookmark")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(post.saved ? app.appearance.accent.color : .secondary)
+                    .foregroundStyle(post.saved ? app.appearance.liveAccent : .secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -552,6 +567,7 @@ struct PostActions: View {
                 PostReactionPicker(
                     current: post.viewerReaction ?? (post.liked ? .like : nil),
                     multiEnabled: app.postActions.capabilities.multiReactions,
+                    postID: post.id,
                     onSelect: { reaction in
                         showsReactionPicker = false
                         Task { await app.postActions.setReaction(post, reaction: reaction) }
@@ -615,7 +631,7 @@ struct PostActions: View {
                         .monospacedDigit()
                 }
             }
-            .foregroundStyle(active ? app.appearance.accent.color : .secondary)
+            .foregroundStyle(active ? app.appearance.liveAccent : .secondary)
             .opacity(differentiateWithoutColor && active ? 1 : 1)
             .frame(minWidth: 44, minHeight: 44)
             .padding(.horizontal, 4)
@@ -623,7 +639,7 @@ struct PostActions: View {
             .overlay(alignment: .bottom) {
                 if differentiateWithoutColor && active {
                     Capsule()
-                        .fill(app.appearance.accent.color)
+                        .fill(app.appearance.liveAccent)
                         .frame(width: 16, height: 2)
                         .offset(y: 4)
                 }
@@ -780,4 +796,127 @@ extension ModulaPreferences.CaptionSize {
 /// Non-observed frame holder (written during scroll, read when a link is tapped).
 final class ModulaFrameBox {
     var frame: CGRect = .zero
+}
+
+// MARK: - Shared feed post
+
+/// The one post shell for every list outside Home (Discover, Search, shelves): the Home
+/// immersive card wired to the canonical PostActionController, so reactions, repost,
+/// bookmark, share, double-tap and the "…" menu behave exactly like Home.
+struct SharedFeedPostCard: View {
+    let post: SocialPost
+    var videoCoordinator: FeedVideoCoordinator? = nil
+    var identifierPrefix: String = "feed"
+
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let resolved = app.posts.post(id: post.id).map { app.posts.resolved($0) } ?? app.posts.resolved(post)
+        PostCard(
+            post: resolved,
+            showsActionRail: ModulaPostMapper.map(resolved).isMediaFirst,
+            isOwnPost: resolved.author?.id == app.auth.account?.accountId,
+            onOpenPost: { open(resolved, .root) },
+            onOpenAuthor: {
+                guard let author = resolved.author else { return }
+                app.navigation.push(.profile(author.routeID, .overview))
+                HapticEngine.shared.play(.navigation)
+            },
+            onLike: {
+                if !resolved.liked { ModulaMascotEvent.post(.like) }
+                Task {
+                    app.postActions.ingest(resolved)
+                    await app.postActions.toggleLike(resolved)
+                    app.home.syncVisibleEngagement()
+                }
+            },
+            onComment: { open(resolved, .comments) },
+            onRepost: {
+                ModulaMascotEvent.post(.repost)
+                Task {
+                    app.postActions.ingest(resolved)
+                    await app.postActions.toggleRepost(resolved)
+                    app.home.syncVisibleEngagement()
+                }
+            },
+            onSave: { toggleSave(resolved) },
+            onShare: {
+                ModulaMascotEvent.post(.share)
+                PostSharing.share(resolved, app: app)
+            },
+            onContextAction: { handle($0, post: resolved) },
+            onOpenMedia: { _ in open(resolved, .root) },
+            onOpenModule: { module in
+                app.navigation.push(.productHub(.module(module.id, .overview)))
+                HapticEngine.shared.play(.navigation)
+            },
+            videoCoordinator: videoCoordinator,
+            style: .immersive
+        )
+        .modifier(PostSwipeActions(
+            enabled: resolved.media.count <= 1,
+            saved: resolved.saved,
+            accent: app.appearance.liveAccent,
+            onSave: {
+                toggleSave(resolved)
+                app.navigation.flash(resolved.saved ? "Removed from Bookmarks" : "Saved to Bookmarks", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+            },
+            onShare: { PostSharing.share(resolved, app: app) }
+        ))
+        .accessibilityIdentifier("\(identifierPrefix).post.\(resolved.id)")
+    }
+
+    private func open(_ post: SocialPost, _ section: PostSection) {
+        app.postActions.ingest(post)
+        app.navigation.push(.post(post.id, section))
+        HapticEngine.shared.play(.navigation)
+    }
+
+    private func toggleSave(_ post: SocialPost) {
+        if !post.saved { ModulaMascotEvent.post(.save) }
+        Task {
+            app.postActions.ingest(post)
+            await app.postActions.toggleSave(post)
+            app.home.syncVisibleEngagement()
+        }
+    }
+
+    private func handle(_ action: ModulaContextAction, post: SocialPost) {
+        switch action.id {
+        case "save": toggleSave(post)
+        case "save-collection":
+            app.navigation.presented = .collectionPicker(postID: post.id)
+            HapticEngine.shared.play(.contextOpen)
+        case "copy-link":
+            UIPasteboard.general.string = post.shareURL.absoluteString
+            HapticEngine.shared.play(.lightImpact)
+            app.navigation.flash("Link copied", symbol: "link")
+        case "share":
+            app.navigation.presented = .universalShare(.post(
+                id: post.id, authorName: post.author?.displayName, excerpt: post.text, hasMedia: !post.media.isEmpty
+            ))
+            Task { await app.postActions.recordShare(post) }
+        case "hide":
+            app.postActions.hideLocally(post)
+            app.home.syncVisibleEngagement()
+        case "not-interested":
+            app.postActions.hideLocally(post)
+            app.home.syncVisibleEngagement()
+            app.navigation.flash("You’ll see fewer posts like this", symbol: "eye.slash")
+        case "mute-author":
+            guard let author = post.author else { return }
+            Task {
+                if await app.profile.mute(profileID: author.id) {
+                    app.postActions.hideLocally(post)
+                    app.navigation.flash("Muted @\(author.handle)", symbol: "speaker.slash")
+                }
+            }
+        case "report", "block-author":
+            // Report/block flows live on the post page, which owns the confirmation UI.
+            open(post, .root)
+        case "edit-post": app.navigation.push(.post(post.id, .edit))
+        case "delete": Task { _ = await app.postActions.deletePost(post) }
+        default: break
+        }
+    }
 }

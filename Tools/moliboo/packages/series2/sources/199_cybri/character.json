@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.199",
+  "key": "cybri",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#C4E5ED",
+    "accent": "#E1F2F6",
+    "light": "#E1F2F6",
+    "dark": "#AECCD3"
+  },
+  "form": "Silver teardrop shape, cyan stripes"
+}

@@ -48,20 +48,14 @@ struct ModulaRailShape: Shape {
     }
 }
 
-struct ModulaContextRail: View {
-    struct Interaction: Equatable {
-        var isScrolling = false
-        var keyboardVisible = false
-        var immersive = false
-        static let idle = Self()
-    }
-
-    let route: AppRoute
-    var interaction: Interaction = .idle
-
-    var body: some View {
-        ShellEdgeLoop(route: route, interaction: interaction)
-    }
+/// Whether a page-level feed is actively scrolling. Decorative TimelineViews / shaders
+/// read this to drop their frame rate so scrolling keeps the GPU budget.
+/// (Moved here from the retired EdgeLoop/EdgeBulgeFlow.swift.)
+@MainActor @Observable
+final class ModulaScrollActivity {
+    static let shared = ModulaScrollActivity()
+    private(set) var isScrolling = false
+    func set(_ scrolling: Bool) { if isScrolling != scrolling { isScrolling = scrolling } }
 }
 
 extension View {
@@ -112,12 +106,16 @@ struct ModulaErrorBanner: View {
         }
         .padding(.leading, 14)
         .padding(.trailing, 2)
-        .background(.regularMaterial, in: Capsule())
+        // Enhancements-50: Modula glass (solid under Reduce Transparency) + a warning tick.
+        .modulaGlass(in: Capsule(), interactive: false)
         .padding(.horizontal, ModulaSpacing.md)
         .padding(.bottom, 12)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
-        .onAppear { AccessibilityNotification.Announcement(message).post() }
+        .onAppear {
+            AccessibilityNotification.Announcement(message).post()
+            HapticEngine.shared.play(.warning)
+        }
         .onChange(of: message) { _, next in AccessibilityNotification.Announcement(next).post() }
     }
 }
@@ -185,6 +183,10 @@ final class Lab30Connectivity {
 struct Lab30OfflineBanner: View {
     @State private var net = Lab30Connectivity.shared
     @State private var showBackOnline = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var bannerAnimation: Animation? {
+        ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .spring(response: 0.35, dampingFraction: 0.8)
+    }
     var body: some View {
         Group {
             if !net.isOnline {
@@ -201,9 +203,12 @@ struct Lab30OfflineBanner: View {
         }
         .font(.footnote.weight(.semibold))
         .padding(.top, 6)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: net.isOnline)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showBackOnline)
+        .animation(bannerAnimation, value: net.isOnline)
+        .animation(bannerAnimation, value: showBackOnline)
         .onChange(of: net.isOnline) { was, now in
+            // Enhancements-50: VoiceOver hears connectivity changes; a soft haptic marks them.
+            UIAccessibility.post(notification: .announcement, argument: now ? "Back online" : "You're offline. Showing saved content")
+            HapticEngine.shared.play(now ? .success : .warning)
             guard !was, now else { return }
             showBackOnline = true
             Task { try? await Task.sleep(for: .seconds(2)); showBackOnline = false }
@@ -220,7 +225,11 @@ struct Lab30OfflineState: View {
                 .symbolEffect(.pulse, options: .repeating)
             Text("No connection").font(.headline)
             Text("We'll refresh as soon as you're back online.").font(.subheadline).foregroundStyle(.secondary)
-            Button("Try again", action: retry).buttonStyle(.bordered)
+            Button("Try again", action: retry)
+                .font(.body.weight(.semibold))
+                .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
+                .buttonStyle(.plain)
+                .modulaAccentCTA()
         }
         .multilineTextAlignment(.center).padding(32)
     }
@@ -373,7 +382,7 @@ struct Lab30ScrollReactiveHeader<Content: View>: View {
             .blur(radius: max(0, offset) / 40)
             content()
         }
-        .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.y + $0.contentInsets.top }) { _, new in offset = new }
+        .onScrollGeometryChange(for: CGFloat.self, of: { min(max($0.contentOffset.y + $0.contentInsets.top, -1), 130).rounded() }) { _, new in offset = new }
         .safeAreaInset(edge: .top, spacing: 0) {
             if offset > 70 {
                 Text(title).font(.headline)
@@ -823,7 +832,7 @@ struct Lab30WhatsNewSheet: View {
             Spacer(minLength: 0)
             Button { dismiss(); onTry() } label: { Text("Try them").frame(maxWidth: .infinity).padding(.vertical, 12) }
                 .buttonStyle(.plain).foregroundStyle(.white)
-                .modulaGlass(in: Capsule(), tint: .accentColor, prominent: true)
+                .modulaAccentCTA()
                 .padding(.horizontal, 24)
             Button("Not now") { dismiss() }.padding(.bottom, 16)
         }
@@ -1343,3 +1352,4 @@ struct Lab30GalleryView: View {
         .overlay { Lab30CoachMarksOverlay(marks: Lab30CoachMarksOverlay.defaultMarks) }
     }
 }
+

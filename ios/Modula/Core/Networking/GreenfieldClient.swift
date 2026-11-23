@@ -19,10 +19,12 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "UNAUTHENTICATED"): "Sign in to Modula to continue."
         case .rejected(_, "ACCOUNT_INACTIVE"), .rejected(_, "ACCOUNT_DISABLED"):
             "This account is not active. Verify your email or contact support."
-        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"):
+        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"), .rejected(_, "EMAIL_VERIFICATION_REQUIRED"):
             "Verify your email before signing in."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
+        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"):
+            "Confirm your password to continue."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
         case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
             "This module doesn't have permission to change your records. Review its permissions, then try again."
@@ -48,6 +50,22 @@ enum APIError: Error, LocalizedError, Equatable {
     var code: String? {
         if case .rejected(_, let code) = self { return code }
         return nil
+    }
+
+    /// `401 STEP_UP_REQUIRED` means the session is still valid; the action needs a
+    /// recent password / passkey / Apple confirmation. It must not be treated as a
+    /// revoked token (refresh + sign-out).
+    var requiresStepUp: Bool {
+        if case .rejected(_, let code) = self { return Self.isStepUpCode(code) }
+        return false
+    }
+
+    static func isStepUpCode(_ code: String) -> Bool {
+        code == "STEP_UP_REQUIRED" || code == "FORBIDDEN_STEP_UP"
+    }
+
+    static func requiresStepUp(_ error: Error) -> Bool {
+        (error as? APIError)?.requiresStepUp == true
     }
 }
 
@@ -146,12 +164,21 @@ private struct SessionTokens: Codable, Sendable {
     let sessionId: String
     let accessExpiresAt: String
     let refreshExpiresAt: String
+    // Checked before every authenticated request: shared formatters instead of
+    // allocating two ISO8601DateFormatters per call.
     var accessValid: Bool {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: accessExpiresAt) ?? ISO8601DateFormatter().date(from: accessExpiresAt)
-        return (date?.timeIntervalSinceNow ?? 0) > 30
+        (ModulaISODate.parse(accessExpiresAt)?.timeIntervalSinceNow ?? 0) > 30
     }
+    var refreshValid: Bool {
+        (ModulaISODate.parse(refreshExpiresAt)?.timeIntervalSinceNow ?? 0) > 0
+    }
+}
+
+/// Bound to the current keychain session. This permits only a previously
+/// authenticated account to reopen its verified local game cache while offline.
+private struct OfflineAccountRecord: Codable, Sendable {
+    let sessionId: String
+    let account: GreenfieldAccount
 }
 
 private struct Envelope<T: Decodable>: Decodable {
@@ -168,12 +195,15 @@ struct PasswordResetRequestResult: Codable, Sendable {
 actor GreenfieldClient {
     private let baseURL: URL?
     private let transport: URLSession
+    private let artifactTransport: URLSession
     private let keychain: KeychainStore
+    private let offlineAccountKeychain: KeychainStore
     private var tokens: SessionTokens?
     private var refreshTask: Task<SessionTokens, Error>?
     private var epoch = 0
     private var accountID: String?
     private var sessionInvalidated: (@Sendable () -> Void)?
+    private var authFailureDetails: [String: GreenfieldFailureDetails] = [:]
 
     /// Called (off the main actor) when the server rejects the session and a refresh
     /// can't recover it, so the app can leave the signed-in state instead of silently
@@ -185,18 +215,77 @@ actor GreenfieldClient {
 
     init(baseURL: URL?, transport: URLSession = .shared) {
         self.keychain = KeychainStore(namespace: baseURL?.absoluteString ?? "unconfigured")
+        self.offlineAccountKeychain = KeychainStore(namespace: (baseURL?.absoluteString ?? "unconfigured") + "|offline-account")
         self.baseURL = baseURL
-        self.transport = transport
+        if transport === URLSession.shared {
+            // Never use URLSession.shared (and its URLCache) for credential or API calls.
+            // The server sends Cache-Control: no-store (#203); the client must not store them either.
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.urlCache = nil
+            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            configuration.httpCookieAcceptPolicy = .never
+            configuration.httpShouldSetCookies = false
+            let session = URLSession(configuration: configuration)
+            self.transport = session
+            self.artifactTransport = session
+        } else {
+            // Preserve injected transports, including the isolated-network test session.
+            self.transport = transport
+            self.artifactTransport = transport
+        }
+    }
+
+    /// Instant launch: the account saved with this exact session, with no network.
+    /// The caller revalidates with `restore()` right after the shell is on screen.
+    func cachedRestore() -> GreenfieldAccount? {
+        guard let data = try? keychain.load(),
+              let stored = try? JSONDecoder().decode(SessionTokens.self, from: data),
+              stored.refreshValid,
+              let cached = try? offlineAccountKeychain.load(),
+              let record = try? JSONDecoder().decode(OfflineAccountRecord.self, from: cached),
+              record.sessionId == stored.sessionId,
+              record.account.status == "active" else { return nil }
+        tokens = stored
+        accountID = record.account.accountId
+        return record.account
+    }
+
+    func currentAccountID() -> String? { accountID }
+
+    /// Background check after `cachedRestore()`. Uses the live token state (no keychain
+    /// re-read), so it can't race a token refresh that is already in flight.
+    func revalidateAccount() async throws -> GreenfieldAccount {
+        let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
+        guard account.status == "active" else { throw APIError.unauthenticated }
+        accountID = account.accountId
+        if let current = tokens {
+            try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: current.sessionId, account: account)))
+        }
+        return account
     }
 
     func restore() async throws -> GreenfieldAccount? {
         guard let data = try keychain.load() else { return nil }
-        tokens = try JSONDecoder().decode(SessionTokens.self, from: data)
-        _ = try await accessToken()
-        let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
-        guard account.status == "active" else { throw APIError.unauthenticated }
-        accountID = account.accountId
-        return account
+        let stored = try JSONDecoder().decode(SessionTokens.self, from: data)
+        tokens = stored
+        do {
+            _ = try await accessToken()
+            let account: GreenfieldAccount = try await authenticated("GET", path: "/v1/accounts/me")
+            guard account.status == "active" else { throw APIError.unauthenticated }
+            accountID = account.accountId
+            if let current = tokens {
+                try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: current.sessionId, account: account)))
+            }
+            return account
+        } catch {
+            guard Self.isConnectivityFailure(error), stored.refreshValid,
+                  let cached = try? offlineAccountKeychain.load(),
+                  let record = try? JSONDecoder().decode(OfflineAccountRecord.self, from: cached),
+                  record.sessionId == stored.sessionId,
+                  record.account.status == "active" else { throw error }
+            accountID = record.account.accountId
+            return record.account
+        }
     }
 
     func signIn(email: String, password: String) async throws -> GreenfieldAccount {
@@ -209,7 +298,9 @@ actor GreenfieldClient {
         ]))
         let account: GreenfieldAccount = try await send("GET", path: "/v1/accounts/me", bearer: issued.accessToken)
         guard generation == epoch, account.status == "active" else { throw APIError.accountChanged }
+        try? offlineAccountKeychain.clear()
         try keychain.save(JSONEncoder().encode(issued))
+        try? offlineAccountKeychain.save(JSONEncoder().encode(OfflineAccountRecord(sessionId: issued.sessionId, account: account)))
         tokens = issued; accountID = account.accountId
         return account
     }
@@ -219,6 +310,7 @@ actor GreenfieldClient {
         epoch += 1; refreshTask?.cancel(); refreshTask = nil
         tokens = nil; accountID = nil
         try keychain.clear()
+        try? offlineAccountKeychain.clear()
         if let bearer { let _: JSONValue = try await send("DELETE", path: "/v1/sessions/current", bearer: bearer) }
     }
 
@@ -270,13 +362,31 @@ actor GreenfieldClient {
 
     /// Lifecycle mutations. All are idempotent on the server via `idempotencyKey`, so the
     /// single 401-refresh retry in `authenticated` cannot double-apply them.
-    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String) async throws -> String? {
+    func installModule(_ moduleID: String, version: String?, approvedPermissions: [String], idempotencyKey: String,
+                       packageLockSha256: String? = nil, cachedPublicDigests: [String] = []) async throws -> String? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
         var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version), "idempotencyKey": .string(idempotencyKey)]
         if let version { body["version"] = .string(version) }
+        if let packageLockSha256 {
+            guard InstallDescriptorVerifier.isHex64(packageLockSha256) else { throw APIError.invalidResponse }
+            body["packageLockSha256"] = .string(packageLockSha256)
+            body["cachedPublicDigests"] = .array(cachedPublicDigests.map(JSONValue.string))
+        }
         if !approvedPermissions.isEmpty { body["approvedPermissions"] = .array(approvedPermissions.map(JSONValue.string)) }
         let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/install", body: .object(body))
         return value["status"]?.string
+    }
+
+    func packageInstallPlan(_ moduleID: String, version: String?, cachedPublicDigests: [String]) async throws -> PackageInstallPlan {
+        guard let path = Self.modulePath(moduleID), cachedPublicDigests.allSatisfy(InstallDescriptorVerifier.isHex64) else {
+            throw APIError.invalidResponse
+        }
+        var body: [String: JSONValue] = ["platform": .string("ios"), "hostVersion": .string(ModulaHost.version),
+                                         "cachedPublicDigests": .array(cachedPublicDigests.map(JSONValue.string))]
+        if let version { body["version"] = .string(version) }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/package-install-plan", body: .object(body))
+        guard let plan = PackageInstallPlan(json: value, requested: moduleID) else { throw APIError.invalidResponse }
+        return plan
     }
 
     func enableModule(_ moduleID: String, idempotencyKey: String) async throws {
@@ -338,16 +448,24 @@ actor GreenfieldClient {
 
     /// Switches an installation to an exact registry version (upgrade or downgrade). Returns
     /// the target release's install descriptor issued with the transition.
-    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String) async throws -> ModuleInstallDescriptor? {
+    func switchModuleVersion(_ moduleID: String, version: String, approvedPermissions: [String], acknowledgeDowngradeRisk: Bool, idempotencyKey: String,
+                             packageLockSha256: String? = nil, cachedPublicDigests: [String] = []) async throws -> ModuleInstallDescriptor? {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object([
+        var body: [String: JSONValue] = [
             "version": .string(version),
             "platform": .string("ios"),
             "hostVersion": .string(ModulaHost.version),
             "approvedPermissions": .array(approvedPermissions.map(JSONValue.string)),
             "acknowledgeDowngradeRisk": .bool(acknowledgeDowngradeRisk),
             "idempotencyKey": .string(idempotencyKey),
-        ]))
+        ]
+        if let packageLockSha256 {
+            guard InstallDescriptorVerifier.isHex64(packageLockSha256),
+                  cachedPublicDigests.allSatisfy(InstallDescriptorVerifier.isHex64) else { throw APIError.invalidResponse }
+            body["packageLockSha256"] = .string(packageLockSha256)
+            body["cachedPublicDigests"] = .array(cachedPublicDigests.map(JSONValue.string))
+        }
+        let value: JSONValue = try await authenticated("POST", path: "/v1/modules/\(path)/update", body: .object(body))
         return value["descriptor"].flatMap(ModuleInstallDescriptor.init(json:))
     }
 
@@ -360,20 +478,52 @@ actor GreenfieldClient {
         return hosted
     }
 
-    /// Downloads an immutable registry artifact and requires the expected SHA-256.
-    func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
-        let url: URL
-        if ref.hasPrefix("/"), let baseURL, let resolved = URL(string: ref, relativeTo: baseURL)?.absoluteURL {
-            url = resolved
-        } else if let parsed = URL(string: ref) {
-            url = parsed
-        } else {
+    /// The immutable distribution descriptor carries installation-scoped game
+    /// artifact digests for the exact release selected by Product Hub.
+    func gameReleaseDescriptor(_ releaseID: String) async throws -> JSONValue {
+        guard releaseID.range(of: "^[A-Za-z0-9._:-]{3,240}$", options: .regularExpression) != nil else {
             throw APIError.invalidResponse
         }
-        let data = try await mediaData(from: url, maximumBytes: maximumBytes)
+        return try await authenticated("GET", path: "/v1/registry/releases/\(releaseID)/descriptor?platform=ios&hostVersion=\(ModulaHost.version)")
+    }
+
+    /// The account's exact installed release and permission review, issued by
+    /// the distribution service. The release descriptor alone is public and
+    /// cannot authorize a launch.
+    func installedDistributionDescriptor(_ moduleID: String) async throws -> JSONValue {
+        guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
+        return try await authenticated("GET", path: "/v1/modules/\(path)/installation-descriptor?platform=ios&hostVersion=\(ModulaHost.version)")
+    }
+
+    /// Downloads an immutable registry artifact and requires the expected SHA-256.
+    func downloadVerifiedArtifact(ref: String, expectedSha256: String, maximumBytes: Int = 1_048_576) async throws -> Data {
+        guard InstallDescriptorVerifier.isHex64(expectedSha256) else { throw APIError.invalidResponse }
+        guard let baseURL else { throw APIError.invalidResponse }
+        let url = try Self.registryArtifactURL(ref: ref, expectedSha256: expectedSha256, baseURL: baseURL)
+        var request = try await mediaRequest(for: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
+        let (data, response) = try await artifactTransport.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              data.count <= maximumBytes else { throw APIError.invalidResponse }
         let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSha256 else { throw APIError.invalidResponse }
         return data
+    }
+
+    /// Package locks may contain the registry's internal public URL. Fetch the
+    /// pinned artifact from this app's configured GreenField origin instead.
+    nonisolated static func registryArtifactURL(ref: String, expectedSha256: String, baseURL: URL) throws -> URL {
+        let path = "/v1/registry/artifacts/\(expectedSha256)"
+        guard InstallDescriptorVerifier.isHex64(expectedSha256), baseURL.scheme == "https",
+              baseURL.user == nil, baseURL.password == nil,
+              let declared = URL(string: ref, relativeTo: baseURL)?.absoluteURL,
+              declared.scheme == "https", declared.user == nil, declared.password == nil,
+              declared.path == path, declared.query == nil, declared.fragment == nil,
+              let local = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              local.host == baseURL.host, local.port == baseURL.port else { throw APIError.invalidResponse }
+        return local
     }
 
     /// Uninstall keeps the account's module data so a reinstall restores it.
@@ -434,6 +584,7 @@ actor GreenfieldClient {
         refreshTask?.cancel(); refreshTask = nil
         tokens = nil; accountID = nil
         try? keychain.clear()
+        try? offlineAccountKeychain.clear()
     }
     #endif
 
@@ -468,8 +619,10 @@ actor GreenfieldClient {
     /// Loads media through the same authenticated session as JSON requests. Greenfield
     /// attachment URLs are deliberately protected; raw `AsyncImage`/`URLSession.shared`
     /// requests cannot satisfy that contract for private or owner-only content.
-    func mediaData(from url: URL, maximumBytes: Int = 32_000_000) async throws -> Data {
-        let request = try await mediaRequest(for: url)
+    func mediaData(from url: URL, maximumBytes: Int = 32_000_000,
+                   allowsCellularAccess: Bool? = nil) async throws -> Data {
+        var request = try await mediaRequest(for: url)
+        if let allowsCellularAccess { request.allowsCellularAccess = allowsCellularAccess }
         let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
@@ -501,6 +654,41 @@ actor GreenfieldClient {
         return temporary
     }
 
+    /// Authenticated WebSocket request for Greenfield realtime routes (GUBIC lobbies).
+    /// The bearer travels in the header, never in the URL.
+    func webSocketRequest(path: String) async throws -> URLRequest {
+        guard let baseURL else { throw APIError.unconfigured }
+        guard path.hasPrefix("/v1/"), tokens != nil else { throw APIError.unauthenticated }
+        guard var components = URLComponents(url: baseURL.appendingPathComponent(String(path.dropFirst())),
+                                              resolvingAgainstBaseURL: false) else { throw APIError.invalidResponse }
+        components.scheme = components.scheme?.lowercased() == "http" ? "ws" : "wss"
+        guard let url = components.url else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    /// Call signalling socket (`/v1/calls/:id/signalling`). The single-use, 60 s signalling
+    /// ticket is the bearer: never the access token, and never in the URL. The host always
+    /// comes from the configured base URL, not from the server's ticket response.
+    func callSignallingRequest(path: String, ticket: String) throws -> URLRequest {
+        guard let baseURL else { throw APIError.unconfigured }
+        guard CallSignalling.isSignallingPath(path), tokens != nil,
+              ticket.range(of: "^[A-Za-z0-9_-]{32,128}$", options: .regularExpression) != nil
+        else { throw APIError.unauthenticated }
+        guard var components = URLComponents(url: baseURL.appendingPathComponent(String(path.dropFirst())),
+                                              resolvingAgainstBaseURL: false) else { throw APIError.invalidResponse }
+        components.scheme = components.scheme?.lowercased() == "http" ? "ws" : "wss"
+        guard let url = components.url else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Bearer \(ticket)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
     private func mediaRequest(for url: URL) async throws -> URLRequest {
         guard url.scheme?.lowercased() == "https", url.user == nil, url.password == nil else {
             throw APIError.invalidResponse
@@ -524,15 +712,21 @@ actor GreenfieldClient {
             let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
+        } catch let error as APIError where error.requiresStepUp && generation == epoch {
+            // Session is valid; the action needs a recent re-auth. Do not refresh or sign out.
+            throw error
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
             // The access token was rejected although it looked valid locally (revoked
-            // session, clock skew). A 401 means the request wasn't processed, so refresh
-            // once and retry; if the refresh is rejected too, the session is gone.
+            // session, clock skew). A 401 that is not STEP_UP_REQUIRED means the request
+            // wasn't processed, so refresh once and retry; if the refresh is rejected too,
+            // the session is gone. Concurrent callers share one in-flight refresh.
             let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
             do {
                 let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
+            } catch let error as APIError where error.requiresStepUp && generation == epoch {
+                throw error
             } catch APIError.rejected(401, let code) where generation == epoch {
                 // The refresh just succeeded, so the shell's own session is valid. For
                 // module-scoped calls a repeated 401 is the module's rejection, not a
@@ -549,28 +743,58 @@ actor GreenfieldClient {
         refreshTask?.cancel(); refreshTask = nil
         tokens = nil; accountID = nil
         try? keychain.clear()
+        try? offlineAccountKeychain.clear()
         sessionInvalidated?()
+    }
+
+    nonisolated static func isConnectivityFailure(_ error: Error) -> Bool {
+        guard let network = error as? URLError else { return false }
+        switch network.code {
+        case .notConnectedToInternet, .networkConnectionLost, .timedOut,
+             .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+            return true
+        default: return false
+        }
     }
 
     /// Only a definitive rejection of the refresh token ends the session. Offline, timeouts
     /// and 5xx keep the stored tokens so the user stays signed in and can retry.
+    /// `401 STEP_UP_REQUIRED` is not a revoked session and must never sign the user out.
     nonisolated static func refreshFailureEndsSession(_ error: Error) -> Bool {
+        if APIError.requiresStepUp(error) { return false }
         switch error {
+        case APIError.rejected(_, "UNAUTHENTICATED"): return true
         case APIError.rejected(let status, _): return status == 400 || status == 401 || status == 403
         case APIError.unauthenticated: return true
         default: return false
         }
     }
 
+    /// One in-flight refresh shared by every caller (actor-isolated). Concurrent 401s
+    /// all await this task so the same refresh token is never presented twice
+    /// (GreenField #203 / #195). A 401 `UNAUTHENTICATED` (including reuse) clears the
+    /// session once, with no retry loop.
     private func accessToken(forceRefresh: Bool = false, rejected: String? = nil) async throws -> String {
-        if let refreshTask { return try await refreshTask.value.accessToken }
+        if let refreshTask {
+            return try await awaitSharedRefresh(refreshTask)
+        }
         guard let current = tokens else { throw APIError.unauthenticated }
         // Another request may already have rotated the token that was rejected.
         if forceRefresh, let rejected, current.accessToken != rejected { return current.accessToken }
         if current.accessValid && !forceRefresh { return current.accessToken }
+        let presented = current.refreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !presented.isEmpty else {
+            invalidateSession()
+            throw APIError.unauthenticated
+        }
         let generation = epoch
         let task = Task<SessionTokens, Error> {
-            let next: SessionTokens = try await self.send("POST", path: "/v1/sessions/refresh", body: .object(["refreshToken": .string(current.refreshToken)]))
+            // Always a JSON object body; never an empty refreshToken (#198 / #203).
+            let next: SessionTokens = try await self.send(
+                "POST",
+                path: "/v1/sessions/refresh",
+                body: .object(["refreshToken": .string(presented)])
+            )
             guard generation == self.epoch else { throw APIError.accountChanged }
             try self.keychain.save(JSONEncoder().encode(next))
             self.tokens = next
@@ -582,6 +806,20 @@ actor GreenfieldClient {
         catch {
             if generation == epoch, Self.refreshFailureEndsSession(error) {
                 invalidateSession()
+                throw APIError.unauthenticated
+            }
+            throw error
+        }
+    }
+
+    /// Waiters of a shared refresh remap a revoked-refresh failure to `unauthenticated`
+    /// so `authenticated()` cannot start a second refresh (no retry loop). The owner of
+    /// the task is the one that calls `invalidateSession()`.
+    private func awaitSharedRefresh(_ task: Task<SessionTokens, Error>) async throws -> String {
+        do {
+            return try await task.value.accessToken
+        } catch {
+            if Self.refreshFailureEndsSession(error) {
                 throw APIError.unauthenticated
             }
             throw error
@@ -601,6 +839,10 @@ actor GreenfieldClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        // Greenfield authenticates with bearer tokens only (no cookies, CORS credentials off),
+        // so nothing from an earlier request (e.g. a pending sign-up) can ride along.
+        request.httpShouldHandleCookies = false
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
@@ -616,8 +858,30 @@ actor GreenfieldClient {
                 "verbose \(method, privacy: .public) \(safePath, privacy: .public) → \(status, privacy: .public) \(data.count, privacy: .public)B \(elapsed, privacy: .public)ms"
             )
         }
-        return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+        let http = response as? HTTPURLResponse
+        guard Self.recordsFailureDetails(path) else {
+            return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+        }
+        do {
+            let value: T = try Self.decodeEnvelope(data, response: response, method: method, path: path)
+            authFailureDetails[path] = nil
+            return value
+        } catch {
+            authFailureDetails[path] = GreenfieldFailureDetails.parse(data, response: http)
+            throw error
+        }
     }
+
+    /// Sign-in and account (register / verify / resend) answers carry structured failure
+    /// details (403 EMAIL_VERIFICATION_REQUIRED challenge, 429 retry hints). Errors stay
+    /// `APIError`; the details are read back with `lastFailureDetails(path:)`.
+    nonisolated static func recordsFailureDetails(_ path: String) -> Bool {
+        path == "/v1/sessions" || path.hasPrefix("/v1/accounts/register")
+            || path.hasPrefix("/v1/accounts/verify-email") || path.hasPrefix("/v1/accounts/resend-verification")
+            || path.hasPrefix("/v1/accounts/forgot-password") || path.hasPrefix("/v1/accounts/reset-password")
+    }
+
+    func lastFailureDetails(path: String) -> GreenfieldFailureDetails? { authFailureDetails[path] }
 
     /// Decodes a Greenfield envelope. Responses that are not envelopes (for example the
     /// nginx HTML 413 page in front of both hosts, or an HTML 502/503 from the edge) are

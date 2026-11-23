@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.207",
+  "key": "masqora",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#C6A4BE",
+    "accent": "#E2D1DE",
+    "light": "#E2D1DE",
+    "dark": "#B092A9"
+  },
+  "form": "Plum half-moon eye markings"
+}

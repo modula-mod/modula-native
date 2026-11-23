@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.127",
+  "key": "cirra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#AACFF7",
+    "accent": "#D4E7FB",
+    "light": "#D4E7FB",
+    "dark": "#97B8DC"
+  },
+  "form": "Powder-blue swirl ears, misty freckles"
+}

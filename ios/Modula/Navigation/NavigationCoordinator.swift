@@ -9,7 +9,15 @@ final class NavigationCoordinator {
     var presented: AppPresentation?
     var banner: ModulaBanner?
     /// Leading global sidebar. Not a sixth tab and not Edge Picker.
-    var sidebarPresented = false
+    var sidebarPresented = false {
+        didSet {
+            guard oldValue != sidebarPresented else { return }
+            // Button / programmatic open+close take the same freeze-through-settle path as the swipe,
+            // so feed geometry writers never feed back into layout while the card animates.
+            ShellChromeFreeze.sidebarPresented = sidebarPresented
+            ShellChromeFreeze.holdForSettle()
+        }
+    }
     /// Route to restore after a successful authentication challenge.
     private(set) var pendingReturnRoute: AppRoute?
     /// Settings control to scroll to and briefly emphasize after search.
@@ -30,14 +38,12 @@ final class NavigationCoordinator {
     /// Short visible + VoiceOver confirmation (e.g. "Link copied").
     /// Uses the shell island-banner slot so features never build ad-hoc toasts.
     func flash(_ message: String, symbol: String = "checkmark.circle") {
-        let next = ModulaBanner(message: message, symbol: symbol)
-        banner = next
-        AccessibilityNotification.Announcement(message).post()
-        Task { @MainActor [weak self] in
-            // Visible hold after morph-in; host collapses back into the island seed.
-            try? await Task.sleep(for: .milliseconds(2_150))
-            if self?.banner?.id == next.id { self?.banner = nil }
-        }
+        ModulaToastCenter.shared.show(message, symbol: symbol)
+    }
+
+    /// Toast with an action button (Undo / View); held longer.
+    func flash(_ message: String, symbol: String, tone: ModulaToastTone? = nil, actionTitle: String, action: @escaping @MainActor () -> Void) {
+        ModulaToastCenter.shared.show(message, symbol: symbol, tone: tone, actionTitle: actionTitle, action: action)
     }
 
     func presentSidebar() { sidebarPresented = true }
@@ -47,14 +53,50 @@ final class NavigationCoordinator {
         open(route); return true
     }
     func open(_ route: AppRoute) {
+        // Edit Profile is a task on top of wherever you are, never a tab root swap.
+        switch route {
+        case .me(.edit), .profile(_, .edit):
+            push(route)
+            return
+        default:
+            break
+        }
         if let tab = route.tab {
             // A tab switch lands on another stack; the tapped card isn't there to morph from.
             if tab != selectedTab { ModulaHeroMorph.disarm() }
             selectedTab = tab
             if isContextRoot(route) { roots[tab] = route; return }
         }
+        // A story viewer left on the stack (closed visually but never popped) made the next
+        // destination — e.g. Saved from the sidebar — flash the Story Viewer first. Drop
+        // stale story routes before pushing anything that isn't itself a story.
+        if !Self.isStoryViewer(route), var path = paths[selectedTab] {
+            while let last = path.last, Self.isStoryViewer(last) { path.removeLast() }
+            paths[selectedTab] = path
+        }
+        appendDeduplicatingSearch(route)
+    }
+
+    private static func isStoryViewer(_ route: AppRoute) -> Bool {
+        if case .stories(.story) = route { return true }
+        return false
+    }
+    /// Search over Search replaces the top instead of stacking: two Search screens meant
+    /// closing one revealed the other ("search opens again").
+    private func appendDeduplicatingSearch(_ route: AppRoute) {
+        if case .search = route, var path = paths[selectedTab], case .search? = path.last {
+            path[path.count - 1] = route
+            paths[selectedTab] = path
+            return
+        }
+        // Never stack the same screen twice in a row (double-tapped rows, a row tapped while its
+        // screen is mid-push). Identical adjacent values in a NavigationStack path made Back
+        // appear dead: it popped to an identical copy, and SwiftUI could desync the stack.
+        if paths[selectedTab]?.last == route { return }
         paths[selectedTab, default: []].append(route)
     }
+    /// True while the selected tab has pushed screens; the sidebar edge swipe yields to Back.
+    var selectedStackHasPushedViews: Bool { !(paths[selectedTab] ?? []).isEmpty }
     /// Routes requested by a running module. Detail destinations (profile,
     /// post) are pushed on the current stack so Back returns to the module
     /// instead of replacing another tab's root (which also tore the module
@@ -105,7 +147,7 @@ final class NavigationCoordinator {
     }
     /// Push onto the selected tab without stealing another tab’s root. Discover/Search use this for profile, post, and module detail so Back restores the current scope.
     func push(_ route: AppRoute) {
-        paths[selectedTab, default: []].append(route)
+        appendDeduplicatingSearch(route)
     }
     func close() {
         if !paths[selectedTab, default: []].isEmpty { paths[selectedTab]?.removeLast() }
@@ -194,7 +236,19 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
-        case .home, .activity:
+        case .activity:
+            // Activity owns its filters (chip row) and Mark all read (nav bar): no rail, no Tools bar.
+            Self(
+                bottomBarVisible: true,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
+        case .home:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: true,
@@ -205,13 +259,26 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: true
             )
+        case .profile(_, .edit), .me(.edit):
+            // Editing is a focused task: no tab bar, no accessory bubble.
+            Self(
+                bottomBarVisible: false,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
+                topBarStyle: .standard,
+                showsBack: false,
+                showsClose: false,
+                immersive: false,
+                hidesForKeyboard: true
+            )
         case .profile, .me:
             // Pushed profiles keep the originating tab selected in the bottom bar and hide
             // root-only accessories so chrome does not imply a global Profile switch.
+            // Profile sections live in its sticky tab bar: no edge rail, no Tools bar.
             Self(
                 bottomBarVisible: true,
-                contextRailVisible: true,
-                shellAccessoryVisible: isTabRoot,
+                contextRailVisible: false,
+                shellAccessoryVisible: false,
                 topBarStyle: .standard,
                 showsBack: !isTabRoot,
                 showsClose: false,
@@ -342,7 +409,7 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: false
             )
-        case .saved, .collections, .drafts:
+        case .saved, .collections, .drafts, .community:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: false,

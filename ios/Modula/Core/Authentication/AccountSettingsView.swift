@@ -11,7 +11,8 @@ struct AccountSettingsView: View {
             case .root: AccountRootView()
             case .password: AccountPasswordView()
             case .sessions: AccountSessionsView()
-            case .personalInformation: AccountPersonalInformationView()
+            // Personal Information was a thin duplicate of the Account page.
+            case .personalInformation: AccountRootView()
             case .username: UsernameChangeView()
             case .email: AccountEmailView()
             case .deleteAccount: DeleteAccountView()
@@ -31,50 +32,38 @@ private struct AccountRootView: View {
     var body: some View {
         if let account = app.auth.account {
             SettingsScrollCanvas {
-                AccountIdentityGraphic(
-                    name: account.displayName?.isEmpty == false ? account.displayName! : account.primaryHandle,
-                    handle: "@\(account.primaryHandle)",
-                    status: account.status.capitalized,
-                    avatarURL: app.profile.ownProfile?.avatarURL
-                )
-                SettingsGroup(title: "This account") {
-                    VStack(spacing: 0) {
-                        accountFact("Handle", "@\(account.primaryHandle)", "at")
-                        SettingsDivider()
-                        accountFact("Status", account.status.capitalized, "checkmark.seal")
-                        SettingsDivider()
-                        accountFact("Account ID", redact(account.accountId), "number")
-                        if let email = account.email, !email.isEmpty {
-                            SettingsDivider()
-                            accountFact("Email", email, "envelope")
-                        }
+                // Identity lives in the Settings header row; this page lists each fact once.
+                SettingsGroup(title: "Account") {
+                    SettingsTileRow(title: "Name", value: account.displayName ?? "—", symbol: "person.fill", showsChevron: false) {}
+                        .disabled(true)
+                    SettingsDivider()
+                    SettingsTileRow(title: "Username", value: "@\(account.primaryHandle)", symbol: "at") {
+                        app.navigation.open(.settings(.account(.username)))
                     }
+                    SettingsDivider()
+                    SettingsTileRow(title: "Email", value: account.email ?? "Not provided", symbol: "envelope.fill") {
+                        app.navigation.open(.settings(.account(.email)))
+                    }
+                    SettingsDivider()
+                    SettingsTileRow(title: "Status", value: account.status.capitalized, symbol: "checkmark.seal.fill", showsChevron: false) {}
+                        .disabled(true)
                 }
                 SettingsGroup(title: "Security") {
-                    VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "Personal Information", subtitle: "Private account details", symbol: "person.text.rectangle") {
-                            app.navigation.open(.settings(.account(.personalInformation)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Username", subtitle: "@\(account.primaryHandle)", symbol: "at") {
-                            app.navigation.open(.settings(.account(.username)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Email", subtitle: account.email ?? "Not provided on this session", symbol: "envelope") {
-                            app.navigation.open(.settings(.account(.email)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Password", subtitle: "Reset by email", symbol: "key") {
-                            app.navigation.open(.settings(.account(.password)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Sessions", subtitle: "Devices signed into this account", symbol: "laptopcomputer.and.iphone") {
-                            app.navigation.open(.settings(.account(.sessions)))
-                        }
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Delete Account", subtitle: "Close this Modula account", symbol: "trash") {
-                            app.navigation.open(.settings(.account(.deleteAccount)))
-                        }
+                    SettingsTileRow(title: "Password", value: "Reset by email", symbol: "key.fill") {
+                        app.navigation.open(.settings(.account(.password)))
+                    }
+                    SettingsDivider()
+                    SettingsTileRow(title: "Sessions", symbol: "laptopcomputer.and.iphone") {
+                        app.navigation.open(.settings(.account(.sessions)))
+                    }
+                    SettingsDivider()
+                    SettingsTileRow(title: "App Lock & Face ID", symbol: "lock.fill") {
+                        app.navigation.open(.settings(.privacy(.root)))
+                    }
+                }
+                SettingsGroup(title: "") {
+                    SettingsTileRow(title: "Delete Account", symbol: "trash.fill") {
+                        app.navigation.open(.settings(.account(.deleteAccount)))
                     }
                 }
                 Button("Sign Out", role: .destructive) {
@@ -141,11 +130,11 @@ private struct AccountIdentityGraphic: View {
             VStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .stroke(app.appearance.accent.color.opacity(0.35), lineWidth: 1.5)
+                        .stroke(app.appearance.liveAccent.opacity(0.35), lineWidth: 1.5)
                         .frame(width: 108, height: 108)
                         .scaleEffect(appeared && !reduceMotion ? 1 : 0.86)
                     Circle()
-                        .stroke(app.appearance.accent.color.opacity(0.7), lineWidth: 2)
+                        .stroke(app.appearance.liveAccent.opacity(0.7), lineWidth: 2)
                         .frame(width: 92, height: 92)
                     ModulaAvatar(initials: String(name.prefix(1)), url: avatarURL, size: 72)
                         .scaleEffect(appeared ? 1 : 0.9)
@@ -188,6 +177,39 @@ private struct AccountPasswordView: View {
 private struct AccountSessionsView: View {
     @Environment(AppEnvironment.self) private var app
     @State private var sessions: [GreenfieldSessionInfo] = []
+
+    private struct SessionGroup { let key: String; let first: GreenfieldSessionInfo; var count: Int }
+
+    private var groupedSessions: [SessionGroup] {
+        var order: [String] = []
+        var map: [String: SessionGroup] = [:]
+        for s in sessions {
+            let key = s.current ? "current" : [s.platform ?? "", s.userAgent ?? "", s.location ?? ""].joined(separator: "|")
+            if map[key] == nil { order.append(key); map[key] = SessionGroup(key: key, first: s, count: 1) }
+            else { map[key]?.count += 1 }
+        }
+        return order.compactMap { map[$0] }
+    }
+
+    private func deviceName(_ s: GreenfieldSessionInfo) -> String {
+        if let p = s.platform, !p.isEmpty, p.lowercased() != "unknown" { return p }
+        let ua = (s.userAgent ?? "").lowercased()
+        if ua.contains("iphone") { return "iPhone" }
+        if ua.contains("ipad") { return "iPad" }
+        if ua.contains("android") { return "Android" }
+        if ua.contains("mac") { return "Mac" }
+        if ua.contains("windows") { return "Windows PC" }
+        return "Unknown device"
+    }
+
+    private func deviceSymbol(_ s: GreenfieldSessionInfo) -> String {
+        switch deviceName(s) {
+        case "iPhone", "Android": "iphone"
+        case "iPad": "ipad"
+        case "Mac", "Windows PC": "laptopcomputer"
+        default: "questionmark.circle"
+        }
+    }
     @State private var error: String?
     @State private var loaded = false
 
@@ -206,13 +228,37 @@ private struct AccountSessionsView: View {
                     Text("No other signed-in devices.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(sessions) { session in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.current ? "This session" : (session.platform ?? "Session"))
-                                .font(.headline)
-                            if let agent = session.userAgent { Text(agent).font(.caption).foregroundStyle(.secondary) }
-                            if let last = session.lastActive { Text(last).font(.caption).foregroundStyle(.secondary) }
-                            if let location = session.location { Text(location).font(.caption).foregroundStyle(.secondary) }
+                    // Client-side grouping: identical device/agent/location rows collapse into one
+                    // with a count; missing platform reads as "Unknown device".
+                    ForEach(groupedSessions, id: \.key) { group in
+                        let session = group.first
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: deviceSymbol(session))
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(session.current ? "This device" : deviceName(session))
+                                        .font(.headline)
+                                    if group.count > 1 {
+                                        Text("×\(group.count)")
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 6).padding(.vertical, 2)
+                                            .background(Color.primary.opacity(0.08), in: Capsule())
+                                    }
+                                }
+                                if let last = session.lastActive { Text(last).font(.caption).foregroundStyle(.secondary) }
+                                if let location = session.location { Text(location).font(.caption).foregroundStyle(.secondary) }
+                            }
+                            if !session.current {
+                                Spacer(minLength: 8)
+                                Button("Sign out", role: .destructive) {
+                                    Task { await revoke(session) }
+                                }
+                                .font(.subheadline.weight(.semibold))
+                                .accessibilityIdentifier("auth.sessions.revoke")
+                            }
                         }
                     }
                     Button("Sign Out All Other Sessions", role: .destructive) {
@@ -248,6 +294,19 @@ private struct AccountSessionsView: View {
             self.error = "Session list isn’t available right now."
         }
     }
+
+    /// 404 NOT_FOUND is already treated as success by the client; just drop the row.
+    private func revoke(_ session: GreenfieldSessionInfo) async {
+        do {
+            try await app.client.revokeSession(id: session.id)
+            sessions.removeAll { $0.id == session.id }
+            if sessions.isEmpty { error = nil }
+        } catch let api as APIError {
+            error = api.userFacingMessage
+        } catch {
+            self.error = "Could not sign that session out."
+        }
+    }
 }
 
 private struct AccountPersonalInformationView: View {
@@ -257,7 +316,6 @@ private struct AccountPersonalInformationView: View {
             if let account = app.auth.account {
                 LabeledContent("Name", value: account.displayName ?? "—")
                 LabeledContent("Email", value: account.email ?? "Not provided on this session")
-                LabeledContent("Account ID", value: redact(account.accountId))
                 Text("These details are private account metadata. They never appear on Profile.")
                     .foregroundStyle(.secondary)
             }

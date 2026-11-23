@@ -65,8 +65,20 @@ enum ModulaImageTint {
     @MainActor static func cached(_ key: String) -> Color? { cache[key] }
 
     /// Loads (through the shared image pipeline) and averages the image at `url`.
+    /// Perf: several avatars/headers ask for the same tint at once; share one fetch + decode.
+    @MainActor private static var inFlight: [String: Task<Color?, Never>] = [:]
+
     @MainActor static func tint(for url: URL, cacheKey: String, client: GreenfieldClient) async -> Color? {
         if let hit = cache[cacheKey] { return hit }
+        if let pending = inFlight[cacheKey] { return await pending.value }
+        let task = Task { @MainActor in await computeTint(for: url, cacheKey: cacheKey, client: client) }
+        inFlight[cacheKey] = task
+        let colour = await task.value
+        inFlight[cacheKey] = nil
+        return colour
+    }
+
+    @MainActor private static func computeTint(for url: URL, cacheKey: String, client: GreenfieldClient) async -> Color? {
         guard let data = try? await client.mediaData(from: url, maximumBytes: 8_000_000) else { return nil }
         let rgb = await Task.detached(priority: .utility) { () -> (Double, Double, Double)? in
             guard let image = ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: 48),

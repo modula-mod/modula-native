@@ -1,32 +1,35 @@
 import SwiftUI
 
 struct DiscoverSearchEntry: View {
+    var compact: Bool = false
     var action: () -> Void
-    var onCustomise: () -> Void
+    /// Nil when the current scope has no filters (Trending, Topics): the menu then only offers Refresh.
+    var onCustomise: (() -> Void)?
     var onRefresh: () -> Void
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        let opaque = reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             Button {
                 ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "search", key: "entry"), for: .search(.root(nil)))
                 action()
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .font(.body.weight(.semibold))
-                    Text("Search people, posts, topics")
-                        .font(.body)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
+                        .font(.subheadline.weight(.semibold))
+                    if !compact {
+                        Text("Search people, posts, topics")
+                            .font(.subheadline)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                    }
                 }
                 .foregroundStyle(.secondary)
-                .padding(.leading, 14)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
+                .padding(.horizontal, compact ? 0 : 14)
+                .frame(maxWidth: compact ? nil : .infinity)
+                .frame(width: compact ? 38 : nil, height: 38)
+                .contentShape(Capsule())
+                .modulaGlass(in: Capsule())
             }
             .buttonStyle(.plain)
             .modulaHeroSource("search", key: "entry")
@@ -34,24 +37,25 @@ struct DiscoverSearchEntry: View {
             .accessibilityIdentifier("discover.search-entry")
             .accessibilityHint("Opens Search")
 
-            ModulaChromeIconButton(title: "Customise", symbol: "slider.horizontal.3", action: onCustomise)
-                .accessibilityIdentifier("discover.customise")
-
+            // Filter + options merged into one glass menu.
             Menu {
-                Button("Customise", systemImage: "slider.horizontal.3", action: onCustomise)
+                if let onCustomise {
+                    Button("Customise", systemImage: "slider.horizontal.3", action: onCustomise)
+                        .accessibilityIdentifier("discover.customise")
+                }
                 Button("Refresh", systemImage: "arrow.clockwise", action: onRefresh)
             } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
-                    .frame(width: ModulaChromeMetrics.iconHit, height: ModulaChromeMetrics.iconHit)
-                    .contentShape(Rectangle())
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 38, height: 38)
+                    .contentShape(Circle())
+                    .modulaGlass(in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Options")
             .accessibilityIdentifier("discover.options")
-            .padding(.trailing, 2)
         }
-        .modulaChrome(in: Capsule(), opaque: opaque)
     }
 }
 
@@ -122,12 +126,17 @@ struct DiscoverTopicArtwork: View {
         Double(seed.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 997 }) / 997.0 * 0.18 - 0.09
     }
 
+    /// Each topic gets its own hue (stable per seed) so trending cards aren't all one colour.
+    private var seedHue: Double {
+        Double(seed.unicodeScalars.reduce(7) { ($0 &* 131 &+ Int($1.value)) % 7919 }) / 7919.0
+    }
+
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = Color(hue: seedHue, saturation: 0.62, brightness: 0.92)
         let drift = !ModulaEffectGate.reduceMotion(systemReduceMotion)
         GeometryReader { proxy in
             ZStack {
-                Color.black
+                LinearGradient(colors: [Color(hue: seedHue, saturation: 0.7, brightness: 0.28), .black], startPoint: .topTrailing, endPoint: .bottomLeading)
                 Circle()
                     .fill(RadialGradient(colors: [accent.modulaAdjusted(hue: hueShift).opacity(0.62), accent.opacity(0.12)], center: .center, startRadius: 4, endRadius: proxy.size.width * 0.5))
                     .frame(width: proxy.size.width * 0.9)
@@ -180,7 +189,7 @@ struct DiscoverPersonRow: View {
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.caption)
-                                    .foregroundStyle(app.appearance.accent.color)
+                                    .foregroundStyle(app.appearance.liveAccent)
                                     .accessibilityLabel("Verified")
                             }
                         }
@@ -207,16 +216,15 @@ struct DiscoverPersonRow: View {
                 DiscoverFollowLabel(person: person, busy: followBusy)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 44)
-                    .background(
-                        Capsule().fill(person.isFollowing ? Color.primary.opacity(0.08) : app.appearance.accent.color)
-                    )
             }
             .buttonStyle(.modulaPress)
+            .modulaFollowCTA(isFollowing: person.isFollowing)
             .disabled(followBusy)
             .accessibilityLabel(person.followState.title)
             .accessibilityIdentifier("discover.follow.\(person.routeID)")
         }
         .padding(.vertical, 6 * app.appearance.density.spacingScale)
+        .modulaPersonContextMenu(name: person.displayName, handle: person.handle, isFollowing: person.isFollowing, onOpen: onOpen, onFollow: onFollow)
         .accessibilityIdentifier("discover.person.\(person.routeID)")
     }
 }
@@ -231,7 +239,7 @@ struct DiscoverPersonCard: View {
     @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         VStack(spacing: 10) {
             Button {
                 ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "person-card", key: person.routeID), for: .profile(person.routeID, .overview))
@@ -263,8 +271,8 @@ struct DiscoverPersonCard: View {
                 DiscoverFollowLabel(person: person, busy: followBusy)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.bordered)
-            .tint(accent)
+            .buttonStyle(.modulaPress)
+            .modulaFollowCTA(isFollowing: person.isFollowing)
             .disabled(followBusy)
             .accessibilityLabel(person.followState.title)
         }
@@ -272,6 +280,7 @@ struct DiscoverPersonCard: View {
         .frame(width: 142)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         .modulaHeroSource("person-card", key: person.routeID)
+        .modulaPersonContextMenu(name: person.displayName, handle: person.handle, isFollowing: person.isFollowing, onOpen: onOpen, onFollow: onFollow)
         .modulaCarouselReveal()
         .accessibilityIdentifier("discover.person-card.\(person.routeID)")
     }
@@ -282,6 +291,8 @@ struct DiscoverFollowLabel: View {
     let person: DiscoverPerson
     var busy: Bool
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -291,14 +302,18 @@ struct DiscoverFollowLabel: View {
                 Image(systemName: person.isFollowing ? "checkmark" : "plus")
                     .font(.caption2.weight(.bold))
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: person.isFollowing)
+                    // Enhancements-50: Reduce Motion skips the bounce and the snappy flip.
+                    .symbolEffect(.bounce, value: reduceMotion ? false : person.isFollowing)
             }
             Text(person.followState.title)
                 .font(.caption.weight(.semibold))
-                .contentTransition(.interpolate)
+                .contentTransition(reduceMotion ? .identity : .interpolate)
         }
         .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
-        .animation(.snappy, value: person.isFollowing)
+        .animation(reduceMotion ? nil : .snappy, value: person.isFollowing)
+        .onChange(of: person.isFollowing) { _, following in
+            if following { HapticEngine.shared.play(.followComplete) }
+        }
     }
 }
 
@@ -355,106 +370,13 @@ struct DiscoverTopicShelf: View {
     }
 }
 
-struct DiscoverPostCard: View {
-    let post: DiscoverPost
-    var action: () -> Void
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.modulaHeroScope) private var heroScope
-
-    private var resolvedEngagement: PostEngagement? {
-        app.posts.post(id: post.id)?.engagement
-    }
-
-    var body: some View {
-        Button {
-            ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "post", key: post.id), for: .post(post.id, .root))
-            action()
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                if let author = post.author {
-                    HStack(spacing: 10) {
-                        ModulaAvatar(initials: author.initials, url: author.avatarURL, size: 36)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(author.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                            Text("@\(author.handle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer()
-                        if let date = post.createdAt {
-                            Text(ActivityRelativeTime.string(from: date))
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-                if let text = post.text {
-                    Text(text)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .lineLimit(5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if let media = post.media {
-                    DiscoverMediaPreview(media: media)
-                }
-                HStack(spacing: 8) {
-                    let likes = resolvedEngagement?.likeCount ?? post.likeCount
-                    let replies = resolvedEngagement?.replyCount ?? post.replyCount
-                    let liked = resolvedEngagement?.liked == true
-                    if let likes {
-                        Label {
-                            Text("\(likes)").contentTransition(.numericText(value: Double(likes)))
-                        } icon: {
-                            Image(systemName: liked ? "heart.fill" : "heart")
-                                .foregroundStyle(liked ? Color.pink : Color.secondary)
-                                .symbolEffect(.bounce, value: liked)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.primary.opacity(0.05), in: Capsule())
-                    }
-                    if let replies {
-                        Label {
-                            Text("\(replies)").contentTransition(.numericText(value: Double(replies)))
-                        } icon: {
-                            Image(systemName: "bubble.right")
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.primary.opacity(0.05), in: Capsule())
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 12 * app.appearance.density.spacingScale)
-            .padding(.horizontal, 14)
-            // One soft glass sheet per post instead of a grey box.
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .modulaHeroSource("post", key: post.id)
-        }
-        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
-        .modulaScrollReveal()
-        .accessibilityLabel(post.text ?? "Post")
-        .accessibilityIdentifier("discover.post.\(post.id)")
-    }
-}
-
 struct DiscoverMediaPreview: View {
     let media: DiscoverPostMedia
 
     var body: some View {
         Group {
             if let url = media.url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.primary.opacity(0.08))
-                    }
-                }
+                ModulaDownsampledImage(url: url, pointSize: 440)
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -482,7 +404,9 @@ struct DiscoverPostShelf: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Popular today").font(.title3.bold())
             ForEach(posts) { post in
-                DiscoverPostCard(post: post) { onOpen(post) }
+                SharedFeedPostCard(post: post.asSocialPost(), identifierPrefix: "discover")
+                    .padding(.horizontal, -ModulaLayout.contentInset)
+                    .padding(.horizontal, ModulaLayout.postBleedGutter)
             }
         }
     }
@@ -560,13 +484,17 @@ enum DiscoverSearchRecents {
         UserDefaults.standard.set(Array(items.prefix(12)), forKey: key)
     }
     static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+    static func remove(_ query: String) {
+        UserDefaults.standard.set(load().filter { $0 != query }, forKey: key)
+    }
 }
 
 struct DiscoverSearchIdle: View {
     var onPickRecent: (String) -> Void
     var onPickSuggestion: (String) -> Void
     @Environment(AppEnvironment.self) private var app
-    private var recents: [String] { DiscoverSearchRecents.load() }
+    @State private var recentsVersion = 0
+    private var recents: [String] { _ = recentsVersion; return DiscoverSearchRecents.load() }
     private var suggestions: [String] {
         let topics = app.discover.trending.dashboard?.topics.prefix(6).map(\.label) ?? []
         return topics.isEmpty ? ["Design", "Modules", "Reels", "Creators", "AI", "Stories"] : Array(topics)
@@ -576,7 +504,11 @@ struct DiscoverSearchIdle: View {
             if !recents.isEmpty {
                 HStack {
                     Text("Recent").font(.title3.bold()); Spacer()
-                    Button("Clear") { DiscoverSearchRecents.clear(); HapticEngine.shared.play(.selection) }
+                    Button("Clear") {
+                        DiscoverSearchRecents.clear()
+                        withAnimation(.snappy) { recentsVersion += 1 }
+                        HapticEngine.shared.play(.selection)
+                    }
                         .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 ForEach(recents, id: \.self) { item in
@@ -587,7 +519,30 @@ struct DiscoverSearchIdle: View {
                             Text(item).font(.body).foregroundStyle(.primary); Spacer()
                             Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(.tertiary)
                         }.padding(.vertical, 6).contentShape(Rectangle())
-                    }.buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .selection))
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: .selection))
+                    .overlay(alignment: .trailing) {
+                        Button {
+                            DiscoverSearchRecents.remove(item)
+                            withAnimation(.snappy) { recentsVersion += 1 }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .modulaGlass(in: Circle(), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 26)
+                        .accessibilityLabel("Remove \(item) from recent searches")
+                    }
+                    .contextMenu {
+                        Button("Remove", systemImage: "trash", role: .destructive) {
+                            DiscoverSearchRecents.remove(item)
+                            withAnimation(.snappy) { recentsVersion += 1 }
+                        }
+                    }
                 }
             }
             Text("Suggested").font(.title3.bold())
@@ -597,7 +552,7 @@ struct DiscoverSearchIdle: View {
                         Button { onPickSuggestion(item); HapticEngine.shared.play(.selection) } label: {
                             Text(item).font(.subheadline.weight(.semibold))
                                 .padding(.horizontal, 14).padding(.vertical, 9)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.accent.color.opacity(0.12))
+                                .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.12))
                         }.buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
                     }
                 }

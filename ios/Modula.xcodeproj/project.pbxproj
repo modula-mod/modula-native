@@ -7,10 +7,26 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CA1200000000000000000001 /* CallModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000001 /* CallModels.swift */; };
+		CA1200000000000000000002 /* CallRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000002 /* CallRepository.swift */; };
+		CA1200000000000000000003 /* CallSignallingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000003 /* CallSignallingClient.swift */; };
+		CA1200000000000000000004 /* CallMediaEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000004 /* CallMediaEngine.swift */; };
+		CA1200000000000000000005 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000005 /* CallManager.swift */; };
+		CA1200000000000000000006 /* CallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000006 /* CallViews.swift */; };
+		CA1200000000000000000100 /* CallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1100000000000000000100 /* CallTests.swift */; };
+		CA1400000000000000000001 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = CA1500000000000000000001 /* WebRTC */; };
+		96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */; };
+		F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */; };
+		D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */; };
+		8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00800010D11651D7DAE87F5E /* MolibooGameModels.swift */; };
+		7E2057FB3D96701A3D58CF77 /* MolibooGameFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */; };
+		BA0200000000000000000011 /* GameFixtures in Resources */ = {isa = PBXBuildFile; fileRef = BA0200000000000000000012 /* GameFixtures */; };
 		87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */; };
 		5446F9A7CFA04E0D940811DD /* PDFImmersiveReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */; };
 		7ED9D8977FD243F1A81DFEED /* PDFReading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB21356FB1D4171B5159E7E /* PDFReading.swift */; };
 		838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */; };
+		5EE15A11C0DE4A7E8B1A2D02 /* SidebarSwipeFreezeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE15A11C0DE4A7E8B1A2D01 /* SidebarSwipeFreezeUITests.swift */; };
+		5EE15A11C0DE4A7E8B1A2C02 /* ReelsTapUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE15A11C0DE4A7E8B1A2C01 /* ReelsTapUITests.swift */; };
 		647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */; };
 		4725F6109BFA4B45A3FAB4FD /* PDFInlineLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */; };
 		498A2A6A47D9466587CF839C /* PDFInlineCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */; };
@@ -32,51 +48,47 @@
 		84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */; };
 		62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */; };
 		BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099370 /* MOL04CardsTests.swift */; };
+		5B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift */; };
+		5E6466E493B8532D03400C80 /* MOL03MotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBED1C35A92953E2AFA3812B /* MOL03MotionTests.swift */; };
+		F44147291E18C838D19DFD7B /* MOL03PerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FEF3567EEDB4B9164D61D4A /* MOL03PerformanceTests.swift */; };
+		8CFBDEFE0DD9FAE0DB0B6905 /* MOL03PackageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A824726B67D9158F1B8E6BB /* MOL03PackageTests.swift */; };
+		263AE1CBDC1208FC48044765 /* MOL03VisualAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30FECC8C1DBD1C8396F504AB /* MOL03VisualAcceptanceTests.swift */; };
+		3E8637E3FC8632B4977B5EE3 /* MOL03RegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08DA78BE210B2E70241735B0 /* MOL03RegistryTests.swift */; };
+		BD4D8C4363EA47CC9FB84C05 /* MOL05LegendsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */; };
+		7A1C0E5D2B9F4A6E8D3C1B07 /* MolibooWardrobeDropTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C0E5D2B9F4A6E8D3C1B08 /* MolibooWardrobeDropTests.swift */; };
 		76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */; };
-		58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */; };
+		B7A11C0DE5A1E0000000A003 /* ModulaUnitShapeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A11C0DE5A1E0000000A004 /* ModulaUnitShapeTests.swift */; };
 		F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */; };
 		E1D8999E32165077E380F65F /* MOL03WardrobeFitValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */; };
+		B1C2D3E4F5A60718293A4B6C /* MolibooArtSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B6D /* MolibooArtSnapshotTests.swift */; };
 		99CBEC9E23A4AF4672887C07 /* MolibooFitValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */; };
 		21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */; };
+		7A3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift */; };
 		95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */; };
 		680D9256E1826DE4F3EAEA97 /* MOL03StudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */; };
 		23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */; };
 		7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 96CD403C58D3542711764A10 /* moliboo_manifest.json */; };
-		A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */; };
-		00E6E714F85A061C99754480 /* Pebble.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 2142D575079AC30ACF5E8A4D /* Pebble.usdz */; };
-		A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */; };
-		244FBEA92D43D6D6D9284D59 /* MolibooWardrobePremium in Resources */ = {isa = PBXBuildFile; fileRef = DD9FCE5437AAD92B51AFB558 /* MolibooWardrobePremium */; settings = {ASSET_TAGS = ("moliboo.wardrobe.premium", ); }; };
+		2E3050F2410271342EDE5828 /* moliboo_accessory_fits.json in Resources */ = {isa = PBXBuildFile; fileRef = 6851AF3E59FF52B3AFA1610C /* moliboo_accessory_fits.json */; };
+		2AAC3B5CB443680E8DE5081B /* moliboo_registry.json in Resources */ = {isa = PBXBuildFile; fileRef = 25C7AF955A3ED6ED5BE57049 /* moliboo_registry.json */; };
 		72122BA903AA9E1111C090B9 /* MolibooWardrobe in Resources */ = {isa = PBXBuildFile; fileRef = 0A832714662FD46272477CD9 /* MolibooWardrobe */; };
 		2570C4484CF1884585A4AC77 /* moliboo_wardrobe_fits.json in Resources */ = {isa = PBXBuildFile; fileRef = 1D72EFF289F093333E3F0EBE /* moliboo_wardrobe_fits.json */; };
-		11C92B08560ABF4E5E258367 /* Portrait_Tuck.png in Resources */ = {isa = PBXBuildFile; fileRef = F5B6F1B5E596134C681CE0DB /* Portrait_Tuck.png */; };
-		7019A63E77E88FE89B0B41D7 /* Portrait_Ember.png in Resources */ = {isa = PBXBuildFile; fileRef = A7821284D147D0C3A689623E /* Portrait_Ember.png */; };
-		75C937BB2BD3052E681915E6 /* Portrait_Sprout.png in Resources */ = {isa = PBXBuildFile; fileRef = 934E733694CE54350C159430 /* Portrait_Sprout.png */; };
-		FF07AF3216B90D7233129F2A /* Portrait_Mochi.png in Resources */ = {isa = PBXBuildFile; fileRef = DC9286D90C905B2A29B8125F /* Portrait_Mochi.png */; };
-		1C1529BE5725FF3439E83320 /* Portrait_Nimbus.png in Resources */ = {isa = PBXBuildFile; fileRef = 4BFFAA2B102243121B59777B /* Portrait_Nimbus.png */; };
-		268E6BB48AC1E51070AA5E4C /* Tuck.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 7541BC360060C244B9B9DCC2 /* Tuck.usdz */; };
-		6DAD2BD442F0C0CE2A670386 /* Ember.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 11DC0ED74AC5CF4737477D7A /* Ember.usdz */; };
-		D63CA497C8F74FB49B26D05F /* Sprout.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A2B4B833E2B7A753F56ED5AB /* Sprout.usdz */; };
-		B54BA696876066D4EE1B04FF /* Mochi.usdz in Resources */ = {isa = PBXBuildFile; fileRef = DB499EC255794BC1785E95B0 /* Mochi.usdz */; };
-		D0D474AB68F2C753B34A9185 /* Nimbus.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 54E866BE1E32E89553A59828 /* Nimbus.usdz */; };
-		9C5E7BF4DA3A9AF764357B1F /* Portrait_Bolt.png in Resources */ = {isa = PBXBuildFile; fileRef = EA3F1A7E7D0253804FF22435 /* Portrait_Bolt.png */; };
-		A003F36BB4D49E05C44FCB8E /* Portrait_Tofu.png in Resources */ = {isa = PBXBuildFile; fileRef = 086132A77FDB0E101143DCA1 /* Portrait_Tofu.png */; };
-		014BDEEA4702DEC89777D5C6 /* Portrait_Pebble.png in Resources */ = {isa = PBXBuildFile; fileRef = FABEC6E73A0AFB71E8465981 /* Portrait_Pebble.png */; };
-		BE9BC10A8C965FB6B2571071 /* Portrait_Moss.png in Resources */ = {isa = PBXBuildFile; fileRef = 6C3C88E0DAA927A3D4D34032 /* Portrait_Moss.png */; };
-		3FE57E5838C80197AA190996 /* Portrait_Pip.png in Resources */ = {isa = PBXBuildFile; fileRef = 9D6B80ABF1E5CF55F6E8329E /* Portrait_Pip.png */; };
-		A1B2C3D4E5F6A7B8C9D0E107 /* Moss.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */; };
-		A1B2C3D4E5F6A7B8C9D0E111 /* Tofu.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E112 /* Tofu.usdz */; };
-		A1B2C3D4E5F6A7B8C9D0E115 /* Bolt.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E116 /* Bolt.usdz */; };
 		B0DDD288F6D69B4EAEF85306 /* MolibooCosmetics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */; };
 		A1MOLIBOOSETTINGS00000B1 /* MolibooSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */; };
 		86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */; };
 		A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */; };
 		38AE6942919F29E720DDC06F /* MolibooShaderKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */; };
+		5BB6F34B08412046241B4B64 /* MolibooEmptyArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */; };
 		36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */; };
 		16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6B6F8530D8427FA49C358F /* MolibooCards.swift */; };
+		C1D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift */; };
+		C1E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift */; };
+		C1F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift */; };
 		02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */; };
 		665A72EAB1D0B7C25F2A312C /* MolibooWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */; };
 		D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */; };
 		164866914AF0CCC86877F8F8 /* ModulaWordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8AD5259BA1CC69A35AAEE4 /* ModulaWordmark.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* MoliboosWordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* MoliboosWordmark.swift */; };
+		B7A11C0DE5A1E0000000A001 /* ModulaUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A11C0DE5A1E0000000A002 /* ModulaUnit.swift */; };
 		35949C05BE1A250059BC6A55 /* MolibooWardrobeRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */; };
 		EA6BB58C599561872BE6C207 /* MolibooWardrobe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */; };
 		1B4920D7D792FF504F5D09D2 /* MolibooCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CD08F382212E1E9B48925E /* MolibooCollection.swift */; };
@@ -91,10 +103,33 @@
 		58B7BEB801B2C8CA10790150 /* MolibooAssetLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */; };
 		5A7A6E0B1C2D3E4F50617301 /* MolibooRendererBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7A6E0B1C2D3E4F50617302 /* MolibooRendererBenchmark.swift */; };
 		C80264059B020C529FB8E431 /* MolibooCharacterDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */; };
+		92C1AD5DC13689D9714A9364 /* MolibooFitLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6B5565647B6851EAA6E8D16 /* MolibooFitLabView.swift */; };
+		8784CC39FBFD4B1B2399B6EC /* MolibooCatalogueViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B6B776455D824E253E0BDFA /* MolibooCatalogueViews.swift */; };
+		BCBAFBC0E9BEF7746B9FECBC /* MolibooMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC7C8B275B9A8D47BC4BFA31 /* MolibooMotion.swift */; };
+		D9444EBC6C7A94D6A9D7889F /* MolibooPackages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9649DDE503F3448312CCCD4B /* MolibooPackages.swift */; };
+		AF8255A5603EBFD6401C548A /* MolibooFitProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E4B8D45F1AA50C1D4B6FA8 /* MolibooFitProfiles.swift */; };
+		F1EBCBFEBEEA3F2255CF76B9 /* MolibooRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FE8EDB540DDE8E7078DD077 /* MolibooRegistry.swift */; };
 		3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */; };
+		6EA21C08BAFDA513CD756C41 /* PremiumHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */; };
+		A5E2B1160215000000000002 /* MolibooMarketplaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E2B1160215000000000001 /* MolibooMarketplaceView.swift */; };
+		A5E2B1160215000000000012 /* MolibooStickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E2B1160215000000000011 /* MolibooStickers.swift */; };
+		BF5BBBE86AB44BDEA70CAEB4 /* PremiumBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD3E515E9E54852907CC4E9 /* PremiumBadge.swift */; };
+		61D623D830EA4436B9AD5E72 /* PremiumPlanViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */; };
+		E65FF55E8BBD46009836B8A6 /* PremiumMemberViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */; };
+		F9D985BB789D45D9B832DE4F /* PremiumPurchaseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */; };
+		4A0F657603DE75A0977546FE /* PremiumModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */; };
+		15FE0BF535EA9C5CCFAF99DF /* GubicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961C2CB05DCED97163C563F7 /* GubicModels.swift */; };
+		E9AC0D009EA08991BB0FA405 /* GubicRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */; };
+		5ED25DE0358D13C6C4883086 /* GubicSampleGame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9D4D9AF7EB2A7E578CC2C4 /* GubicSampleGame.swift */; };
+		DDC172E4D08AA51097A722E8 /* GubicPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C244DADF6DE5080FA3EB006 /* GubicPlayerView.swift */; };
+		169200C114BF8943306E416D /* GubicHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D63C5DAADAE6066D7FEE4C64 /* GubicHubView.swift */; };
+		B7FC48499189FD7E19EBA869 /* GubicGameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F116CE9426BECFA39C036D2 /* GubicGameDetailView.swift */; };
+		B3DD983EB3E6C094487BB195 /* GubicLobbiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39540277A8958BFBCEF74A79 /* GubicLobbiesView.swift */; };
+		DABD39DB92DEED971C634729 /* GubicCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3830ADE5A4975947DACB0690 /* GubicCreatorView.swift */; };
 		C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */; };
 		C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */; };
 		C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */; };
+		C1MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift */; };
 		C1COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift */; };
 		C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */; };
 		C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */; };
@@ -105,17 +140,22 @@
 		C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */; };
 		C11826D84B06144D712FB0998B /* MascotStudioViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01826D84B06144D712FB0998B /* MascotStudioViews.swift */; };
 		C1AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift */; };
+		C1F81B2A9C4D4E6B8A107E21 /* MascotCostumeCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F81B2A9C4D4E6B8A107E21 /* MascotCostumeCatalog.swift */; };
+		C1A29C6D18E54F0B9C33D447 /* MascotCostumeArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A29C6D18E54F0B9C33D447 /* MascotCostumeArt.swift */; };
 		C147C44B90908E004470E7C63A /* MascotScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C047C44B90908E004470E7C63A /* MascotScenes.swift */; };
 		C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */; };
 		C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FB3 /* MascotRig.swift */; };
+		C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */; };
+		C18E871C00879B8E66C5674A02 /* MolibooSeries2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */; };
 		C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */; };
 		C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */; };
 		C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */; };
-		C12C151370E36AF608722F3D /* EdgeBulgeFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */; };
 		C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */; };
 		C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */; };
 		C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */; };
 		C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */; };
+		E10D878678BB29171537E410 /* ModulaPolishIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00D878678BB29171537E410 /* ModulaPolishIntegration.swift */; };
+		E1F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift */; };
 		B50100000000000000000001 /* ModulaIslandBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40100000000000000000001 /* ModulaIslandBanner.swift */; };
 		A03200000000000000000008 /* ModulaAttachmentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000008 /* ModulaAttachmentPicker.swift */; };
 		A03200000000000000000007 /* POST03Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000007 /* POST03Tests.swift */; };
@@ -136,6 +176,10 @@
 		R3B100000000000000000005 /* Ecosystem01R3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000005 /* Ecosystem01R3Tests.swift */; };
 		R3B100000000000000000006 /* EcosystemBasicLifecycleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */; };
 		0139D48F433333A6C105C394 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9539623085AAA12077638F /* SettingsView.swift */; };
+		5BC2CD708605BE414A846142 /* SettingsSecurityCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7DC2CD708605BE414A8461 /* SettingsSecurityCenter.swift */; };
+
+		5B0869F092AE8FAA2C9867BF /* SettingsAuthFlows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F250869F092AE8FAA2C9867 /* SettingsAuthFlows.swift */; };
+		5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
 		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
@@ -183,6 +227,8 @@
 		9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */; };
 		M90100000000000000000001 /* ProductUIDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000001 /* ProductUIDocument.swift */; };
 		M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000002 /* ModuleArtifactStore.swift */; };
+		BA0200000000000000000001 /* WebGamePackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0100000000000000000001 /* WebGamePackage.swift */; };
+		BA0200000000000000000002 /* WebGameHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0100000000000000000002 /* WebGameHost.swift */; };
 		M90100000000000000000003 /* ModuleActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000003 /* ModuleActivationController.swift */; };
 		M90100000000000000000004 /* ProductUIRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000004 /* ProductUIRenderer.swift */; };
 		M90100000000000000000005 /* ProductUIRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = M80100000000000000000005 /* ProductUIRuntime.swift */; };
@@ -194,6 +240,7 @@
 		98B1FF0A78D3F224FB40C690 /* IntelligenceToolValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4CC36E2CB4875EBEDB19A1A /* IntelligenceToolValidation.swift */; };
 		9B142191BFBCE380907C8378 /* GeneratedDesignContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B093117E45986E847387DC /* GeneratedDesignContract.swift */; };
 		9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */; };
+		AA5E0D1000000000000000A1 /* PendingSignupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5E0D1000000000000000A2 /* PendingSignupStore.swift */; };
 		A30300000000000000000001 /* AppleSystemIntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000001 /* AppleSystemIntelligenceProvider.swift */; };
 		A30300000000000000000002 /* LI03AppleProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40300000000000000000002 /* LI03AppleProviderTests.swift */; };
 		A3FDEFCF2FC7C6C44C4CD7F9 /* DeterministicLocalProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1B51F430EC86144078FF8A /* DeterministicLocalProvider.swift */; };
@@ -204,9 +251,16 @@
 		A50100000000000000000003 /* AppGateHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000003 /* AppGateHost.swift */; };
 		A50100000000000000000004 /* OnboardingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000004 /* OnboardingModels.swift */; };
 		A50100000000000000000005 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000005 /* OnboardingView.swift */; };
+		5B5F77E631D19C97DDC98933 /* OnboardingMolibooPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FA65F77E631D19C97DDC989 /* OnboardingMolibooPicker.swift */; };
 		L50100000000000000000001 /* OnboardingLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000001 /* OnboardingLandingView.swift */; };
 		L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000002 /* OnboardingLandingModels.swift */; };
 		L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = L40100000000000000000003 /* OnboardingLandingTests.swift */; };
+		B7E4A91C2D6F4A18B0C3E502 /* SproutIllustration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E4A91C2D6F4A18B0C3E501 /* SproutIllustration.swift */; };
+		C8F1A02D3E4B5C6D7E8F9012 /* ShellScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */; };
+		D91AB23E4F5C6D7E8091A012 /* SproutStickerPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91AB23E4F5C6D7E8091A011 /* SproutStickerPack.swift */; };
+		D91AB23E4F5C6D7E8091A014 /* SproutStickerPackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91AB23E4F5C6D7E8091A013 /* SproutStickerPackTests.swift */; };
+		C8F1A02D3E4B5C6D7E8F9014 /* ShellSceneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F1A02D3E4B5C6D7E8F9013 /* ShellSceneTests.swift */; };
+		B7E4A91C2D6F4A18B0C3E504 /* SproutIllustrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E4A91C2D6F4A18B0C3E503 /* SproutIllustrationTests.swift */; };
 		A50100000000000000000006 /* FirstRunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000006 /* FirstRunModels.swift */; };
 		A50100000000000000000007 /* FirstRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000007 /* FirstRunView.swift */; };
 		A50100000000000000000008 /* AppLockModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40100000000000000000008 /* AppLockModels.swift */; };
@@ -255,6 +309,7 @@
 		B6A6AE2B292755C9AEBA6A4F /* NodusContextBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */; };
 		B7E661790BD11DE3A721C204 /* ShellAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECC47A5007CE1E5BB063A97 /* ShellAccessory.swift */; };
 		B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ECAD5355D79305D770912A /* ProfileView.swift */; };
+		5B481061A552391299474632 /* ProfileShowcase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDF481061A5523912994746 /* ProfileShowcase.swift */; };
 		BB47BD84CB36684F9FB5C6D5 /* IntelligenceAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3907C2A83DF1A9C8AE1CAC40 /* IntelligenceAvailability.swift */; };
 		BEEBE251735247E8828B2F26 /* IntelligenceValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED61D09324116C37F15191A /* IntelligenceValue.swift */; };
 		C2D2BC0654B3A4ABD668B498 /* NodusConversationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03112C0E692C6AF64E25BDB0 /* NodusConversationEngine.swift */; };
@@ -273,6 +328,7 @@
 		C5010000000000000000000C /* N4FTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4010000000000000000000C /* N4FTests.swift */; };
 		C5321327FFFE3ADE609BB112 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084039C8EE9493F07C7F4946 /* AppEnvironment.swift */; };
 		C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */; };
+		D98B000000000000000000B1 /* AppearanceExperienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A1 /* AppearanceExperienceTests.swift */; };
 		C80100000000000000000001 /* NodusChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90100000000000000000001 /* NodusChatView.swift */; };
 		C80100000000000000000002 /* NodusChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90100000000000000000002 /* NodusChatViewModel.swift */; };
 		C80100000000000000000021 /* NodusComposerStudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90100000000000000000021 /* NodusComposerStudio.swift */; };
@@ -313,6 +369,9 @@
 		D90195AB663F1D6B78E7D368 /* NodusConversationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EA749138365B53444A18694 /* NodusConversationModels.swift */; };
 		DB3BEA70380AF2D78B2306D5 /* ModulaIntelligenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */; };
 		DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */; };
+		D98B000000000000000000B3 /* ProductHubLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A3 /* ProductHubLayouts.swift */; };
+		D98B000000000000000000B4 /* ProductHubLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98B000000000000000000A4 /* ProductHubLayoutTests.swift */; };
+		37A0D700A836919B30D8D080 /* GubicBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B9B9C7623E5312951F7AA3 /* GubicBridgeTests.swift */; };
 		E0D95AA46131E2250F52B55D /* NodusKnowledgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3695AE2813EB68FE1AE272 /* NodusKnowledgeModels.swift */; };
 		E20100000000000000000001 /* DiscoverModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000001 /* DiscoverModels.swift */; };
 		E20100000000000000000002 /* DiscoverRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10100000000000000000002 /* DiscoverRepository.swift */; };
@@ -333,6 +392,7 @@
 		E40100000000000000000007 /* HomeTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000007 /* HomeTools.swift */; };
 		E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000008 /* ModulaProgressiveHeader.swift */; };
 		E40100000000000000000009 /* HomeFeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000009 /* HomeFeedTests.swift */; };
+		PU5H00000000000000000013 /* PushNotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000003 /* PushNotificationTests.swift */; };
 		E4010000000000000000000A /* ModulaContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000A /* ModulaContextMenu.swift */; };
 		E4010000000000000000000B /* ModulaMediaViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3010000000000000000000B /* ModulaMediaViewer.swift */; };
 		E40100000000000000000010 /* PostGestureThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30100000000000000000010 /* PostGestureThresholds.swift */; };
@@ -357,6 +417,8 @@
 		F10100000000000000000004 /* ProfileComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000004 /* ProfileComponents.swift */; };
 		F10100000000000000000005 /* ProfileEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000005 /* ProfileEditView.swift */; };
 		F10100000000000000000006 /* ProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000006 /* ProfileTests.swift */; };
+		876A4A792369DBEA180D421D /* PremiumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DB1BA049C34A721DBEAFB7 /* PremiumTests.swift */; };
+		A5E2B1160215000000000004 /* MOL06MarketplaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E2B1160215000000000003 /* MOL06MarketplaceTests.swift */; };
 		F10100000000000000000007 /* ProfileContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000007 /* ProfileContextActions.swift */; };
 		F10100000000000000000008 /* ProfileShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000008 /* ProfileShareViews.swift */; };
 		F10100000000000000000009 /* ProfileMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000009 /* ProfileMediaViews.swift */; };
@@ -381,14 +443,9 @@
 		FCF5472ED72B6CF79891F968 /* IntelligenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB03DB7121ABD1E492F3AC7E /* IntelligenceProvider.swift */; };
 		FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */; };
 		G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000001 /* ModulaSurfaceSystem.swift */; };
-		G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000002 /* EdgeLoopEngine.swift */; };
-		G50100000000000000000003 /* EdgeLoopShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000003 /* EdgeLoopShape.swift */; };
-		G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000004 /* ModulaEdgeLoop.swift */; };
 		G50100000000000000000006 /* TypographyPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000006 /* TypographyPreview.swift */; };
 		G50100000000000000000007 /* N4GTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000007 /* N4GTests.swift */; };
 		G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000008 /* EdgePickerPreferences.swift */; };
-		G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = G40100000000000000000009 /* EdgeLoopMetrics.swift */; };
-		G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4010000000000000000000A /* EdgePickerSettingsView.swift */; };
 		H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000001 /* IntelligenceSettingsViews.swift */; };
 		H50100000000000000000002 /* SettingsShellViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000002 /* SettingsShellViews.swift */; };
 		H50100000000000000000003 /* SettingsChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = H40100000000000000000003 /* SettingsChrome.swift */; };
@@ -401,18 +458,31 @@
 		N50100000000000000000005 /* MessagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000005 /* MessagingStore.swift */; };
 		N50100000000000000000006 /* MessageContextActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000006 /* MessageContextActions.swift */; };
 		N50100000000000000000007 /* MessagesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000007 /* MessagesViews.swift */; };
+		B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */; };
+		C0MSGV3100000000000011 /* MessagingRealtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MSGV3100000000000001 /* MessagingRealtime.swift */; };
+		C0MSGV3100000000000012 /* MessagingV3Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MSGV3100000000000002 /* MessagingV3Views.swift */; };
 		N50100000000000000000008 /* InMailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000008 /* InMailModels.swift */; };
 		N50100000000000000000009 /* InMailRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000009 /* InMailRepository.swift */; };
 		N5010000000000000000000A /* InMailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000A /* InMailStore.swift */; };
 		N5010000000000000000000B /* InMailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000B /* InMailViews.swift */; };
 		N5010000000000000000000C /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000C /* StoryModels.swift */; };
+		N50100000000000000000FFD /* StoryCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000FFD /* StoryCamera.swift */; };
+		N50100000000000000000FFE /* StoryVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000FFE /* StoryVideo.swift */; };
 		N5010000000000000000000D /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000D /* StoryViews.swift */; };
+		C0F11D1A0000000000000A01 /* PhotoFilterDial.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F11D1A0000000000000A02 /* PhotoFilterDial.swift */; };
+		C0F11D1A0000000000000B01 /* PhotoFilterDialTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F11D1A0000000000000B02 /* PhotoFilterDialTests.swift */; };
+		C0MM00010000000000000011 /* CommunityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000012 /* CommunityModels.swift */; };
+		C0MM00010000000000000021 /* CommunityHubViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000022 /* CommunityHubViews.swift */; };
+		C0MM00010000000000000031 /* CommunityDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000032 /* CommunityDetailViews.swift */; };
+		C0MM00010000000000000041 /* CommunityShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0MM00010000000000000042 /* CommunityShellTests.swift */; };
 		N5010000000000000000000E /* ReelModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000E /* ReelModels.swift */; };
 		N5010000000000000000000F /* ReelViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = N4010000000000000000000F /* ReelViewer.swift */; };
 		B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802844A3 /* ReelChrome.swift */; };
+		B34580D3CE7F4E9799B1B4AA /* LiveViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44422B2509D46A6802845AA /* LiveViews.swift */; };
 		N50100000000000000000010 /* ProfilePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000010 /* ProfilePresentation.swift */; };
 		N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000011 /* ProfileCustomizationViews.swift */; };
 		N50100000000000000000012 /* N4CTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = N40100000000000000000012 /* N4CTests.swift */; };
+		AA5E0D1000000000000000B1 /* AuthPendingSignupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5E0D1000000000000000B2 /* AuthPendingSignupTests.swift */; };
 		V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = V40100000000000000000003 /* ModuleVersionSwitchTests.swift */; };
 		S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = S40100000000000000000001 /* SettingsVisualSystem.swift */; };
 		EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */; };
@@ -421,12 +491,18 @@
 		8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D9171C8595DD0F57E983884 /* Localizable.xcstrings */; };
 		5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */; };
 		F70200000000000000000003 /* ProfileContentTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000003 /* ProfileContentTabs.swift */; };
+		D0A1000000000000000000B1 /* SpectralDrape.metal in Sources */ = {isa = PBXBuildFile; fileRef = D0A1000000000000000000F1 /* SpectralDrape.metal */; };
+		D0A2000000000000000000B1 /* SpectralDrapeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A2000000000000000000F1 /* SpectralDrapeView.swift */; };
+		D0A3000000000000000000B1 /* ModulaAuthBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A3000000000000000000F1 /* ModulaAuthBackdrop.swift */; };
 		F70200000000000000000002 /* ModulaEffectKit.metal in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000002 /* ModulaEffectKit.metal */; };
 		B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 041747946D183AA6E7642E17 /* MolibooShaders.metal */; };
 		F70200000000000000000001 /* ModulaEffectKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000001 /* ModulaEffectKit.swift */; };
+		5B54E113B340B04A3A738180 /* ModulaSurfaceMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5454E113B340B04A3A7381 /* ModulaSurfaceMotion.swift */; };
 		R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000020 /* SettingsDecisionPages.swift */; };
 		R50100000000000000000012 /* DownloadedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000012 /* DownloadedMedia.swift */; };
 		R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000011 /* SettingsNotificationPages.swift */; };
+		PU5H00000000000000000011 /* PushNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000001 /* PushNotificationController.swift */; };
+		PU5H00000000000000000012 /* PushNotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PU5H00000000000000000002 /* PushNotificationSettingsView.swift */; };
 		R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000010 /* SettingsCreatorPages.swift */; };
 		R50100000000000000000009 /* SettingsAccountPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000009 /* SettingsAccountPages.swift */; };
 		R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = R40100000000000000000008 /* SettingsRemoteModels.swift */; };
@@ -467,10 +543,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		CA1100000000000000000001 /* CallModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallModels.swift; path = Features/Calls/CallModels.swift; sourceTree = "<group>"; };
+		CA1100000000000000000002 /* CallRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallRepository.swift; path = Features/Calls/CallRepository.swift; sourceTree = "<group>"; };
+		CA1100000000000000000003 /* CallSignallingClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallSignallingClient.swift; path = Features/Calls/CallSignallingClient.swift; sourceTree = "<group>"; };
+		CA1100000000000000000004 /* CallMediaEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallMediaEngine.swift; path = Features/Calls/CallMediaEngine.swift; sourceTree = "<group>"; };
+		CA1100000000000000000005 /* CallManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallManager.swift; path = Features/Calls/CallManager.swift; sourceTree = "<group>"; };
+		CA1100000000000000000006 /* CallViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CallViews.swift; path = Features/Calls/CallViews.swift; sourceTree = "<group>"; };
+		CA1100000000000000000100 /* CallTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallTests.swift; sourceTree = "<group>"; };
+		871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooItems.xcassets; path = Resources/MolibooGame/MolibooItems.xcassets; sourceTree = "<group>"; };
+		EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameViews.swift; path = Features/MolibooGame/MolibooGameViews.swift; sourceTree = "<group>"; };
+		2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameAPI.swift; path = Features/MolibooGame/MolibooGameAPI.swift; sourceTree = "<group>"; };
+		00800010D11651D7DAE87F5E /* MolibooGameModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameModels.swift; path = Features/MolibooGame/MolibooGameModels.swift; sourceTree = "<group>"; };
+		2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooGameFlags.swift; path = Features/MolibooGame/MolibooGameFlags.swift; sourceTree = "<group>"; };
+		BA0200000000000000000012 /* GameFixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = GameFixtures; sourceTree = "<group>"; };
 		259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFReaderV2Tests.swift; sourceTree = "<group>"; };
 		DAA5B12DBD0541F38FC76EC2 /* PDFImmersiveReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFImmersiveReader.swift; path = Features/Social/PDFImmersiveReader.swift; sourceTree = "<group>"; };
 		7BB21356FB1D4171B5159E7E /* PDFReading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFReading.swift; path = Features/Social/PDFReading.swift; sourceTree = "<group>"; };
 		B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlinePostUITests.swift; sourceTree = "<group>"; };
+		5EE15A11C0DE4A7E8B1A2D01 /* SidebarSwipeFreezeUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarSwipeFreezeUITests.swift; sourceTree = "<group>"; };
+		5EE15A11C0DE4A7E8B1A2C01 /* ReelsTapUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReelsTapUITests.swift; sourceTree = "<group>"; };
 		AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PDFInlineCarouselTests.swift; sourceTree = "<group>"; };
 		F7E1CFA0E65045DBBB9D7870 /* PDFInlineLab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineLab.swift; path = Features/Social/PDFInlineLab.swift; sourceTree = "<group>"; };
 		C60B54CD0D8A4495985F84DD /* PDFInlineCarousel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PDFInlineCarousel.swift; path = Features/Social/PDFInlineCarousel.swift; sourceTree = "<group>"; };
@@ -492,51 +583,47 @@
 		545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03AmbienceTests.swift; sourceTree = "<group>"; };
 		3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WorldTests.swift; sourceTree = "<group>"; };
 		3C87EC46345945E89B099370 /* MOL04CardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL04CardsTests.swift; sourceTree = "<group>"; };
+		6B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooCardGalleryTests.swift; sourceTree = "<group>"; };
+		BBED1C35A92953E2AFA3812B /* MOL03MotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03MotionTests.swift; sourceTree = "<group>"; };
+		9FEF3567EEDB4B9164D61D4A /* MOL03PerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03PerformanceTests.swift; sourceTree = "<group>"; };
+		0A824726B67D9158F1B8E6BB /* MOL03PackageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03PackageTests.swift; sourceTree = "<group>"; };
+		30FECC8C1DBD1C8396F504AB /* MOL03VisualAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03VisualAcceptanceTests.swift; sourceTree = "<group>"; };
+		08DA78BE210B2E70241735B0 /* MOL03RegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03RegistryTests.swift; sourceTree = "<group>"; };
+		3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL05LegendsTests.swift; sourceTree = "<group>"; };
+		7A1C0E5D2B9F4A6E8D3C1B08 /* MolibooWardrobeDropTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooWardrobeDropTests.swift; sourceTree = "<group>"; };
 		AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaWordmarkTests.swift; sourceTree = "<group>"; };
-		30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03OriginalsTests.swift; sourceTree = "<group>"; };
+		B7A11C0DE5A1E0000000A004 /* ModulaUnitShapeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModulaUnitShapeTests.swift; sourceTree = "<group>"; };
 		C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeRigTests.swift; sourceTree = "<group>"; };
 		F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeFitValidationTests.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5A60718293A4B6D /* MolibooArtSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooArtSnapshotTests.swift; sourceTree = "<group>"; };
 		B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooFitValidator.swift; sourceTree = "<group>"; };
 		9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeTests.swift; sourceTree = "<group>"; };
+		8F3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooCostumeTests.swift; sourceTree = "<group>"; };
 		8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03CollectionTests.swift; sourceTree = "<group>"; };
 		06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03StudioTests.swift; sourceTree = "<group>"; };
 		53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooBrand.xcassets; path = Resources/Moliboo3D/MolibooBrand.xcassets; sourceTree = "<group>"; };
 		96CD403C58D3542711764A10 /* moliboo_manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_manifest.json; path = Resources/Moliboo3D/moliboo_manifest.json; sourceTree = "<group>"; };
-		5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Accessory_Cap_MolibooSignature.usdz; path = Resources/Moliboo3D/Accessory_Cap_MolibooSignature.usdz; sourceTree = "<group>"; };
-		2142D575079AC30ACF5E8A4D /* Pebble.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pebble.usdz; path = Resources/Moliboo3D/Pebble.usdz; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Pip.usdz; path = Resources/Moliboo3D/Pip.usdz; sourceTree = "<group>"; };
-		DD9FCE5437AAD92B51AFB558 /* MolibooWardrobePremium */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MolibooWardrobePremium; path = Resources/Moliboo3D/MolibooWardrobePremium; sourceTree = "<group>"; };
+		6851AF3E59FF52B3AFA1610C /* moliboo_accessory_fits.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_accessory_fits.json; path = Resources/Moliboo/moliboo_accessory_fits.json; sourceTree = "<group>"; };
+		25C7AF955A3ED6ED5BE57049 /* moliboo_registry.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_registry.json; path = Resources/Moliboo/moliboo_registry.json; sourceTree = "<group>"; };
 		0A832714662FD46272477CD9 /* MolibooWardrobe */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MolibooWardrobe; path = Resources/Moliboo3D/MolibooWardrobe; sourceTree = "<group>"; };
 		1D72EFF289F093333E3F0EBE /* moliboo_wardrobe_fits.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = moliboo_wardrobe_fits.json; path = Resources/Moliboo3D/moliboo_wardrobe_fits.json; sourceTree = "<group>"; };
-		F5B6F1B5E596134C681CE0DB /* Portrait_Tuck.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Tuck.png; path = Resources/Moliboo3D/Portrait_Tuck.png; sourceTree = "<group>"; };
-		A7821284D147D0C3A689623E /* Portrait_Ember.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Ember.png; path = Resources/Moliboo3D/Portrait_Ember.png; sourceTree = "<group>"; };
-		934E733694CE54350C159430 /* Portrait_Sprout.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Sprout.png; path = Resources/Moliboo3D/Portrait_Sprout.png; sourceTree = "<group>"; };
-		DC9286D90C905B2A29B8125F /* Portrait_Mochi.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Mochi.png; path = Resources/Moliboo3D/Portrait_Mochi.png; sourceTree = "<group>"; };
-		4BFFAA2B102243121B59777B /* Portrait_Nimbus.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Nimbus.png; path = Resources/Moliboo3D/Portrait_Nimbus.png; sourceTree = "<group>"; };
-		7541BC360060C244B9B9DCC2 /* Tuck.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Tuck.usdz; path = Resources/Moliboo3D/Tuck.usdz; sourceTree = "<group>"; };
-		11DC0ED74AC5CF4737477D7A /* Ember.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Ember.usdz; path = Resources/Moliboo3D/Ember.usdz; sourceTree = "<group>"; };
-		A2B4B833E2B7A753F56ED5AB /* Sprout.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Sprout.usdz; path = Resources/Moliboo3D/Sprout.usdz; sourceTree = "<group>"; };
-		DB499EC255794BC1785E95B0 /* Mochi.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Mochi.usdz; path = Resources/Moliboo3D/Mochi.usdz; sourceTree = "<group>"; };
-		54E866BE1E32E89553A59828 /* Nimbus.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Nimbus.usdz; path = Resources/Moliboo3D/Nimbus.usdz; sourceTree = "<group>"; };
-		EA3F1A7E7D0253804FF22435 /* Portrait_Bolt.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Bolt.png; path = Resources/Moliboo3D/Portrait_Bolt.png; sourceTree = "<group>"; };
-		086132A77FDB0E101143DCA1 /* Portrait_Tofu.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Tofu.png; path = Resources/Moliboo3D/Portrait_Tofu.png; sourceTree = "<group>"; };
-		FABEC6E73A0AFB71E8465981 /* Portrait_Pebble.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Pebble.png; path = Resources/Moliboo3D/Portrait_Pebble.png; sourceTree = "<group>"; };
-		6C3C88E0DAA927A3D4D34032 /* Portrait_Moss.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Moss.png; path = Resources/Moliboo3D/Portrait_Moss.png; sourceTree = "<group>"; };
-		9D6B80ABF1E5CF55F6E8329E /* Portrait_Pip.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Portrait_Pip.png; path = Resources/Moliboo3D/Portrait_Pip.png; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Moss.usdz; path = Resources/Moliboo3D/Moss.usdz; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E112 /* Tofu.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Tofu.usdz; path = Resources/Moliboo3D/Tofu.usdz; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E116 /* Bolt.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; name = Bolt.usdz; path = Resources/Moliboo3D/Bolt.usdz; sourceTree = "<group>"; };
 		A2D3FB6B9F571FF6C9ACE953 /* MolibooCosmetics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCosmetics.swift; path = Features/Moliboo3D/MolibooCosmetics.swift; sourceTree = "<group>"; };
 		A1MOLIBOOSETTINGS00000F1 /* MolibooSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsView.swift; path = Features/Moliboo3D/MolibooSettingsView.swift; sourceTree = "<group>"; };
 		63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldScenes.swift; path = Features/MolibooWorld/MolibooWorldScenes.swift; sourceTree = "<group>"; };
 		AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAmbientBackground.swift; path = DesignSystem/Moliboo/MolibooAmbientBackground.swift; sourceTree = "<group>"; };
 		372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooShaderKit.swift; path = DesignSystem/Moliboo/MolibooShaderKit.swift; sourceTree = "<group>"; };
+		5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooEmptyArt.swift; path = DesignSystem/Moliboo/MolibooEmptyArt.swift; sourceTree = "<group>"; };
 		6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooSettingsHub.swift; path = Features/Moliboo3D/MolibooSettingsHub.swift; sourceTree = "<group>"; };
 		9D6B6F8530D8427FA49C358F /* MolibooCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCards.swift; path = Features/Moliboo3D/MolibooCards.swift; sourceTree = "<group>"; };
+		C0D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCardGallery.swift; path = Features/Moliboo3D/MolibooCardGallery.swift; sourceTree = "<group>"; };
+		C0E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooTradingCardV2.swift; path = Features/Moliboo3D/MolibooTradingCardV2.swift; sourceTree = "<group>"; };
+		C0F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCardCollectionView.swift; path = Features/Moliboo3D/MolibooCardCollectionView.swift; sourceTree = "<group>"; };
 		699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldParts.swift; path = Features/MolibooWorld/MolibooWorldParts.swift; sourceTree = "<group>"; };
 		014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldView.swift; path = Features/MolibooWorld/MolibooWorldView.swift; sourceTree = "<group>"; };
 		C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWorldModel.swift; path = Features/MolibooWorld/MolibooWorldModel.swift; sourceTree = "<group>"; };
 		EC8AD5259BA1CC69A35AAEE4 /* ModulaWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModulaWordmark.swift; path = DesignSystem/ModulaWordmark.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* MoliboosWordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MoliboosWordmark.swift; path = DesignSystem/MoliboosWordmark.swift; sourceTree = "<group>"; };
+		B7A11C0DE5A1E0000000A002 /* ModulaUnit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModulaUnit.swift; path = DesignSystem/ModulaUnit.swift; sourceTree = "<group>"; };
 		DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWardrobeRig.swift; path = Features/MolibooStudio/MolibooWardrobeRig.swift; sourceTree = "<group>"; };
 		705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooWardrobe.swift; path = Features/MolibooStudio/MolibooWardrobe.swift; sourceTree = "<group>"; };
 		F3CD08F382212E1E9B48925E /* MolibooCollection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCollection.swift; path = Features/MolibooStudio/MolibooCollection.swift; sourceTree = "<group>"; };
@@ -551,10 +638,33 @@
 		6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooAssetLoader.swift; path = Features/Moliboo3D/MolibooAssetLoader.swift; sourceTree = "<group>"; };
 		5A7A6E0B1C2D3E4F50617302 /* MolibooRendererBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooRendererBenchmark.swift; path = Features/Moliboo3D/MolibooRendererBenchmark.swift; sourceTree = "<group>"; };
 		7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCharacterDescriptor.swift; path = Features/Moliboo3D/MolibooCharacterDescriptor.swift; sourceTree = "<group>"; };
+		E6B5565647B6851EAA6E8D16 /* MolibooFitLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFitLabView.swift; path = Features/MolibooRegistry/MolibooFitLabView.swift; sourceTree = "<group>"; };
+		1B6B776455D824E253E0BDFA /* MolibooCatalogueViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooCatalogueViews.swift; path = Features/MolibooRegistry/MolibooCatalogueViews.swift; sourceTree = "<group>"; };
+		BC7C8B275B9A8D47BC4BFA31 /* MolibooMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooMotion.swift; path = Features/MolibooRegistry/MolibooMotion.swift; sourceTree = "<group>"; };
+		9649DDE503F3448312CCCD4B /* MolibooPackages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooPackages.swift; path = Features/MolibooRegistry/MolibooPackages.swift; sourceTree = "<group>"; };
+		A2E4B8D45F1AA50C1D4B6FA8 /* MolibooFitProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFitProfiles.swift; path = Features/MolibooRegistry/MolibooFitProfiles.swift; sourceTree = "<group>"; };
+		8FE8EDB540DDE8E7078DD077 /* MolibooRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooRegistry.swift; path = Features/MolibooRegistry/MolibooRegistry.swift; sourceTree = "<group>"; };
 		A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MolibooFeatureFlags.swift; path = Features/Moliboo3D/MolibooFeatureFlags.swift; sourceTree = "<group>"; };
+		764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumHubView.swift; path = Features/Premium/PremiumHubView.swift; sourceTree = "<group>"; };
+		A5E2B1160215000000000001 /* MolibooMarketplaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooMarketplaceView.swift; path = Features/MolibooMarketplace/MolibooMarketplaceView.swift; sourceTree = "<group>"; };
+		A5E2B1160215000000000011 /* MolibooStickers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooStickers.swift; path = Features/MolibooMarketplace/MolibooStickers.swift; sourceTree = "<group>"; };
+		8DD3E515E9E54852907CC4E9 /* PremiumBadge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumBadge.swift; path = Features/Premium/PremiumBadge.swift; sourceTree = "<group>"; };
+		28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumPlanViews.swift; path = Features/Premium/PremiumPlanViews.swift; sourceTree = "<group>"; };
+		30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumMemberViews.swift; path = Features/Premium/PremiumMemberViews.swift; sourceTree = "<group>"; };
+		EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumPurchaseViews.swift; path = Features/Premium/PremiumPurchaseViews.swift; sourceTree = "<group>"; };
+		FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PremiumModels.swift; path = Features/Premium/PremiumModels.swift; sourceTree = "<group>"; };
+		961C2CB05DCED97163C563F7 /* GubicModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicModels.swift; path = Features/GUBIC/GubicModels.swift; sourceTree = "<group>"; };
+		9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicRuntime.swift; path = Features/GUBIC/GubicRuntime.swift; sourceTree = "<group>"; };
+		0B9D4D9AF7EB2A7E578CC2C4 /* GubicSampleGame.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicSampleGame.swift; path = Features/GUBIC/GubicSampleGame.swift; sourceTree = "<group>"; };
+		7C244DADF6DE5080FA3EB006 /* GubicPlayerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicPlayerView.swift; path = Features/GUBIC/GubicPlayerView.swift; sourceTree = "<group>"; };
+		D63C5DAADAE6066D7FEE4C64 /* GubicHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicHubView.swift; path = Features/GUBIC/GubicHubView.swift; sourceTree = "<group>"; };
+		8F116CE9426BECFA39C036D2 /* GubicGameDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicGameDetailView.swift; path = Features/GUBIC/GubicGameDetailView.swift; sourceTree = "<group>"; };
+		39540277A8958BFBCEF74A79 /* GubicLobbiesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicLobbiesView.swift; path = Features/GUBIC/GubicLobbiesView.swift; sourceTree = "<group>"; };
+		3830ADE5A4975947DACB0690 /* GubicCreatorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GubicCreatorView.swift; path = Features/GUBIC/GubicCreatorView.swift; sourceTree = "<group>"; };
 		C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentAttachExtras.swift; path = Features/Social/CommentAttachExtras.swift; sourceTree = "<group>"; };
 		C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaStickerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaStickerExtras.swift; sourceTree = "<group>"; };
 		C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInlineCamera.swift; path = DesignSystem/AdvancedInteraction/ModulaInlineCamera.swift; sourceTree = "<group>"; };
+		C0MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPhotoGrid.swift; path = DesignSystem/AdvancedInteraction/ModulaPhotoGrid.swift; sourceTree = "<group>"; };
 		C0COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposeMediaAttach.swift; path = DesignSystem/AdvancedInteraction/ComposeMediaAttach.swift; sourceTree = "<group>"; };
 		C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaRichFormat.swift; path = DesignSystem/AdvancedInteraction/ModulaRichFormat.swift; sourceTree = "<group>"; };
 		C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMascotHost.swift; path = DesignSystem/Mascot/ModulaMascotHost.swift; sourceTree = "<group>"; };
@@ -565,17 +675,22 @@
 		C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotAssistant.swift; path = DesignSystem/Mascot/MascotAssistant.swift; sourceTree = "<group>"; };
 		C01826D84B06144D712FB0998B /* MascotStudioViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotStudioViews.swift; path = DesignSystem/Mascot/MascotStudioViews.swift; sourceTree = "<group>"; };
 		C0AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotWardrobeArt.swift; path = DesignSystem/Mascot/MascotWardrobeArt.swift; sourceTree = "<group>"; };
+		C0F81B2A9C4D4E6B8A107E21 /* MascotCostumeCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotCostumeCatalog.swift; path = DesignSystem/Mascot/MascotCostumeCatalog.swift; sourceTree = "<group>"; };
+		C0A29C6D18E54F0B9C33D447 /* MascotCostumeArt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotCostumeArt.swift; path = DesignSystem/Mascot/MascotCostumeArt.swift; sourceTree = "<group>"; };
 		C047C44B90908E004470E7C63A /* MascotScenes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotScenes.swift; path = DesignSystem/Mascot/MascotScenes.swift; sourceTree = "<group>"; };
 		C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotProgress.swift; path = DesignSystem/Mascot/MascotProgress.swift; sourceTree = "<group>"; };
 		C08E871C00879B8E66C5673FB3 /* MascotRig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MascotRig.swift; path = DesignSystem/Mascot/MascotRig.swift; sourceTree = "<group>"; };
+		C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooLegends.swift; path = DesignSystem/Mascot/MolibooLegends.swift; sourceTree = "<group>"; };
+		C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MolibooSeries2.swift; path = DesignSystem/Mascot/MolibooSeries2.swift; sourceTree = "<group>"; };
 		C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommentRichContent.swift; path = Features/Social/CommentRichContent.swift; sourceTree = "<group>"; };
 		C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerExtras.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerExtras.swift; sourceTree = "<group>"; };
 		C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaGlassShaders.metal; path = DesignSystem/Glass/ModulaGlassShaders.metal; sourceTree = "<group>"; };
-		C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeBulgeFlow.swift; path = DesignSystem/EdgeLoop/EdgeBulgeFlow.swift; sourceTree = "<group>"; };
 		C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaInAppBrowser.swift; path = Features/Browser/ModulaInAppBrowser.swift; sourceTree = "<group>"; };
 		C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerServices.swift; path = Core/Composer/ComposerServices.swift; sourceTree = "<group>"; };
 		C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaComposerMediaPanel.swift; path = DesignSystem/AdvancedInteraction/ModulaComposerMediaPanel.swift; sourceTree = "<group>"; };
 		C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaGlass.swift; path = DesignSystem/Glass/ModulaGlass.swift; sourceTree = "<group>"; };
+		E00D878678BB29171537E410 /* ModulaPolishIntegration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPolishIntegration.swift; path = Features/SystemIntegration/ModulaPolishIntegration.swift; sourceTree = "<group>"; };
+		E0F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaPolishKit.swift; path = DesignSystem/Polish/ModulaPolishKit.swift; sourceTree = "<group>"; };
 		B40100000000000000000001 /* ModulaIslandBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIslandBanner.swift; path = DesignSystem/Glass/ModulaIslandBanner.swift; sourceTree = "<group>"; };
 		A03100000000000000000008 /* ModulaAttachmentPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAttachmentPicker.swift; path = Features/Media/ModulaAttachmentPicker.swift; sourceTree = "<group>"; };
 		A03100000000000000000007 /* POST03Tests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = POST03Tests.swift; sourceTree = "<group>"; };
@@ -618,6 +733,7 @@
 		586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = ../PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActivityAuthTests.swift; sourceTree = "<group>"; };
 		6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthenticationStore.swift; path = Core/Authentication/AuthenticationStore.swift; sourceTree = "<group>"; };
+		AA5E0D1000000000000000A2 /* PendingSignupStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PendingSignupStore.swift; path = Core/Authentication/PendingSignupStore.swift; sourceTree = "<group>"; };
 		64E0C1CE1DD2D90E75B3DF62 /* IntelligenceCapability.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceCapability.swift; path = Core/Intelligence/Contracts/IntelligenceCapability.swift; sourceTree = "<group>"; };
 		65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Core/Persistence/KeychainStore.swift; sourceTree = "<group>"; };
 		6892B51E34CC27875E30261C /* Pods-ModulaTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ModulaTests.release.xcconfig"; path = "Target Support Files/Pods-ModulaTests/Pods-ModulaTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -635,6 +751,10 @@
 		87FAF528B548627542BBEB0D /* Pods-Modula-ModulaTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modula-ModulaTests.debug.xcconfig"; path = "Target Support Files/Pods-Modula-ModulaTests/Pods-Modula-ModulaTests.debug.xcconfig"; sourceTree = "<group>"; };
 		8BB4C8A7DBAF1068946F2678 /* ActivityStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ActivityStore.swift; path = Features/Activity/ActivityStore.swift; sourceTree = "<group>"; };
 		8E9539623085AAA12077638F /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		5F7DC2CD708605BE414A8461 /* SettingsSecurityCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsSecurityCenter.swift; path = Features/Settings/SettingsSecurityCenter.swift; sourceTree = "<group>"; };
+
+		5F250869F092AE8FAA2C9867 /* SettingsAuthFlows.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsAuthFlows.swift; path = Features/Settings/SettingsAuthFlows.swift; sourceTree = "<group>"; };
+		5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsSurfaceCards.swift; path = Features/Settings/SettingsSurfaceCards.swift; sourceTree = "<group>"; };
 		8EA749138365B53444A18694 /* NodusConversationModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationModels.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationModels.swift; sourceTree = "<group>"; };
 		9041733DFED31156EFEE81C2 /* ModulaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ModulaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		90EAE77878B8E7792468645E /* ModuleSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleSession.swift; path = ModuleRuntime/ModuleSession.swift; sourceTree = "<group>"; };
@@ -650,9 +770,16 @@
 		A40100000000000000000003 /* AppGateHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppGateHost.swift; path = Core/AppGate/AppGateHost.swift; sourceTree = "<group>"; };
 		A40100000000000000000004 /* OnboardingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModels.swift; path = Features/Onboarding/OnboardingModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000005 /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = Features/Onboarding/OnboardingView.swift; sourceTree = "<group>"; };
+		5FA65F77E631D19C97DDC989 /* OnboardingMolibooPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingMolibooPicker.swift; path = Features/Onboarding/OnboardingMolibooPicker.swift; sourceTree = "<group>"; };
 		L40100000000000000000001 /* OnboardingLandingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingView.swift; path = Features/Onboarding/OnboardingLandingView.swift; sourceTree = "<group>"; };
 		L40100000000000000000002 /* OnboardingLandingModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingLandingModels.swift; path = Features/Onboarding/OnboardingLandingModels.swift; sourceTree = "<group>"; };
 		L40100000000000000000003 /* OnboardingLandingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingLandingTests.swift; sourceTree = "<group>"; };
+		B7E4A91C2D6F4A18B0C3E501 /* SproutIllustration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SproutIllustration.swift; path = DesignSystem/SproutIllustration.swift; sourceTree = "<group>"; };
+		C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShellScenes.swift; path = DesignSystem/ShellScenes.swift; sourceTree = "<group>"; };
+		D91AB23E4F5C6D7E8091A011 /* SproutStickerPack.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SproutStickerPack.swift; path = DesignSystem/SproutStickerPack.swift; sourceTree = "<group>"; };
+		D91AB23E4F5C6D7E8091A013 /* SproutStickerPackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SproutStickerPackTests.swift; sourceTree = "<group>"; };
+		C8F1A02D3E4B5C6D7E8F9013 /* ShellSceneTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShellSceneTests.swift; sourceTree = "<group>"; };
+		B7E4A91C2D6F4A18B0C3E503 /* SproutIllustrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SproutIllustrationTests.swift; sourceTree = "<group>"; };
 		A40100000000000000000006 /* FirstRunModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunModels.swift; path = Features/FirstRun/FirstRunModels.swift; sourceTree = "<group>"; };
 		A40100000000000000000007 /* FirstRunView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FirstRunView.swift; path = Features/FirstRun/FirstRunView.swift; sourceTree = "<group>"; };
 		A40100000000000000000008 /* AppLockModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppLockModels.swift; path = Core/Security/AppLockModels.swift; sourceTree = "<group>"; };
@@ -694,6 +821,8 @@
 		AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleRuntimeController.swift; path = ModuleRuntime/ModuleRuntimeController.swift; sourceTree = "<group>"; };
 		M80100000000000000000001 /* ProductUIDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIDocument.swift; path = ModuleRuntime/ProductUIDocument.swift; sourceTree = "<group>"; };
 		M80100000000000000000002 /* ModuleArtifactStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleArtifactStore.swift; path = ModuleRuntime/ModuleArtifactStore.swift; sourceTree = "<group>"; };
+		BA0100000000000000000001 /* WebGamePackage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WebGamePackage.swift; path = ModuleRuntime/WebGamePackage.swift; sourceTree = "<group>"; };
+		BA0100000000000000000002 /* WebGameHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WebGameHost.swift; path = ModuleRuntime/WebGameHost.swift; sourceTree = "<group>"; };
 		M80100000000000000000003 /* ModuleActivationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleActivationController.swift; path = ModuleRuntime/ModuleActivationController.swift; sourceTree = "<group>"; };
 		M80100000000000000000004 /* ProductUIRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRenderer.swift; path = ModuleRuntime/ProductUIRenderer.swift; sourceTree = "<group>"; };
 		M80100000000000000000005 /* ProductUIRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductUIRuntime.swift; path = ModuleRuntime/ProductUIRuntime.swift; sourceTree = "<group>"; };
@@ -729,6 +858,7 @@
 		C4010000000000000000000C /* N4FTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4FTests.swift; sourceTree = "<group>"; };
 		C727EBE1A122E68AE7538DFC /* IntelligenceResponse.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceResponse.swift; path = Core/Intelligence/Contracts/IntelligenceResponse.swift; sourceTree = "<group>"; };
 		C8ECAD5355D79305D770912A /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileView.swift; path = Features/Profile/ProfileView.swift; sourceTree = "<group>"; };
+		5FDF481061A5523912994746 /* ProfileShowcase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShowcase.swift; path = Features/Profile/ProfileShowcase.swift; sourceTree = "<group>"; };
 		C90100000000000000000001 /* NodusChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatView.swift; path = Features/Developer/NodusChatView.swift; sourceTree = "<group>"; };
 		C90100000000000000000002 /* NodusChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusChatViewModel.swift; path = Features/Developer/NodusChatViewModel.swift; sourceTree = "<group>"; };
 		C90100000000000000000021 /* NodusComposerStudio.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusComposerStudio.swift; path = Features/Developer/NodusComposerStudio.swift; sourceTree = "<group>"; };
@@ -767,6 +897,9 @@
 		D6F76DC91BAB0A497E6B24E0 /* NodusConversationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusConversationStore.swift; path = Core/Intelligence/Nodus/Conversation/NodusConversationStore.swift; sourceTree = "<group>"; };
 		D902DDFA87CA1FD5224F1994 /* libPods-Modula.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modula.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubView.swift; path = Features/ProductHub/ProductHubView.swift; sourceTree = "<group>"; };
+		D98B000000000000000000A3 /* ProductHubLayouts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProductHubLayouts.swift; path = Features/ProductHub/ProductHubLayouts.swift; sourceTree = "<group>"; };
+		D98B000000000000000000A4 /* ProductHubLayoutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProductHubLayoutTests.swift; sourceTree = "<group>"; };
+		15B9B9C7623E5312951F7AA3 /* GubicBridgeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GubicBridgeTests.swift; sourceTree = "<group>"; };
 		DC4EF43E9E96C1202C4F7E36 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ModulaTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E024B7E018DE17EDE324AD6D /* NodusDeepReasoningCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusDeepReasoningCoordinator.swift; path = Core/Intelligence/Nodus/Reasoning/NodusDeepReasoningCoordinator.swift; sourceTree = "<group>"; };
@@ -782,6 +915,7 @@
 		E10100000000000000000009 /* SearchScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SearchScreen.swift; path = Features/Search/SearchScreen.swift; sourceTree = "<group>"; };
 		E1010000000000000000000A /* DiscoverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscoverTests.swift; sourceTree = "<group>"; };
 		E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeFoundationTests.swift; sourceTree = "<group>"; };
+		D98B000000000000000000A1 /* AppearanceExperienceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppearanceExperienceTests.swift; sourceTree = "<group>"; };
 		E30100000000000000000001 /* PostModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostModels.swift; path = Features/Social/PostModels.swift; sourceTree = "<group>"; };
 		E30100000000000000000002 /* PostComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostComponents.swift; path = Features/Social/PostComponents.swift; sourceTree = "<group>"; };
 		E30100000000000000000003 /* PostDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PostDetailView.swift; path = Features/Social/PostDetailView.swift; sourceTree = "<group>"; };
@@ -791,6 +925,7 @@
 		E30100000000000000000007 /* HomeTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeTools.swift; path = Features/Home/HomeTools.swift; sourceTree = "<group>"; };
 		E30100000000000000000008 /* ModulaProgressiveHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaProgressiveHeader.swift; path = DesignSystem/ModulaProgressiveHeader.swift; sourceTree = "<group>"; };
 		E30100000000000000000009 /* HomeFeedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFeedTests.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000003 /* PushNotificationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushNotificationTests.swift; sourceTree = "<group>"; };
 		E3010000000000000000000A /* ModulaContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaContextMenu.swift; path = DesignSystem/ModulaContextMenu.swift; sourceTree = "<group>"; };
 		E3010000000000000000000B /* ModulaMediaViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaMediaViewer.swift; path = DesignSystem/ModulaMediaViewer.swift; sourceTree = "<group>"; };
 		F80100000000000000000001 /* ModulaIndicators.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIndicators.swift; path = DesignSystem/AdvancedInteraction/ModulaIndicators.swift; sourceTree = "<group>"; };
@@ -835,6 +970,8 @@
 		F00100000000000000000004 /* ProfileComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileComponents.swift; path = Features/Profile/ProfileComponents.swift; sourceTree = "<group>"; };
 		F00100000000000000000005 /* ProfileEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileEditView.swift; path = Features/Profile/ProfileEditView.swift; sourceTree = "<group>"; };
 		F00100000000000000000006 /* ProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileTests.swift; sourceTree = "<group>"; };
+		92DB1BA049C34A721DBEAFB7 /* PremiumTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PremiumTests.swift; sourceTree = "<group>"; };
+		A5E2B1160215000000000003 /* MOL06MarketplaceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MOL06MarketplaceTests.swift; sourceTree = "<group>"; };
 		F00100000000000000000007 /* ProfileContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContextActions.swift; path = Features/Profile/ProfileContextActions.swift; sourceTree = "<group>"; };
 		F00100000000000000000008 /* ProfileShareViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileShareViews.swift; path = Features/Profile/ProfileShareViews.swift; sourceTree = "<group>"; };
 		F00100000000000000000009 /* ProfileMediaViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileMediaViews.swift; path = Features/Profile/ProfileMediaViews.swift; sourceTree = "<group>"; };
@@ -845,14 +982,9 @@
 		F97B62939727826A0A7B6B6A /* ModulaIntelligenceService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaIntelligenceService.swift; path = Core/Intelligence/ModulaIntelligenceService.swift; sourceTree = "<group>"; };
 		FAC389B69B72346128446B86 /* NodusKnowledgeStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeStore.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeStore.swift; sourceTree = "<group>"; };
 		G40100000000000000000001 /* ModulaSurfaceSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceSystem.swift; path = DesignSystem/Surface/ModulaSurfaceSystem.swift; sourceTree = "<group>"; };
-		G40100000000000000000002 /* EdgeLoopEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopEngine.swift; path = DesignSystem/EdgeLoop/EdgeLoopEngine.swift; sourceTree = "<group>"; };
-		G40100000000000000000003 /* EdgeLoopShape.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopShape.swift; path = DesignSystem/EdgeLoop/EdgeLoopShape.swift; sourceTree = "<group>"; };
-		G40100000000000000000004 /* ModulaEdgeLoop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEdgeLoop.swift; path = DesignSystem/EdgeLoop/ModulaEdgeLoop.swift; sourceTree = "<group>"; };
 		G40100000000000000000006 /* TypographyPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyPreview.swift; path = Features/Settings/TypographyPreview.swift; sourceTree = "<group>"; };
 		G40100000000000000000007 /* N4GTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4GTests.swift; sourceTree = "<group>"; };
 		G40100000000000000000008 /* EdgePickerPreferences.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerPreferences.swift; path = DesignSystem/EdgeLoop/EdgePickerPreferences.swift; sourceTree = "<group>"; };
-		G40100000000000000000009 /* EdgeLoopMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgeLoopMetrics.swift; path = DesignSystem/EdgeLoop/EdgeLoopMetrics.swift; sourceTree = "<group>"; };
-		G4010000000000000000000A /* EdgePickerSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EdgePickerSettingsView.swift; path = Features/Settings/EdgePickerSettingsView.swift; sourceTree = "<group>"; };
 		H40100000000000000000001 /* IntelligenceSettingsViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceSettingsViews.swift; path = Features/Settings/IntelligenceSettingsViews.swift; sourceTree = "<group>"; };
 		H40100000000000000000002 /* SettingsShellViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsShellViews.swift; path = Features/Settings/SettingsShellViews.swift; sourceTree = "<group>"; };
 		H40100000000000000000003 /* SettingsChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsChrome.swift; path = Features/Settings/SettingsChrome.swift; sourceTree = "<group>"; };
@@ -865,18 +997,31 @@
 		N40100000000000000000005 /* MessagingStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingStore.swift; path = Features/Messages/MessagingStore.swift; sourceTree = "<group>"; };
 		N40100000000000000000006 /* MessageContextActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessageContextActions.swift; path = Features/Messages/MessageContextActions.swift; sourceTree = "<group>"; };
 		N40100000000000000000007 /* MessagesViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagesViews.swift; path = Features/Messages/MessagesViews.swift; sourceTree = "<group>"; };
+		0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingInboxTools.swift; path = Features/Messages/MessagingInboxTools.swift; sourceTree = "<group>"; };
+		C0MSGV3100000000000001 /* MessagingRealtime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingRealtime.swift; path = Features/Messages/MessagingRealtime.swift; sourceTree = "<group>"; };
+		C0MSGV3100000000000002 /* MessagingV3Views.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MessagingV3Views.swift; path = Features/Messages/MessagingV3Views.swift; sourceTree = "<group>"; };
 		N40100000000000000000008 /* InMailModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailModels.swift; path = Features/InMail/InMailModels.swift; sourceTree = "<group>"; };
 		N40100000000000000000009 /* InMailRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailRepository.swift; path = Features/InMail/InMailRepository.swift; sourceTree = "<group>"; };
 		N4010000000000000000000A /* InMailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailStore.swift; path = Features/InMail/InMailStore.swift; sourceTree = "<group>"; };
 		N4010000000000000000000B /* InMailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMailViews.swift; path = Features/InMail/InMailViews.swift; sourceTree = "<group>"; };
 		N4010000000000000000000C /* StoryModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryModels.swift; path = Features/Stories/StoryModels.swift; sourceTree = "<group>"; };
+		N40100000000000000000FFD /* StoryCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryCamera.swift; path = Features/Stories/StoryCamera.swift; sourceTree = "<group>"; };
+		N40100000000000000000FFE /* StoryVideo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryVideo.swift; path = Features/Stories/StoryVideo.swift; sourceTree = "<group>"; };
 		N4010000000000000000000D /* StoryViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StoryViews.swift; path = Features/Stories/StoryViews.swift; sourceTree = "<group>"; };
+		C0F11D1A0000000000000A02 /* PhotoFilterDial.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhotoFilterDial.swift; path = Features/Stories/PhotoFilterDial.swift; sourceTree = "<group>"; };
+		C0F11D1A0000000000000B02 /* PhotoFilterDialTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhotoFilterDialTests.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000012 /* CommunityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommunityModels.swift; path = Features/Community/CommunityModels.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000022 /* CommunityHubViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommunityHubViews.swift; path = Features/Community/CommunityHubViews.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000032 /* CommunityDetailViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CommunityDetailViews.swift; path = Features/Community/CommunityDetailViews.swift; sourceTree = "<group>"; };
+		C0MM00010000000000000042 /* CommunityShellTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CommunityShellTests.swift; sourceTree = "<group>"; };
 		N4010000000000000000000E /* ReelModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelModels.swift; path = Features/Reels/ReelModels.swift; sourceTree = "<group>"; };
 		N4010000000000000000000F /* ReelViewer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelViewer.swift; path = Features/Reels/ReelViewer.swift; sourceTree = "<group>"; };
 		A44422B2509D46A6802844A3 /* ReelChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReelChrome.swift; path = Features/Reels/ReelChrome.swift; sourceTree = "<group>"; };
+		A44422B2509D46A6802845AA /* LiveViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiveViews.swift; path = Features/Reels/LiveViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000010 /* ProfilePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfilePresentation.swift; path = Features/Profile/Customization/ProfilePresentation.swift; sourceTree = "<group>"; };
 		N40100000000000000000011 /* ProfileCustomizationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileCustomizationViews.swift; path = Features/Profile/Customization/ProfileCustomizationViews.swift; sourceTree = "<group>"; };
 		N40100000000000000000012 /* N4CTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = N4CTests.swift; sourceTree = "<group>"; };
+		AA5E0D1000000000000000B2 /* AuthPendingSignupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthPendingSignupTests.swift; sourceTree = "<group>"; };
 		V40100000000000000000003 /* ModuleVersionSwitchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleVersionSwitchTests.swift; sourceTree = "<group>"; };
 		S40100000000000000000001 /* SettingsVisualSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsVisualSystem.swift; path = Features/Settings/SettingsVisualSystem.swift; sourceTree = "<group>"; };
 		736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCompatibility.swift; path = ModuleRuntime/ModuleCompatibility.swift; sourceTree = "<group>"; };
@@ -885,12 +1030,19 @@
 		6D9171C8595DD0F57E983884 /* Localizable.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
 		F70100000000000000000003 /* ProfileContentTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContentTabs.swift; path = Features/Profile/ProfileContentTabs.swift; sourceTree = "<group>"; };
+		D0A1000000000000000000F1 /* SpectralDrape.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = SpectralDrape.metal; path = DesignSystem/Effects/SpectralDrape.metal; sourceTree = "<group>"; };
+		D0A2000000000000000000F1 /* SpectralDrapeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpectralDrapeView.swift; path = DesignSystem/Effects/SpectralDrapeView.swift; sourceTree = "<group>"; };
+		D0A3000000000000000000F1 /* ModulaAuthBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAuthBackdrop.swift; path = DesignSystem/Effects/ModulaAuthBackdrop.swift; sourceTree = "<group>"; };
 		F70100000000000000000002 /* ModulaEffectKit.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = ModulaEffectKit.metal; path = DesignSystem/Effects/ModulaEffectKit.metal; sourceTree = "<group>"; };
 		041747946D183AA6E7642E17 /* MolibooShaders.metal */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.metal; name = MolibooShaders.metal; path = DesignSystem/Moliboo/MolibooShaders.metal; sourceTree = "<group>"; };
 		F70100000000000000000001 /* ModulaEffectKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaEffectKit.swift; path = DesignSystem/Effects/ModulaEffectKit.swift; sourceTree = "<group>"; };
+		5F5454E113B340B04A3A7381 /* ModulaSurfaceMotion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaSurfaceMotion.swift; path = DesignSystem/Effects/ModulaSurfaceMotion.swift; sourceTree = "<group>"; };
 		R40100000000000000000020 /* SettingsDecisionPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsDecisionPages.swift; path = Features/Settings/Real/SettingsDecisionPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000012 /* DownloadedMedia.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadedMedia.swift; path = Features/Media/DownloadedMedia.swift; sourceTree = "<group>"; };
 		R40100000000000000000011 /* SettingsNotificationPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsNotificationPages.swift; path = Features/Settings/Real/SettingsNotificationPages.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000001 /* PushNotificationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotificationController.swift; path = Core/Notifications/PushNotificationController.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000002 /* PushNotificationSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotificationSettingsView.swift; path = Features/Settings/Real/PushNotificationSettingsView.swift; sourceTree = "<group>"; };
+		PU5H00000000000000000004 /* Modula.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Modula.entitlements; path = Modula.entitlements; sourceTree = "<group>"; };
 		R40100000000000000000010 /* SettingsCreatorPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsCreatorPages.swift; path = Features/Settings/Real/SettingsCreatorPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000009 /* SettingsAccountPages.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsAccountPages.swift; path = Features/Settings/Real/SettingsAccountPages.swift; sourceTree = "<group>"; };
 		R40100000000000000000008 /* SettingsRemoteModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsRemoteModels.swift; path = Features/Settings/Real/SettingsRemoteModels.swift; sourceTree = "<group>"; };
@@ -934,6 +1086,7 @@
 				A80100000000000000000003 /* MLXHuggingFace in Frameworks */,
 				A80100000000000000000004 /* HuggingFace in Frameworks */,
 				A80100000000000000000005 /* Tokenizers in Frameworks */,
+				CA1400000000000000000001 /* WebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -967,29 +1120,49 @@
 			children = (
 				A03100000000000000000007 /* POST03Tests.swift */,
 				L40100000000000000000003 /* OnboardingLandingTests.swift */,
+				B7E4A91C2D6F4A18B0C3E503 /* SproutIllustrationTests.swift */,
+				C8F1A02D3E4B5C6D7E8F9013 /* ShellSceneTests.swift */,
+				D91AB23E4F5C6D7E8091A013 /* SproutStickerPackTests.swift */,
 				F70100000000000000000004 /* EffectKitTests.swift */,
+				C0F11D1A0000000000000B02 /* PhotoFilterDialTests.swift */,
+				C0MM00010000000000000042 /* CommunityShellTests.swift */,
 				775DC34FE761435741076D26 /* MOL01Tests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E104 /* MOL02Tests.swift */,
 				545EE2428098F54A19A0941E /* MOL03AmbienceTests.swift */,
 				3A7C648C50ADD49BC9E0FB56 /* MOL03WorldTests.swift */,
 				3C87EC46345945E89B099370 /* MOL04CardsTests.swift */,
+				6B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift */,
+				BBED1C35A92953E2AFA3812B /* MOL03MotionTests.swift */,
+				9FEF3567EEDB4B9164D61D4A /* MOL03PerformanceTests.swift */,
+				0A824726B67D9158F1B8E6BB /* MOL03PackageTests.swift */,
+				30FECC8C1DBD1C8396F504AB /* MOL03VisualAcceptanceTests.swift */,
+				08DA78BE210B2E70241735B0 /* MOL03RegistryTests.swift */,
+				3C87EC46345945E89B099405 /* MOL05LegendsTests.swift */,
+				7A1C0E5D2B9F4A6E8D3C1B08 /* MolibooWardrobeDropTests.swift */,
 				AF51FB12DD2DA68F1C34C228 /* ModulaWordmarkTests.swift */,
-				30BD08CABF77082C7FA8B01C /* MOL03OriginalsTests.swift */,
+				B7A11C0DE5A1E0000000A004 /* ModulaUnitShapeTests.swift */,
 				C5AE4E96F6355BC4820DEA9D /* MOL03WardrobeRigTests.swift */,
 				F6F36F8A3D92BA8957963D0C /* MOL03WardrobeFitValidationTests.swift */,
+				B1C2D3E4F5A60718293A4B6D /* MolibooArtSnapshotTests.swift */,
 				B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */,
 				9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */,
+				8F3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift */,
 				8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */,
 				06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */,
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
 				Q40100000000000000000006 /* SettingsServiceTests.swift */,
 				N40100000000000000000012 /* N4CTests.swift */,
+				AA5E0D1000000000000000B2 /* AuthPendingSignupTests.swift */,
+				CA1100000000000000000100 /* CallTests.swift */,
 				V40100000000000000000003 /* ModuleVersionSwitchTests.swift */,
 				D40100000000000000000018 /* N4DTests.swift */,
 				A40100000000000000000017 /* N4ETests.swift */,
 				C4010000000000000000000C /* N4FTests.swift */,
 				G40100000000000000000007 /* N4GTests.swift */,
 				E17CCA9EFD0695360504B5D2 /* NativeFoundationTests.swift */,
+				D98B000000000000000000A1 /* AppearanceExperienceTests.swift */,
+				D98B000000000000000000A4 /* ProductHubLayoutTests.swift */,
+				15B9B9C7623E5312951F7AA3 /* GubicBridgeTests.swift */,
 				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
 				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
 				T80100000000000000000001 /* ModuleHostEcosystemTests.swift */,
@@ -998,10 +1171,13 @@
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
 				E1010000000000000000000A /* DiscoverTests.swift */,
 				E30100000000000000000009 /* HomeFeedTests.swift */,
+				PU5H00000000000000000003 /* PushNotificationTests.swift */,
 				E30100000000000000000019 /* PostSystemTests.swift */,
 				AA7F7ED971B64DE79A592E1E /* PDFInlineCarouselTests.swift */,
 				259E9F3382BC4EA5811690EC /* PDFReaderV2Tests.swift */,
 				F00100000000000000000006 /* ProfileTests.swift */,
+				92DB1BA049C34A721DBEAFB7 /* PremiumTests.swift */,
+				A5E2B1160215000000000003 /* MOL06MarketplaceTests.swift */,
 				834A240ED776595650758ACA /* LI02IntelligenceTests.swift */,
 				A40300000000000000000002 /* LI03AppleProviderTests.swift */,
 				A6010000000000000000000D /* Nodus01Tests.swift */,
@@ -1014,6 +1190,7 @@
 		2E8838EEE4D837D181A4729A /* ModulaUITests */ = {
 			isa = PBXGroup;
 			children = (
+				BA0200000000000000000012 /* GameFixtures */,
 				9AA9CD0861813EF42C424B9A /* NativeLaunchTests.swift */,
 				R3A100000000000000000006 /* EcosystemBasicLifecycleUITests.swift */,
 				A0MOL01ACC0000000000000F /* MOL01AcceptanceUITests.swift */,
@@ -1024,6 +1201,8 @@
 				35F1D3F0EE4EADF1CF62C7DA /* MOL03PickerAmbientUITests.swift */,
 				05594AC12F22DBDCED56C4CE /* MOL03SettingsHubUITests.swift */,
 				B02FB311CBAA4285B556D18C /* PDFInlinePostUITests.swift */,
+				5EE15A11C0DE4A7E8B1A2C01 /* ReelsTapUITests.swift */,
+				5EE15A11C0DE4A7E8B1A2D01 /* SidebarSwipeFreezeUITests.swift */,
 				5E18744FE79D44EEB5422B45 /* MOL04CardsUITests.swift */,
 				471F7AF99CDC198799763F9B /* MOL03WorldUITests.swift */,
 				271267906D77E83307E9ECE3 /* MOL03OriginalsUITests.swift */,
@@ -1105,16 +1284,32 @@
 				N40100000000000000000005 /* MessagingStore.swift */,
 				N40100000000000000000006 /* MessageContextActions.swift */,
 				N40100000000000000000007 /* MessagesViews.swift */,
+				0833E5188AC56FFDAE7AED43 /* MessagingInboxTools.swift */,
+				C0MSGV3100000000000001 /* MessagingRealtime.swift */,
+				CA1100000000000000000001 /* CallModels.swift */,
+				CA1100000000000000000002 /* CallRepository.swift */,
+				CA1100000000000000000003 /* CallSignallingClient.swift */,
+				CA1100000000000000000004 /* CallMediaEngine.swift */,
+				CA1100000000000000000005 /* CallManager.swift */,
+				CA1100000000000000000006 /* CallViews.swift */,
+				C0MSGV3100000000000002 /* MessagingV3Views.swift */,
 				N40100000000000000000008 /* InMailModels.swift */,
 				N40100000000000000000009 /* InMailRepository.swift */,
 				N4010000000000000000000A /* InMailStore.swift */,
 				N4010000000000000000000B /* InMailViews.swift */,
 				N4010000000000000000000C /* StoryModels.swift */,
 				N4010000000000000000000D /* StoryViews.swift */,
+				C0F11D1A0000000000000A02 /* PhotoFilterDial.swift */,
+				C0MM00010000000000000012 /* CommunityModels.swift */,
+				C0MM00010000000000000022 /* CommunityHubViews.swift */,
+				C0MM00010000000000000032 /* CommunityDetailViews.swift */,
+				N40100000000000000000FFE /* StoryVideo.swift */,
+				N40100000000000000000FFD /* StoryCamera.swift */,
 				N4010000000000000000000E /* ReelModels.swift */,
 				N4010000000000000000000F /* ReelViewer.swift */,
 
 				A44422B2509D46A6802844A3 /* ReelChrome.swift */,
+				A44422B2509D46A6802845AA /* LiveViews.swift */,
 				N40100000000000000000010 /* ProfilePresentation.swift */,
 				N40100000000000000000011 /* ProfileCustomizationViews.swift */,
 				D40100000000000000000001 /* PrivateFileStore.swift */,
@@ -1160,6 +1355,7 @@
 				A40100000000000000000003 /* AppGateHost.swift */,
 				A40100000000000000000004 /* OnboardingModels.swift */,
 				A40100000000000000000005 /* OnboardingView.swift */,
+				5FA65F77E631D19C97DDC989 /* OnboardingMolibooPicker.swift */,
 				L40100000000000000000001 /* OnboardingLandingView.swift */,
 				L40100000000000000000002 /* OnboardingLandingModels.swift */,
 				A40100000000000000000006 /* FirstRunModels.swift */,
@@ -1181,8 +1377,6 @@
 				A40100000000000000000016 /* PublisherView.swift */,
 				F40100000000000000000001 /* ModulaImmersiveSurfaces.swift */,
 				G40100000000000000000008 /* EdgePickerPreferences.swift */,
-				G40100000000000000000009 /* EdgeLoopMetrics.swift */,
-				G4010000000000000000000A /* EdgePickerSettingsView.swift */,
 				H40100000000000000000001 /* IntelligenceSettingsViews.swift */,
 				82C70BDE2136649342EC7569 /* NodusModelSettingsCard.swift */,
 				H40100000000000000000002 /* SettingsShellViews.swift */,
@@ -1192,12 +1386,17 @@
 				S40100000000000000000001 /* SettingsVisualSystem.swift */,
 				F70100000000000000000003 /* ProfileContentTabs.swift */,
 				F70100000000000000000002 /* ModulaEffectKit.metal */,
+				D0A3000000000000000000F1 /* ModulaAuthBackdrop.swift */,
+				D0A2000000000000000000F1 /* SpectralDrapeView.swift */,
+				D0A1000000000000000000F1 /* SpectralDrape.metal */,
 				041747946D183AA6E7642E17 /* MolibooShaders.metal */,
 				F70100000000000000000001 /* ModulaEffectKit.swift */,
+				5F5454E113B340B04A3A7381 /* ModulaSurfaceMotion.swift */,
 				C0DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift */,
 				C02F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift */,
 				C07A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift */,
 				C0COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift */,
+				C0MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift */,
 				C0B5F34784604E6B40CAC97C /* ModulaRichFormat.swift */,
 				C08FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift */,
 				C0F05546B4D00806E53DCE68 /* ModulaMascot.swift */,
@@ -1207,15 +1406,26 @@
 				63BCBE2AEE0E47DDA1E74D84 /* MolibooWorldScenes.swift */,
 				AF571B2F180AD7B3704B18E0 /* MolibooAmbientBackground.swift */,
 				372E9BE321ED1B53CDDC96D4 /* MolibooShaderKit.swift */,
+				5F1FB6F34B08412046241B4B /* MolibooEmptyArt.swift */,
 				6E1EAEFFDEB08BE920109B5A /* MolibooSettingsHub.swift */,
 				9D6B6F8530D8427FA49C358F /* MolibooCards.swift */,
+				C0D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift */,
+				C0E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift */,
+				C0F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift */,
 				699909A12EF8AE3B97932643 /* MolibooWorldParts.swift */,
 				014F3220FC6E16BB48F3D447 /* MolibooWorldView.swift */,
 				C3C4E9DB4815AD01B90DF74F /* MolibooWorldModel.swift */,
 				EC8AD5259BA1CC69A35AAEE4 /* ModulaWordmark.swift */,
+				A1B2C3D4E5F60718293A4B5D /* MoliboosWordmark.swift */,
+				B7A11C0DE5A1E0000000A002 /* ModulaUnit.swift */,
 				DD1C353C8D3FB917EE061C6D /* MolibooWardrobeRig.swift */,
 				705C3E2D9930469B26F5FD65 /* MolibooWardrobe.swift */,
 				F3CD08F382212E1E9B48925E /* MolibooCollection.swift */,
+				871415A14FBB877B8C0CA458 /* MolibooItems.xcassets */,
+				EE96EEAB00C7A774D48A9B7D /* MolibooGameViews.swift */,
+				2A54942E84AED2B93F05F2B8 /* MolibooGameAPI.swift */,
+				00800010D11651D7DAE87F5E /* MolibooGameModels.swift */,
+				2B93F3400D4A9CE5594AA802 /* MolibooGameFlags.swift */,
 				EA033189BDB5AB2FC7D7EDD5 /* MOL03DebugHarness.swift */,
 				E8E9CF55CA02F191FF46098C /* MolibooStyleSheet.swift */,
 				9314CE791544C1730331AF7B /* MolibooLivingStudioView.swift */,
@@ -1227,27 +1437,57 @@
 				6CC502F9F7DADA021F6C1703 /* MolibooAssetLoader.swift */,
 				5A7A6E0B1C2D3E4F50617302 /* MolibooRendererBenchmark.swift */,
 				7068DEA589A7AE2DFCBE093E /* MolibooCharacterDescriptor.swift */,
+				E6B5565647B6851EAA6E8D16 /* MolibooFitLabView.swift */,
+				1B6B776455D824E253E0BDFA /* MolibooCatalogueViews.swift */,
+				BC7C8B275B9A8D47BC4BFA31 /* MolibooMotion.swift */,
+				9649DDE503F3448312CCCD4B /* MolibooPackages.swift */,
+				A2E4B8D45F1AA50C1D4B6FA8 /* MolibooFitProfiles.swift */,
+				8FE8EDB540DDE8E7078DD077 /* MolibooRegistry.swift */,
 				A278B9E952CA3FF760FDDDB0 /* MolibooFeatureFlags.swift */,
+				764C7E4089A3806C2B0799D5 /* PremiumHubView.swift */,
+				A5E2B1160215000000000001 /* MolibooMarketplaceView.swift */,
+				A5E2B1160215000000000011 /* MolibooStickers.swift */,
+				8DD3E515E9E54852907CC4E9 /* PremiumBadge.swift */,
+				28B4436085AE4A97BCEE5293 /* PremiumPlanViews.swift */,
+				30AD405C7D9A41FA8A2A97D5 /* PremiumMemberViews.swift */,
+				EC6CE29063B242A68557B7DA /* PremiumPurchaseViews.swift */,
+				FC4ED8693B1B0C39DC054732 /* PremiumModels.swift */,
+				961C2CB05DCED97163C563F7 /* GubicModels.swift */,
+				9E69982BCF7EA9655DE1CD8E /* GubicRuntime.swift */,
+				0B9D4D9AF7EB2A7E578CC2C4 /* GubicSampleGame.swift */,
+				7C244DADF6DE5080FA3EB006 /* GubicPlayerView.swift */,
+				D63C5DAADAE6066D7FEE4C64 /* GubicHubView.swift */,
+				8F116CE9426BECFA39C036D2 /* GubicGameDetailView.swift */,
+				39540277A8958BFBCEF74A79 /* GubicLobbiesView.swift */,
+				3830ADE5A4975947DACB0690 /* GubicCreatorView.swift */,
 				C08E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift */,
 				C0403BE7599E95D561F435C27E /* MascotCustom.swift */,
 				C0BAD833BF4AA294710BD47644 /* MascotAssistant.swift */,
 				C01826D84B06144D712FB0998B /* MascotStudioViews.swift */,
 				C0AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift */,
+				C0F81B2A9C4D4E6B8A107E21 /* MascotCostumeCatalog.swift */,
+				C0A29C6D18E54F0B9C33D447 /* MascotCostumeArt.swift */,
 				C047C44B90908E004470E7C63A /* MascotScenes.swift */,
 				C06C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift */,
 				C08E871C00879B8E66C5673FB3 /* MascotRig.swift */,
+				C08E871C00879B8E66C5673FC4 /* MolibooLegends.swift */,
+				C08E871C00879B8E66C5674A02 /* MolibooSeries2.swift */,
 				C04B413EE2CA03DFFC2B64FF /* CommentRichContent.swift */,
 				C0E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift */,
 				C03029B25B9DB3676F028E7B /* ModulaGlassShaders.metal */,
-				C02C151370E36AF608722F3D /* EdgeBulgeFlow.swift */,
 				C0A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift */,
 				C01D7B0B13F8243B07F10A44 /* ComposerServices.swift */,
 				C04CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift */,
 				C06FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift */,
+				E00D878678BB29171537E410 /* ModulaPolishIntegration.swift */,
+				E0F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift */,
 				B40100000000000000000001 /* ModulaIslandBanner.swift */,
 				R40100000000000000000020 /* SettingsDecisionPages.swift */,
 				R40100000000000000000012 /* DownloadedMedia.swift */,
 				R40100000000000000000011 /* SettingsNotificationPages.swift */,
+				PU5H00000000000000000001 /* PushNotificationController.swift */,
+				PU5H00000000000000000002 /* PushNotificationSettingsView.swift */,
+				PU5H00000000000000000004 /* Modula.entitlements */,
 				R40100000000000000000010 /* SettingsCreatorPages.swift */,
 				R40100000000000000000009 /* SettingsAccountPages.swift */,
 				R40100000000000000000008 /* SettingsRemoteModels.swift */,
@@ -1266,47 +1506,32 @@
 				Q40100000000000000000007 /* LegalDocuments.swift */,
 				Q40100000000000000000008 /* LegalDocumentView.swift */,
 				DAE09CBC367DDAC2E39D358A /* ProductHubView.swift */,
+				D98B000000000000000000A3 /* ProductHubLayouts.swift */,
 				F00100000000000000000001 /* ProfileModels.swift */,
 				F00100000000000000000002 /* ProfileRepository.swift */,
 				F00100000000000000000003 /* ProfileStore.swift */,
 				F00100000000000000000004 /* ProfileComponents.swift */,
 				C8ECAD5355D79305D770912A /* ProfileView.swift */,
+				5FDF481061A5523912994746 /* ProfileShowcase.swift */,
 				F00100000000000000000005 /* ProfileEditView.swift */,
 				F00100000000000000000007 /* ProfileContextActions.swift */,
 				F00100000000000000000008 /* ProfileShareViews.swift */,
 				F00100000000000000000009 /* ProfileMediaViews.swift */,
 				003916B967E1900F61DFB206 /* SettingsStore.swift */,
 				8E9539623085AAA12077638F /* SettingsView.swift */,
+				5F7DC2CD708605BE414A8461 /* SettingsSecurityCenter.swift */,
+				5F250869F092AE8FAA2C9867 /* SettingsAuthFlows.swift */,
+				5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
 				D4010000000000000000001A /* Assets.xcassets */,
 				53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */,
 				96CD403C58D3542711764A10 /* moliboo_manifest.json */,
-				5F95087BC6F29AA6A8605B9A /* Accessory_Cap_MolibooSignature.usdz */,
-				2142D575079AC30ACF5E8A4D /* Pebble.usdz */,
-				A1B2C3D4E5F6A7B8C9D0E102 /* Pip.usdz */,
-				DD9FCE5437AAD92B51AFB558 /* MolibooWardrobePremium */,
+				6851AF3E59FF52B3AFA1610C /* moliboo_accessory_fits.json */,
+				25C7AF955A3ED6ED5BE57049 /* moliboo_registry.json */,
 				0A832714662FD46272477CD9 /* MolibooWardrobe */,
 				1D72EFF289F093333E3F0EBE /* moliboo_wardrobe_fits.json */,
-				F5B6F1B5E596134C681CE0DB /* Portrait_Tuck.png */,
-				A7821284D147D0C3A689623E /* Portrait_Ember.png */,
-				934E733694CE54350C159430 /* Portrait_Sprout.png */,
-				DC9286D90C905B2A29B8125F /* Portrait_Mochi.png */,
-				4BFFAA2B102243121B59777B /* Portrait_Nimbus.png */,
-				7541BC360060C244B9B9DCC2 /* Tuck.usdz */,
-				11DC0ED74AC5CF4737477D7A /* Ember.usdz */,
-				A2B4B833E2B7A753F56ED5AB /* Sprout.usdz */,
-				DB499EC255794BC1785E95B0 /* Mochi.usdz */,
-				54E866BE1E32E89553A59828 /* Nimbus.usdz */,
-				EA3F1A7E7D0253804FF22435 /* Portrait_Bolt.png */,
-				086132A77FDB0E101143DCA1 /* Portrait_Tofu.png */,
-				FABEC6E73A0AFB71E8465981 /* Portrait_Pebble.png */,
-				6C3C88E0DAA927A3D4D34032 /* Portrait_Moss.png */,
-				9D6B80ABF1E5CF55F6E8329E /* Portrait_Pip.png */,
-				A1B2C3D4E5F6A7B8C9D0E108 /* Moss.usdz */,
-				A1B2C3D4E5F6A7B8C9D0E112 /* Tofu.usdz */,
-				A1B2C3D4E5F6A7B8C9D0E116 /* Bolt.usdz */,
 				6D9171C8595DD0F57E983884 /* Localizable.xcstrings */,
 				35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */,
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
@@ -1319,6 +1544,8 @@
 				AAE8B6495A8B58305E33C97F /* ModuleRuntimeController.swift */,
 				M80100000000000000000001 /* ProductUIDocument.swift */,
 				M80100000000000000000002 /* ModuleArtifactStore.swift */,
+				BA0100000000000000000001 /* WebGamePackage.swift */,
+				BA0100000000000000000002 /* WebGameHost.swift */,
 				M80100000000000000000003 /* ModuleActivationController.swift */,
 				M80100000000000000000004 /* ProductUIRenderer.swift */,
 				M80100000000000000000005 /* ProductUIRuntime.swift */,
@@ -1330,6 +1557,7 @@
 				7D0904A1437768EB6AFED58D /* ReactNativeViewController.swift */,
 				007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */,
 				6336CC5D11266D84679C3C6A /* AuthenticationStore.swift */,
+				AA5E0D1000000000000000A2 /* PendingSignupStore.swift */,
 				37BECD2968D22B6943830857 /* SignInView.swift */,
 				C086A4FED95A41F19B257A39 /* N1FixtureCredentials.swift */,
 				9DD632C1523A313A40D2B0D3 /* GreenfieldClient.swift */,
@@ -1337,10 +1565,10 @@
 				65C4B3534ABCFCD2C0AE4AB5 /* KeychainStore.swift */,
 				97029B142178008022F2424B /* ModuleBackendRequest.swift */,
 				ADB419E3CAE3BA05CB1C1E59 /* ModulaDesignSystem.swift */,
+				B7E4A91C2D6F4A18B0C3E501 /* SproutIllustration.swift */,
+				C8F1A02D3E4B5C6D7E8F9011 /* ShellScenes.swift */,
+				D91AB23E4F5C6D7E8091A011 /* SproutStickerPack.swift */,
 				G40100000000000000000001 /* ModulaSurfaceSystem.swift */,
-				G40100000000000000000002 /* EdgeLoopEngine.swift */,
-				G40100000000000000000003 /* EdgeLoopShape.swift */,
-				G40100000000000000000004 /* ModulaEdgeLoop.swift */,
 				G40100000000000000000006 /* TypographyPreview.swift */,
 				E30100000000000000000008 /* ModulaProgressiveHeader.swift */,
 				D4010000000000000000001B /* ModulaPullActions.swift */,
@@ -1516,6 +1744,7 @@
 				A90100000000000000000003 /* MLXHuggingFace */,
 				A90100000000000000000004 /* HuggingFace */,
 				A90100000000000000000005 /* Tokenizers */,
+				CA1500000000000000000001 /* WebRTC */,
 			);
 			productName = Modula;
 			productReference = 790594A395FC6962F78767AC /* Modula.app */;
@@ -1546,9 +1775,6 @@
 		EBDE83ED03DAF5CA2B5616B1 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				knownAssetTags = (
-					"moliboo.wardrobe.premium",
-				);
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 2700;
@@ -1566,6 +1792,7 @@
 				AA0100000000000000000001 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				AA0100000000000000000002 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+				CA1600000000000000000001 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			productRefGroup = 388B9B4ACD3E9E4C0F090FA8 /* Products */;
 			projectDirPath = "";
@@ -1583,6 +1810,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA0200000000000000000011 /* GameFixtures in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1593,31 +1821,12 @@
 				083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */,
 				D5010000000000000000001A /* Assets.xcassets in Resources */,
 				23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */,
+				96DA263BD3723355FEFE450F /* MolibooItems.xcassets in Resources */,
 				7BDF21E5F8D2925DD163E0DF /* moliboo_manifest.json in Resources */,
-				A2A2BE71267DED53B4FFA8D4 /* Accessory_Cap_MolibooSignature.usdz in Resources */,
-				00E6E714F85A061C99754480 /* Pebble.usdz in Resources */,
-				A1B2C3D4E5F6A7B8C9D0E101 /* Pip.usdz in Resources */,
-				244FBEA92D43D6D6D9284D59 /* MolibooWardrobePremium in Resources */,
+				2E3050F2410271342EDE5828 /* moliboo_accessory_fits.json in Resources */,
+				2AAC3B5CB443680E8DE5081B /* moliboo_registry.json in Resources */,
 				72122BA903AA9E1111C090B9 /* MolibooWardrobe in Resources */,
 				2570C4484CF1884585A4AC77 /* moliboo_wardrobe_fits.json in Resources */,
-				11C92B08560ABF4E5E258367 /* Portrait_Tuck.png in Resources */,
-				7019A63E77E88FE89B0B41D7 /* Portrait_Ember.png in Resources */,
-				75C937BB2BD3052E681915E6 /* Portrait_Sprout.png in Resources */,
-				FF07AF3216B90D7233129F2A /* Portrait_Mochi.png in Resources */,
-				1C1529BE5725FF3439E83320 /* Portrait_Nimbus.png in Resources */,
-				268E6BB48AC1E51070AA5E4C /* Tuck.usdz in Resources */,
-				6DAD2BD442F0C0CE2A670386 /* Ember.usdz in Resources */,
-				D63CA497C8F74FB49B26D05F /* Sprout.usdz in Resources */,
-				B54BA696876066D4EE1B04FF /* Mochi.usdz in Resources */,
-				D0D474AB68F2C753B34A9185 /* Nimbus.usdz in Resources */,
-				9C5E7BF4DA3A9AF764357B1F /* Portrait_Bolt.png in Resources */,
-				A003F36BB4D49E05C44FCB8E /* Portrait_Tofu.png in Resources */,
-				014BDEEA4702DEC89777D5C6 /* Portrait_Pebble.png in Resources */,
-				BE9BC10A8C965FB6B2571071 /* Portrait_Moss.png in Resources */,
-				3FE57E5838C80197AA190996 /* Portrait_Pip.png in Resources */,
-				A1B2C3D4E5F6A7B8C9D0E107 /* Moss.usdz in Resources */,
-				A1B2C3D4E5F6A7B8C9D0E111 /* Tofu.usdz in Resources */,
-				A1B2C3D4E5F6A7B8C9D0E115 /* Bolt.usdz in Resources */,
 				8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */,
 				A7C9B3B1BD7B84C45951A4CE /* manifests.json in Resources */,
 			);
@@ -1755,6 +1964,8 @@
 				929CC2DCFFFC0BC5DAE061DA /* MOL03PickerAmbientUITests.swift in Sources */,
 				ECD753AFA25857E5171A9671 /* MOL03SettingsHubUITests.swift in Sources */,
 				838D878E1CDE4F0798B71159 /* PDFInlinePostUITests.swift in Sources */,
+				5EE15A11C0DE4A7E8B1A2C02 /* ReelsTapUITests.swift in Sources */,
+				5EE15A11C0DE4A7E8B1A2D02 /* SidebarSwipeFreezeUITests.swift in Sources */,
 				8597201344E341F88520A56D /* MOL04CardsUITests.swift in Sources */,
 				78F1133071E4CE06BFD5A6E8 /* MOL03WorldUITests.swift in Sources */,
 				A536B925EA5BECC1C2A7F339 /* MOL03OriginalsUITests.swift in Sources */,
@@ -1770,23 +1981,41 @@
 			files = (
 				A03200000000000000000007 /* POST03Tests.swift in Sources */,
 				L50100000000000000000003 /* OnboardingLandingTests.swift in Sources */,
+				B7E4A91C2D6F4A18B0C3E504 /* SproutIllustrationTests.swift in Sources */,
+				C8F1A02D3E4B5C6D7E8F9014 /* ShellSceneTests.swift in Sources */,
+				D91AB23E4F5C6D7E8091A014 /* SproutStickerPackTests.swift in Sources */,
 				F70200000000000000000004 /* EffectKitTests.swift in Sources */,
+				C0F11D1A0000000000000B01 /* PhotoFilterDialTests.swift in Sources */,
+				C0MM00010000000000000041 /* CommunityShellTests.swift in Sources */,
 				17ACCE3135E58A0DA2856DAF /* MOL01Tests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E103 /* MOL02Tests.swift in Sources */,
 				84BBACB941ED587B4B71B874 /* MOL03AmbienceTests.swift in Sources */,
 				62D3D0D71B5DC53EE0B5D964 /* MOL03WorldTests.swift in Sources */,
 				BD4D8C4363EA47CC9FB84BEC /* MOL04CardsTests.swift in Sources */,
+				5B4D2C80A1F54E9C8D77B201 /* MolibooCardGalleryTests.swift in Sources */,
+				5E6466E493B8532D03400C80 /* MOL03MotionTests.swift in Sources */,
+				F44147291E18C838D19DFD7B /* MOL03PerformanceTests.swift in Sources */,
+				8CFBDEFE0DD9FAE0DB0B6905 /* MOL03PackageTests.swift in Sources */,
+				263AE1CBDC1208FC48044765 /* MOL03VisualAcceptanceTests.swift in Sources */,
+				3E8637E3FC8632B4977B5EE3 /* MOL03RegistryTests.swift in Sources */,
+				BD4D8C4363EA47CC9FB84C05 /* MOL05LegendsTests.swift in Sources */,
+				7A1C0E5D2B9F4A6E8D3C1B07 /* MolibooWardrobeDropTests.swift in Sources */,
 				76DA8B4DAD6919F138D97A79 /* ModulaWordmarkTests.swift in Sources */,
-				58CC373DCE8EFE4E753203E2 /* MOL03OriginalsTests.swift in Sources */,
+				B7A11C0DE5A1E0000000A003 /* ModulaUnitShapeTests.swift in Sources */,
 				F75AE210476332DC70F54B1E /* MOL03WardrobeRigTests.swift in Sources */,
 				E1D8999E32165077E380F65F /* MOL03WardrobeFitValidationTests.swift in Sources */,
+				B1C2D3E4F5A60718293A4B6C /* MolibooArtSnapshotTests.swift in Sources */,
 				99CBEC9E23A4AF4672887C07 /* MolibooFitValidator.swift in Sources */,
 				21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */,
+				7A3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift in Sources */,
 				95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */,
 				680D9256E1826DE4F3EAEA97 /* MOL03StudioTests.swift in Sources */,
 				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
 				Q50100000000000000000006 /* SettingsServiceTests.swift in Sources */,
 				C59E2B2B2C1ADAAEF63808CA /* NativeFoundationTests.swift in Sources */,
+				D98B000000000000000000B1 /* AppearanceExperienceTests.swift in Sources */,
+				D98B000000000000000000B4 /* ProductHubLayoutTests.swift in Sources */,
+				37A0D700A836919B30D8D080 /* GubicBridgeTests.swift in Sources */,
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
 				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
 				T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */,
@@ -1795,12 +2024,17 @@
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
 				E2010000000000000000000A /* DiscoverTests.swift in Sources */,
 				E40100000000000000000009 /* HomeFeedTests.swift in Sources */,
+				PU5H00000000000000000013 /* PushNotificationTests.swift in Sources */,
 				E40100000000000000000019 /* PostSystemTests.swift in Sources */,
 				647C9C0055154B72875252C7 /* PDFInlineCarouselTests.swift in Sources */,
 				87FB5D4511AF4A7D9FCA8B8E /* PDFReaderV2Tests.swift in Sources */,
 				N50100000000000000000012 /* N4CTests.swift in Sources */,
+				AA5E0D1000000000000000B1 /* AuthPendingSignupTests.swift in Sources */,
+				CA1200000000000000000100 /* CallTests.swift in Sources */,
 				V50100000000000000000003 /* ModuleVersionSwitchTests.swift in Sources */,
 				F10100000000000000000006 /* ProfileTests.swift in Sources */,
+				876A4A792369DBEA180D421D /* PremiumTests.swift in Sources */,
+				A5E2B1160215000000000004 /* MOL06MarketplaceTests.swift in Sources */,
 				D50100000000000000000018 /* N4DTests.swift in Sources */,
 				A50100000000000000000017 /* N4ETests.swift in Sources */,
 				C5010000000000000000000C /* N4FTests.swift in Sources */,
@@ -1834,6 +2068,7 @@
 				A50100000000000000000003 /* AppGateHost.swift in Sources */,
 				A50100000000000000000004 /* OnboardingModels.swift in Sources */,
 				A50100000000000000000005 /* OnboardingView.swift in Sources */,
+				5B5F77E631D19C97DDC98933 /* OnboardingMolibooPicker.swift in Sources */,
 				L50100000000000000000001 /* OnboardingLandingView.swift in Sources */,
 				L50100000000000000000002 /* OnboardingLandingModels.swift in Sources */,
 				A50100000000000000000006 /* FirstRunModels.swift in Sources */,
@@ -1884,26 +2119,37 @@
 				N50100000000000000000005 /* MessagingStore.swift in Sources */,
 				N50100000000000000000006 /* MessageContextActions.swift in Sources */,
 				N50100000000000000000007 /* MessagesViews.swift in Sources */,
+				B6F77BE887D5C37304F573AE /* MessagingInboxTools.swift in Sources */,
+				C0MSGV3100000000000011 /* MessagingRealtime.swift in Sources */,
+				CA1200000000000000000001 /* CallModels.swift in Sources */,
+				CA1200000000000000000002 /* CallRepository.swift in Sources */,
+				CA1200000000000000000003 /* CallSignallingClient.swift in Sources */,
+				CA1200000000000000000004 /* CallMediaEngine.swift in Sources */,
+				CA1200000000000000000005 /* CallManager.swift in Sources */,
+				CA1200000000000000000006 /* CallViews.swift in Sources */,
+				C0MSGV3100000000000012 /* MessagingV3Views.swift in Sources */,
 				N50100000000000000000008 /* InMailModels.swift in Sources */,
 				N50100000000000000000009 /* InMailRepository.swift in Sources */,
 				N5010000000000000000000A /* InMailStore.swift in Sources */,
 				N5010000000000000000000B /* InMailViews.swift in Sources */,
 				N5010000000000000000000C /* StoryModels.swift in Sources */,
 				N5010000000000000000000D /* StoryViews.swift in Sources */,
+				C0F11D1A0000000000000A01 /* PhotoFilterDial.swift in Sources */,
+				C0MM00010000000000000011 /* CommunityModels.swift in Sources */,
+				C0MM00010000000000000021 /* CommunityHubViews.swift in Sources */,
+				C0MM00010000000000000031 /* CommunityDetailViews.swift in Sources */,
+				N50100000000000000000FFE /* StoryVideo.swift in Sources */,
+				N50100000000000000000FFD /* StoryCamera.swift in Sources */,
 				N5010000000000000000000E /* ReelModels.swift in Sources */,
 				N5010000000000000000000F /* ReelViewer.swift in Sources */,
 
 				B34580D3CE7F4E9799B1B33C /* ReelChrome.swift in Sources */,
+				B34580D3CE7F4E9799B1B4AA /* LiveViews.swift in Sources */,
 				N50100000000000000000010 /* ProfilePresentation.swift in Sources */,
 				N50100000000000000000011 /* ProfileCustomizationViews.swift in Sources */,
 				F50100000000000000000001 /* ModulaImmersiveSurfaces.swift in Sources */,
 				G50100000000000000000001 /* ModulaSurfaceSystem.swift in Sources */,
-				G50100000000000000000002 /* EdgeLoopEngine.swift in Sources */,
-				G50100000000000000000003 /* EdgeLoopShape.swift in Sources */,
-				G50100000000000000000004 /* ModulaEdgeLoop.swift in Sources */,
 				G50100000000000000000008 /* EdgePickerPreferences.swift in Sources */,
-				G50100000000000000000009 /* EdgeLoopMetrics.swift in Sources */,
-				G5010000000000000000000A /* EdgePickerSettingsView.swift in Sources */,
 				H50100000000000000000001 /* IntelligenceSettingsViews.swift in Sources */,
 				253A359389594877DBDBA326 /* NodusModelSettingsCard.swift in Sources */,
 				H50100000000000000000002 /* SettingsShellViews.swift in Sources */,
@@ -1913,12 +2159,17 @@
 				S50100000000000000000001 /* SettingsVisualSystem.swift in Sources */,
 				F70200000000000000000003 /* ProfileContentTabs.swift in Sources */,
 				F70200000000000000000002 /* ModulaEffectKit.metal in Sources */,
+				D0A3000000000000000000B1 /* ModulaAuthBackdrop.swift in Sources */,
+				D0A2000000000000000000B1 /* SpectralDrapeView.swift in Sources */,
+				D0A1000000000000000000B1 /* SpectralDrape.metal in Sources */,
 				B02C2D69C89A5323859EB646 /* MolibooShaders.metal in Sources */,
 				F70200000000000000000001 /* ModulaEffectKit.swift in Sources */,
+				5B54E113B340B04A3A738180 /* ModulaSurfaceMotion.swift in Sources */,
 				C1DDDBBFF25F6EC36A7764B8 /* CommentAttachExtras.swift in Sources */,
 				C12F89AD56806E3A5E3294F5 /* ModulaStickerExtras.swift in Sources */,
 				C17A3C6CC999808D491F3C09 /* ModulaInlineCamera.swift in Sources */,
 				C1COMPOSEMEDIAATTACH01 /* ComposeMediaAttach.swift in Sources */,
+				C1MODULAPHOTOGRID00001 /* ModulaPhotoGrid.swift in Sources */,
 				C1B5F34784604E6B40CAC97C /* ModulaRichFormat.swift in Sources */,
 				C18FB6CAD6A8BE5AB3489630 /* ModulaMascotHost.swift in Sources */,
 				C1F05546B4D00806E53DCE68 /* ModulaMascot.swift in Sources */,
@@ -1928,15 +2179,25 @@
 				86D1F11F366274A7E73231DC /* MolibooWorldScenes.swift in Sources */,
 				A9C8944DC7FA9B1A14A3C93A /* MolibooAmbientBackground.swift in Sources */,
 				38AE6942919F29E720DDC06F /* MolibooShaderKit.swift in Sources */,
+				5BB6F34B08412046241B4B64 /* MolibooEmptyArt.swift in Sources */,
 				36529D3158094916D003470A /* MolibooSettingsHub.swift in Sources */,
 				16D8D9F92EB4431EA055F602 /* MolibooCards.swift in Sources */,
+				C1D14E8B7A1C4F6E9B20C331 /* MolibooCardGallery.swift in Sources */,
+				C1E25F9C8B2D507F0A31D442 /* MolibooTradingCardV2.swift in Sources */,
+				C1F360AD9C3E61801B42E553 /* MolibooCardCollectionView.swift in Sources */,
 				02E5B361C03A5E96E30FB139 /* MolibooWorldParts.swift in Sources */,
 				665A72EAB1D0B7C25F2A312C /* MolibooWorldView.swift in Sources */,
 				D8FD802C3C171BADADA083A4 /* MolibooWorldModel.swift in Sources */,
 				164866914AF0CCC86877F8F8 /* ModulaWordmark.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* MoliboosWordmark.swift in Sources */,
+				B7A11C0DE5A1E0000000A001 /* ModulaUnit.swift in Sources */,
 				35949C05BE1A250059BC6A55 /* MolibooWardrobeRig.swift in Sources */,
 				EA6BB58C599561872BE6C207 /* MolibooWardrobe.swift in Sources */,
 				1B4920D7D792FF504F5D09D2 /* MolibooCollection.swift in Sources */,
+				F5003DD59FBC27DF486453CF /* MolibooGameViews.swift in Sources */,
+				D75CD231946A0F1252949B43 /* MolibooGameAPI.swift in Sources */,
+				8D063F2E17A0A5B96C97FC7B /* MolibooGameModels.swift in Sources */,
+				7E2057FB3D96701A3D58CF77 /* MolibooGameFlags.swift in Sources */,
 				7184C8F2BFE567A89081CA56 /* MOL03DebugHarness.swift in Sources */,
 				B0365ACD3EC316AD18CF61C8 /* MolibooStyleSheet.swift in Sources */,
 				FB9FA99D6A97B00F5C6A8D47 /* MolibooLivingStudioView.swift in Sources */,
@@ -1948,27 +2209,56 @@
 				58B7BEB801B2C8CA10790150 /* MolibooAssetLoader.swift in Sources */,
 				5A7A6E0B1C2D3E4F50617301 /* MolibooRendererBenchmark.swift in Sources */,
 				C80264059B020C529FB8E431 /* MolibooCharacterDescriptor.swift in Sources */,
+				92C1AD5DC13689D9714A9364 /* MolibooFitLabView.swift in Sources */,
+				8784CC39FBFD4B1B2399B6EC /* MolibooCatalogueViews.swift in Sources */,
+				BCBAFBC0E9BEF7746B9FECBC /* MolibooMotion.swift in Sources */,
+				D9444EBC6C7A94D6A9D7889F /* MolibooPackages.swift in Sources */,
+				AF8255A5603EBFD6401C548A /* MolibooFitProfiles.swift in Sources */,
+				F1EBCBFEBEEA3F2255CF76B9 /* MolibooRegistry.swift in Sources */,
 				3F68A564E6A09107514875CE /* MolibooFeatureFlags.swift in Sources */,
+				6EA21C08BAFDA513CD756C41 /* PremiumHubView.swift in Sources */,
+				A5E2B1160215000000000002 /* MolibooMarketplaceView.swift in Sources */,
+				A5E2B1160215000000000012 /* MolibooStickers.swift in Sources */,
+				BF5BBBE86AB44BDEA70CAEB4 /* PremiumBadge.swift in Sources */,
+				61D623D830EA4436B9AD5E72 /* PremiumPlanViews.swift in Sources */,
+				E65FF55E8BBD46009836B8A6 /* PremiumMemberViews.swift in Sources */,
+				F9D985BB789D45D9B832DE4F /* PremiumPurchaseViews.swift in Sources */,
+				4A0F657603DE75A0977546FE /* PremiumModels.swift in Sources */,
+				15FE0BF535EA9C5CCFAF99DF /* GubicModels.swift in Sources */,
+				E9AC0D009EA08991BB0FA405 /* GubicRuntime.swift in Sources */,
+				5ED25DE0358D13C6C4883086 /* GubicSampleGame.swift in Sources */,
+				DDC172E4D08AA51097A722E8 /* GubicPlayerView.swift in Sources */,
+				169200C114BF8943306E416D /* GubicHubView.swift in Sources */,
+				B7FC48499189FD7E19EBA869 /* GubicGameDetailView.swift in Sources */,
+				B3DD983EB3E6C094487BB195 /* GubicLobbiesView.swift in Sources */,
+				DABD39DB92DEED971C634729 /* GubicCreatorView.swift in Sources */,
 				C18E3F07060BD5F1C2F6D22C8A /* MascotWardrobeLayers.swift in Sources */,
 				C1403BE7599E95D561F435C27E /* MascotCustom.swift in Sources */,
 				C1BAD833BF4AA294710BD47644 /* MascotAssistant.swift in Sources */,
 				C11826D84B06144D712FB0998B /* MascotStudioViews.swift in Sources */,
 				C1AA8D1E651C6AF02C08EB0094 /* MascotWardrobeArt.swift in Sources */,
+				C1F81B2A9C4D4E6B8A107E21 /* MascotCostumeCatalog.swift in Sources */,
+				C1A29C6D18E54F0B9C33D447 /* MascotCostumeArt.swift in Sources */,
 				C147C44B90908E004470E7C63A /* MascotScenes.swift in Sources */,
 				C16C1E8640AC8FEA7E8EBA4C1D /* MascotProgress.swift in Sources */,
 				C18E871C00879B8E66C5673FB3 /* MascotRig.swift in Sources */,
+				C18E871C00879B8E66C5673FC4 /* MolibooLegends.swift in Sources */,
+				C18E871C00879B8E66C5674A02 /* MolibooSeries2.swift in Sources */,
 				C14B413EE2CA03DFFC2B64FF /* CommentRichContent.swift in Sources */,
 				C1E5CB61344EDF41D45C1B50 /* ModulaComposerExtras.swift in Sources */,
 				C13029B25B9DB3676F028E7B /* ModulaGlassShaders.metal in Sources */,
-				C12C151370E36AF608722F3D /* EdgeBulgeFlow.swift in Sources */,
 				C1A939FC00EE1BFBCF34B881 /* ModulaInAppBrowser.swift in Sources */,
 				C11D7B0B13F8243B07F10A44 /* ComposerServices.swift in Sources */,
 				C14CDCC3ACCE8BD216B3782A /* ModulaComposerMediaPanel.swift in Sources */,
 				C16FA2EE1AB23C72883DE0F4 /* ModulaGlass.swift in Sources */,
+				E10D878678BB29171537E410 /* ModulaPolishIntegration.swift in Sources */,
+				E1F95CDB2C2504B6A2FBC88D /* ModulaPolishKit.swift in Sources */,
 				B50100000000000000000001 /* ModulaIslandBanner.swift in Sources */,
 				R50100000000000000000020 /* SettingsDecisionPages.swift in Sources */,
 				R50100000000000000000012 /* DownloadedMedia.swift in Sources */,
 				R50100000000000000000011 /* SettingsNotificationPages.swift in Sources */,
+				PU5H00000000000000000011 /* PushNotificationController.swift in Sources */,
+				PU5H00000000000000000012 /* PushNotificationSettingsView.swift in Sources */,
 				R50100000000000000000010 /* SettingsCreatorPages.swift in Sources */,
 				R50100000000000000000009 /* SettingsAccountPages.swift in Sources */,
 				R50100000000000000000008 /* SettingsRemoteModels.swift in Sources */,
@@ -1989,11 +2279,13 @@
 				G50100000000000000000006 /* TypographyPreview.swift in Sources */,
 				E40100000000000000000008 /* ModulaProgressiveHeader.swift in Sources */,
 				DD2D9165C4BF6D11F9F01BC4 /* ProductHubView.swift in Sources */,
+				D98B000000000000000000B3 /* ProductHubLayouts.swift in Sources */,
 				F10100000000000000000001 /* ProfileModels.swift in Sources */,
 				F10100000000000000000002 /* ProfileRepository.swift in Sources */,
 				F10100000000000000000003 /* ProfileStore.swift in Sources */,
 				F10100000000000000000004 /* ProfileComponents.swift in Sources */,
 				B9825B0168E160AB5B8411B9 /* ProfileView.swift in Sources */,
+				5B481061A552391299474632 /* ProfileShowcase.swift in Sources */,
 				F10100000000000000000005 /* ProfileEditView.swift in Sources */,
 				F10100000000000000000007 /* ProfileContextActions.swift in Sources */,
 				F10100000000000000000008 /* ProfileShareViews.swift in Sources */,
@@ -2013,6 +2305,9 @@
 				F8020000000000000000000B /* AdvancedInteractionMediaCatalog.swift in Sources */,
 				21638B169590129BA65823F1 /* SettingsStore.swift in Sources */,
 				0139D48F433333A6C105C394 /* SettingsView.swift in Sources */,
+				5BC2CD708605BE414A846142 /* SettingsSecurityCenter.swift in Sources */,
+				5B0869F092AE8FAA2C9867BF /* SettingsAuthFlows.swift in Sources */,
+				5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
 				045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */,
 				490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */,
@@ -2026,6 +2321,8 @@
 				9314852BE26D5B1EB2360CE8 /* ModuleRuntimeController.swift in Sources */,
 				M90100000000000000000001 /* ProductUIDocument.swift in Sources */,
 				M90100000000000000000002 /* ModuleArtifactStore.swift in Sources */,
+				BA0200000000000000000001 /* WebGamePackage.swift in Sources */,
+				BA0200000000000000000002 /* WebGameHost.swift in Sources */,
 				M90100000000000000000003 /* ModuleActivationController.swift in Sources */,
 				M90100000000000000000004 /* ProductUIRenderer.swift in Sources */,
 				M90100000000000000000005 /* ProductUIRuntime.swift in Sources */,
@@ -2039,6 +2336,7 @@
 				118234885584A931FC29652A /* ReactNativeViewController.swift in Sources */,
 				02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */,
 				9EC0F892BB40CDA543E31677 /* AuthenticationStore.swift in Sources */,
+				AA5E0D1000000000000000A1 /* PendingSignupStore.swift in Sources */,
 				3AD8D6231F5274974F54F780 /* SignInView.swift in Sources */,
 				F43AEB1A67070000A929D731 /* N1FixtureCredentials.swift in Sources */,
 				40C4F5F54E3A9902F8396AC2 /* GreenfieldClient.swift in Sources */,
@@ -2046,6 +2344,9 @@
 				E706DA503AC96378DE9BE822 /* KeychainStore.swift in Sources */,
 				48EF6D3FADBF1FED0E9DC0F6 /* ModuleBackendRequest.swift in Sources */,
 				20DD2162957F75B8920F2E80 /* ModulaDesignSystem.swift in Sources */,
+				B7E4A91C2D6F4A18B0C3E502 /* SproutIllustration.swift in Sources */,
+				C8F1A02D3E4B5C6D7E8F9012 /* ShellScenes.swift in Sources */,
+				D91AB23E4F5C6D7E8091A012 /* SproutStickerPack.swift in Sources */,
 				4D06B1162F85CC39C781DF95 /* ShellComponents.swift in Sources */,
 				D5010000000000000000001B /* ModulaPullActions.swift in Sources */,
 				D5010000000000000000001C /* ModulaPullEffects.metal in Sources */,
@@ -2206,6 +2507,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
+				CODE_SIGN_ENTITLEMENTS = Modula/Modula.entitlements;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -2294,7 +2596,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B305577CCD34598919E97E55 /* Release.xcconfig */;
 			buildSettings = {
-				MODULA_INCLUDE_EXPERIMENTAL_NODUS = 1;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -2315,6 +2616,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = digital.modula.app.native;
+				CODE_SIGN_ENTITLEMENTS = Modula/Modula.entitlements;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -2545,6 +2847,14 @@
 				version = 1.3.4;
 			};
 		};
+		CA1600000000000000000001 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = exactVersion;
+				version = 156.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2572,6 +2882,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0100000000000000000003 /* XCRemoteSwiftPackageReference "swift-transformers" */;
 			productName = Tokenizers;
+		};
+		CA1500000000000000000001 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CA1600000000000000000001 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

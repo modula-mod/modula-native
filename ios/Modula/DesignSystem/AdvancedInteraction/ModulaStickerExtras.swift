@@ -4,11 +4,11 @@ import SwiftUI
 //
 // Greenfield only accepts its own first-party sticker IDs as comment media, so animated,
 // mascot and custom-pack stickers travel as a short token in the comment text:
-//   {{sticker:anim:party}}  {{sticker:mascot:pip}}  {{sticker:emoji:🦄}}
+//   {{sticker:anim:party}}  {{sticker:mascot:pip}}  {{sticker:emoji:🦄}}  {{sticker:sprout:01_04_builder}}
 // Current clients render them as stickers; older clients show the token as text.
 
 struct ModulaLocalSticker: Hashable, Identifiable {
-    enum Kind: String { case anim, mascot, emoji }
+    enum Kind: String { case anim, mascot, emoji, sprout }
     let kind: Kind
     let value: String
     var id: String { token }
@@ -19,15 +19,23 @@ struct ModulaLocalSticker: Hashable, Identifiable {
         case .anim: ModulaAnimatedSticker.Style(rawValue: value)?.label ?? "Sticker"
         case .mascot: ModulaMascotKind(rawValue: value)?.name ?? "Moliboo"
         case .emoji: value
+        case .sprout: SproutStickerPack.sticker(id: value)?.title ?? "Sprout"
         }
     }
 
     /// As a pending composer item (same pipeline as first-party stickers).
     var asSticker: ModulaSticker {
-        ModulaSticker(id: token, packID: "local.\(kind.rawValue)", emoji: kind == .emoji ? value : (kind == .anim ? (ModulaAnimatedSticker.Style(rawValue: value)?.emoji ?? "✨") : "🐾"), label: label)
+        let emoji: String
+        switch kind {
+        case .emoji: emoji = value
+        case .anim: emoji = ModulaAnimatedSticker.Style(rawValue: value)?.emoji ?? "✨"
+        case .mascot: emoji = "🐾"
+        case .sprout: emoji = "🌱"
+        }
+        return ModulaSticker(id: token, packID: "local.\(kind.rawValue)", emoji: emoji, label: label)
     }
 
-    private static let regex = try! NSRegularExpression(pattern: #"\{\{sticker:(anim|mascot|emoji):([^}\s]{1,24})\}\}"#)
+    private static let regex = try! NSRegularExpression(pattern: #"\{\{sticker:(anim|mascot|emoji|sprout):([^}\s]{1,40})\}\}"#)
 
     /// Pulls sticker tokens out of comment text; returns them plus the remaining text.
     static func extract(_ text: String) -> (stickers: [ModulaLocalSticker], text: String) {
@@ -39,6 +47,7 @@ struct ModulaLocalSticker: Hashable, Identifiable {
             let value = ns.substring(with: m.range(at: 2))
             if kind == .mascot && ModulaMascotKind(rawValue: value) == nil { continue }
             if kind == .anim && ModulaAnimatedSticker.Style(rawValue: value) == nil { continue }
+            if kind == .sprout && SproutStickerPack.sticker(id: value) == nil { continue }
             stickers.append(ModulaLocalSticker(kind: kind, value: value))
         }
         let stripped = regex.stringByReplacingMatches(in: text, range: NSRange(location: 0, length: ns.length), withTemplate: "")
@@ -63,6 +72,10 @@ struct ModulaLocalStickerView: View {
             if let kind = ModulaMascotKind(rawValue: sticker.value) { ModulaMascotSticker(kind: kind, size: size) }
         case .emoji:
             ModulaStickerView(emoji: sticker.value, size: size)
+        case .sprout:
+            if let item = SproutStickerPack.sticker(id: sticker.value) {
+                SproutStickerImage(assetName: item.assetName, size: size)
+            }
         }
     }
 }
@@ -217,19 +230,22 @@ struct ModulaKaomojiGrid: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 if !recents.isEmpty { section("Recent", recents) }
                 ForEach(ModulaKaomoji.sections, id: \.0) { title, faces in section(title, faces) }
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.bottom, 24)
         }
+        .scrollIndicators(.hidden)
         .accessibilityIdentifier("composer.panel.kaomoji")
     }
 
     private func section(_ title: String, _ faces: [String]) -> some View {
-        Section {
-            ModulaFlowLayout(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 2)
+            // Equal-size cells in a fixed 3-column grid; no glass per chip, so nothing stays highlighted.
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
                 ForEach(faces, id: \.self) { face in
                     Button {
                         onPick(face)
@@ -238,14 +254,19 @@ struct ModulaKaomojiGrid: View {
                         recentRaw = list.prefix(12).joined(separator: "\u{1F}")
                         HapticEngine.shared.play(.selection)
                     } label: {
-                        Text(face).font(.callout).lineLimit(1).padding(.horizontal, 12).frame(height: 36)
+                        Text(face)
+                            .font(.callout)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .padding(.horizontal, 6)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 42)
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .buttonStyle(.plain)
-                    .modulaGlass(in: Capsule())
+                    .buttonStyle(KaomojiKeyStyle())
+                    .accessibilityLabel(face)
                 }
             }
-        } header: {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.vertical, 2)
         }
     }
 }
@@ -407,5 +428,18 @@ extension View {
                 LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: width)
             }
         }
+    }
+}
+
+private struct KaomojiKeyStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.primary)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.06))
+            )
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
     }
 }

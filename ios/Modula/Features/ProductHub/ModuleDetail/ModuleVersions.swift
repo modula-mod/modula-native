@@ -359,6 +359,120 @@ enum InstallDescriptorVerifier {
     }
 }
 
+/// Exact GreenField closure approved for an optional install. The lock digest is
+/// recomputed locally and every dependency is pinned before any bytes download.
+struct PackageInstallPlan: Sendable {
+    struct Package: Sendable {
+        let id: String
+        let version: String
+        let releaseID: String
+        let category: String
+        let sha256: String
+        let compressedBytes: Int64
+        let installedBytes: Int64
+        let downloadRef: String
+        let sharing: String
+        let dependencies: [String]
+    }
+
+    let lockSha256: String
+    let packages: [Package]
+    let requested: String
+    let aggregateCompressedBytes: Int64
+    let aggregateInstalledBytes: Int64
+    let newDownloadBytes: Int64
+    let reusedDigests: [String]
+
+    init?(json: JSONValue, requested: String) {
+        guard let lock = json["lock"], lock["schemaVersion"]?.string == "modula.package-lock.1",
+              let digest = json["lockSha256"]?.string, InstallDescriptorVerifier.isHex64(digest),
+              CanonicalJSON.sha256Hex(lock) == digest,
+              lock["requested"]?.array?.compactMap(\.string).contains(requested) == true,
+              let rows = lock["packages"]?.array, !rows.isEmpty, rows.count <= 128 else { return nil }
+        var packages: [Package] = []
+        var seen = Set<String>()
+        for row in rows {
+            guard let id = row["packageId"]?.string, seen.insert(id).inserted,
+                  let version = row["version"]?.string, let releaseID = row["releaseId"]?.string,
+                  let category = row["category"]?.string,
+                  ["module", "web-runtime", "game-content", "model-data", "asset-pack"].contains(category),
+                  let sha256 = row["artifact"]?["sha256"]?.string, InstallDescriptorVerifier.isHex64(sha256),
+                  let compressed = row["artifact"]?["compressedSizeBytes"]?.number,
+                  let installed = row["artifact"]?["installedSizeEstimateBytes"]?.number,
+                  compressed > 0, compressed <= 1_073_741_824, installed > 0, installed <= 4_294_967_296,
+                  let ref = row["artifact"]?["download"]?["pathOrUrl"]?.string,
+                  let sharing = row["sharing"]?.string,
+                  ["public-immutable", "account-private"].contains(sharing),
+                  row["trust"]?["verified"]?.bool == true,
+                  row["trust"]?["publisherVerified"]?.bool == true,
+                  row["trust"]?["revoked"]?.bool == false,
+                  row["signature"]?["algorithm"]?.string == "Ed25519",
+                  let deps = row["dependencies"]?.array?.compactMap({ $0["packageId"]?.string }) else { return nil }
+            packages.append(Package(id: id, version: version, releaseID: releaseID, category: category,
+                                    sha256: sha256, compressedBytes: Int64(compressed), installedBytes: Int64(installed),
+                                    downloadRef: ref, sharing: sharing, dependencies: deps))
+        }
+        let ids = Set(packages.map(\.id))
+        guard ids.contains(requested), packages.allSatisfy({ Set($0.dependencies).isSubset(of: ids) }),
+              let totalCompressed = lock["aggregateCompressedBytes"]?.number,
+              let totalInstalled = lock["aggregateInstalledEstimateBytes"]?.number,
+              let newDownload = lock["newDownloadBytes"]?.number,
+              let reused = lock["reusedArtifactDigests"]?.array?.compactMap(\.string),
+              reused.allSatisfy(InstallDescriptorVerifier.isHex64),
+              totalCompressed >= 0, totalInstalled >= 0, newDownload >= 0 else { return nil }
+        self.lockSha256 = digest
+        self.packages = packages
+        self.requested = requested
+        aggregateCompressedBytes = Int64(totalCompressed)
+        aggregateInstalledBytes = Int64(totalInstalled)
+        newDownloadBytes = Int64(newDownload)
+        reusedDigests = reused
+    }
+
+    func package(_ id: String) -> Package? { packages.first { $0.id == id } }
+}
+
+/// Verifies that a cached rollback target still resolves to the same trusted,
+/// unrevoked game and runtime artifacts. GreenField supplies the exact closure;
+/// the host never selects a replacement runtime during recovery.
+enum RollbackPackageClosure {
+    static func isEligible(_ response: JSONValue, for release: ModuleCachedRelease) -> Bool {
+        guard let gameDigest = release.gameSha256, let runtimeDigest = release.runtimeSha256,
+              let lock = response["lock"], lock["schemaVersion"]?.string == "modula.package-lock.1",
+              let lockDigest = response["lockSha256"]?.string,
+              InstallDescriptorVerifier.isHex64(lockDigest), CanonicalJSON.sha256Hex(lock) == lockDigest,
+              lock["requested"]?.array?.compactMap(\.string).contains(release.moduleId) == true,
+              let rows = lock["packages"]?.array, !rows.isEmpty, rows.count <= 128 else { return false }
+        var packages: [String: JSONValue] = [:]
+        for row in rows {
+            guard let id = row["packageId"]?.string, packages[id] == nil,
+                  let digest = row["artifact"]?["sha256"]?.string,
+                  InstallDescriptorVerifier.isHex64(digest),
+                  row["trust"]?["verified"]?.bool == true,
+                  row["trust"]?["publisherVerified"]?.bool == true,
+                  row["trust"]?["revoked"]?.bool == false,
+                  row["signature"]?["algorithm"]?.string == "Ed25519",
+                  row["dependencies"]?.array?.allSatisfy({ $0["packageId"]?.string != nil }) == true else { return false }
+            packages[id] = row
+        }
+        let ids = Set(packages.keys)
+        guard packages.count == 2, packages.values.allSatisfy({ row in
+            Set(row["dependencies"]?.array?.compactMap({ $0["packageId"]?.string }) ?? []).isSubset(of: ids)
+        }), let game = packages[release.moduleId],
+              game["category"]?.string == "game-content",
+              game["version"]?.string == release.version,
+              game["releaseId"]?.string == release.releaseId,
+              game["artifact"]?["sha256"]?.string == gameDigest,
+              game["dependencies"]?.array?.count == 1,
+              let runtimeID = game["dependencies"]?.array?.first(where: {
+                  packages[$0["packageId"]?.string ?? ""]?["category"]?.string == "web-runtime"
+              })?["packageId"]?.string,
+              let runtime = packages[runtimeID], runtime["category"]?.string == "web-runtime",
+              runtime["artifact"]?["sha256"]?.string == runtimeDigest else { return false }
+        return true
+    }
+}
+
 /// Canonical JSON identical to Greenfield's `canonicalJsonStringify`: object keys sorted by
 /// UTF-16 code units, no whitespace, `JSON.stringify` string escaping and number formatting.
 enum CanonicalJSON {

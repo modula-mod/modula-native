@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.134",
+  "key": "gustra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#71B9F3",
+    "accent": "#B7DBF9",
+    "light": "#B7DBF9",
+    "dark": "#65A5D8"
+  },
+  "form": "Sky-blue balloon cheeks, broad ears"
+}

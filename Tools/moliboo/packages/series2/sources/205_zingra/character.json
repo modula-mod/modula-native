@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.205",
+  "key": "zingra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F8B47E",
+    "accent": "#FBD9BD",
+    "light": "#FBD9BD",
+    "dark": "#DDA070"
+  },
+  "form": "Orange spark crown, navy belly"
+}

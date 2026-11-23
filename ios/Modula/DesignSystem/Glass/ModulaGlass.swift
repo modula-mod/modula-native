@@ -8,6 +8,20 @@ import SwiftUI
 // - Reduce Transparency, or iOS 18–25: an opaque-enough material with a hairline,
 //   so text stays legible and nothing pretends to be glass.
 
+/// Appearance → Glass Intensity. Reduce Transparency always wins (opaque fallback).
+enum ModulaGlassIntensity: String, CaseIterable, Identifiable {
+    case clear, standard, frosted
+    static let storageKey = "modula.appearance.glassIntensity"
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .clear: "Clear"
+        case .standard: "Standard"
+        case .frosted: "Frosted"
+        }
+    }
+}
+
 struct ModulaGlassGroup<Content: View>: View {
     var spacing: CGFloat = 8
     @ViewBuilder var content: () -> Content
@@ -29,9 +43,22 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
     var specular = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+    // One shared observable: an @AppStorage per glass view subscribed every capsule
+    // in every feed row to UserDefaults.
+    private var intensity: ModulaGlassIntensity { ModulaGlassSettings.shared.intensity }
+
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, *), !reduceTransparency {
+        if ModulaGlassSettings.shared.lighter {
+            // Lighter effects: an opaque fill, no glass sampling, no shadow pass.
             content
+                .background(Color(uiColor: .secondarySystemBackground).opacity(0.94), in: shape)
+                .background((tint ?? .clear).opacity(prominent ? 0.9 : 0.18), in: shape)
+                .overlay(shape.stroke(Color.primary.opacity(0.08), lineWidth: 0.7))
+        } else if #available(iOS 26.0, *), !reduceTransparency {
+            content
+                .background {
+                    if intensity == .frosted { shape.fill(.thinMaterial) }
+                }
                 .glassEffect(glass, in: shape)
                 .overlay {
                     if specular {
@@ -59,7 +86,7 @@ private struct ModulaGlassModifier<S: Shape>: ViewModifier {
 
     @available(iOS 26.0, *)
     private var glass: Glass {
-        var value = Glass.regular
+        var value = intensity == .clear ? Glass.clear : Glass.regular
         if let tint { value = value.tint(prominent ? tint : tint.opacity(0.55)) }
         return interactive ? value.interactive() : value
     }
@@ -128,27 +155,37 @@ struct ModulaGlassSendButton: View {
     var action: () -> Void
 
     var body: some View {
+        // Visible disc is smaller than the 44pt touch target; no glow ring or scale-up.
+        let disc = min(size, 44) * 0.8
+        let active = ready || busy
+        let ink = active ? Self.ink(on: tint) : Color.secondary
         Button(action: action) {
-            Group {
+            ZStack {
+                Circle()
+                    .fill(active ? AnyShapeStyle(tint) : AnyShapeStyle(Color.primary.opacity(0.08)))
+                    .frame(width: disc, height: disc)
                 if busy {
-                    ProgressView().controlSize(.small).tint(.white)
+                    ProgressView().controlSize(.small).tint(ink)
                 } else {
                     Image(systemName: systemImage)
-                        .font(.system(size: size * 0.4, weight: .bold))
+                        .font(.system(size: disc * 0.46, weight: .bold))
+                        .foregroundStyle(ink)
                         .contentTransition(.symbolEffect(.replace))
                 }
             }
-            .foregroundStyle(ready || busy ? Color.white : Color.secondary)
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .modulaGlass(in: Circle(), interactive: true, tint: ready || busy ? tint : nil, prominent: ready || busy, specular: true)
-        .scaleEffect(ready && !busy ? 1.08 : 1)
-        .shadow(color: ready && !busy ? tint.opacity(0.45) : .clear, radius: 8, y: 0)
         .disabled(!ready && !busy)
-        .animation(.spring(response: 0.28, dampingFraction: 0.62), value: ready)
+        .animation(.snappy(duration: 0.18), value: active)
         .accessibilityLabel(busy ? "Sending" : title)
+    }
+
+    private static func ink(on color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.62 ? .black : .white
     }
 }
 
@@ -179,5 +216,83 @@ struct ModulaGlassSearchField: View {
         .padding(.horizontal, 14)
         .frame(minHeight: 44)
         .modulaGlass(in: Capsule())
+    }
+}
+
+// MARK: - Shared filled accent CTA
+//
+// One style for every primary/filled call to action: a solid fill in the user's live accent
+// (custom or preset) with white text, so the single strongest action on a screen always looks
+// the same (Von Restorff). On iOS 26 the fill stays fully opaque with a thin specular glass rim
+// (tinted Liquid Glass over the fill read as a washed-out, disabled-looking pastel on device);
+// with Reduce Transparency or on iOS 18–25 it is a plain solid capsule.
+private struct ModulaAccentCTAModifier<S: InsettableShape>: ViewModifier {
+    let shape: S
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        let accent = app.appearance.liveAccent
+        let styled = content
+            .foregroundStyle(isEnabled ? Color.white : accent)
+            .tint(isEnabled ? .white : accent)
+        if !isEnabled {
+            // Inactive (e.g. "You're on Horizon"): accent outline, never a washed-out fill.
+            styled
+                .background(accent.opacity(0.10), in: shape)
+                .overlay(shape.strokeBorder(accent.opacity(contrast == .increased ? 1 : 0.6), lineWidth: 1.2))
+        } else if !reduceTransparency {
+            styled
+                .background(shape.fill(accent))
+                .overlay(
+                    shape.strokeBorder(
+                        LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom),
+                        lineWidth: 0.8
+                    )
+                    .allowsHitTesting(false)
+                )
+                .shadow(color: accent.opacity(0.28), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
+        } else {
+            styled
+                .background(shape.fill(accent))
+                .shadow(color: accent.opacity(0.28), radius: GeneratedDesignContract.Elevation.medium.radius, y: GeneratedDesignContract.Elevation.medium.y)
+        }
+    }
+}
+
+extension View {
+    /// The one filled accent CTA used app-wide.
+    func modulaAccentCTA() -> some View { modifier(ModulaAccentCTAModifier(shape: Capsule())) }
+    func modulaAccentCTA<S: InsettableShape>(in shape: S) -> some View { modifier(ModulaAccentCTAModifier(shape: shape)) }
+}
+
+
+/// Glass intensity + Lighter effects, read once and shared by every glass surface.
+@MainActor @Observable
+final class ModulaGlassSettings {
+    static let shared = ModulaGlassSettings()
+    private(set) var intensity: ModulaGlassIntensity = .standard
+    private(set) var lighter = false
+    private(set) var glassBubbles = false
+    static let glassBubblesKey = "messages.glassBubbles"
+    @ObservationIgnored private var observer: NSObjectProtocol?
+
+    private init() {
+        read()
+        observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { ModulaGlassSettings.shared.read() }
+        }
+    }
+
+    func read() {
+        let defaults = UserDefaults.standard
+        let nextIntensity = ModulaGlassIntensity(rawValue: defaults.string(forKey: ModulaGlassIntensity.storageKey) ?? "") ?? .standard
+        if nextIntensity != intensity { intensity = nextIntensity }
+        let nextLighter = defaults.bool(forKey: "settings.battery.reduceMotionExtra")
+        if nextLighter != lighter { lighter = nextLighter }
+        let nextBubbles = defaults.bool(forKey: Self.glassBubblesKey)
+        if nextBubbles != glassBubbles { glassBubbles = nextBubbles }
     }
 }

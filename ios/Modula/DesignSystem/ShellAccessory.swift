@@ -43,17 +43,19 @@ struct ShellAccessoryConfiguration: Equatable {
                 actions: [
                     ShellAccessoryAction(id: "feeds", title: "Feeds", symbol: "number", enabled: true, accessibilityIdentifier: "accessory.feeds"),
                     ShellAccessoryAction(id: "summary", title: "Summary", symbol: "sparkles", enabled: true, accessibilityIdentifier: "accessory.summary"),
-                    ShellAccessoryAction(id: "tools", title: "Tools", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.tools")
+                    // One-tap refresh; feed options + Manage following live once, in Feeds (was a duplicate "Tools" sheet).
+                    ShellAccessoryAction(id: "refresh", title: "Refresh", symbol: "arrow.clockwise", enabled: true, accessibilityIdentifier: "accessory.refresh")
                 ],
                 showsSearch: false,
                 showsMore: false
             )
-        case .discover:
+        case .discover(let scope):
             return Self(
                 title: "Tools",
                 symbol: "safari",
                 actions: [
-                    ShellAccessoryAction(id: "customise", title: "Customise", symbol: "slider.horizontal.3", enabled: true, accessibilityIdentifier: "accessory.customise"),
+                    // Trending and Topics have no filters: never offer an empty Customise sheet.
+                    ShellAccessoryAction(id: "customise", title: "Customise", symbol: "slider.horizontal.3", enabled: scope.hasFilters, accessibilityIdentifier: "accessory.customise"),
                     ShellAccessoryAction(id: "refresh", title: "Refresh", symbol: "arrow.clockwise", enabled: true, accessibilityIdentifier: "accessory.refresh")
                 ],
                 showsSearch: false,
@@ -107,7 +109,7 @@ struct ShellIntelligenceChatButton: View {
         } label: {
             Image(systemName: Self.symbolName)
                 .font(.system(size: compact ? 15 : 17, weight: .semibold))
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .symbolEffect(.bounce, value: pulse)
                 .frame(width: size, height: size)
                 .modifier(ShellIntelligenceChatChrome(compact: compact, opaque: opaque))
@@ -157,7 +159,7 @@ private struct ShellIntelligenceShimmer: ViewModifier {
                                     .init(color: .clear, location: 0),
                                     .init(color: .clear, location: 0.58),
                                     .init(color: Color.white.opacity(0.72), location: 0.74),
-                                    .init(color: app.appearance.accent.color.opacity(0.55), location: 0.84),
+                                    .init(color: app.appearance.liveAccent.opacity(0.55), location: 0.84),
                                     .init(color: .clear, location: 0.96)
                                 ],
                                 center: .center,
@@ -198,7 +200,7 @@ struct ShellAccessorySystemSlot: View {
         } else {
             ShellAccessoryDock(route: route, toolsChrome: false)
                 .background {
-                    TabAccessoryPlatterController(hidesExpandedPlatter: true)
+                    TabAccessoryPlatterController(hidesExpandedPlatter: false)  // keep the system Liquid Glass platter
                         .frame(width: 0, height: 0)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -218,7 +220,7 @@ struct ShellAccessorySystemSlot: View {
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
-                .background(app.appearance.accent.color.gradient, in: Circle())
+                .background(app.appearance.liveAccent.gradient, in: Circle())
                 .symbolEffect(.bounce, value: config.symbol)
                 .contentTransition(.symbolEffect(.replace))
             if config.title == "Modula" {
@@ -245,6 +247,48 @@ struct ShellAccessorySystemSlot: View {
         .accessibilityLabel(config.title)
         .accessibilityHint("Swipe up or activate to open installed modules")
         .accessibilityIdentifier("tab.accessory")
+    }
+}
+
+/// Main-thread flag the sidebar sets while its drag is live so UIKit chrome
+/// hooks and Home observers stop writing during the interactive transform.
+@MainActor
+enum ShellChromeFreeze {
+    /// Posted once the card has fully settled, so frozen writers can re-sync their latest value.
+    static let cardSpace = "modula.shell.card"
+    static let didThaw = Notification.Name("ShellChromeFreeze.didThaw")
+    private static var liveDrag = false
+    /// Mirrors `NavigationCoordinator.sidebarPresented`; while open the feed keeps its layout locked.
+    static var sidebarPresented = false
+    private static var settleUntil: CFTimeInterval = 0
+    private static var thawScheduled = false
+
+    /// True while the card is being dragged AND for the whole release / settle animation that
+    /// follows. A fast flick ends the drag almost immediately, but the spring then moves the card
+    /// for ~0.6s; geometry writers must stay frozen for all of it or they feed back into layout.
+    static var isSidebarDragging: Bool {
+        get { liveDrag || CACurrentMediaTime() < settleUntil }
+        set {
+            liveDrag = newValue
+            holdForSettle()
+        }
+    }
+
+    /// Keeps the freeze for the settle animation (spring settles in ~0.6s; padded).
+    static func holdForSettle(_ duration: CFTimeInterval = 0.75) {
+        settleUntil = max(settleUntil, CACurrentMediaTime() + duration)
+        scheduleThaw()
+    }
+
+    private static func scheduleThaw() {
+        guard !thawScheduled else { return }
+        thawScheduled = true
+        let delay = max(0.05, settleUntil - CACurrentMediaTime() + 0.02)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            thawScheduled = false
+            if isSidebarDragging { scheduleThaw(); return }
+            NotificationCenter.default.post(name: didThaw, object: nil)
+        }
     }
 }
 
@@ -275,9 +319,12 @@ private final class TabAccessoryPlatterHook: UIView {
         isUserInteractionEnabled = false
         isHidden = true
         backgroundColor = .clear
+        NotificationCenter.default.addObserver(self, selector: #selector(thawed), name: ShellChromeFreeze.didThaw, object: nil)
     }
 
     required init?(coder: NSCoder) { nil }
+
+    @objc private func thawed() { applySoon() }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -294,14 +341,30 @@ private final class TabAccessoryPlatterHook: UIView {
         applySoon()
     }
 
+    private var applyPending = false
+    private var lastHidden: Bool?
+
+    /// Coalesced: at most one queued pass. The old version ran apply three
+    /// times per layoutSubviews, and apply itself dirtied layout, so any
+    /// per-frame layout (sidebar drag transforms the whole TabView) flooded
+    /// the main queue and hung the app.
     func applySoon() {
-        apply()
-        DispatchQueue.main.async { [weak self] in self?.apply() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in self?.apply() }
+        guard !applyPending else { return }
+        applyPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyPending = false
+            self.apply()
+        }
     }
 
     func apply() {
-        if shouldHidePlatter() {
+        guard window != nil, !ShellChromeFreeze.isSidebarDragging else { return }
+        let hide = shouldHidePlatter()
+        // Idempotent: only touch UIKit when the decision actually changes.
+        if lastHidden == hide, !hide { return }
+        lastHidden = hide
+        if hide {
             neutralize()
         } else {
             restore()
@@ -321,9 +384,12 @@ private final class TabAccessoryPlatterHook: UIView {
         var outsideHosting = hosting == nil
         while let view = current {
             if view is UITabBar || view is UIWindow { break }
+            // Never climb past the tab bar controller's container into the
+            // shell / sidebar card views.
+            if view.next is UITabBarController { break }
             if let hosting, view === hosting {
-                view.backgroundColor = .clear
-                view.isOpaque = false
+                if view.backgroundColor != .clear { view.backgroundColor = .clear }
+                if view.isOpaque { view.isOpaque = false }
                 outsideHosting = true
                 current = view.superview
                 continue
@@ -332,8 +398,8 @@ private final class TabAccessoryPlatterHook: UIView {
                 current = view.superview
                 continue
             }
-            view.backgroundColor = .clear
-            view.isOpaque = false
+            if view.backgroundColor != .clear { view.backgroundColor = .clear }
+            if view.isOpaque { view.isOpaque = false }
             if let effectView = view as? UIVisualEffectView {
                 clearEffect(effectView)
                 for subview in effectView.subviews where subview !== effectView.contentView {
@@ -414,6 +480,10 @@ struct ShellAccessoryHost: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var iconPulse: [String: Int] = [:]
+    /// Swipeable contexts: 0 = route Tools, 1 = Modules, 2 = Quick actions.
+    @State private var page = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let pageTitles = ["Tools", "Modules", "Quick"]
 
     var body: some View {
         let config = ShellAccessoryConfiguration.configuration(
@@ -422,11 +492,106 @@ struct ShellAccessoryHost: View {
             signedIn: app.auth.isSignedIn
         )
         HStack(spacing: 8) {
+            if page == 0 {
+                toolsRow(config)
+            } else {
+                contextRow(page)
+            }
+            pageDots
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .frame(maxWidth: .infinity, minHeight: ShellIntelligenceChatMetrics.buttonSize)
+        .modulaAccessorySurface(
+            nativeHosted: nativeHosted,
+            opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+        )
+        .dynamicTypeSize(...DynamicTypeSize.large)
+        .contentTransition(.interpolate)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.28), value: page)
+        .animation(.snappy(duration: 0.28), value: config.title)
+        .contentShape(Rectangle())
+        // Horizontal swipe pages between contexts (Tools / Modules / Quick).
+        .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
+            guard abs(value.translation.width) > abs(value.translation.height) * 1.5,
+                  abs(value.translation.width) > 40 else { return }
+            let next = value.translation.width < 0 ? page + 1 : page - 1
+            page = (next + Self.pageTitles.count) % Self.pageTitles.count
+            HapticEngine.shared.play(.selection)
+        })
+        // Long-press anywhere on the Tools accessory: glass command palette.
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+            CommandPaletteCenter.shared.present()
+        })
+        .modifier(AccessoryModulesLift())
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Next context") { page = (page + 1) % Self.pageTitles.count }
+        .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
+        .accessibilityIdentifier("tab.accessory")
+        .onChange(of: route) { _, _ in page = 0 }
+    }
+
+    private var pageDots: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<Self.pageTitles.count, id: \.self) { i in
+                Circle()
+                    .fill(i == page ? app.appearance.liveAccent : Color.secondary.opacity(0.35))
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .padding(.trailing, 4)
+        .accessibilityHidden(true)
+    }
+
+    private struct ContextItem: Identifiable { let id: String; let title: String; let symbol: String; let run: () -> Void }
+
+    private func contextItems(_ page: Int) -> [ContextItem] {
+        if page == 1 {
+            return [
+                ContextItem(id: "hub", title: "Product Hub", symbol: "shippingbox") { app.navigation.open(.productHub(.featured)) },
+                ContextItem(id: "installed", title: "Installed", symbol: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) },
+                ContextItem(id: "updates", title: "Updates", symbol: "arrow.triangle.2.circlepath") { app.navigation.open(.productHub(.collection(.updates))) }
+            ]
+        }
+        return [
+            ContextItem(id: "search", title: "Search", symbol: "magnifyingglass") { app.navigation.open(.search(.root(nil))) },
+            ContextItem(id: "command", title: "Command Center", symbol: "command") { PresentationCoordinator.present(.commandCenter, in: app.navigation) },
+            ContextItem(id: "saved", title: "Saved", symbol: "bookmark") { app.navigation.open(.saved(.root)) },
+            ContextItem(id: "drafts", title: "Drafts", symbol: "doc.text") { app.navigation.open(.drafts(.root)) }
+        ]
+    }
+
+    @ViewBuilder
+    private func contextRow(_ page: Int) -> some View {
+        Text(Self.pageTitles[page])
+            .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1)
+        Spacer(minLength: 6)
+        ForEach(contextItems(page)) { item in
+            Button {
+                iconPulse[item.id, default: 0] += 1
+                HapticEngine.shared.play(.navigation)
+                item.run()
+            } label: {
+                Image(systemName: item.symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .symbolEffect(.bounce, value: iconPulse[item.id, default: 0])
+                    .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.title)
+            .accessibilityIdentifier("accessory.\(item.id)")
+        }
+    }
+
+    @ViewBuilder
+    private func toolsRow(_ config: ShellAccessoryConfiguration) -> some View {
             Image(systemName: config.symbol)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(app.appearance.accent.color)
+                .foregroundStyle(app.appearance.liveAccent)
                 .frame(width: 24, height: 24)
-                .background(app.appearance.accent.color.opacity(0.12), in: Circle())
+                .background(app.appearance.liveAccent.opacity(0.12), in: Circle())
                 .symbolEffect(.bounce, value: config.symbol)
                 .contentTransition(.symbolEffect(.replace))
             if config.title == "Modula" {
@@ -479,25 +644,6 @@ struct ShellAccessoryHost: View {
             if config.showsMore {
                 moreMenu
             }
-        }
-        .padding(.leading, 10)
-        .padding(.trailing, 6)
-        .frame(maxWidth: .infinity, minHeight: ShellIntelligenceChatMetrics.buttonSize)
-        .modulaAccessorySurface(
-            nativeHosted: nativeHosted,
-            opaque: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
-        )
-        .dynamicTypeSize(...DynamicTypeSize.large)
-        .contentTransition(.interpolate)
-        .animation(.snappy(duration: 0.28), value: config.title)
-        // Long-press anywhere on the Tools accessory: glass command palette.
-        .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
-            CommandPaletteCenter.shared.present()
-        })
-        .modifier(AccessoryModulesLift())
-        .accessibilityElement(children: .contain)
-        .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
-        .accessibilityIdentifier("tab.accessory")
     }
 
     private var moreMenu: some View {
@@ -682,11 +828,11 @@ struct ModulaTabBar: View {
                                 .font(.system(size: 16, weight: selected ? .semibold : .medium))
                                 .symbolEffect(.bounce, value: selected)
                                 .contentTransition(.symbolEffect(.replace))
-                                .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                                .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
                         }
                         Text(tab.title)
                             .font(.caption2.weight(selected ? .semibold : .medium))
-                            .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                            .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
                     }
@@ -745,7 +891,7 @@ extension ModulaTabBar {
     fileprivate func tabBlob(selectedIndex: CGFloat) -> some View {
         let lead = blobLead < 0 ? selectedIndex : blobLead
         let trail = blobTrail < 0 ? selectedIndex : blobTrail
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         ModulaTabBlobShape(lead: lead, trail: trail, count: CGFloat(AppTab.allCases.count))
             .fill(accent.opacity(0.15))
             .overlay {
@@ -924,7 +1070,7 @@ struct InstalledModulesPanel: View {
 
     @ViewBuilder
     private func moduleIcon(_ product: CatalogueProduct) -> some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(accent.opacity(0.14))

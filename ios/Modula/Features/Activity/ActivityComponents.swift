@@ -22,7 +22,7 @@ struct ActivityUnreadIndicator: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     var body: some View {
-        let accent = app.appearance.accent.color
+        let accent = app.appearance.liveAccent
         Circle()
             .fill(accent)
             .frame(width: 7, height: 7)
@@ -49,7 +49,7 @@ struct ActivityKindBadge: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let style = Self.style(for: kind, accent: app.appearance.accent.color)
+        let style = Self.style(for: kind, accent: app.appearance.liveAccent)
         Image(systemName: style.symbol)
             .font(.system(size: 9, weight: .bold))
             .foregroundStyle(.white)
@@ -76,6 +76,7 @@ struct ActivityKindBadge: View {
         case .teamInvite: ("person.3.fill", .indigo)
         case .moduleEvent: ("shippingbox.fill", .mint)
         case .moduleUpdate: ("arrow.down.circle.fill", .mint)
+        case .moliboo: ("pawprint.fill", .orange)
         case .system, .unknown: ("bell.fill", .gray)
         }
     }
@@ -113,15 +114,7 @@ struct ActivitySubjectPreview: View {
     var body: some View {
         Group {
             if let url = preview.thumbnailURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.primary.opacity(0.08))
-                    }
-                }
+                ModulaDownsampledImage(url: url, pointSize: 52)
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
@@ -160,16 +153,30 @@ struct ActivityRequestActions: View {
     let onDecline: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button("Accept", action: onAccept)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(busy)
-                .accessibilityIdentifier("activity.request.accept")
-            Button("Decline", role: .destructive, action: onDecline)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(busy)
+        HStack(spacing: GeneratedDesignContract.Spacing.xs) {
+            Button(action: onAccept) {
+                Text("Accept")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, GeneratedDesignContract.Spacing.md)
+                    .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .modulaAccentCTA()
+            .disabled(busy)
+            .accessibilityIdentifier("activity.request.accept")
+            // Secondary action stays quiet (glass, no fill) so Accept is the one obvious choice.
+            Button(role: .destructive, action: onDecline) {
+                Text("Decline")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, GeneratedDesignContract.Spacing.md)
+                    .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                    .contentShape(Capsule())
+                    .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+            .disabled(busy)
                 .accessibilityIdentifier("activity.request.decline")
         }
     }
@@ -231,7 +238,7 @@ struct ActivityRow: View {
         .padding(.horizontal, 10)
         .background {
             if !event.isRead {
-                let accent = app.appearance.accent.color
+                let accent = app.appearance.liveAccent
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(LinearGradient(colors: [accent.opacity(0.11), accent.opacity(0.03)], startPoint: .leading, endPoint: .trailing))
                     .overlay(
@@ -321,7 +328,7 @@ struct ActivityTimeline: View {
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if !event.isRead {
                             Button("Read") { onMarkRead(event) }
-                                .tint(app.appearance.accent.color)
+                                .tint(app.appearance.liveAccent)
                         }
                     }
                     Divider().opacity(0.22).padding(.leading, 62)
@@ -329,16 +336,21 @@ struct ActivityTimeline: View {
             }
             if hasMore {
                 Button {
+                    HapticEngine.shared.play(.selection)
                     onLoadMore()
                 } label: {
-                    HStack {
-                        Spacer()
-                        if loadingMore { ProgressView() } else { Text("Load more") }
-                        Spacer()
+                    HStack(spacing: ModulaSpacing.xs) {
+                        if loadingMore { ProgressView().tint(.white) } else { Text("Load more").font(.subheadline.weight(.semibold)) }
                     }
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, ModulaSpacing.lg)
+                    .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .modulaAccentCTA()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .disabled(loadingMore)
+                .accessibilityLabel(loadingMore ? "Loading more" : "Load more activity")
                 .accessibilityIdentifier("activity.load-more")
             }
         }

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.151",
+  "key": "mossini",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#BDD7AD",
+    "accent": "#DDEBD5",
+    "light": "#DDEBD5",
+    "dark": "#A8BF9A"
+  },
+  "form": "Sage mushroom-cap head, tiny feet"
+}

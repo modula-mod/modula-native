@@ -164,8 +164,8 @@ actor GreenfieldPostRepository: PostRepository {
     func voteCommentPoll(commentID: SocialCommentID, postID: SocialPostID, option: Int?) async throws -> SocialComment? {
         let value: JSONValue = try await client.authenticatedJSON(
             "PUT",
-            path: "/v1/comments/\(Self.pathEscaped(commentID))/poll/vote",
-            body: .object(["optionIndex": option.map { .number(Double($0)) } ?? .null])
+            path: CommentPollVote.path(commentID: commentID),
+            body: CommentPollVote.body(optionIndex: option)
         )
         return SocialPayloadDecoder.comment(value["comment"] ?? value, fallbackPostID: postID)
     }

@@ -77,3 +77,32 @@ test('list helpers: pinned first, timestamps, hostile rows', () => {
   assert.equal(relativeTime('2025-09-12T08:00:00.000Z', now), '12 Sep 2025');
   assert.equal(relativeTime('nope', now), undefined);
 });
+
+import {filterNotes, noteStats, sectionsByRecency} from '../src/modules/vault/model';
+
+function note(id: string, extra: Partial<NoteRow['data']> = {}, updated_at?: string): NoteRow {
+  return {record_id: id, revision: 1, updated_at, data: {title: id, document: {schemaVersion: '1.0.0', blocks: []}, plainTextProjection: '',
+    tagIds: [], pinned: false, favourite: false, archived: false, dataSchemaVersion: '1.0.0', ...extra}};
+}
+
+test('filters keep archived notes out of All and alone in Archive', () => {
+  const rows = [note('a'), note('p', {pinned: true}), note('f', {favourite: true}), note('x', {archived: true, pinned: true})];
+  assert.deepEqual(filterNotes(rows, 'all').map(r => r.record_id), ['a', 'p', 'f']);
+  assert.deepEqual(filterNotes(rows, 'pinned').map(r => r.record_id), ['p']);
+  assert.deepEqual(filterNotes(rows, 'favourites').map(r => r.record_id), ['f']);
+  assert.deepEqual(filterNotes(rows, 'archived').map(r => r.record_id), ['x']);
+});
+
+test('recency sections chunk pinned, today, this week and earlier', () => {
+  const now = Date.parse('2026-11-01T12:00:00');
+  const rows = [note('p', {pinned: true}), note('t', {}, '2026-11-01T09:00:00'), note('w', {}, '2026-10-29T09:00:00'),
+    note('e', {}, '2026-09-01T09:00:00'), note('n')];
+  assert.deepEqual(sectionsByRecency(rows, now).map(s => [s.title, s.rows.map(r => r.record_id)]),
+    [['Pinned', ['p']], ['Today', ['t']], ['This week', ['w']], ['Earlier', ['e', 'n']]]);
+});
+
+test('note stats count words and round reading time up to a minute', () => {
+  assert.deepEqual(noteStats('  '), {words: 0, minutes: 0});
+  assert.deepEqual(noteStats('one two three'), {words: 3, minutes: 1});
+  assert.equal(noteStats(Array(500).fill('w').join(' ')).minutes, 3);
+});

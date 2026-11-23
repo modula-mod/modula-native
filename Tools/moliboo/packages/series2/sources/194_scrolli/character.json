@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.194",
+  "key": "scrolli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#E1CDB1",
+    "accent": "#F0E6D7",
+    "light": "#F0E6D7",
+    "dark": "#C8B69E"
+  },
+  "form": "Parchment curl tail, sepia freckles"
+}

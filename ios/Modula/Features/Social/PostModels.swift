@@ -372,10 +372,10 @@ struct FeedSummary: Hashable, Sendable {
         }
         let top = counts.sorted { $0.value > $1.value }.prefix(3).map(\.key)
         var highlights: [String] = []
-        if !posts.isEmpty { highlights.append("\(posts.count) posts in loaded window") }
+        if !posts.isEmpty { highlights.append(posts.count == 1 ? "1 post loaded" : "\(posts.count) posts loaded") }
         if likes > 0 { highlights.append(String(localized: "\(likes) likes")) }
         if replies > 0 { highlights.append(String(localized: "\(replies) replies")) }
-        if media > 0 { highlights.append("\(media) with media") }
+        if media > 0 { highlights.append(media == 1 ? "1 post with media" : "\(media) posts with media") }
         if modules > 0 { highlights.append(String(localized: "\(modules) module updates")) }
         return FeedSummary(
             source: .aggregate,
@@ -617,10 +617,7 @@ enum SocialPayloadDecoder {
 
     static func decodeDate(_ raw: String?) -> Date? {
         guard let raw else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: raw) { return date }
-        return ISO8601DateFormatter().date(from: raw)
+        return ModulaISODate.parse(raw)
     }
 
     private static func emptyToNil(_ value: String?) -> String? {
@@ -737,7 +734,7 @@ struct SocialCommentMedia: Identifiable, Hashable, Sendable {
                 totalVotes: value["totalVotes"]?.int ?? 0,
                 viewerVote: value["viewerVote"]?.int,
                 closed: value["closed"]?.bool ?? false,
-                closesAt: value["closesAt"]?.string.flatMap { ISO8601DateFormatter().date(from: $0) }
+                closesAt: value["closesAt"]?.string.flatMap { ModulaISODate.parse($0) }
             )
         case "location":
             guard let lat = value["latitude"]?.number, let lng = value["longitude"]?.number else { return nil }
@@ -748,5 +745,21 @@ struct SocialCommentMedia: Identifiable, Hashable, Sendable {
         default:
             return nil
         }
+    }
+}
+
+
+/// Shared ISO-8601 parsing. Allocating two `ISO8601DateFormatter`s per field was the
+/// most expensive part of decoding a feed/message page; these are reused (thread-safe).
+enum ModulaISODate {
+    nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    nonisolated(unsafe) private static let plain = ISO8601DateFormatter()
+
+    nonisolated static func parse(_ raw: String) -> Date? {
+        fractional.date(from: raw) ?? plain.date(from: raw)
     }
 }

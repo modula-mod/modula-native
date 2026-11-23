@@ -36,7 +36,7 @@ struct IntelligenceSettingsRootView: View {
                 subtitle: providerLine,
                 symbol: "brain"
             )
-            SettingsSceneGraphic(style: .orbit)
+            SproutIllustrationView(illustration: .ai, height: 148)
             NodusModelSettingsCard()
             SettingsGroup(title: "Chat") {
                 VStack(spacing: 0) {
@@ -191,7 +191,7 @@ struct IntelligenceModelsSettingsView: View {
                                 HStack(spacing: 13) {
                                     Image(systemName: row.executionKind == .local ? "iphone" : "cloud")
                                         .frame(width: 28)
-                                        .foregroundStyle(app.appearance.accent.color)
+                                        .foregroundStyle(app.appearance.liveAccent)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(displayName(for: row.id))
                                             .font(.body.weight(.medium))
@@ -399,7 +399,7 @@ struct IntelligenceToolsSettingsView: View {
                                 HStack(spacing: 13) {
                                     Image(systemName: "wrench.and.screwdriver")
                                         .frame(width: 28)
-                                        .foregroundStyle(app.appearance.accent.color)
+                                        .foregroundStyle(app.appearance.liveAccent)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(row.title)
                                             .font(.body.weight(.medium))

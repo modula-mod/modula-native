@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.126",
+  "key": "zeppi",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#FCE4C9",
+    "accent": "#FDF1E3",
+    "light": "#FDF1E3",
+    "dark": "#E0CBB3"
+  },
+  "form": "Cream cloud tuft, gold wind curl"
+}

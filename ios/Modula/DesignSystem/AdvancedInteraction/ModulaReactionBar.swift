@@ -111,9 +111,9 @@ struct ModulaReactionBar<ID: Hashable & Sendable>: View {
                         .monospacedDigit()
                 }
             }
-            .foregroundStyle(highlighted || selected ? app.appearance.accent.color : .primary)
+            .foregroundStyle(highlighted || selected ? app.appearance.liveAccent : .primary)
             .frame(width: itemWidth, height: compact ? 42 : 52)
-            .background((highlighted ? app.appearance.accent.color.opacity(0.14) : .clear), in: Capsule())
+            .background((highlighted ? app.appearance.liveAccent.opacity(0.14) : .clear), in: Capsule())
             .scaleEffect(highlighted && !reduceMotion ? 1.08 : 1)
             .contentShape(Capsule())
         }

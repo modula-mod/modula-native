@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Slots
 
 enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
-    case hat, hair, face, top, outerwear, bottom, shoes, accessory, held, back, aura, pet, background, seasonal
+    case hat, hair, face, top, outerwear, bottom, shoes, accessory, held, back, aura, pet, background, seasonal, costume
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -21,6 +21,7 @@ enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
         case .pet: "Pets"
         case .background: "Scenes"
         case .seasonal: "Seasonal"
+        case .costume: "Costumes"
         }
     }
     var symbol: String {
@@ -39,6 +40,7 @@ enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
         case .pet: "pawprint.fill"
         case .background: "photo.fill"
         case .seasonal: "leaf.fill"
+        case .costume: "theatermasks.fill"
         }
     }
     var defaultNeed: MascotNeed {
@@ -55,6 +57,7 @@ enum MascotWardrobeSlot: String, CaseIterable, Identifiable, Codable, Sendable {
         case .aura: .aura
         case .pet: .ground
         case .background: .scene
+        case .costume: .body
         }
     }
 }
@@ -423,6 +426,39 @@ enum MascotWardrobeCatalog {
             it("sea.firework", .seasonal, "Fireworks", "Bursts above your head.", .rare, "fireworks", .premium, need: .aura, months: [7, 11, 12]).with(dyes: [c(1.0, 0.75, 0.25)]),
             it("sea.leaves", .seasonal, "Autumn leaves", "Crunchy leaves drifting.", .common, "leaves", need: .aura, months: [9, 10, 11]).with(dyes: [c(0.95, 0.55, 0.20)]),
         ]
+        // Cosy & Outdoors drop: new items reuse the existing, fit-tested art styles with their own IDs, colours and
+        // patterns, plus new painted Scenes. Worn items follow the usual rules (never drawn on Legends; Scenes may be).
+        x += [
+            it("hat.cocoabeanie", .hat, "Cocoa beanie", "Warm knit with a scatter of stars.", .common, "beanie", pattern: .stars, dyes: [c(0.55, 0.36, 0.25), c(0.96, 0.86, 0.72), c(0.32, 0.36, 0.62)]),
+            it("hat.raincap", .hat, "Puddle hat", "Glossy rain hat with a wide brim.", .common, "bucket", dyes: [c(1.0, 0.84, 0.22), c(0.30, 0.70, 0.95), c(0.95, 0.38, 0.40)]),
+            it("hat.strawhat", .hat, "Straw hat", "Woven brim for long sunny walks.", .uncommon, "sunhat", .coins(80), dyes: [c(0.95, 0.84, 0.55), c(0.98, 0.92, 0.72)]),
+            it("hat.flowercrown", .hat, "Flower crown", "Woven from meadow blooms.", .uncommon, "laurel", .coins(90), dyes: [c(0.98, 0.62, 0.78), c(0.62, 0.78, 0.40), c(0.80, 0.70, 1.0)]),
+            it("hat.moonhat", .hat, "Moon hat", "A sleepy, star-stitched pointy hat.", .rare, "wizard", .coins(180), pattern: .stars, dyes: [c(0.16, 0.20, 0.45), c(0.40, 0.30, 0.72)]),
+            it("face.sunnyshades", .face, "Sunny shades", "Bright frames, brighter mood.", .common, "squareglasses", dyes: [c(1.0, 0.75, 0.25), c(0.30, 0.78, 0.65), c(0.98, 0.50, 0.70)]),
+            it("top.zigzagknit", .top, "Zigzag knit", "Chunky jumper with a zigzag band.", .common, "sweater", pattern: .zigzag, dyes: [c(0.95, 0.55, 0.40), c(0.40, 0.62, 0.90), c(0.62, 0.78, 0.45)]),
+            it("top.picnic", .top, "Picnic shirt", "Gingham, made for sandwiches.", .common, "polo", pattern: .check, dyes: [c(0.95, 0.40, 0.42), c(0.40, 0.66, 0.95), c(0.45, 0.75, 0.50)]),
+            it("top.starhoodie", .top, "Star hoodie", "Soft hoodie printed with tiny stars.", .uncommon, "hoodie", .coins(120), pattern: .stars, dyes: [c(0.20, 0.24, 0.45), c(0.98, 0.74, 0.80), c(0.62, 0.40, 0.92)]),
+            it("out.cloudcoat", .outerwear, "Cloud raincoat", "Pastel slicker for drizzly days.", .uncommon, "raincoat", .coins(110), dyes: [c(0.80, 0.88, 1.0), c(0.98, 0.80, 0.86), c(0.80, 0.95, 0.85)]),
+            it("out.stargazer", .outerwear, "Stargazer cardigan", "Night-sky knit with button stars.", .rare, "cardigan", .coins(160), pattern: .stars, dyes: [c(0.18, 0.20, 0.40), c(0.40, 0.25, 0.55)]),
+            it("bot.gingham", .bottom, "Gingham skirt", "Twirly picnic check.", .common, "skirt", pattern: .check, dyes: [c(0.95, 0.45, 0.50), c(0.45, 0.65, 0.95), c(0.98, 0.80, 0.30)], need: .frill),
+            it("shoe.pastelkicks", .shoes, "Pastel kicks", "Candy-coloured sneakers.", .common, "sneakers", dyes: pastels),
+            it("acc.rainbowscarf", .accessory, "Rainbow scarf", "Every stripe a different mood.", .uncommon, "scarf", .coins(70), pattern: .stripes, dyes: brights),
+            it("held.cocoa", .held, "Hot cocoa", "Marshmallows included.", .common, "coffee", dyes: [c(0.98, 0.90, 0.80), c(0.85, 0.40, 0.45)]),
+            it("held.journal", .held, "Dream journal", "For sleepy ideas worth keeping.", .uncommon, "book", .coins(60), dyes: [c(0.40, 0.35, 0.80), c(0.95, 0.60, 0.70)]),
+            it("back.leafcape", .back, "Leaf cape", "Stitched from forest leaves.", .uncommon, "herocape", .coins(140), dyes: [c(0.40, 0.68, 0.36), c(0.90, 0.58, 0.25)]),
+            it("back.adventurepack", .back, "Adventure pack", "Room for snacks and treasures.", .common, "backpack", pattern: .check, dyes: [c(0.55, 0.40, 0.28), c(0.30, 0.55, 0.40)]),
+            it("aura.fireflies", .aura, "Fireflies", "Little lights drifting around you.", .uncommon, "sparkles", .coins(100), dyes: [c(0.85, 1.0, 0.45), c(1.0, 0.85, 0.40)]),
+        ]
+        x += [
+            it("bg.aurora", .background, "Aurora", "Ribbons of light over snowy hills.", .rare, "aurora", .coins(220), dyes: [c(0.30, 0.95, 0.70)]),
+            it("bg.rainy", .background, "Rainy day", "Soft rain and a cosy puddle.", .common, "rainy", dyes: [c(0.62, 0.70, 0.82)]),
+            it("bg.snowfield", .background, "Snowfield", "Fresh powder and pine trees.", .uncommon, "snowfield", .coins(120), dyes: [c(0.80, 0.90, 1.0)]),
+            it("bg.dunes", .background, "Desert dunes", "Warm sand under a big sun.", .uncommon, "dunes", .coins(120), dyes: [c(0.98, 0.70, 0.40)]),
+            it("bg.forest", .background, "Forest glade", "Tall trees and toadstools.", .common, "forest", dyes: [c(0.40, 0.65, 0.40)]),
+            it("bg.cloudtop", .background, "Cloud kingdom", "High above, where the clouds live.", .rare, "cloudtop", .coins(200), dyes: [c(0.70, 0.80, 1.0)]),
+            it("bg.lavender", .background, "Lavender field", "Purple rows to the horizon.", .uncommon, "lavender", .coins(140), dyes: [c(0.70, 0.58, 0.92)]),
+        ]
+        x += MascotCostumeCatalog.all
         return x
     }
 }
@@ -447,18 +483,25 @@ private extension MascotWardrobeCatalog {
 struct MascotOutfit: Codable, Equatable, Sendable {
     var items: [String: String]      // slot rawValue → item id
     var dyes: [String: Int] = [:]    // slot rawValue → dye index
+    /// Covered slot items parked while a costume is worn. Restored on unequip; never discarded.
+    var parkedItems: [String: String] = [:]
+    var parkedDyes: [String: Int] = [:]
 
     static let empty = MascotOutfit(items: [:])
 
-    init(items: [String: String], dyes: [String: Int] = [:]) {
+    init(items: [String: String], dyes: [String: Int] = [:], parkedItems: [String: String] = [:], parkedDyes: [String: Int] = [:]) {
         self.items = items
         self.dyes = dyes
+        self.parkedItems = parkedItems
+        self.parkedDyes = parkedDyes
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         items = try c.decodeIfPresent([String: String].self, forKey: .items) ?? [:]
         dyes = try c.decodeIfPresent([String: Int].self, forKey: .dyes) ?? [:]
+        parkedItems = try c.decodeIfPresent([String: String].self, forKey: .parkedItems) ?? [:]
+        parkedDyes = try c.decodeIfPresent([String: Int].self, forKey: .parkedDyes) ?? [:]
     }
 
     static func solo(_ item: MascotWardrobeItem, dye: Int = 0) -> MascotOutfit {
@@ -473,14 +516,25 @@ struct MascotOutfit: Codable, Equatable, Sendable {
     func contains(_ item: MascotWardrobeItem) -> Bool { items[item.slot.rawValue] == item.id }
 
     mutating func equip(_ item: MascotWardrobeItem, dye: Int? = nil) {
+        if item.slot == .costume {
+            equipCostume(item, dye: dye)
+            return
+        }
+        if Self.costumeCoveredSlots.contains(item.slot), hasCostume {
+            unequipCostume()
+        }
         items[item.slot.rawValue] = item.id
         if let dye { dyes[item.slot.rawValue] = dye } else if dyes[item.slot.rawValue] == nil { dyes[item.slot.rawValue] = 0 }
     }
     mutating func unequip(_ slot: MascotWardrobeSlot) {
+        if slot == .costume {
+            unequipCostume()
+            return
+        }
         items.removeValue(forKey: slot.rawValue)
         dyes.removeValue(forKey: slot.rawValue)
     }
-    mutating func clear() { items = [:]; dyes = [:] }
+    mutating func clear() { items = [:]; dyes = [:]; parkedItems = [:]; parkedDyes = [:] }
 
     var isEmpty: Bool { items.isEmpty }
     var equippedIDs: [String] { Array(items.values) }
@@ -488,8 +542,11 @@ struct MascotOutfit: Codable, Equatable, Sendable {
 
     /// Equipped items that can be drawn on this rig (non-fitting ones are hidden, background excluded).
     func wearables(on rig: MascotRig) -> [(item: MascotWardrobeItem, color: Color, fit: MascotFit)] {
-        MascotWardrobeSlot.allCases.compactMap { slot in
-            guard slot != .background, let item = item(for: slot) else { return nil }
+        let hiding = hasCostume
+        return MascotWardrobeSlot.allCases.compactMap { slot in
+            guard slot != .background else { return nil }
+            if hiding, Self.costumeCoveredSlots.contains(slot) { return nil }
+            guard let item = item(for: slot) else { return nil }
             let fit = item.fit(on: rig)
             guard fit.isWearable else { return nil }
             return (item, item.dye(dye(for: slot)), fit)
@@ -537,21 +594,50 @@ final class MascotWardrobeStore {
     }
     func canEquip(_ item: MascotWardrobeItem) -> Bool { owns(item) && item.isAvailable() }
 
+    // Legends (non-wearable characters)
+    /// False while a Legend is the selected Moliboo. Nothing worn is applied, changed or cleared then: the saved outfit
+    /// is durable user data and comes back as soon as a wardrobe-capable Moliboo is picked again.
+    var selectionSupportsWardrobe: Bool {
+        let raw = UserDefaults.standard.string(forKey: ModulaMascotSettings.kindKey) ?? ModulaMascotKind.pip.rawValue
+        return MascotSelection.resolve(raw: raw).supportsWardrobe
+    }
+    /// Only a Scene (the stage behind the character) may change while a Legend is selected.
+    static func editable(_ slot: MascotWardrobeSlot, supportsWardrobe: Bool) -> Bool { supportsWardrobe || slot == .background }
+    /// `next` as it may be applied: for a Legend, every worn slot keeps the current (hidden, preserved) value.
+    static func merged(_ next: MascotOutfit, onto current: MascotOutfit, supportsWardrobe: Bool) -> MascotOutfit {
+        guard !supportsWardrobe else { return next }
+        var out = current
+        let bg = MascotWardrobeSlot.background.rawValue
+        out.items[bg] = next.items[bg]
+        out.dyes[bg] = next.dyes[bg]
+        return out
+    }
+    private func editable(_ slot: MascotWardrobeSlot) -> Bool { Self.editable(slot, supportsWardrobe: selectionSupportsWardrobe) }
+
     // Editing
     func equip(_ item: MascotWardrobeItem, dye: Int? = nil) {
-        guard canEquip(item) else { return }
+        guard canEquip(item), editable(item.slot) else { return }
         commit { $0.equip(item, dye: dye) }
     }
     func toggle(_ item: MascotWardrobeItem) {
         if outfit.contains(item) { unequip(item.slot) } else { equip(item) }
     }
     func setDye(_ index: Int, for slot: MascotWardrobeSlot) {
-        guard outfit.item(for: slot) != nil else { return }
+        guard outfit.item(for: slot) != nil, editable(slot) else { return }
         commit { $0.dyes[slot.rawValue] = index }
     }
-    func unequip(_ slot: MascotWardrobeSlot) { commit { $0.unequip(slot) } }
-    func clearOutfit() { commit { $0.clear() } }
-    func apply(_ next: MascotOutfit) { commit { $0 = next } }
+    func unequip(_ slot: MascotWardrobeSlot) {
+        guard editable(slot) else { return }
+        commit { $0.unequip(slot) }
+    }
+    func clearOutfit() {
+        guard selectionSupportsWardrobe else { return }
+        commit { $0.clear() }
+    }
+    func apply(_ next: MascotOutfit) {
+        let merged = Self.merged(next, onto: outfit, supportsWardrobe: selectionSupportsWardrobe)
+        commit { $0 = merged }
+    }
 
     func undo() {
         guard let last = undoStack.popLast() else { return }
@@ -561,6 +647,7 @@ final class MascotWardrobeStore {
 
     /// Random owned items that fit the rig.
     func randomize(for rig: MascotRig) {
+        guard selectionSupportsWardrobe, !rig.wearsOwnLook else { return }
         let chances: [MascotWardrobeSlot: Double] = [
             .hat: 0.65, .hair: 0.35, .face: 0.4, .top: 0.6, .outerwear: 0.25, .bottom: 0.3, .shoes: 0.45,
             .accessory: 0.4, .held: 0.35, .back: 0.3, .aura: 0.3, .pet: 0.25, .background: 0.7,
@@ -575,12 +662,14 @@ final class MascotWardrobeStore {
 
     // Presets
     func savePreset(named name: String) {
+        guard selectionSupportsWardrobe else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         presets.insert(MascotOutfitPreset(id: UUID().uuidString, name: trimmed.isEmpty ? "Outfit \(presets.count + 1)" : trimmed, outfit: outfit, createdAt: Date()), at: 0)
         persistPresets()
         MascotProgressStore.shared.record(.savedOutfit)
     }
     func applyPreset(_ preset: MascotOutfitPreset) {
+        guard selectionSupportsWardrobe else { return }
         var next = preset.outfit
         for (slot, id) in next.items {
             if let item = MascotWardrobeCatalog.item(id: id), canEquip(item) { continue }
@@ -603,6 +692,8 @@ final class MascotWardrobeStore {
     func applyOutfitOfTheDayIfNeeded() -> Bool {
         // When native 3D is active, preserve the user's clean character or explicit outfit rather than auto-equipping random items.
         if MolibooFeatureFlags.native3DEnabled { return false }
+        // Legends never get an automatic outfit (and the day isn't used up, so a wardrobe Moliboo can still get one).
+        guard selectionSupportsWardrobe else { return false }
         let key = "composer.mascot.ootd.\(MascotProgressStore.dayKey())"
         guard !UserDefaults.standard.bool(forKey: key) else { return false }
         UserDefaults.standard.set(true, forKey: key)
@@ -624,9 +715,11 @@ final class MascotWardrobeStore {
         let now = Calendar.current.dateComponents([.month, .day, .year], from: Date())
         guard now.month == month, now.day == day else { return false }
         MascotProgressStore.shared.record(.birthday)
+        guard selectionSupportsWardrobe else { return false }
         let stamp = "\(month)-\(day)-\(now.year ?? 0)"
         guard UserDefaults.standard.string(forKey: birthdayOutfitAppliedKey) != stamp else { return false }
         UserDefaults.standard.set(stamp, forKey: birthdayOutfitAppliedKey)
+        if outfit.hasCostume { return true }
         var next = outfit
         for id in ["hat.bdaycrown", "aura.sparkles", "held.balloon"] {
             if let item = MascotWardrobeCatalog.item(id: id), canEquip(item) { next.equip(item) }
@@ -648,13 +741,27 @@ final class MascotWardrobeStore {
 
     private func sanitizeOutfit() {
         var changed = false
+        for (slot, id) in outfit.parkedItems {
+            guard let item = MascotWardrobeCatalog.item(id: id), item.slot.rawValue == slot, owns(item) else {
+                outfit.parkedItems.removeValue(forKey: slot)
+                outfit.parkedDyes.removeValue(forKey: slot)
+                changed = true
+                continue
+            }
+        }
+        var droppedCostume = false
         for (slot, id) in outfit.items {
             guard let item = MascotWardrobeCatalog.item(id: id), item.slot.rawValue == slot, owns(item) else {
                 outfit.items.removeValue(forKey: slot)
                 outfit.dyes.removeValue(forKey: slot)
+                if slot == MascotWardrobeSlot.costume.rawValue { droppedCostume = true }
                 changed = true
                 continue
             }
+        }
+        if droppedCostume {
+            outfit.restoreParkedSlots()
+            changed = true
         }
         if changed { persist() }
     }

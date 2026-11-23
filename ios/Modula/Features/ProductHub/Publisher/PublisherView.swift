@@ -17,7 +17,7 @@ struct PublisherView: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(spacing: 14) {
                     Circle()
-                        .fill(app.appearance.accent.color.opacity(0.2))
+                        .fill(app.appearance.liveAccent.opacity(0.2))
                         .frame(width: 64, height: 64)
                         .overlay {
                             Text(String(publisherName.prefix(1)).uppercased())

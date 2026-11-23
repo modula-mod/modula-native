@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.179",
+  "key": "churli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#DCAD8C",
+    "accent": "#EDD5C4",
+    "light": "#EDD5C4",
+    "dark": "#C49A7D"
+  },
+  "form": "Cinnamon spiral belly, tan body"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.150",
+  "key": "necti",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#FFD079",
+    "accent": "#FFE7BB",
+    "light": "#FFE7BB",
+    "dark": "#E3B96C"
+  },
+  "form": "Honey-gold body, trumpet-flower ears"
+}

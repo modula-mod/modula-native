@@ -14,6 +14,7 @@ struct AppGateHost: View {
         }
         .task {
             await app.bootstrapLaunch()
+            ModulaPerf.mark("bootstrapDone")
         }
         .onOpenURL { url in
             app.handleIncomingURL(url)
@@ -22,11 +23,27 @@ struct AppGateHost: View {
             app.handleScenePhase(phase)
             showPrivacyCover = shouldCover(phase)
         }
-        .onChange(of: app.gate.state) { _, _ in
+        .onChange(of: app.appLock.isAuthenticating) { _, _ in
+            showPrivacyCover = shouldCover(scenePhase)
+        }
+        .onChange(of: app.gate.state) { _, state in
+            if state == .ready { ModulaPerf.mark("gateReady") }
+            if state == .ready { UserDefaults.standard.removeObject(forKey: AppLockView.pendingKey) }
             showPrivacyCover = shouldCover(scenePhase)
         }
         .onChange(of: app.auth.account?.accountId) { _, _ in
             app.refreshLaunchState()
+            Task { await app.push.accountChanged(signedIn: app.auth.isSignedIn) }
+        }
+        .onChange(of: app.activity.state(for: .all).unreadCount) { _, unread in
+            app.push.syncBadge(unread: unread)
+        }
+        .sheet(isPresented: Binding(
+            get: { app.push.prePromptPresented && app.gate.state == .ready },
+            set: { presented in if !presented, app.push.prePromptPresented { app.push.dismissPrePrompt() } }
+        )) {
+            PushPrePromptSheet()
+                .environment(app)
         }
     }
 
@@ -40,6 +57,31 @@ struct AppGateHost: View {
         } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-hub") {
             // Straight to the Moliboo settings hub (World → ⋯ → Moliboo settings), e.g. for device screenshots.
             NavigationStack { MolibooSettingsView() }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-studio") {
+            // Straight to the 2D Moliboo Studio, for simulator screenshots.
+            // `--debug-studio-scene <n>` equips the n-th owned background scene first (local only).
+            NavigationStack { MascotStudioView() }
+                .task {
+                    // After the Studio's own outfit-of-the-day pass on appear.
+                    try? await Task.sleep(for: .milliseconds(700))
+                    DebugSettingsHarness.equipStudioSceneIfRequested()
+                }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-moliboo-world") {
+            // Straight to the Moliboo home (World), for simulator screenshots of the hero / number label.
+            NavigationStack { MolibooWorldView() }
+        } else if ProcessInfo.processInfo.arguments.contains("--debug-modula-unit") {
+            // Every Modula Unit mark style + app-icon tiles, for simulator screenshots.
+            ModulaUnitGalleryView()
+        } else if let mode = DebugSettingsHarness.modulaCodeMode {
+            // `--debug-modula-code mycode|scan`: the Modula Code screen with a sample public profile link.
+            ModulaCodeView(subject: DebugSettingsHarness.sampleCodeSubject, initialMode: mode) {}
+        } else if let payload = DebugSettingsHarness.sharePayload {
+            // `--debug-share profile|post|link`: the share sheet over a plain canvas, for screenshots.
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+                .sheet(isPresented: .constant(true)) { ModulaShareSheet(payload: payload) }
+        } else if let (sheet, context) = DebugSettingsHarness.sheetPresentation {
+            // `--debug-sheet …`: a shell option sheet over a plain canvas, for screenshots.
+            DebugSheetHarnessView(presentation: sheet, context: context)
         } else if let route = DebugSettingsHarness.route ?? DebugSettingsHarness.anyRoute {
             DebugSettingsHarnessView(route: route)
         } else {
@@ -64,11 +106,34 @@ struct AppGateHost: View {
         #endif
     }
 
+    /// Locked and ready share one tree: the app is built *under* the lock screen, so unlocking
+    /// only fades the lock away instead of constructing the whole RootView after success
+    /// (that cold build was most of the 1–2s Face ID → app delay).
     @ViewBuilder
     private var launchContent: some View {
+        if app.gate.state == .locked || app.gate.state == .ready {
+            ZStack {
+                RootView()
+                    .allowsHitTesting(app.gate.state == .ready)
+                    .accessibilityHidden(app.gate.state != .ready)
+                if app.gate.state == .locked {
+                    AppLockView()
+                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
+        } else {
+            otherLaunchContent
+        }
+    }
+
+    @ViewBuilder
+    private var otherLaunchContent: some View {
         switch app.gate.state {
         case .booting:
             BootSplashView()
+                .transition(.opacity)
         case .signedOut:
             PreShellAuthHost()
         case .firstRun:
@@ -83,22 +148,38 @@ struct AppGateHost: View {
     }
 
     private func shouldCover(_ phase: ScenePhase) -> Bool {
-        guard phase != .active else { return false }
+        // Only while backgrounded or in the app switcher — never over our own Face ID prompt.
+        guard phase != .active, !app.appLock.isAuthenticating else { return false }
         return app.appLock.shouldCoverAppSwitcher
     }
 }
 
 struct BootSplashView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Starting Modula")
-                .font(.headline)
-        }
+        // Branded splash matching the launch background (no white "Starting" page). The spinner
+        // only fades in if boot is actually slow.
+        BootSplashContent()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .modulaCanvas()
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .accessibilityIdentifier("appgate.booting")
         .accessibilityLabel("Starting Modula")
+    }
+}
+
+private struct BootSplashContent: View {
+    @Environment(\.colorScheme) private var scheme
+    @State private var slow = false
+    var body: some View {
+        VStack(spacing: 22) {
+            ModulaWordmark(height: 28, onDark: scheme == .dark)
+            ProgressView()
+                .controlSize(.small)
+                .opacity(slow ? 0.7 : 0)
+        }
+        .task {
+            try? await Task.sleep(for: .milliseconds(900))
+            withAnimation(.easeIn(duration: 0.3)) { slow = true }
+        }
     }
 }
 
@@ -137,6 +218,10 @@ struct PreShellAuthHost: View {
 
     var body: some View {
         ZStack {
+            // One backdrop for the whole signed-out flow, created once: the wave keeps its
+            // clock running while only the foreground (landing, onboarding, auth screens)
+            // transitions above it.
+            ModulaAuthBackdrop(calm: !showsLanding)
             if showsLanding {
                 OnboardingLandingView {
                     withAnimation(ModulaMotion.animation(.presentation, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
@@ -150,6 +235,7 @@ struct PreShellAuthHost: View {
                     .transition(.opacity)
             }
         }
+        .environment(\.authBackdropHoisted, true)
     }
 
     private var showsLanding: Bool {
@@ -166,6 +252,7 @@ struct PreShellAuthHost: View {
                     SignInView()
                 }
             }
+            .modulaAuthBackdrop()
             .navigationDestination(for: AppRoute.self) { route in
                 if case .auth(let authRoute) = route {
                     AuthRouteView(route: authRoute)

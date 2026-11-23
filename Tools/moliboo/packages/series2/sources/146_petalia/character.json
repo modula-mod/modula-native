@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.146",
+  "key": "petalia",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#FFB2C2",
+    "accent": "#FFD8E0",
+    "light": "#FFD8E0",
+    "dark": "#E39EAD"
+  },
+  "form": "Blush layered-petal ears, sage body"
+}

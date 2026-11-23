@@ -14,6 +14,12 @@ final class AppLockStore {
     private(set) var cooldownUntil: ContinuousClock.Instant?
     private(set) var lastError: String?
     private var backgroundedAt: ContinuousClock.Instant?
+    /// True while our own LAContext prompt is on screen. The Face ID sheet makes the
+    /// scene go .inactive → .active; that must never relock or show the privacy cover.
+    private(set) var isAuthenticating = false
+    /// Armed on cold launch and after a real background relock; consumed by the lock
+    /// screen so Face ID auto-prompts at most once per foreground.
+    private var autoPromptArmed = false
 
     init(
         credentials: AppLockCredentialStoring = AppLockCredentialStore(),
@@ -24,15 +30,35 @@ final class AppLockStore {
         self.credentials = credentials
         self.biometrics = biometrics
         self.defaults = defaults
+        if credentials is AppLockCredentialStore { AppLockCredentialStore.purgeRetiredVerifiers() }
         var settings = defaults.data(forKey: settingsKey).flatMap {
             try? JSONDecoder().decode(AppLockSettings.self, from: $0)
         } ?? .default
         let hasPasscode = (try? credentials.hasPasscode()) == true
-        if !hasPasscode {
+        // No passcode is allowed when the user chose slide-only (privacy screen) App Lock.
+        if !hasPasscode, !settings.slideOnlyAllowed {
             settings.enabled = false
         }
+        if settings.method != .passcode,
+           (try? credentials.hasSecret(settings.method.secretKind)) != true {
+            settings.method = .passcode
+        }
         self.settings = settings
-        self.isLocked = startsLockedIfEnabled && settings.enabled && hasPasscode
+        // Restore rate limiting across relaunches so killing the app doesn't reset it.
+        let savedFailures = defaults.integer(forKey: "modula.native.applock.failures.v1")
+        self.failedAttempts = savedFailures
+        if let until = defaults.object(forKey: "modula.native.applock.cooldown.v1") as? Date, until > Date() {
+            self.cooldownUntil = ContinuousClock.now.advanced(by: .seconds(until.timeIntervalSinceNow))
+        }
+        self.isLocked = startsLockedIfEnabled && settings.enabled && (hasPasscode || settings.slideOnlyAllowed)
+        self.autoPromptArmed = isLocked
+    }
+
+    /// Returns true exactly once per lock-from-foreground, and only when Face ID is usable.
+    func consumeAutoPrompt() -> Bool {
+        guard autoPromptArmed, isLocked, !isAuthenticating, canUseBiometrics else { return false }
+        autoPromptArmed = false
+        return true
     }
 
     var enabled: Bool { settings.enabled }
@@ -42,17 +68,20 @@ final class AppLockStore {
     var shouldCoverAppSwitcher: Bool { settings.hideInAppSwitcher || requiresUnlock }
 
     func refreshColdLaunchLock() {
-        guard settings.enabled, (try? credentials.hasPasscode()) == true else {
+        guard settings.enabled, hasPasscode || settings.slideOnlyAllowed else {
             isLocked = false
             return
         }
         isLocked = true
+        autoPromptArmed = true
     }
 
     func recordBackground() {
+        guard !isAuthenticating else { return }
         backgroundedAt = ContinuousClock.now
-        if settings.interval == .immediately, settings.enabled {
+        if settings.interval == .immediately, settings.enabled, !isLocked {
             isLocked = true
+            autoPromptArmed = true
         }
     }
 
@@ -61,29 +90,46 @@ final class AppLockStore {
             isLocked = false
             return
         }
-        guard (try? credentials.hasPasscode()) == true else {
+        guard hasPasscode || settings.slideOnlyAllowed else {
             isLocked = false
             return
         }
-        if settings.interval == .immediately {
-            isLocked = true
-            return
-        }
-        guard let backgroundedAt else {
-            isLocked = true
-            return
-        }
-        if ContinuousClock.now - backgroundedAt >= settings.interval.duration {
+        // Only a real trip to the background can relock. An .inactive → .active bounce
+        // (Face ID sheet, Control Centre, notification shade) leaves the lock state alone.
+        guard !isAuthenticating, let backgroundedAt else { return }
+        self.backgroundedAt = nil
+        if settings.interval == .immediately || ContinuousClock.now - backgroundedAt >= settings.interval.duration {
+            if !isLocked { autoPromptArmed = true }
             isLocked = true
         }
     }
 
-    func setEnabled(_ enabled: Bool) throws {
+    var hasPasscode: Bool { (try? credentials.hasPasscode()) == true }
+
+    /// No passcode, pattern or Orbit: the lock screen is a Slide to unlock privacy screen.
+    var isSlideOnly: Bool {
+        !hasPasscode && !hasSecret(for: .pattern) && !hasSecret(for: .orbit)
+    }
+
+    /// Slide to unlock. Only ever succeeds when no secret exists (it is a privacy screen,
+    /// never a bypass of a real passcode/pattern/Orbit).
+    func unlockBySlide() -> Bool {
+        guard settings.enabled, isSlideOnly else { return false }
+        succeed()
+        return true
+    }
+
+    /// `allowSlideOnly`: the user explicitly chose App Lock without a passcode.
+    func setEnabled(_ enabled: Bool, allowSlideOnly: Bool = false) throws {
         if enabled {
-            guard try credentials.hasPasscode() else {
+            if allowSlideOnly {
+                settings.slideOnlyAllowed = true
+            } else if !hasPasscode, !settings.slideOnlyAllowed {
                 lastError = "Create a 6-digit Modula passcode first."
                 throw APIError.secureStorage
             }
+        } else {
+            settings.slideOnlyAllowed = false
         }
         settings.enabled = enabled
         isLocked = enabled
@@ -110,6 +156,84 @@ final class AppLockStore {
         lastError = nil
         failedAttempts = 0
         cooldownUntil = nil
+        persistFailures()
+    }
+
+    // MARK: - Methods, effects, alternative secrets
+
+    var attemptsBeforeCooldown: Int {
+        max(0, AppLockAttemptPolicy.freeAttempts - failedAttempts)
+    }
+
+    func hasSecret(for method: AppLockMethod) -> Bool {
+        (try? credentials.hasSecret(method.secretKind)) == true
+    }
+
+    /// Stores a pattern/Orbit verifier (salted PBKDF2, Keychain, this device only) and switches to it.
+    func setAlternativeSecret(_ value: String, for method: AppLockMethod) throws {
+        guard method != .passcode else { try setPasscode(value); return }
+        try credentials.setSecret(value, kind: method.secretKind)
+        settings.method = method
+        persist()
+    }
+
+    func setMethod(_ method: AppLockMethod) {
+        guard method == .passcode || hasSecret(for: method) else { return }
+        settings.method = method
+        persist()
+    }
+
+    func setEffectsEnabled(_ value: Bool) { settings.effectsEnabled = value; persist() }
+    func setShowsGreeting(_ value: Bool) { settings.showsGreeting = value; persist() }
+    func setHidesPatternTrail(_ value: Bool) { settings.hidesPatternTrail = value; persist() }
+    func setHapticsEnabled(_ value: Bool) { settings.hapticsEnabled = value; persist() }
+
+    func haptic(_ semantic: HapticSemantic) {
+        guard settings.hapticsEnabled else { return }
+        HapticEngine.shared.play(semantic)
+    }
+
+    /// Verifies a pattern/Orbit attempt. Shares the passcode's attempt counter and cooldown.
+    func unlock(withSecret value: String, method: AppLockMethod) -> Bool {
+        if method == .passcode { return unlock(withPasscode: value) }
+        if let cooldownUntil, ContinuousClock.now < cooldownUntil {
+            lastError = "Too many attempts. Try again shortly."
+            return false
+        }
+        do {
+            if try credentials.verifySecret(value, kind: method.secretKind) {
+                succeed()
+                return true
+            }
+            registerFailure()
+            lastError = switch method {
+            case .pattern: "Wrong pattern."
+            default: "Rings don’t line up."
+            }
+            return false
+        } catch {
+            lastError = "Lock storage is unavailable."
+            return false
+        }
+    }
+
+    private func succeed() {
+        isLocked = false
+        failedAttempts = 0
+        cooldownUntil = nil
+        lastError = nil
+        persistFailures()
+    }
+
+    private func persistFailures() {
+        defaults.set(failedAttempts, forKey: "modula.native.applock.failures.v1")
+        if let cooldownUntil {
+            let remaining = cooldownUntil - ContinuousClock.now
+            let secs = Double(remaining.components.seconds) + Double(remaining.components.attoseconds) / 1e18
+            defaults.set(Date().addingTimeInterval(max(0, secs)), forKey: "modula.native.applock.cooldown.v1")
+        } else {
+            defaults.removeObject(forKey: "modula.native.applock.cooldown.v1")
+        }
     }
 
     func unlock(withPasscode passcode: String) -> Bool {
@@ -120,10 +244,7 @@ final class AppLockStore {
         do {
             let ok = try credentials.verifyPasscode(passcode)
             if ok {
-                isLocked = false
-                failedAttempts = 0
-                cooldownUntil = nil
-                lastError = nil
+                succeed()
                 return true
             }
             registerFailure()
@@ -140,11 +261,15 @@ final class AppLockStore {
             lastError = biometricAvailability.explanation
             return false
         }
+        // Only one evaluatePolicy at a time.
+        guard !isAuthenticating else { return false }
+        isAuthenticating = true
         let result = await biometrics.authenticate(reason: "Unlock Modula")
+        isAuthenticating = false
+        autoPromptArmed = false
         switch result {
         case .success:
-            isLocked = false
-            lastError = nil
+            succeed()
             return true
         case .cancelled:
             lastError = nil
@@ -172,11 +297,13 @@ final class AppLockStore {
         cooldownUntil = nil
         lastError = nil
         defaults.removeObject(forKey: settingsKey)
+        persistFailures()
     }
 
     func disableAndClearPasscode() throws {
         try credentials.clear()
         settings.enabled = false
+        settings.slideOnlyAllowed = false
         isLocked = false
         persist()
     }
@@ -187,6 +314,7 @@ final class AppLockStore {
         if delay > .seconds(0) {
             cooldownUntil = ContinuousClock.now.advanced(by: delay)
         }
+        persistFailures()
     }
 
     private func persist() {

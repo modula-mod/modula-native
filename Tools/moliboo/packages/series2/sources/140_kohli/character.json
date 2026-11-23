@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.140",
+  "key": "kohli",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#46414D",
+    "accent": "#A19EA4",
+    "light": "#A19EA4",
+    "dark": "#3E3A45"
+  },
+  "form": "Coal-black orb, gold crack-like smile"
+}

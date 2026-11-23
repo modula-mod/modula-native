@@ -43,7 +43,7 @@ struct ModulaNotificationDot: View {
 
     var body: some View {
         Circle()
-            .fill(tone.color(accent: app.appearance.accent.color))
+            .fill(tone.color(accent: app.appearance.liveAccent))
             .frame(width: size, height: size)
             .accessibilityLabel(accessibilityLabel)
     }
@@ -63,7 +63,7 @@ struct ModulaUnreadIndicator: View {
                 .monospacedDigit()
                 .padding(.horizontal, 6)
                 .frame(minWidth: 20, minHeight: 20)
-                .background(tone.color(accent: app.appearance.accent.color), in: Capsule())
+                .background(tone.color(accent: app.appearance.liveAccent), in: Capsule())
                 .foregroundStyle(contrastColor)
                 .accessibilityLabel("\(count) unread")
         }

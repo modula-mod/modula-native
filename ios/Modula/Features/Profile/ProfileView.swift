@@ -10,7 +10,13 @@ struct ProfileView: View {
     @Environment(\.leadingInteractionInset) private var leadingInteractionInset
     @Environment(\.shellChromeMetrics) private var shellChromeMetrics
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var profileTypeSize
     @State private var headerProgress: CGFloat = 0
+    /// Raw content offset: drives the top-bar title so it only appears once the big name is under it.
+    @State private var scrollOffset: CGFloat = 0
+    @State private var heroAvatarFrame: CGRect = .zero
+    @Environment(\.accessibilityReduceTransparency) private var navReduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var navReduceMotion
     @AppStorage(MascotProfileSettings.showOnProfileKey) private var showProfileMascot = true
     @State private var dressUpMascot = false
     @State private var confirmsBlock = false
@@ -31,6 +37,7 @@ struct ProfileView: View {
     @State private var showsFrames = false
     @Namespace private var shelfNamespace
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("profile.postLayout") private var postLayoutRaw = ProfilePostLayout.grid.rawValue
     #if DEBUG
     /// DEBUG-only: `--debug-autoscroll` scrolls the page for screen recordings.
@@ -161,6 +168,9 @@ struct ProfileView: View {
                 ModulaProfileCodeView(profile: profile) {
                     showsModulaCode = false
                 }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(32)
             }
         }
         .sheet(item: $activityShare) { item in
@@ -221,16 +231,22 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ModulaScrollProgressReader()
+                        .modulaScrollsToTopOnReselect(.profile)
                     content
-                        .padding(.bottom, shellChromeMetrics.contentBottomInset)
+                        .padding(.top, -(ProfileFullBleedMetrics.windowSafeAreaTop + 44))
+                        // Clear the tab bar + home indicator so the last post never hides under chrome.
+                        .padding(.bottom, shellChromeMetrics.contentBottomInset + 64)
                 }
             }
             .modulaScrollProgressTracking(collapseDistance: 96, progress: $headerProgress)
             .modulaSoftScrollEdge()
+            .modifier(ProfileTopEdgeEffectHidden())
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                geometry.contentOffset.y
+                geometry.contentOffset.y + geometry.contentInsets.top
             } action: { _, newOffset in
                 headerProgress = ModulaScrollProgress.progress(offsetY: max(0, newOffset), collapseDistance: 96)
+                let clamped = max(0, newOffset.rounded())
+                if abs(clamped - scrollOffset) >= 1 { scrollOffset = clamped }
             }
             // Save the scroll position once scrolling settles rather than on
             // every frame: each write mutated the shared ProfileStore and
@@ -241,17 +257,30 @@ struct ProfileView: View {
                     identity: identity,
                     handleHint: handle,
                     section: section,
-                    offset: context.geometry.contentOffset.y
+                    offset: context.geometry.contentOffset.y + context.geometry.contentInsets.top
                 )
             }
+            // Spinner sits below the header (not in the status bar): content is pulled up
+            // by the same amount it's inset, so the cover still bleeds to the top edge.
+            .contentMargins(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44, for: .scrollContent)
+            // Last post clears the floating tab bar.
+            .contentMargins(.bottom, 96, for: .scrollContent)
             .refreshable {
-                await refreshCurrent()
+                // Own task so the refresh control tearing down can't cancel the request.
+                await Task { await refreshCurrent() }.value
                 HapticEngine.shared.play(.lightImpact)
                 ModulaMascotEvent.post(.refresh)
             }
             #if DEBUG
             .scrollPosition($debugScrollPosition)
             .task(id: profile != nil) {
+                // `--debug-scroll-y <y>`: park the page at a fixed offset (simulator screenshots).
+                let args = ProcessInfo.processInfo.arguments
+                if profile != nil, let i = args.firstIndex(of: "--debug-scroll-y"), i + 1 < args.count, let y = Double(args[i + 1]) {
+                    try? await Task.sleep(for: .seconds(1.2))
+                    debugScrollPosition.scrollTo(y: y)
+                    return
+                }
                 guard profile != nil, ProcessInfo.processInfo.arguments.contains("--debug-autoscroll") else { return }
                 try? await Task.sleep(for: .seconds(1.5))
                 for (y, duration) in [(260.0, 1.4), (620.0, 1.8), (1_000.0, 1.8), (0.0, 2.2)] {
@@ -261,33 +290,49 @@ struct ProfileView: View {
             }
             #endif
 
-            ModulaProgressiveHeader(
-                largeTitle: largeTitle,
-                compactTitle: "",
-                progress: headerProgress,
-                topChromeInset: ProfileFullBleedMetrics.windowSafeAreaTop
-            ) {
-                EmptyView()
+            // One progressive top blur for the whole page: strongest at the very top, fading to
+            // clear, identical at rest and while scrolling. When the tabs pin it simply grows to
+            // sit under them; the tabs are drawn above it, crisp on their own glass.
+            ProfileTopProgressiveBlur(
+                height: ProfileFullBleedMetrics.windowSafeAreaTop + 44
+                    + (shelfPinned ? ProfileTopProgressiveBlur.pinnedShelfExtent : ProfileTopProgressiveBlur.restingFade),
+                tint: ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas,
+                reduceTransparency: navReduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+            )
+            .animation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .easeOut(duration: 0.2), value: shelfPinned)
+
+            if shelfPinned, let profile {
+                shelfBar(profile, floating: true)
+                    .padding(.top, ProfileFullBleedMetrics.windowSafeAreaTop + 44)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .zIndex(2)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeOut(duration: 0.15), value: shelfPinned)
         .ignoresSafeArea(edges: .top)
         .modulaCanvas()
         .environment(\.profileAccentColor, profile?.presentation.accent?.color)
         .modulaImmersiveSystemNavigation()
         .modulaSidebarTrigger()
         .toolbar {
-            if headerProgress > 0.35 {
-                ToolbarItem(placement: .principal) {
-                    HStack(spacing: 8) {
-                        if let profile {
-                            ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
-                        }
-                        Text(compactTitle)
-                            .font(.headline.weight(.semibold))
-                            .lineLimit(1)
+            ToolbarItem(placement: .principal) {
+                let t = navBarProgress
+                HStack(spacing: 8) {
+                    if let profile {
+                        // Avatar "lands" in the bar: grows from 18pt to 28pt as the hero avatar shrinks away.
+                        ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: 28)
+                            .scaleEffect(navReduceMotion ? 1 : 0.64 + 0.36 * t)
                     }
-                    .accessibilityLabel(compactTitle)
+                    Text(compactTitle)
+                        .font(.headline.weight(.semibold))
+                        .lineLimit(1)
                 }
+                .opacity(t)
+                .offset(y: navReduceMotion ? 0 : (1 - t) * 8)
+                .allowsHitTesting(t > 0.5)
+                .accessibilityHidden(t < 0.5)
+                .accessibilityLabel(compactTitle)
             }
             // Edit profile / Share profile live in-page as Liquid Glass buttons.
             if let profile {
@@ -315,12 +360,25 @@ struct ProfileView: View {
         }
     }
 
+    /// 0 → 1 as the name moves into the nav bar (eased so the bar fades in with the title).
+    private var navBarProgress: CGFloat {
+        // The big name sits just under the avatar, below the cover. Only once it has
+        // scrolled up under the header bar does the compact avatar + name fade in.
+        let safeTop = ProfileFullBleedMetrics.windowSafeAreaTop
+        let cover = ProfileFullBleedMetrics.coverHeight(sizeClass: sizeClass, safeAreaTop: safeTop, accessibility: false)
+        let avatar = ProfileIdentityMetrics.avatarSize(sizeClass: sizeClass)
+        let nameY = cover + avatar * 0.5 + 24
+        let headerBottom = safeTop + 44
+        let x = min(max((scrollOffset - (nameY - headerBottom)) / 36, 0), 1)
+        return x * x * (3 - 2 * x)
+    }
+
     /// Avatar colour → profile accent → cover colour → app accent.
     private var heroTint: Color {
         if let avatarTint { return avatarTint }
         if let accent = profile?.presentation.accent?.color { return accent }
         if let hex = profile?.coverColour, !hex.isEmpty { return Color(hex: hex) }
-        return app.appearance.accent.color
+        return app.appearance.liveAccent
     }
 
     private var postLayout: Binding<ProfilePostLayout> {
@@ -435,6 +493,17 @@ struct ProfileView: View {
                 highlights(profile)
                     .modulaPageEntrance(delay: 0.12)
 
+                // Levels & badges wait on Greenfield: flag-gated and fed `nil` until a producer exists.
+                if FeatureFlagRegistry.isEnabled("profile.progression"), let progression = profileProgression(profile) {
+                    ProfileProgressionCard(progression: progression)
+                        .modulaPageEntrance(delay: 0.13)
+                }
+
+                if isOwnProfile, !app.profile.visitorPreviewActive {
+                    ProfileShowcaseShelf()
+                        .modulaPageEntrance(delay: 0.13)
+                }
+
                 if !session.modules.items.isEmpty {
                     ProfileFeaturedModulesRow(
                         products: session.modules.items,
@@ -492,8 +561,6 @@ struct ProfileView: View {
                 coverColour: profile.coverColour,
                 tint: heroTint,
                 scrollProgress: headerProgress,
-                pocketCenterX: ModulaLayout.contentInset + avatarSize / 2,
-                pocketRadius: ProfileIdentityMetrics.carveRadius(avatarSize: avatarSize),
                 onTap: { openCoverViewer(profile) },
                 contextActions: ProfileContextActions.coverMenu(isOwn: isOwnProfile, hasCover: profile.coverURL != nil),
                 onContextAction: { handleContextAction($0, profile: profile) }
@@ -507,13 +574,12 @@ struct ProfileView: View {
                 contextActions: avatarActions(profile),
                 onContextAction: { handleContextAction($0, profile: profile) }
             )
-            .overlay(alignment: .trailing) {
-                if isOwnProfile && showProfileMascot {
-                    ProfileMascotChip(size: 30)
-                        .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                        .accessibilityIdentifier("profile.mascot")
-                }
-            }
+            // The hero avatar stays in the content layer: it shrinks into its own pocket and fades
+            // as it scrolls up (the bar avatar takes over), so it never floats over the details.
+            .scaleEffect(navReduceMotion ? 1 : 1 - 0.45 * IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame), anchor: .bottom)
+            // Gone well before it reaches the bar (no ghost behind the title).
+            .opacity(Double(max(0, 1 - IslandAvatarMerge<EmptyView>.progress(for: heroAvatarFrame) * 2.2)))
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heroAvatarFrame = $0 }
         }
     }
 
@@ -560,7 +626,8 @@ struct ProfileView: View {
     @ViewBuilder
     private func highlights(_ profile: ModulaProfile) -> some View {
         let items = highlightItems(profile)
-        if !items.isEmpty {
+        // A lone "+ New" isn't a highlights row; show it only beside real stories.
+        if items.contains(where: { $0.id != "new" }) {
             ProfileHighlightsRow(items: items, tint: heroTint)
         }
     }
@@ -590,6 +657,9 @@ struct ProfileView: View {
         }
         return items
     }
+
+    /// No Greenfield producer for levels/badges yet (see PR backend gaps), so this is always nil.
+    private func profileProgression(_ profile: ModulaProfile) -> ProfileProgression? { nil }
 
     private func mutualFollowers(_ profile: ModulaProfile) -> [ModulaProfile] {
         guard !isOwnProfile, let accountHandle else { return [] }
@@ -637,15 +707,18 @@ struct ProfileView: View {
     // MARK: - Sticky shelf (Posts / Media / Modules / Saved·Liked)
 
     private var shelfTabs: [ProfileShelfTab] {
-        isOwnProfile ? [.posts, .media, .modules, .saved] : [.posts, .media, .modules, .liked]
+        isOwnProfile ? [.posts, .replies, .media, .reels, .modules, .liked, .saved] : [.posts, .replies, .media, .reels, .modules, .liked]
     }
 
-    private func shelfBar(_ profile: ModulaProfile) -> some View {
+    @State private var shelfPinned = false
+
+    private func shelfBar(_ profile: ModulaProfile, floating: Bool = false) -> some View {
         let tabs = shelfTabs
         let selected = tabs.contains(shelf) ? shelf : .posts
-        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 52
+        let stickTop = ProfileFullBleedMetrics.windowSafeAreaTop + 44
         let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
         return HStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 ForEach(tabs) { tab in
                     let isSelected = tab == selected
@@ -657,17 +730,13 @@ struct ProfileView: View {
                         HapticEngine.shared.play(.selection)
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: tab.symbol)
-                                .font(.subheadline.weight(.semibold))
-                            if isSelected {
-                                Text(tab.title)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
-                            }
+                            Text(tab.title)
+                                .font(.footnote.weight(.semibold))
+                                .lineLimit(1)
+                                .fixedSize()
                         }
-                        .foregroundStyle(isSelected ? heroTint : Color.secondary)
-                        .padding(.horizontal, isSelected ? 14 : 12)
+                        .foregroundStyle(isSelected ? heroTint : Color.primary.opacity(0.62))
+                        .padding(.horizontal, isSelected ? 12 : 9)
                         .frame(height: 38)
                         .background {
                             if isSelected {
@@ -685,11 +754,19 @@ struct ProfileView: View {
                 }
             }
             .padding(3)
+            .padding(.trailing, 14)
+            }
+            // Edge fade so a clipped tab ("Mod…") reads as scrollable instead of cut off.
+            .mask {
+                LinearGradient(stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 0.86),
+                    .init(color: .black.opacity(0), location: 1)
+                ], startPoint: .leading, endPoint: .trailing)
+            }
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
 
-            Spacer(minLength: 0)
-
-            if selected.usesLayout {
+            if selected == .posts {
                 ProfilePostLayoutToggle(layout: postLayout, tint: heroTint)
                     .padding(2)
                     .modulaGlass(in: Capsule(), interactive: false)
@@ -700,11 +777,18 @@ struct ProfileView: View {
         .padding(.leading, leadingInteractionInset)
         .padding(.trailing, trailingInteractionInset)
         .padding(.vertical, 8)
-        // Pinned header: slide it down so it rests just below the status bar / nav buttons.
-        .visualEffect { content, proxy in
-            let minY = proxy.frame(in: .scrollView).minY
-            return content.offset(y: max(0, stickTop - minY))
+        // The in-scroll bar only reports whether it has reached the pin line; once pinned, a
+        // copy is drawn outside the ScrollView (above a real blur strip) and this one hides.
+        // A material inside the scroll content could not blur the posts scrolling under it.
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { minY in
+            guard !floating else { return }
+            let pinned = minY <= stickTop + 2
+            if pinned != shelfPinned { shelfPinned = pinned }
         }
+        .opacity(floating || !shelfPinned ? 1 : 0)
+        // No manual pin offset: the LazyVStack's pinned section header already rests at the
+        // scroll view's top content margin (status bar + 44, i.e. right under the top bar).
+        // The old offset was added on top of that, which parked the tabs ~100pt too low.
         .zIndex(1)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.tabs")
@@ -717,6 +801,11 @@ struct ProfileView: View {
             switch selected {
             case .posts: postsShelf(profile, mediaOnly: false)
             case .media: postsShelf(profile, mediaOnly: true)
+            case .reels: postsShelf(profile, mediaOnly: true, videoOnly: true)
+            case .replies:
+                // Stub: profile posts carry no reply/parent field, so replies can't be listed yet.
+                ModulaEmptyState(title: "Replies", message: "Replies by this profile will show here.", symbol: "arrowshape.turn.up.left")
+                    .padding(.vertical, 8)
             case .modules: modulesTab(profile)
             case .saved: savedShelf
             case .liked: likedShelf
@@ -727,6 +816,7 @@ struct ProfileView: View {
             insertion: .opacity.combined(with: .offset(y: 10)),
             removal: .opacity
         ))
+        // No swipe-to-switch: horizontal gestures belong to post carousels / media; tabs switch by tap.
         .task(id: selected) {
             guard selected == .modules else { return }
             await app.profile.loadModulesIfNeeded(
@@ -738,16 +828,17 @@ struct ProfileView: View {
         }
     }
 
-    private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool) -> some View {
+    private func postsShelf(_ profile: ModulaProfile, mediaOnly: Bool, videoOnly: Bool = false) -> some View {
         let all = session.posts.items.isEmpty ? session.overviewPreviewPosts : session.posts.items
-        let items = mediaOnly ? all.filter { $0.hasMedia } : all
+        let media = mediaOnly ? all.filter { $0.hasMedia } : all
+        let items = videoOnly ? media.filter { [.video, .movie].contains($0.kind) } : media
         return VStack(alignment: .leading, spacing: 12) {
             if items.isEmpty {
                 if case .loading = session.posts.loadState {
                     ProfilePostGridSkeleton()
                 } else if mediaOnly {
                     ModulaEmptyState(
-                        title: "No media yet",
+                        title: videoOnly ? "No reels yet" : "No media yet",
                         message: isOwnProfile
                             ? "Photos and videos you post will collect here."
                             : "Photos and videos from this profile will appear here.",
@@ -757,7 +848,7 @@ struct ProfileView: View {
                 } else {
                     emptyPosts(isOwn: isOwnProfile, compact: true)
                 }
-            } else if postLayout.wrappedValue == .grid {
+            } else if mediaOnly || postLayout.wrappedValue == .grid {
                 ProfilePostGrid(
                     posts: items,
                     tint: heroTint,
@@ -813,7 +904,7 @@ struct ProfileView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-            .modulaGlass(in: Capsule(), interactive: true, tint: heroTint, prominent: true, specular: true)
+            .modulaAccentCTA()
             .padding(.top, 4)
             .accessibilityIdentifier("profile.saved.open")
         }
@@ -849,16 +940,33 @@ struct ProfileView: View {
         }
     }
 
+    /// Compact inline stats (X / Threads style); each count opens its list.
     private func metrics(_ profile: ModulaProfile) -> some View {
-        ProfileActionsRow(
-            profile: profile,
-            selected: section == .overview ? nil : section,
-            showsModules: true,
-            onPosts: { openSection(.posts) },
-            onFollowers: { openSection(.followers) },
-            onFollowing: { openSection(.following) },
-            onModules: { openSection(.modules) }
-        )
+        // Accessibility text sizes: one stat per line instead of three clipped side by side.
+        let layout = profileTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 16))
+        return layout {
+            statLink(profile.postCount, "posts") { openSection(.posts) }
+            statLink(profile.followerCount, profile.followerCount == 1 ? "follower" : "followers") { openSection(.followers) }
+            statLink(profile.followingCount, "following") { openSection(.following) }
+            if !profileTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("profile.stats")
+    }
+
+    private func statLink(_ value: Int, _ label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            (Text(ModulaCountFormat.compact(value) ?? "0").font(.subheadline.weight(.bold)).foregroundStyle(.primary)
+             + Text(" \(label)").font(.subheadline.weight(.medium)).foregroundStyle(Color.primary.opacity(0.72)))
+                .monospacedDigit()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     private func availableTabs(_ profile: ModulaProfile) -> [ProfileContentTab] {
@@ -1110,9 +1218,9 @@ struct ProfileView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 switch collection.loadState {
                 case .loading where collection.items.isEmpty:
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
+                    // Enhancements-50: people-shaped skeleton instead of a spinner.
+                    ModulaSkeletonList(title: "Loading people", rows: 5, showsMedia: false)
+                        .padding(.horizontal, ModulaLayout.contentInset)
                 case .failed where collection.items.isEmpty:
                     ModulaErrorState(message: collection.lastError ?? "Unable to load people.") {
                         Task {
@@ -1279,14 +1387,14 @@ struct ProfileView: View {
         .modifier(PostSwipeActions(
             enabled: resolved.media.count <= 1,
             saved: resolved.saved,
-            accent: app.appearance.accent.color,
+            accent: app.appearance.liveAccent,
             onSave: {
                 Task {
                     app.postActions.ingest(resolved)
                     await app.postActions.toggleSave(resolved)
                     app.home.syncVisibleEngagement()
                 }
-                app.navigation.flash(resolved.saved ? "Removed from Saved" : "Saved", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
+                app.navigation.flash(resolved.saved ? "Removed from Bookmarks" : "Saved to Bookmarks", symbol: resolved.saved ? "bookmark.slash" : "bookmark.fill")
             },
             onShare: {
                 PostSharing.share(resolved, app: app)
@@ -1296,7 +1404,6 @@ struct ProfileView: View {
         .padding(.leading, -leadingInteractionInset)
         .padding(.trailing, -trailingInteractionInset)
         .padding(.horizontal, ModulaLayout.postBleedGutter)
-        .modulaEdgeFlow()
         .accessibilityIdentifier("profile.post.\(resolved.id)")
     }
 
@@ -1308,7 +1415,7 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "link")
-                    .foregroundStyle(app.appearance.accent.color)
+                    .foregroundStyle(app.appearance.liveAccent)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(link.label)
@@ -1344,12 +1451,18 @@ struct ProfileView: View {
             } description: {
                 Text("Share your first post.")
             } actions: {
-                Button("Create Post") {
+                Button {
                     app.navigation.open(.compose(.post))
                     HapticEngine.shared.play(.navigation)
+                } label: {
+                    Text("Create Post")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, GeneratedDesignContract.Spacing.lg)
+                        .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                        .contentShape(Capsule())
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(app.appearance.accent.color)
+                .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                .modulaAccentCTA()
                 .accessibilityIdentifier("profile.empty.compose")
             }
             .frame(maxWidth: .infinity)
@@ -1372,12 +1485,18 @@ struct ProfileView: View {
                 } description: {
                     Text("Feature the modules that represent what you use, build or share.")
                 } actions: {
-                    Button("Choose Modules") {
+                    Button {
                         app.navigation.open(.productHub(.featured))
                         HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Text("Choose Modules")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, GeneratedDesignContract.Spacing.lg)
+                            .frame(minHeight: GeneratedDesignContract.Layout.minimumTouchTarget)
+                            .contentShape(Capsule())
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.accent.color)
+                    .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                    .modulaAccentCTA()
                     .accessibilityIdentifier("profile.empty.modules.choose")
                 }
                 .frame(maxWidth: .infinity)
@@ -1572,13 +1691,21 @@ struct ProfileView: View {
         return nil
     }
 
+    /// Message opens the 1:1 chat with this person (existing thread, else a starter addressed to them),
+    /// never the inbox. Without chat, In-Mail compose opens already addressed to them.
     private func openMessaging(for profile: ModulaProfile) {
+        let person = profile.handle.isEmpty ? profile.id : profile.handle
         if app.messaging.capabilities.send {
-            app.navigation.push(.messages(.new))
+            if let existing = app.messaging.directConversation(with: person) {
+                app.navigation.push(.messages(.conversation(existing.id)))
+            } else {
+                app.navigation.push(.messages(.direct(person)))
+            }
             HapticEngine.shared.play(.navigation)
             return
         }
         if app.inMail.capabilities.send {
+            if !profile.handle.isEmpty { app.inMail.draft.toHandle = profile.handle }
             app.navigation.push(.messages(.inMail(.compose)))
             HapticEngine.shared.play(.navigation)
         }
@@ -1736,24 +1863,28 @@ private struct ProfileActivityShareView: UIViewControllerRepresentable {
 /// Sticky profile shelf tabs. Posts / Media / Modules are real data; Saved (own) opens
 /// the Saved library; Liked (others) is a stub until likes are public.
 private enum ProfileShelfTab: String, Hashable, Identifiable {
-    case posts, media, modules, saved, liked
+    case posts, replies, media, reels, modules, saved, liked
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .posts: "Posts"
+        case .replies: "Replies"
         case .media: "Media"
+        case .reels: "Reels"
         case .modules: "Modules"
         case .saved: "Saved"
-        case .liked: "Liked"
+        case .liked: "Likes"
         }
     }
 
     var symbol: String {
         switch self {
         case .posts: "square.grid.2x2"
+        case .replies: "arrowshape.turn.up.left"
         case .media: "photo.on.rectangle"
+        case .reels: "play.rectangle"
         case .modules: "shippingbox"
         case .saved: "bookmark"
         case .liked: "heart"
@@ -1762,4 +1893,61 @@ private enum ProfileShelfTab: String, Hashable, Identifiable {
 
     /// Grid / list toggle applies to post-based shelves.
     var usesLayout: Bool { self == .posts || self == .media }
+}
+
+
+/// Profile's top progressive blur (replaces the old clipped header fade, the progress-driven nav
+/// background and the separate pinned-tabs backing, which stacked into a hard, uneven edge).
+/// Stacked materials, each masked to end lower down, so blur is strongest at the very top and
+/// ramps smoothly to fully clear; no slab edge at any height.
+private struct ProfileTopProgressiveBlur: View {
+    /// Fade below the 44pt bar while the tabs are not pinned.
+    static let restingFade: CGFloat = 34
+    /// Pinned tabs (8 + 38 + 8) plus a fade below them.
+    static let pinnedShelfExtent: CGFloat = 54 + 30
+
+    let height: CGFloat
+    let tint: Color
+    let reduceTransparency: Bool
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                tint.mask(ramp(solidUntil: 0.6, end: 1))
+            } else {
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial).mask(ramp(solidUntil: 0.5, end: 1.0))
+                    Rectangle().fill(.thinMaterial).mask(ramp(solidUntil: 0.3, end: 0.72))
+                    Rectangle().fill(.regularMaterial).mask(ramp(solidUntil: 0.12, end: 0.45))
+                    tint.opacity(0.42).mask(ramp(solidUntil: 0.25, end: 0.85))
+                }
+            }
+        }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func ramp(solidUntil: CGFloat, end: CGFloat) -> LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: solidUntil),
+            .init(color: .black.opacity(0.5), location: solidUntil + (end - solidUntil) * 0.45),
+            .init(color: .black.opacity(0), location: end)
+        ], startPoint: .top, endPoint: .bottom)
+    }
+}
+
+
+/// The system top scroll-edge blur also covered the pinned tabs (they sit right under the
+/// bar); Profile draws its own strip behind the bar + tabs instead.
+private struct ProfileTopEdgeEffectHidden: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
+    }
 }

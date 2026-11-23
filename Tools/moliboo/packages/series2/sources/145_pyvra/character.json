@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.145",
+  "key": "pyvra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#A595D9",
+    "accent": "#D1C9EC",
+    "light": "#D1C9EC",
+    "dark": "#9385C1"
+  },
+  "form": "Violet flame mane, calm blue eyes"
+}

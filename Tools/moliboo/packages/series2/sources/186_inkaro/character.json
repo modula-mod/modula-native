@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.186",
+  "key": "inkaro",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#647EBA",
+    "accent": "#B0BDDC",
+    "light": "#B0BDDC",
+    "dark": "#5970A6"
+  },
+  "form": "Navy inkdrop body, brush-tip fringe"
+}

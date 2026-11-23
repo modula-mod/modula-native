@@ -35,7 +35,7 @@ struct ModulaTabIndicator: View {
 
     var body: some View {
         Capsule()
-            .fill(app.appearance.accent.color.opacity(selected ? 0.15 : 0))
+            .fill(app.appearance.liveAccent.opacity(selected ? 0.15 : 0))
             .accessibilityHidden(true)
     }
 }
@@ -119,7 +119,7 @@ struct ModulaTabStrip<ID: Hashable & Sendable>: View {
                 )
             }
             .font(.subheadline.weight(selected ? .semibold : .medium))
-            .foregroundStyle(selected ? app.appearance.accent.color : .primary)
+            .foregroundStyle(selected ? app.appearance.liveAccent : .primary)
             .padding(.horizontal, compact ? 10 : 12)
             .frame(minHeight: ModulaLayout.minimumTouch)
             .background {
@@ -209,7 +209,7 @@ struct ModulaSpaceItem<ID: Hashable & Sendable>: View {
             HStack(spacing: ModulaSpacing.sm) {
                 Image(systemName: space.systemImage)
                     .frame(width: 28)
-                    .foregroundStyle(selected ? app.appearance.accent.color : .secondary)
+                    .foregroundStyle(selected ? app.appearance.liveAccent : .secondary)
                 Text(space.title)
                     .font(.body.weight(selected ? .semibold : .regular))
                 Spacer()
@@ -218,7 +218,7 @@ struct ModulaSpaceItem<ID: Hashable & Sendable>: View {
                     showsNotificationDot: space.showsNotificationDot,
                     selected: selected
                 )
-                if selected { Image(systemName: "checkmark").foregroundStyle(app.appearance.accent.color) }
+                if selected { Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent) }
             }
             .frame(minHeight: ModulaLayout.minimumTouch)
             .contentShape(Rectangle())

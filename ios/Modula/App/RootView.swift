@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
+    @State private var visitedTabs: Set<AppTab> = []
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -23,7 +24,7 @@ struct RootView: View {
         let edgeSide = appearance.edgePicker.side
         let clearance = EdgeInteractionSafeArea.contentClearance(
             side: edgeSide,
-            pickerVisible: policy.contextRailVisible
+            pickerVisible: false  // Edge picker removed; contexts live in the swipeable tab accessory.
         )
         shell(navigation: navigation, policy: policy)
         .fontDesign(appearance.fontDesign)
@@ -31,27 +32,21 @@ struct RootView: View {
         .environment(\.leadingInteractionInset, clearance.leading)
         .environment(\.edgePickerSide, edgeSide)
         .environment(\.shellChromeMetrics, ShellChromeMetrics.resolve(policy: policy))
-        .overlay(alignment: edgeSide == .right ? .trailing : .leading) {
-            if policy.contextRailVisible, !navigation.sidebarPresented {
-                ShellEdgeLoop(route: navigation.currentRoute)
-                    .ignoresSafeArea(edges: edgeSide == .right ? .trailing : .leading)
-                    .padding(.bottom, 80)
-                    .padding(.top, 48)
-            }
-        }
-        .modulaSidebarEdgeOpen()
-        .overlay { ShellSidebarHost() }
+        // ChatGPT-style push sidebar: the shell becomes a rounded card that slides right.
+        .modulaSidebarContainer()
+        // Pull menu frost covers the entire screen (header, tab bar, Tools bar, edge rail).
+        .overlay { ModulaPullOverlayHost() }
         // Liquid Glass post menu: above tabs and chrome so it can blur the whole screen.
         .overlay { PostMenuHost() }
         .overlay { CommandPaletteHost() }
         .overlay { CelebrationHost() }
         .sheet(item: $navigation.presented) { presentation in
-            ModulaSheet { PresentationView(presentation: presentation) }
+            ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
         }
         .overlay {
             // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.
-            ModulaIslandBannerHost(banner: navigation.banner)
-                .ignoresSafeArea(edges: .top)
+            // Toasts render in ModulaToastWindow (above sheets); nothing to host here.
+            EmptyView()
         }
         .overlay(alignment: .top) {
             if debugOverlays { ModulaDebugOverlay(route: navigation.currentRoute) }
@@ -59,6 +54,7 @@ struct RootView: View {
         // Ideas30 #18: offline banner. #27: one-time "What's new" sheet (opens the 30-ideas gallery).
         .overlay(alignment: .top) { Lab30OfflineBanner() }
         .modifier(Lab30WhatsNewPresenter())
+        .modulaConsumesIntentRoutes()
         .background(palette.canvas.ignoresSafeArea())
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             ModulaRuntimePreferences.apply()
@@ -71,12 +67,18 @@ struct RootView: View {
                 delegate.consumePendingShortcutIfNeeded()
             }
             app.refreshQuickActions()
+            #if DEBUG
+            openQALaunchTarget()
+            #endif
         }
         .task {
+            // After the first frames, so Home's feed request goes out first; and the
+            // catalogue the boot gate already loaded isn't fetched a second time.
+            try? await Task.sleep(for: .milliseconds(700))
             if app.catalogue.accountID == nil {
                 app.catalogue.accountID = app.auth.account?.accountId
             }
-            await app.catalogue.load()
+            if !app.catalogue.loaded { await app.catalogue.load() }
             if app.auth.isSignedIn {
                 await app.profile.loadIfNeeded(
                     .me,
@@ -92,6 +94,7 @@ struct RootView: View {
                 return (id, product.name)
             }
             SpotlightIndexPreparation.refresh(installedModules: installed)
+            ModulaSpotlightDestinations.refresh()
         }
         .modulaCommandKeyboard(
             onCommandK: {
@@ -148,21 +151,25 @@ struct RootView: View {
                     }
                 }
         } else if #available(iOS 26.1, *) {
-            tabs(navigation: navigation)
+            tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
                     ShellAccessorySystemSlot(route: navigation.currentRoute)
                 }
-                .tabBarMinimizeBehavior(.onScrollDown)
+                // On Activity the minimised bar collapses to a lone bell + red badge bubble
+                // (bottom-left), which read as a stray notifications button — keep it expanded there.
+                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
         } else if #available(iOS 26.0, *) {
-            tabs(navigation: navigation)
+            tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
                 .tabViewBottomAccessory {
                     if policy.shellAccessoryVisible {
                         ShellAccessorySystemSlot(route: navigation.currentRoute)
                     }
                 }
-                .tabBarMinimizeBehavior(.onScrollDown)
+                // On Activity the minimised bar collapses to a lone bell + red badge bubble
+                // (bottom-left), which read as a stray notifications button — keep it expanded there.
+                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
         } else {
             tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -176,19 +183,46 @@ struct RootView: View {
     /// `.toolbar(.hidden, for: .tabBar)` only hides the system bar when applied inside a
     /// tab's content; on the `TabView` itself iOS 26+ ignores it, which drew the system
     /// bar underneath Modula's own floating chrome (duplicate tab bar).
-    private func tabs(navigation: NavigationCoordinator, hidesSystemTabBar: Bool = false) -> some View {
+    private func tabs(navigation: NavigationCoordinator, hidesSystemTabBar: Bool = false, accessoryClearance: CGFloat = 0) -> some View {
         @Bindable var navigation = navigation
-        return TabView(selection: $navigation.selectedTab) {
+        // Enhancements-50: re-tapping the selected tab pops to its root, then scrolls to top.
+        let reselectable = Binding<AppTab>(
+            get: { navigation.selectedTab },
+            set: { tab in
+                if tab == navigation.selectedTab {
+                    if navigation.path(for: tab).isEmpty {
+                        ModulaTabReselect.post(tab)
+                    } else {
+                        navigation.binding(for: tab).wrappedValue = []
+                        HapticEngine.shared.play(.selection)
+                    }
+                } else {
+                    navigation.selectedTab = tab
+                }
+            }
+        )
+        return TabView(selection: reselectable) {
             ForEach(AppTab.allCases) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
-                    RouteView(route: navigation.root(for: tab))
+                    Group {
+                        // Lazy tabs: TabView builds every tab's root at launch; Messages,
+                        // Activity, Profile… now build on first visit instead.
+                        if tab == navigation.selectedTab || visitedTabs.contains(tab) {
+                            RouteView(route: navigation.root(for: tab))
+                        } else {
+                            Color.clear
+                        }
+                    }
                         .navigationDestination(for: AppRoute.self) {
                             RouteView(route: $0)
-                                .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar))
+                                // Pushed Settings / Premium pages: no minimised tab bubble (the profile avatar
+                                // floated bottom-left over plan cards). Back is the one way out.
+                                .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar || Self.hidesTabBar(on: $0)))
                         }
                         .background(EdgeSwipeBackConfigurator().frame(width: 0, height: 0).accessibilityHidden(true))
                         .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar))
                 }
+                .contentMargins(.bottom, accessoryClearance, for: .scrollContent)
                 .environment(\.routeTransitionNamespace, routeTransitions)
                 .modulaSoftScrollEdge()
                 .tabItem {
@@ -196,7 +230,7 @@ struct RootView: View {
                         Image(uiImage: app.profile.tabBarAvatar ?? ProfileTabAvatarRenderer.fallback(
                             profile: app.profile.ownProfile,
                             account: app.auth.account,
-                            accent: UIColor(app.appearance.accent.color)
+                            accent: UIColor(app.appearance.liveAccent)
                         ))
                         .renderingMode(.original)
                         Text(tab.title)
@@ -209,6 +243,9 @@ struct RootView: View {
                 .badge(tab == .activity ? activityBadge : 0)
                 .tag(tab)
             }
+        }
+        .onChange(of: navigation.selectedTab, initial: true) { _, selected in
+            if !visitedTabs.contains(selected) { visitedTabs.insert(selected) }
         }
         .overlay {
             ProfileTabBarAvatarApplicator(image: app.profile.tabBarAvatar)
@@ -225,6 +262,11 @@ struct RootView: View {
         }
     }
 
+    private static func hidesTabBar(on route: AppRoute) -> Bool {
+        if case .settings = route { return true }
+        return false
+    }
+
     /// Unread Activity, quietened by an iOS Focus filter per Settings → Focus.
     private var activityBadge: Int {
         _ = (focusFilterActive, focusHideBadges, focusAllowMentions)
@@ -234,15 +276,37 @@ struct RootView: View {
         return ModulaFocusState.activityBadge(unread: unread, unreadMentions: mentions)
     }
 
+    #if DEBUG
+    /// QA only (stripped from Release): `--uitest-open settings|sidebar|<route>`
+    /// opens a screen after launch so simulator screenshots need no taps.
+    private func openQALaunchTarget() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--uitest-open"), arguments.indices.contains(index + 1) else { return }
+        let target = arguments[index + 1]
+        let navigation = app.navigation
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            switch target {
+            case "sidebar": navigation.presentSidebar()
+            case "settings": navigation.open(.settings(.root))
+            case "inbox": navigation.open(.messages(.inbox))
+            case "chat": navigation.open(.messages(.inbox)); try? await Task.sleep(for: .milliseconds(500)); navigation.push(.messages(.conversation("fx-sophia")))
+            default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
+            }
+        }
+    }
+    #endif
+
     private func refreshTabAvatar() async {
         await app.profile.refreshTabBarAvatar(
             account: app.auth.account,
-            accent: UIColor(app.appearance.accent.color)
+            accent: UIColor(app.appearance.liveAccent)
         )
     }
 }
 
 struct RouteView: View {
+    @Environment(AppEnvironment.self) private var app
     let route: AppRoute
     /// Card the user tapped to get here (Activity / Discover / Product Hub), captured once.
     @State private var heroID: String?
@@ -274,6 +338,8 @@ struct RouteView: View {
         case .me(let section): ProfileView(userID: nil, section: section)
         case .productHub(.module(let id, let section)): ModuleDetailV2View(moduleID: id, section: section)
         case .productHub(.publisher(let id)): PublisherView(publisherID: id)
+        case .productHub(.gubic): GubicRouteView()
+        case .productHub(.category("games")) where GubicFeature.enabled(): GubicHubView(client: app.client)
         case .productHub(let route): ProductHubView(route: route)
         case .module(let id, let localPath): ModuleHost(moduleID: id, initialLocalPath: localPath)
         case .settings(let route): SettingsDestinationHost(route: route)
@@ -306,11 +372,13 @@ struct RouteView: View {
             CollectionDetailView(collectionID: id)
         case .drafts:
             DraftsView()
+        case .community(let route):
+            CommunityRootView(route: route)
         }
     }
 }
 
-private struct PresentationView: View {
+struct PresentationView: View {
     let presentation: AppPresentation
     @Environment(AppEnvironment.self) private var app
 
@@ -323,12 +391,11 @@ private struct PresentationView: View {
         switch presentation {
         case .composer(let route): CreationStudioView(route: route)
         case .share(let route):
-            let url = shareURL(for: route)
-            ShareLink(item: url) {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-            .padding()
-            .accessibilityIdentifier("share.sheet")
+            // Straight to the system share sheet (was a lone "Share" button in an empty sheet).
+            ModulaActivityShareView(items: [shareURL(for: route)]) { app.navigation.presented = nil }
+                .ignoresSafeArea()
+                .presentationDetents([.medium, .large])
+                .accessibilityIdentifier("share.sheet")
         case .filters: DevelopmentRouteView(title: "Filters", symbol: "line.3.horizontal.decrease.circle")
         case .modulePermissions: DevelopmentRouteView(title: "Module Permissions", symbol: "hand.raised")
         case .appearancePicker(let route): AppearanceSettingsView(focus: route)
@@ -397,4 +464,30 @@ private struct SystemTabBarHidden: ViewModifier {
             content
         }
     }
+}
+
+extension AppPresentation {
+    /// Share sheets open at half height and pull up; everything else stays full height.
+    var sheetDetents: [ModulaSheetDetent] {
+        switch self {
+        case .universalShare, .share: [.medium, .large]
+        // Short option sheets open at half height instead of a mostly empty full-height page.
+        case .homeFeeds, .homeFeedTools, .homeSummary, .discoverFilter: [.medium, .large]
+        default: [.large]
+        }
+    }
+}
+
+/// UIActivityViewController for SwiftUI presentations.
+struct ModulaActivityShareView: UIViewControllerRepresentable {
+    let items: [Any]
+    var onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onDismiss() }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.125",
+  "key": "driftu",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#B5C9C4",
+    "accent": "#D9E3E1",
+    "light": "#D9E3E1",
+    "dark": "#A1B3AE"
+  },
+  "form": "Pebble-shaped body, flowing blue fins"
+}

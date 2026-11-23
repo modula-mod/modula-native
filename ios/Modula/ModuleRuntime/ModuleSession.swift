@@ -31,6 +31,7 @@ final class ModuleSession: Identifiable {
     let manifest: ModuleManifest
     var runtimeKind: ModuleRuntimeKind = .bundledReactNative
     var productUI: ProductUIDocument?
+    var webGameEntry: URL?
     var cachedRelease: ModuleCachedRelease?
     var state: State = .preparing
     var environment: ModuleEnvironment

@@ -168,7 +168,7 @@ struct ModulaInlineCamera: View {
                         .frame(width: camera.isRecording ? 26 : 52, height: camera.isRecording ? 26 : 52)
                 } else {
                     Circle().fill(.white).frame(width: 52, height: 52)
-                        .overlay { Circle().stroke(app.appearance.accent.color, lineWidth: 2).padding(3) }
+                        .overlay { Circle().stroke(app.appearance.liveAccent, lineWidth: 2).padding(3) }
                 }
                 if camera.isRecording {
                     Circle().trim(from: 0, to: min(camera.recordedSeconds / recordLimit, 1))

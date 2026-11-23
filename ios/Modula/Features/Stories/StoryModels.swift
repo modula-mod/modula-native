@@ -72,6 +72,21 @@ struct StoryGroup: Identifiable, Hashable, Sendable {
     var needsHydration: Bool { items.isEmpty || items.count < (itemCount ?? 0) }
 }
 
+/// Copy for Story Insights. Only expiry is computed; view counts come from the item payload.
+enum StoryInsightFacts {
+    static func remaining(until expiresAt: Date?, now: Date = Date()) -> String? {
+        guard let expiresAt else { return nil }
+        let seconds = expiresAt.timeIntervalSince(now)
+        if seconds <= 0 { return "This story has expired" }
+        let hours = Int(seconds / 3600)
+        if hours >= 1 {
+            return hours == 1 ? "1 hour remaining" : "\(hours) hours remaining"
+        }
+        let minutes = max(1, Int(seconds / 60))
+        return minutes == 1 ? "1 minute remaining" : "\(minutes) minutes remaining"
+    }
+}
+
 struct StoryBackendCapabilities: Sendable, Equatable {
     var list = false
     var create = false
@@ -81,13 +96,17 @@ struct StoryBackendCapabilities: Sendable, Equatable {
     var privacy = false
     var video = false
 
-    static let production = StoryBackendCapabilities(list: true, create: true)
+    // Replies (into DMs) and deleting your own story item are live on GreenField
+    // (`POST /v1/stories/:itemId/replies`, `DELETE /v1/stories/items/:itemId`).
+    static let production = StoryBackendCapabilities(list: true, create: true, reply: true)
 
     enum Paths {
         static let rail = "/v1/stories/rail"
         static func group(_ id: String) -> String { "/v1/stories/\(escape(id))" }
         static let create = "/v1/stories"
         static func viewed(_ id: String) -> String { "/v1/stories/items/\(escape(id))/viewed" }
+        static func replies(_ id: String) -> String { "/v1/stories/\(escape(id))/replies" }
+        static func item(_ id: String) -> String { "/v1/stories/items/\(escape(id))" }
 
         private static func escape(_ value: String) -> String {
             value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
@@ -406,6 +425,22 @@ struct StoryBackendRepository: Sendable {
         return .object(body)
     }
 
+    func reply(itemID: StoryID, text: String) async throws {
+        guard capabilities.reply else { throw APIError.unavailable("Story replies aren’t available.") }
+        let key = "story-reply-\(UUID().uuidString.lowercased())"
+        _ = try await client.authenticatedJSON(
+            "POST",
+            path: StoryBackendCapabilities.Paths.replies(itemID),
+            body: .object(["text": .string(text), "idempotencyKey": .string(key)]),
+            idempotencyKey: key
+        )
+    }
+
+    func delete(itemID: StoryID) async throws {
+        guard capabilities.create else { throw APIError.unavailable("Deleting stories isn’t available.") }
+        _ = try await client.authenticatedJSON("DELETE", path: StoryBackendCapabilities.Paths.item(itemID))
+    }
+
     func markViewed(itemID: StoryID) async throws {
         guard capabilities.list else { return }
         _ = try await client.authenticatedJSON(
@@ -475,6 +510,31 @@ final class StoryStore {
             var merged = entry
             merged.items = known.items
             return merged
+        }
+    }
+
+    /// Sends a story reply into the author's DMs. Returns false (and sets `actionError`) on failure.
+    func reply(to itemID: StoryID, text: String) async -> Bool {
+        do {
+            try await repository.reply(itemID: itemID, text: text)
+            return true
+        } catch {
+            actionError = "Couldn’t send your reply."
+            return false
+        }
+    }
+
+    /// Deletes one of your own story items and drops it from the rail locally.
+    func delete(itemID: StoryID) async -> Bool {
+        do {
+            try await repository.delete(itemID: itemID)
+            for index in groups.indices {
+                groups[index].items.removeAll { $0.id == itemID }
+            }
+            return true
+        } catch {
+            actionError = "Couldn’t delete this story."
+            return false
         }
     }
 

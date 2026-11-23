@@ -16,11 +16,11 @@ final class AuthErrorMappingTests: XCTestCase {
 
 @MainActor
 final class ShellChromePolicyN3ATests: XCTestCase {
-    func testActivityKeepsTabRailAndAccessory() {
+    func testActivityKeepsTabBarWithoutDuplicateRail() {
         let policy = ShellChromePolicy.policy(for: .activity(.all))
         XCTAssertTrue(policy.bottomBarVisible)
-        XCTAssertTrue(policy.contextRailVisible)
-        XCTAssertTrue(policy.shellAccessoryVisible)
+        XCTAssertFalse(policy.contextRailVisible)
+        XCTAssertFalse(policy.shellAccessoryVisible)
     }
 
     func testAuthHidesRootChrome() {

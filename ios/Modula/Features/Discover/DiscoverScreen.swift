@@ -3,6 +3,14 @@ import SwiftUI
 struct DiscoverScreen: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Only flips at the threshold, so scrolling doesn't storm state every frame.
+    @State private var collapsed = false
+    /// Expanded header height, reserved in both states so collapsing never changes the
+    /// scroll view's top inset (which used to shift the offset back across the threshold
+    /// and flip collapsed on/off forever, hanging the main thread).
+    @State private var expandedHeaderHeight: CGFloat = 0
+    @Namespace private var glassNS
 
     private var section: DiscoverRoute {
         if case .discover(let route) = app.navigation.root(for: .discover) {
@@ -27,33 +35,10 @@ struct DiscoverScreen: View {
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Discover")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .modulaSidebarTrigger()
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 10) {
-                DiscoverSearchEntry(
-                    action: {
-                        app.navigation.open(.search(.root(nil)))
-                        HapticEngine.shared.play(.navigation)
-                    },
-                    onCustomise: {
-                        PresentationCoordinator.present(.discoverFilter, in: app.navigation)
-                        HapticEngine.shared.play(.contextOpen)
-                    },
-                    onRefresh: {
-                        Task {
-                            await app.discover.refresh(section)
-                            HapticEngine.shared.play(.confirmation)
-                        }
-                    }
-                )
-                DiscoverScopePicker(selection: section) { destination in
-                    app.discover.markVisited(destination)
-                    app.navigation.replaceContext(with: .discover(destination))
-                }
-            }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 8)
+            header
         }
         .overlay(alignment: .bottom) {
             if let message = app.discover.actionError {
@@ -71,6 +56,81 @@ struct DiscoverScreen: View {
         .accessibilityValue(RouteSerializer.serialize(.discover(section)))
     }
 
+    private var searchEntry: some View {
+        DiscoverSearchEntry(
+            compact: collapsed,
+            action: {
+                app.navigation.open(.search(.root(nil)))
+                HapticEngine.shared.play(.navigation)
+            },
+            onCustomise: section.hasFilters ? {
+                PresentationCoordinator.present(.discoverFilter, in: app.navigation)
+                HapticEngine.shared.play(.contextOpen)
+            } : nil,
+            onRefresh: {
+                Task {
+                    await app.discover.refresh(section)
+                    HapticEngine.shared.play(.confirmation)
+                }
+            }
+        )
+    }
+
+    private var chips: some View {
+        DiscoverScopePicker(selection: section, compact: collapsed) { destination in
+            app.discover.markVisited(destination)
+            app.navigation.replaceContext(with: .discover(destination))
+        }
+    }
+
+    /// Expanded: search row + chip row. Collapsed: one slim bar (chips + search icon + menu).
+    private var header: some View {
+        ModulaGlassGroup(spacing: 8) {
+            Group {
+                if collapsed {
+                    HStack(spacing: 8) {
+                        chips
+                        searchEntry.modulaGlassID("discover.search", in: glassNS)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Discover")
+                                .font(.largeTitle.bold())
+                                .accessibilityAddTraits(.isHeader)
+                            Text("People, posts, modules and topics.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        searchEntry.modulaGlassID("discover.search", in: glassNS)
+                        chips
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+        .background {
+            // Edge fade so cards dissolve under the header instead of clashing behind it.
+            LinearGradient(stops: [
+                .init(color: Color(uiColor: .systemBackground), location: 0),
+                .init(color: Color(uiColor: .systemBackground).opacity(0.85), location: 0.6),
+                .init(color: Color(uiColor: .systemBackground).opacity(0), location: 1)
+            ], startPoint: .top, endPoint: .bottom)
+            .padding(.bottom, -18)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height.rounded() } action: { height in
+            // Only the expanded layout defines the reserved height; ignore collapsed/animating sizes.
+            if !collapsed, height > expandedHeaderHeight { expandedHeaderHeight = height }
+        }
+        .frame(minHeight: expandedHeaderHeight, alignment: .top)
+        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86), value: collapsed)
+    }
+
     @ViewBuilder
     private func scopeScroll(_ scope: DiscoverRoute) -> some View {
         ScrollView {
@@ -79,8 +139,16 @@ struct DiscoverScreen: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, 8)
-            .padding(.bottom, 56)
+            // Clear the floating Tools pill and the tab bar.
+            .padding(.bottom, 140)
             .modulaPullContentEffects()
+            .modulaScrollsToTopOnReselect(.discover)
+        }
+        .onScrollGeometryChange(for: Bool.self) { [collapsed] geo in
+            DiscoverHeaderCollapse.isCollapsed(offset: geo.contentOffset.y + geo.contentInsets.top, current: collapsed)
+        } action: { _, isCollapsed in
+            guard scope == section, isCollapsed != collapsed else { return }
+            collapsed = isCollapsed
         }
         .modulaSoftScrollEdge()
         .environment(\.modulaHeroScope, "discover.\(scope.rawValue)")
@@ -132,6 +200,15 @@ struct DiscoverScreen: View {
                     onModule: openModule,
                     onSeeModules: { app.navigation.replaceContext(with: .discover(.modules)) },
                     onReel: { reel in
+                        guard reel.attachment != nil else {
+                            // Module-backed / non-video item: open its post instead of a blank player.
+                            if let postID = reel.postID {
+                                app.postActions.ingest(reel.asSocialPost())
+                                app.navigation.push(.post(postID, .root))
+                                HapticEngine.shared.play(.navigation)
+                            }
+                            return
+                        }
                         app.reels.ingest(seed: dashboard.reels)
                         app.navigation.push(.reels(.reel(reel.id)))
                         HapticEngine.shared.play(.navigation)
@@ -214,7 +291,10 @@ struct DiscoverScreen: View {
         default:
             LazyVStack(spacing: 14) {
                 ForEach(items) { post in
-                    DiscoverPostCard(post: post) { openPost(post) }
+                    // Same shell as Home: reactions, repost, save, share and "…" menu.
+                    SharedFeedPostCard(post: post.asSocialPost(), identifierPrefix: "discover")
+                        .padding(.horizontal, -ModulaLayout.contentInset)
+                        .padding(.horizontal, ModulaLayout.postBleedGutter)
                 }
                 if state.nextCursor != nil {
                     Button("Load more") {
@@ -238,7 +318,7 @@ struct DiscoverScreen: View {
             ModulaErrorState(message: message) { Task { await app.discover.refresh(.modules) } }
                 .padding(.top, 40)
         case _ where items.isEmpty:
-            ModulaEmptyState(title: "No modules match this selection.", message: "Try another filter.", symbol: "shippingbox")
+            ModulaEmptyState(title: "No modules match this selection.", message: "Try another filter.", symbol: "shippingbox", illustration: .modules)
                 .padding(.top, 28)
         default:
             VStack(alignment: .leading, spacing: 16) {
@@ -336,5 +416,15 @@ struct DiscoverScreen: View {
                 _ = await app.discover.follow(person, signedIn: true)
             }
         }
+    }
+}
+
+/// Collapse decision with a hysteresis band, so small offset shifts can't toggle the header.
+enum DiscoverHeaderCollapse {
+    static let collapseAbove: CGFloat = 60
+    static let expandBelow: CGFloat = 20
+
+    static func isCollapsed(offset: CGFloat, current: Bool) -> Bool {
+        current ? offset >= expandBelow : offset > collapseAbove
     }
 }

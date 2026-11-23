@@ -20,6 +20,9 @@ final class AppEnvironment {
     let home: HomeStore
     let profile: ProfileStore
     let messaging: MessagingStore
+    /// 1:1 calls (CallKit, PushKit, WebRTC). A launch-time singleton because PushKit must be
+    /// registered in `didFinishLaunching`, before SwiftUI builds any view.
+    var calls: CallManager { CallManager.shared }
     let inMail: InMailStore
     let stories: StoryStore
     let reels: ReelStore
@@ -44,6 +47,8 @@ final class AppEnvironment {
     let nodusKnowledgeStore = NodusKnowledgeStore()
     let nodusMemoryStore = NodusMemoryStore()
     let nodusSearchCredentials = NodusSearchCredentialStore()
+    /// APNs registration, soft pre-prompt timing and notification responses.
+    let push: PushNotificationController
     /// Downloadable Nodus model lifecycle (verified download, install, remove, chat preference).
     let nodusModels: NodusModelManager
 
@@ -82,7 +87,12 @@ final class AppEnvironment {
         }
         #endif
         runtime.activation = moduleActivation
-        auth = AuthenticationStore(client: client)
+        auth = AuthenticationStore(client: client, pendingStore: PendingSignupStore(baseURL: url))
+        push = PushNotificationController(client: client)
+        auth.willSignOut = { [push] in
+            await CallManager.shared.signOut()
+            await push.unregisterForSignOut()
+        }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
         posts = PostStateStore()
@@ -135,6 +145,7 @@ final class AppEnvironment {
         let draftsStore = drafts
         auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
             runtime?.setAccount(account?.accountId)
+            CallManager.shared.accountChanged(signedIn: account != nil)
             catalogueStore?.accountID = account?.accountId
             draftsStore.setAccountID(account?.accountId)
             Task {
@@ -165,10 +176,14 @@ final class AppEnvironment {
             // The diagnostic surface is a bundled developer tool, never a catalogue product.
             if id == "modula.runtime-diagnostic" { return .runnable(descriptor: nil) }
             #endif
+            if let catalogueStore { return catalogueStore.installGate(for: id) }
             if let self, let cached = self.moduleActivation.active(accountID: self.runtime.accountID ?? self.auth.account?.accountId, moduleId: id) {
-                return .runnable(descriptor: catalogueStore?.verifiedDescriptors[id] ?? cached.descriptor)
+                return .runnable(descriptor: cached.descriptor)
             }
-            return catalogueStore?.installGate(for: id) ?? .notInstalled
+            return .notInstalled
+        }
+        runtime.rollbackEligibility = { [weak catalogueStore] id, releaseID in
+            catalogueStore?.isRollbackEligible(moduleID: id, releaseID: releaseID) == true
         }
         ModulaBridge.shared.navigation = navigation
         let appearanceStore = appearance
@@ -271,10 +286,10 @@ final class AppEnvironment {
         if ProcessInfo.processInfo.arguments.contains("--uitest-local-module-session") {
             auth.adoptUITestLocalModuleSession()
         } else {
-            await auth.restore()
+            await auth.restoreFast()
         }
         #else
-        await auth.restore()
+        await auth.restoreFast()
         #endif
         drafts.setAccountID(auth.account?.accountId)
         catalogue.accountID = auth.account?.accountId
@@ -288,10 +303,45 @@ final class AppEnvironment {
         #endif
         if auth.isSignedIn {
             appLock.refreshColdLaunchLock()
-            await catalogue.load()
+            // Loaded behind the boot gate: running it on the main actor after the shell
+            // appears competed with the first interactive frames. Cold launch no longer
+            // waits on every catalogue round trip, though: a deep link waits for the full
+            // load, otherwise the gate opens after at most 450 ms and the rest finishes behind it.
+            let catalogue = self.catalogue
+            let load = Task { await catalogue.load() }
+            if gate.pendingDestination != nil {
+                await load.value
+            } else {
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await load.value }
+                    group.addTask { try? await Task.sleep(for: .milliseconds(200)) }
+                    await group.next()
+                    group.cancelAll()
+                }
+            }
         }
         refreshLaunchState()
-        refreshQuickActions()
+        resumePendingSignupIfNeeded()
+        auth.onRevalidationFailed = { [weak self] in
+            await self?.performSignOut(resetAppLock: false)
+        }
+        await push.attach(environment: self)
+        // Not needed for the first frame: quick actions, call wiring and cache trims
+        // run after the gate has opened.
+        let signedIn = auth.isSignedIn
+        let client = self.client
+        Task(priority: .utility) { @MainActor [weak self] in
+            await Task.yield()
+            self?.refreshQuickActions()
+            CallManager.shared.attach(client: client, signedIn: signedIn)
+            ModulaImageDiskCache.trimInBackground()
+        }
+        if auth.isSignedIn {
+            // Off the boot path: one capability probe so the messaging socket (which carries
+            // `call.updated`) runs and call buttons know whether the server enables calls.
+            let messagingStore = messaging
+            Task(priority: .utility) { await messagingStore.probeCapabilities() }
+        }
     }
 
     func refreshLaunchState() {
@@ -307,10 +357,30 @@ final class AppEnvironment {
             appLockEnabled: appLock.enabled,
             appLockRequiresUnlock: appLock.requiresUnlock
         )
+        if gate.state == .ready, navigation.path(for: .home).contains(where: { route in
+            if case .auth = route { return true }
+            return false
+        }) {
+            navigation.home()
+        }
         if gate.state == .ready, let pending = gate.takePendingDestination() {
             navigation.open(pending == .boot ? .home(.following) : pending)
         }
         refreshQuickActions()
+    }
+
+    /// Signed out with a sign-up waiting for its code (restored from the Keychain after the
+    /// app was backgrounded or killed): continue at "Enter the code". Expired state is cleared
+    /// by the store with a notice. Only opens the step from the auth root, never over a
+    /// screen the person is using.
+    func resumePendingSignupIfNeeded() {
+        guard gate.state == .signedOut else { return }
+        let noticeBefore = auth.pendingNotice
+        let restored = auth.restorePendingSignup()
+        let justExpired = auth.pendingNotice != nil && auth.pendingNotice != noticeBefore
+        guard restored != nil || justExpired else { return }
+        let path = navigation.path(for: .home)
+        if path.isEmpty { navigation.open(.auth(.verify)) }
     }
 
     func handleIncomingURL(_ url: URL) {
@@ -347,6 +417,7 @@ final class AppEnvironment {
         case .active:
             appLock.evaluateForeground()
             refreshLaunchState()
+            resumePendingSignupIfNeeded()
         @unknown default:
             break
         }
@@ -365,6 +436,8 @@ final class AppEnvironment {
         await auth.signOut()
         drafts.setAccountID(nil)
         catalogue.dropAccountScope()
+        ModulaWarmCache.clearAll()
+        ModulaImageDiskCache.clear()
         if resetAppLock {
             appLock.resetAfterSignOut()
         }

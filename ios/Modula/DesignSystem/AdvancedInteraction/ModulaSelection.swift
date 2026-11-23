@@ -71,7 +71,7 @@ struct ModulaSelectionIndicator: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.title3.weight(.semibold))
-            .foregroundStyle(state == .unselected ? Color.secondary : app.appearance.accent.color)
+            .foregroundStyle(state == .unselected ? Color.secondary : app.appearance.liveAccent)
             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
             .contentShape(Circle())
             .accessibilityLabel(accessibilityLabel)

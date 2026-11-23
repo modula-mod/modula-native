@@ -1,0 +1,527 @@
+[
+ {
+  "num": "026",
+  "name": "Aura",
+  "title": "The Guiding Light",
+  "family": "angels",
+  "ability": "Guiding Glow Creates illuminated paths through darkness and mist."
+ },
+ {
+  "num": "027",
+  "name": "Soli",
+  "title": "The Little Sun",
+  "family": "angels",
+  "ability": "Sunshine Burst Illuminates its surroundings with a cheerful warm pulse."
+ },
+ {
+  "num": "028",
+  "name": "Luma",
+  "title": "The Moon Pearl",
+  "family": "angels",
+  "ability": "Moonveil Creates a calming field of moonlight."
+ },
+ {
+  "num": "029",
+  "name": "Vela",
+  "title": "The Celestial Fox",
+  "family": "angels",
+  "ability": "Skytrail Leaves temporary floating trails that reveal otherwise inaccessible paths."
+ },
+ {
+  "num": "030",
+  "name": "Cheri",
+  "title": "The Heart Spirit",
+  "family": "angels",
+  "ability": "Heartlink Creates visible light links between cooperating friends."
+ },
+ {
+  "num": "031",
+  "name": "Hush",
+  "title": "The Feather Guardian",
+  "family": "angels",
+  "ability": "Featherfall Creates soft floating platforms and cushioned landings."
+ },
+ {
+  "num": "032",
+  "name": "Haloa",
+  "title": "The Halo Keeper",
+  "family": "angels",
+  "ability": "Orbiting Light Creates temporary circular barriers and floating rings."
+ },
+ {
+  "num": "033",
+  "name": "Lyra",
+  "title": "The Musical Spirit",
+  "family": "angels",
+  "ability": "Harmony Notes Creates musical patterns that interact with the environment."
+ },
+ {
+  "num": "034",
+  "name": "Celio",
+  "title": "The Sky Whale",
+  "family": "angels",
+  "ability": "Skycurrent Creates currents of air that carry companions and objects."
+ },
+ {
+  "num": "035",
+  "name": "Dovee",
+  "title": "The Celestial Dove",
+  "family": "angels",
+  "ability": "Peacewind Generates a gentle wind to calm unstable environments."
+ },
+ {
+  "num": "036",
+  "name": "Twila",
+  "title": "The Twilight Moth",
+  "family": "angels",
+  "ability": "Duskveil Reveals faint patterns visible only in twilight."
+ },
+ {
+  "num": "037",
+  "name": "Gleam",
+  "title": "The Radiant Droplet",
+  "family": "angels",
+  "ability": "Radiant Ripple Creates expanding waves of coloured light."
+ },
+ {
+  "num": "038",
+  "name": "Novael",
+  "title": "The Cosmic Star",
+  "family": "angels",
+  "ability": "Starbound Executes short bursts of spectacular high-speed movement."
+ },
+ {
+  "num": "039",
+  "name": "Sera",
+  "title": "The Little Sentinel",
+  "family": "angels",
+  "ability": "Guardian Embrace Creates a temporary protective field around companions."
+ },
+ {
+  "num": "040",
+  "name": "Auri",
+  "title": "The Iridescent Spirit",
+  "family": "angels",
+  "ability": "Aurora Bloom Creates shifting ribbons of colourful light across the sky."
+ },
+ {
+  "num": "041",
+  "name": "Riff",
+  "title": "The Beat Maker",
+  "family": "underground",
+  "ability": "Beatwave Sends short visible sound pulses through nearby objects to reveal rhythm patterns."
+ },
+ {
+  "num": "042",
+  "name": "Graff",
+  "title": "The Paint Sprite",
+  "family": "underground",
+  "ability": "Colourburst Paints temporary visible routes and symbols that vanish without leaving permanent marks."
+ },
+ {
+  "num": "043",
+  "name": "Nyx",
+  "title": "The Shadow Puddle",
+  "family": "underground",
+  "ability": "Shadow Slip Moves through connected patches of shade inside the fictional world."
+ },
+ {
+  "num": "044",
+  "name": "Zip",
+  "title": "The Speedster",
+  "family": "underground",
+  "ability": "Neon Dash Follows temporary light-tracks at high speed."
+ },
+ {
+  "num": "045",
+  "name": "Vex",
+  "title": "The Street Fox",
+  "family": "underground",
+  "ability": "Shortcut Sense Spots hidden routes and overlooked entrances in puzzle environments."
+ },
+ {
+  "num": "046",
+  "name": "Koda",
+  "title": "The Urban Explorer",
+  "family": "underground",
+  "ability": "Hidden Cache Reveals optional objects and collectible clues tucked away in scenes."
+ },
+ {
+  "num": "047",
+  "name": "Glitch",
+  "title": "The Pixel Sprite",
+  "family": "underground",
+  "ability": "Pixel Shift Rearranges simple virtual shapes to complete puzzles inside games."
+ },
+ {
+  "num": "048",
+  "name": "Jinx",
+  "title": "The Midnight Cat",
+  "family": "underground",
+  "ability": "Moonstep Creates short faint footprints visible only in nighttime environments."
+ },
+ {
+  "num": "049",
+  "name": "Static",
+  "title": "The Electric Fuzz",
+  "family": "underground",
+  "ability": "Spark Jump Activates small fictional switches and conductive puzzle paths."
+ },
+ {
+  "num": "050",
+  "name": "Holo",
+  "title": "The Hologram",
+  "family": "underground",
+  "ability": "Light Double Projects temporary decoy shapes for harmless game puzzles."
+ },
+ {
+  "num": "051",
+  "name": "Fuse",
+  "title": "The Battery Buddy",
+  "family": "underground",
+  "ability": "Charge Share Supplies temporary energy to non-dangerous in-game gadgets and puzzles."
+ },
+ {
+  "num": "052",
+  "name": "Skid",
+  "title": "The Skate Lizard",
+  "family": "underground",
+  "ability": "Rail Ride Traverses designated skate rails and surfaces within the game world."
+ },
+ {
+  "num": "053",
+  "name": "Mica",
+  "title": "The Crystal Mole",
+  "family": "underground",
+  "ability": "Crystal Sense Detects hidden mineral patterns and creates clues in underground exploration puzzles."
+ },
+ {
+  "num": "054",
+  "name": "Rumble",
+  "title": "The Gentle Underground Titan",
+  "family": "underground",
+  "ability": "Groundbeat Creates controlled, harmless tremors that rearrange puzzle platforms."
+ },
+ {
+  "num": "055",
+  "name": "Flick",
+  "title": "The Neon Moth",
+  "family": "underground",
+  "ability": "Glowtrail Leaves short luminous signposts and patterns useful for routes and puzzles."
+ },
+ {
+  "num": "056",
+  "name": "Bramble",
+  "title": "The Gentle Thorn",
+  "family": "enchanted",
+  "ability": "Bramble Bridge: Grows temporary thorn-vines that safely connect short gaps in a forest puzzle."
+ },
+ {
+  "num": "057",
+  "name": "Ferni",
+  "title": "The Unfurling Explorer",
+  "family": "enchanted",
+  "ability": "Frond Finder: Unfurls leaves that reveal hidden markers or lightly covered trail signs."
+ },
+ {
+  "num": "058",
+  "name": "Truffle",
+  "title": "The Mushroom Forager",
+  "family": "enchanted",
+  "ability": "Spore Spark: Releases benign glowing spores that highlight safe mushroom paths in game scenes."
+ },
+ {
+  "num": "059",
+  "name": "Rootle",
+  "title": "The Little Trailkeeper",
+  "family": "enchanted",
+  "ability": "Root Route: Grows a simple root-path along designated surfaces for a short duration."
+ },
+ {
+  "num": "060",
+  "name": "Willow",
+  "title": "The Whispering Tree",
+  "family": "enchanted",
+  "ability": "Willow Whisper: Reveals hidden lore marks by letting the leaves sway in the direction of an ancient story."
+ },
+ {
+  "num": "061",
+  "name": "Pollen",
+  "title": "The Floating Messenger",
+  "family": "enchanted",
+  "ability": "Seed Sail: Rides gentle drafts across small gaps and carries lightweight quest objects."
+ },
+ {
+  "num": "062",
+  "name": "Mallow",
+  "title": "The Little Blossom",
+  "family": "enchanted",
+  "ability": "Bloom Circle: Makes a small patch of flowers bloom, revealing a friendly cooperative clue."
+ },
+ {
+  "num": "063",
+  "name": "Acora",
+  "title": "The Oakling",
+  "family": "enchanted",
+  "ability": "Oakbound: Plants an acorn marker which briefly grows into a stable stepping platform."
+ },
+ {
+  "num": "064",
+  "name": "Spindle",
+  "title": "The Silkwing Weaver",
+  "family": "enchanted",
+  "ability": "Silkline: Weaves temporary shimmering lines between approved puzzle anchors."
+ },
+ {
+  "num": "065",
+  "name": "Glade",
+  "title": "The Crystal Fawn",
+  "family": "enchanted",
+  "ability": "Grove Step: Highlights safe pathways and calm crossing points through forest terrain."
+ },
+ {
+  "num": "066",
+  "name": "Lichen",
+  "title": "The Patient Shell",
+  "family": "enchanted",
+  "ability": "Shell Shelter: Becomes a temporary sturdy platform or a safe waiting point in cooperative challenges."
+ },
+ {
+  "num": "067",
+  "name": "Thimble",
+  "title": "The Forest Nestmaker",
+  "family": "enchanted",
+  "ability": "Nest Nook: Builds temporary safe rest spots from found leaves during longer explorations."
+ },
+ {
+  "num": "068",
+  "name": "Wyrmi",
+  "title": "The Autumn Hatchling",
+  "family": "enchanted",
+  "ability": "Autumn Gust: Sends a gentle swirl of leaves that activates seasonal switches and uncovers small objects."
+ },
+ {
+  "num": "069",
+  "name": "Kiko",
+  "title": "The Jewel Beetle",
+  "family": "enchanted",
+  "ability": "Jewel Glint: Reflects nearby light beams to reveal hidden carved symbols or collectible clues."
+ },
+ {
+  "num": "070",
+  "name": "Eldra",
+  "title": "The Keeper of Rings",
+  "family": "enchanted",
+  "ability": "Ancient Ring: Reveals fragments of past forest scenes at designated narrative landmarks."
+ },
+ {
+  "num": "071",
+  "name": "Astra",
+  "title": "The Star Sprite",
+  "family": "stardust",
+  "ability": "Starlane / sketches short-lived guiding constellations through fog or darkness."
+ },
+ {
+  "num": "072",
+  "name": "Nebbi",
+  "title": "The Nebula Dreamer",
+  "family": "stardust",
+  "ability": "Dreamcloud / reveals hidden shapes by forming temporary nebula pictures."
+ },
+ {
+  "num": "073",
+  "name": "Quori",
+  "title": "The Ringed Wanderer",
+  "family": "stardust",
+  "ability": "Orbit Step / creates brief looping platforms for other characters to hop across."
+ },
+ {
+  "num": "074",
+  "name": "Vesper",
+  "title": "The Twilight Comet",
+  "family": "stardust",
+  "ability": "Duskstream / leaves a temporary illuminated wake through dark terrain."
+ },
+ {
+  "num": "075",
+  "name": "Pulsa",
+  "title": "The Pulse Nova",
+  "family": "stardust",
+  "ability": "Pulse Ring / sends rhythmic shockwaves that activate nearby mechanisms."
+ },
+ {
+  "num": "076",
+  "name": "Stellan",
+  "title": "The Cosmic Fawn",
+  "family": "stardust",
+  "ability": "Starstep / summons brief footholds made from gathered starlight."
+ },
+ {
+  "num": "077",
+  "name": "Cosmi",
+  "title": "The Galaxy Hopper",
+  "family": "stardust",
+  "ability": "Galaxy Bounce / chains safe gravity-defying hops between nearby platforms."
+ },
+ {
+  "num": "078",
+  "name": "Eclipa",
+  "title": "The Moon Shadow",
+  "family": "stardust",
+  "ability": "Eclipse Veil / alternates soft light and shadow to expose hidden clues."
+ },
+ {
+  "num": "079",
+  "name": "Meteo",
+  "title": "The Meteor Scout",
+  "family": "stardust",
+  "ability": "Meteor Dash / performs controlled short bursts over marked speed tracks."
+ },
+ {
+  "num": "080",
+  "name": "Asteri",
+  "title": "The Crystal Constellation",
+  "family": "stardust",
+  "ability": "Star Pattern / aligns fragments to unlock map puzzles and reflective surfaces."
+ },
+ {
+  "num": "081",
+  "name": "Zenith",
+  "title": "The Solar Guardian",
+  "family": "stardust",
+  "ability": "Sunward / projects a stable field that shields companions from environmental hazards."
+ },
+ {
+  "num": "082",
+  "name": "Liora",
+  "title": "The Aurora Bloom",
+  "family": "stardust",
+  "ability": "Aurora Bloom / paints the sky with changing paths of light and colour."
+ },
+ {
+  "num": "083",
+  "name": "Nocta",
+  "title": "The Midnight Moth",
+  "family": "stardust",
+  "ability": "Nightweave / uncovers hidden constellations as the wings flutter in darkness."
+ },
+ {
+  "num": "084",
+  "name": "Glint",
+  "title": "The Stardust Pixie",
+  "family": "stardust",
+  "ability": "Sparktrail / marks interactive surfaces with temporary glittering dots."
+ },
+ {
+  "num": "085",
+  "name": "Polaris",
+  "title": "The Guiding Star",
+  "family": "stardust",
+  "ability": "Northlight / reveals a safe direction through unfamiliar cosmic routes."
+ },
+ {
+  "num": "086",
+  "name": "Dozi",
+  "title": "The Sleepy Sprite",
+  "family": "dreamers",
+  "ability": "Drowsy Glow / makes a soothing lantern-like light around a safe resting place."
+ },
+ {
+  "num": "087",
+  "name": "Lulli",
+  "title": "The Lullaby Cloud",
+  "family": "dreamers",
+  "ability": "Humming Haze / projects visual music-notes that reveal gentle rhythmic paths."
+ },
+ {
+  "num": "088",
+  "name": "Moona",
+  "title": "The Crescent Dreamer",
+  "family": "dreamers",
+  "ability": "Moonpath / creates temporary crescent platforms over dream chasms."
+ },
+ {
+  "num": "089",
+  "name": "Nuzzle",
+  "title": "The Pillow Fox",
+  "family": "dreamers",
+  "ability": "Cloud Cushion / provides a temporary soft landing surface for others."
+ },
+ {
+  "num": "090",
+  "name": "Drifty",
+  "title": "The Blanket Hopper",
+  "family": "dreamers",
+  "ability": "Blanket Bounce / springs between floating quilt pads."
+ },
+ {
+  "num": "091",
+  "name": "Hushby",
+  "title": "The Cloud Sheep",
+  "family": "dreamers",
+  "ability": "Woolway / spins small cloud stepping stones from loose wool tufts."
+ },
+ {
+  "num": "092",
+  "name": "Swayla",
+  "title": "The Night Lantern",
+  "family": "dreamers",
+  "ability": "Lantern Trail / lights temporary safe waypoints in a dream maze."
+ },
+ {
+  "num": "093",
+  "name": "Snoomi",
+  "title": "The Marshmallow Napper",
+  "family": "dreamers",
+  "ability": "Cozy Pause / briefly settles moving platforms in gentle puzzle scenes."
+ },
+ {
+  "num": "094",
+  "name": "Velvi",
+  "title": "The Dream Moth",
+  "family": "dreamers",
+  "ability": "Dreamweave / reveals hidden pathways by tracing light across wing patterns."
+ },
+ {
+  "num": "095",
+  "name": "Minku",
+  "title": "The Sleepy Bat",
+  "family": "dreamers",
+  "ability": "Whisperwing / creates brief silent wind routes through dream caves."
+ },
+ {
+  "num": "096",
+  "name": "Tufti",
+  "title": "The Drowsy Bunny",
+  "family": "dreamers",
+  "ability": "Soft Step / moves across delicate dream surfaces without disturbing them."
+ },
+ {
+  "num": "097",
+  "name": "Winkle",
+  "title": "The Dream Whale",
+  "family": "dreamers",
+  "ability": "Dream Current / carries friends along a slow safe arc of floating starlight."
+ },
+ {
+  "num": "098",
+  "name": "Sonata",
+  "title": "The Music Box Spirit",
+  "family": "dreamers",
+  "ability": "Melody Stair / builds a temporary note-step pattern in rhythmic sequences."
+ },
+ {
+  "num": "099",
+  "name": "Comfi",
+  "title": "The Cozy Bear",
+  "family": "dreamers",
+  "ability": "Blanket Fort / creates a short-lived safe space for cooperative dream puzzles."
+ },
+ {
+  "num": "100",
+  "name": "Somna",
+  "title": "The Keeper of Dreams",
+  "family": "dreamers",
+  "ability": "Dream Atlas / briefly connects scattered dream paths into a navigable constellation."
+ }
+]

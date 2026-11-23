@@ -110,7 +110,7 @@ struct LanguageSettingsHost: View {
                 )
                 // The in-app override was never applied anywhere. iOS already
                 // offers a per-app language picker, so link to it instead.
-                SettingsGroup(title: "App language") {
+                SettingsGroup(title: "App language", subtitle: "iOS keeps a separate language for each app. Tapping opens Modula in iOS Settings, where you pick it; Modula restarts in that language.") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(
                             title: "App Language",
@@ -121,10 +121,12 @@ struct LanguageSettingsHost: View {
                         }
                     }
                 }
-                SettingsToggleCard {
-                    Toggle("Show translation hints", isOn: $translationHints)
+                SettingsGroup(title: "Posts in other languages", subtitle: "When on, posts written in a language other than yours show a small “Translated from …” hint so you know what you’re reading.") {
+                    SettingsToggleCard {
+                        Toggle("Show translation hints", isOn: $translationHints)
+                    }
                 }
-                SettingsGroup(title: "Region") {
+                SettingsGroup(title: "Region", subtitle: "Translation options and how times and measurements are shown on this device.") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Translate", subtitle: "Translation hints", symbol: "character.book.closed") {
                             app.navigation.open(.settings(.translate(.root)))
@@ -168,8 +170,8 @@ struct MediaSettingsHost: View {
                 )
                 MediaQualityGraphic(quality: videoQuality)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsFeatureTile(title: "Video", detail: "Quality & mute", symbol: "film", tint: app.appearance.accent.color)
-                    SettingsFeatureTile(title: "Images", detail: "Upload originals", symbol: "photo", tint: app.appearance.accent.color)
+                    SettingsFeatureTile(title: "Video", detail: "Quality & mute", symbol: "film", tint: app.appearance.liveAccent)
+                    SettingsFeatureTile(title: "Images", detail: "Upload originals", symbol: "photo", tint: app.appearance.liveAccent)
                 }
                 SettingsGroup(title: "Open") {
                     VStack(spacing: 0) {
@@ -285,7 +287,7 @@ struct FeedSettingsHost: View {
                 }
                 Spacer()
                 if defaultMode == tag {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.accent.color)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
                 }
             }
             .padding(.vertical, 8)
@@ -432,13 +434,13 @@ struct MonetisationSettingsHost: View {
             SettingsScrollCanvas {
                 SettingsHeroBanner(
                     title: "Monetisation",
-                    subtitle: "Plans, payouts, and invoices — designed ahead of billing APIs.",
+                    subtitle: "Plans, payouts, and invoices.",
                     symbol: "creditcard"
                 )
                 SettingsSceneGraphic(style: .meter)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    SettingsFeatureTile(title: "Plans", detail: "Subscriptions", symbol: "rectangle.stack", tint: app.appearance.accent.color)
-                    SettingsFeatureTile(title: "Payouts", detail: "Creator earnings", symbol: "banknote", tint: app.appearance.accent.color)
+                    SettingsFeatureTile(title: "Plans", detail: "Subscriptions", symbol: "rectangle.stack", tint: app.appearance.liveAccent)
+                    SettingsFeatureTile(title: "Payouts", detail: "Creator earnings", symbol: "banknote", tint: app.appearance.liveAccent)
                 }
                 SettingsGroup(title: "Browse") {
                     VStack(spacing: 0) {
@@ -520,7 +522,7 @@ struct ChatsSettingsHost: View {
                             app.navigation.open(.settings(.chats(.previews)))
                         }
                         SettingsDivider()
-                        SettingsNavigationRow(title: "Chat privacy", subtitle: "Receipts on this device", symbol: "lock.rectangle.on.rectangle") {
+                        SettingsNavigationRow(title: "Chat privacy", subtitle: app.messaging.capabilities.privacyControls ? "Receipts, typing, last seen, lock screen" : "Receipts on this device", symbol: "lock.rectangle.on.rectangle") {
                             app.navigation.open(.settings(.chats(.privacy)))
                         }
                     }
@@ -563,15 +565,53 @@ struct ChatsSettingsHost: View {
             .navigationBarTitleDisplayMode(.inline)
         case .privacy:
             Form {
+                if app.messaging.capabilities.privacyControls {
+                    Section {
+                        Toggle("Read receipts", isOn: Binding(
+                            get: { app.messaging.privacy.readReceipts },
+                            set: { value in Task { await app.messaging.setReadReceipts(value) } }
+                        ))
+                        Toggle("Typing indicators", isOn: Binding(
+                            get: { app.messaging.privacy.typingIndicators },
+                            set: { value in Task { await app.messaging.setTypingIndicators(value) } }
+                        ))
+                        Picker("Last seen & online", selection: Binding(
+                            get: { app.messaging.privacy.presenceVisibility },
+                            set: { value in Task { await app.messaging.setPresenceVisibility(value) } }
+                        )) {
+                            ForEach(PresenceVisibility.allCases) { item in
+                                Text(item.title).tag(item)
+                            }
+                        }
+                    } footer: {
+                        Text("These apply across your chats. Turning receipts or last seen off is reciprocal — you won't see other people's either.")
+                    }
+                    Section {
+                        Picker("Lock screen preview", selection: Binding(
+                            get: { app.messaging.privacy.notificationPreview },
+                            set: { value in Task { await app.messaging.setNotificationPreview(value) } }
+                        )) {
+                            ForEach(NotificationPreviewSetting.allCases) { item in
+                                Text(item.title).tag(item)
+                            }
+                        }
+                    } footer: {
+                        Text("Controls what a message notification can show on the lock screen. Your phone still needs notifications allowed.")
+                    }
+                }
                 Section {
                     Toggle("Show read receipts (display)", isOn: $readReceiptsDisplay)
                 } footer: {
-                    Text("Only changes what you see. It doesn’t change what others see.")
+                    Text("Only changes what you see on this iPhone. It doesn’t change what others see.")
                 }
             }
             .modulaSoftScrollEdge()
             .navigationTitle("Chat privacy")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await app.messaging.probeCapabilities()
+                await app.messaging.loadPrivacyIfNeeded()
+            }
         }
     }
 }
@@ -664,7 +704,7 @@ private struct AudioWaveGraphic: View {
         HStack(alignment: .center, spacing: 5) {
             ForEach(0..<18, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(app.appearance.accent.color.opacity(0.35 + Double(index % 4) * 0.15))
+                    .fill(app.appearance.liveAccent.opacity(0.35 + Double(index % 4) * 0.15))
                     .frame(width: 6, height: CGFloat(12 + (index % 5) * 8))
             }
         }
@@ -672,7 +712,7 @@ private struct AudioWaveGraphic: View {
         .padding(.vertical, 22)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(app.appearance.accent.color.opacity(0.08))
+                .fill(app.appearance.liveAccent.opacity(0.08))
         }
         .accessibilityHidden(true)
     }

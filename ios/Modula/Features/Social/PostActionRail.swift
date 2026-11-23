@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Vertical action rail for media-rich posts. Drag down (rail hit-region only) morphs into context actions.
-/// Semantically distinct from `ModulaEdgeLoop` — this controls a content object, not screen context.
+/// This controls a content object, not screen context.
 struct PostActionRail: View {
     let post: SocialPost
     var onLike: () -> Void
@@ -82,7 +82,7 @@ struct PostActionRail: View {
             if let onReactLongPress { onReactLongPress() } else { showsReactions = true }
         }
                 .popover(isPresented: $showsReactions) {
-            PostReactionPicker(current: post.viewerReaction, multiEnabled: app.postActions.capabilities.multiReactions,
+            PostReactionPicker(current: post.viewerReaction, multiEnabled: app.postActions.capabilities.multiReactions, postID: post.id,
                 onSelect: { reaction in
                     showsReactions = false
                     Task { await app.postActions.setReaction(post, reaction: reaction) }
@@ -118,8 +118,8 @@ struct PostActionRail: View {
             VStack(spacing: 1) {
                 Image(systemName: symbol)
                     .font(.system(size: 21, weight: .regular))
-                    .foregroundStyle(active ? app.appearance.accent.color : .white)
-                    .shadow(color: active ? app.appearance.accent.color.opacity(0.6) : .black.opacity(0.25), radius: active ? 6 : 2)
+                    .foregroundStyle(active ? app.appearance.liveAccent : .white)
+                    .shadow(color: active ? app.appearance.liveAccent.opacity(0.6) : .black.opacity(0.25), radius: active ? 6 : 2)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: active)
                 if let count {

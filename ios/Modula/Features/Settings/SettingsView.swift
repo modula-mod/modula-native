@@ -6,18 +6,18 @@ struct SettingsGroup<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            VStack(alignment: .leading, spacing: 2) {
-                if title == "Modula" {
-                    ModulaWordmark(height: 18)
-                } else {
-                    Text(title).font(.headline)
-                }
-                if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+        VStack(alignment: .leading, spacing: 8) {
+            if !title.isEmpty {
+                Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.8))
+                    .textCase(.uppercase).padding(.leading, 14)
             }
-            ModulaCard { content }
+            SettingsGlassCard { content }
+                .environment(\.settingsInsideCard, true)
+            // iOS-style footer, only when a page supplies one.
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.7)).padding(.horizontal, 14)
+            }
         }
-        .modulaScrollReveal()
     }
 }
 
@@ -27,21 +27,41 @@ struct SettingsGroup<Content: View>: View {
 struct SettingsToggleCard<Content: View>: View {
     @ViewBuilder var content: Content
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.settingsInsideCard) private var insideCard
 
     var body: some View {
-        ModulaCard {
-            VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
-                content
-                    .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch, alignment: .leading)
+        Group {
+            if insideCard {
+                // Already inside a SettingsGroup card: plain rows, not a second bordered card.
+                rows
+            } else {
+                SettingsGlassCard { rows }
             }
         }
         .toggleStyle(.switch)
-        .tint(app.appearance.accent.color)
+        .tint(app.appearance.liveAccent)
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        }
+    }
+}
+
+private struct SettingsInsideCardKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// True inside a `SettingsGroup` card, so nested cards render flat.
+    var settingsInsideCard: Bool {
+        get { self[SettingsInsideCardKey.self] }
+        set { self[SettingsInsideCardKey.self] = newValue }
     }
 }
 
 struct SettingsDivider: View {
-    var body: some View { Divider().padding(.leading, 43) }
+    var body: some View { Divider().padding(.leading, 42) }
 }
 
 struct SettingsNavigationRow: View {
@@ -50,8 +70,7 @@ struct SettingsNavigationRow: View {
     var symbol: String
     var action: () -> Void
     var body: some View {
-        ModulaListRow(title: title, subtitle: subtitle, symbol: symbol, action: action)
-            .modulaTapRipple(amplitude: 5)
+        SettingsTileRow(title: title, subtitle: subtitle, symbol: symbol, action: action)
     }
 }
 
@@ -73,13 +92,22 @@ private struct AppearanceChoice<Value: Hashable>: View {
                 if selection == value { Image(systemName: "checkmark") }
             }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(selection == value ? Color.white : Color.primary)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(selection == value ? app.appearance.accent.color : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            // Text/checkmark colour picked by the accent's luminance (white on yellow was unreadable).
+            .foregroundStyle(selection == value ? Self.onColor(app.appearance.liveAccent) : Color.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, minHeight: 46)
+            .background(selection == value ? app.appearance.liveAccent : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == value ? .isSelected : [])
+    }
+
+    static func onColor(_ color: Color) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return lum > 0.6 ? .black : .white
     }
 }
 
@@ -92,8 +120,8 @@ private struct AppearanceMenuRow<Value: Hashable, Options: RandomAccessCollectio
 
     var body: some View {
         HStack(spacing: 13) {
-            Image(systemName: symbol).frame(width: 28).foregroundStyle(.tint)
-            Text(title).font(.body.weight(.medium))
+            SettingsIconTile(symbol: symbol)
+            Text(title)
             Spacer()
             Picker(title, selection: $selection) {
                 ForEach(Array(options), id: \.self) { option in Text(label(option)).tag(option) }
@@ -101,7 +129,7 @@ private struct AppearanceMenuRow<Value: Hashable, Options: RandomAccessCollectio
             .labelsHidden()
             .pickerStyle(.menu)
         }
-        .frame(minHeight: 48)
+        .frame(minHeight: 52)
     }
 }
 
@@ -120,9 +148,16 @@ struct SettingsView: View {
     @Namespace private var identityNamespace
     @State private var query = ""
     @State private var searchPresented = false
+    #if DEBUG
+    @State private var debugScroll = ScrollPosition(edge: .top)
+    #endif
     @State private var headerProgress: CGFloat = 0
+    @State private var scrollY: CGFloat = 0
+    @State private var avatarFrame: CGRect = .zero
+    @State private var showsQR = false
     @State private var intelligenceStatus = "Checking local providers"
     @State private var quickPane: SettingsQuickPane?
+    @State private var showsPrivacyDashboard = false
     @AppStorage("settings.battery.dataSaver") private var dataSaver = false
     @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true
     @AppStorage("settings.audio.hapticOnPlay") private var hapticOnPlay = true
@@ -131,251 +166,403 @@ struct SettingsView: View {
     @AppStorage("settings.focus.hideBadges") private var hideBadges = false
     @AppStorage("settings.focus.allowMentions") private var allowMentions = true
     @AppStorage("settings.feed.defaultMode") private var feedMode = "following"
+    @AppStorage(ModulaMascotSettings.kindKey) private var molibooKindRaw = ModulaMascotKind.pip.rawValue
 
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var compactVisible: Bool { !isSearching && headerProgress > 0.35 }
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
-                ModulaScrollProgressReader()
-
-                if !isSearching {
-                    SettingsCoverHeader(
-                        coverURL: app.profile.ownProfile?.coverURL,
-                        displayName: identityDisplayName,
-                        handle: identityHandle,
-                        initials: identityInitials,
-                        avatarURL: identityAvatarURL,
-                        namespace: identityNamespace,
-                        progress: headerProgress,
-                        onIdentityTap: openAccountOrLogin,
-                        onEdit: openProfileEdit
-                    )
-                }
-
+            LazyVStack(alignment: .leading, spacing: 22) {
                 if isSearching {
-                    SettingsGroup(title: "Results", subtitle: "Matches settings names and descriptions.") {
-                        VStack(spacing: 0) {
-                            ForEach(Array(filteredSearchItems.enumerated()), id: \.element.id) { index, item in
-                                SettingsNavigationRow(title: item.title, subtitle: item.subtitle, symbol: item.symbol) {
-                                    app.navigation.settingsFocusAnchor = item.anchor
-                                    app.navigation.open(.settings(item.route))
+                    // Atlas v5 09.002: grouped matches, each with its breadcrumb; unavailable
+                    // destinations say so instead of looking like working settings.
+                    if filteredSearchItems.isEmpty {
+                        SettingsGroup(title: "Results") {
+                            ModulaEmptyState(title: "No settings for “\(query)”", message: "Try a broader word, like privacy or theme.", symbol: "magnifyingglass")
+                                .frame(minHeight: 220)
+                        }
+                    } else {
+                        ForEach(groupedSearchItems, id: \.category) { group in
+                            SettingsGroup(title: group.category) {
+                                ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
+                                    SettingsTileRow(title: item.title, subtitle: searchSubtitle(item, category: group.category), symbol: item.symbol) {
+                                        app.navigation.settingsFocusAnchor = item.anchor
+                                        app.navigation.open(.settings(item.route))
+                                    }
+                                    if index < group.items.count - 1 { SettingsDivider() }
                                 }
-                                if index < filteredSearchItems.count - 1 { SettingsDivider() }
-                            }
-                            if filteredSearchItems.isEmpty {
-                                ContentUnavailableView.search(text: query)
-                                    .frame(minHeight: 220)
                             }
                         }
                     }
+                } else if searchPresented {
+                    suggestedSearches
                 } else {
-                    SettingsGroup(title: "You") {
-                        VStack(spacing: 0) {
-                            SettingsNavigationRow(title: "Account", subtitle: app.auth.account?.primaryHandle ?? "Sign in and personal information", symbol: "person.crop.circle") {
-                                openAccountOrLogin()
-                            }
-                            .contextMenu {
-                                Button("Edit Profile", systemImage: "pencil") { openProfileEdit() }
-                                Button("Modula Code", systemImage: "qrcode") { app.navigation.open(.settings(.qrCode(.root))) }
-                                Button("Creator", systemImage: "paintbrush.pointed") { app.navigation.open(.settings(.creator(.root))) }
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Appearance", subtitle: themeSubtitle, symbol: "paintpalette") {
-                                app.navigation.open(.settings(.appearance(.root)))
-                            }
-                            .contextMenu {
-                                Button("System", systemImage: "circle.lefthalf.filled") { app.appearance.theme = .system }
-                                Button("Light", systemImage: "sun.max") { app.appearance.theme = .light }
-                                Button("Dark", systemImage: "moon") { app.appearance.theme = .dark }
-                                Divider()
-                                Button("Open Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
-                            }
-                            SettingsDivider()
-                            category("Personalisation", "Recommendations, stories and captions", "slider.horizontal.3", .personalisation(.root))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Settings")
+                            .font(.largeTitle.bold())
+                            .opacity(collapse > 0.55 ? 0 : 1)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Personalise your Modula experience.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .opacity(collapse > 0.35 ? 0 : 1)
+                    }
+                    .accessibilityIdentifier("settings.heading")
+
+                    settingsCover
+
+                    if identityAvatarURL == nil, app.auth.account != nil {
+                        TelegramSettingsCard {
+                            TelegramRow(title: "Set Profile Photo", symbol: "camera.fill", tint: .blue, titleColor: .accentColor) { openProfileEdit() }
                         }
                     }
 
-                    SettingsGroup(title: "Quick", subtitle: "These change the same device settings as their full pages.") {
-                        VStack(spacing: 0) {
-                            Toggle(isOn: $dataSaver) { quickLabel("Data saver", "battery.100percent", "battery.dataSaver") }
-                            SettingsDivider()
-                            Toggle(isOn: $pauseAutoplay) { quickLabel("Pause autoplay in Low Power", "bolt.slash", "battery.lowPower") }
-                            SettingsDivider()
-                            Toggle(isOn: $hapticOnPlay) { quickLabel("Haptics on play", "hand.tap", "audio.haptics") }
-                            SettingsDivider()
-                            Toggle(isOn: $preferNativeShare) { quickLabel("System share sheet", "square.and.arrow.up", "sharing.sheet") }
-                            SettingsDivider()
-                            Toggle(isOn: $dimActivity) { quickLabel("Dim Activity in Focus", "moon.stars", "focus.dimActivity") }
-                        }
-                        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: dataSaver)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: dimActivity)
-                    }
+                    // Atlas v5 08.01 / 09.001: one pinned 2D Moliboo feature card, launch shortcuts,
+                    // then the numbered categories, each destination listed once.
+                    molibooHero
 
-                    VStack(alignment: .leading, spacing: 11) {
-                        Text("Intelligence").font(.headline)
-                        SettingsIntelligenceCard(status: intelligenceStatus, detail: "Configure") {
-                            app.navigation.open(.settings(.intelligence(.root)))
+                    quickActions
+
+                    settingsSection("Account & Membership") {
+                        TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Your Stats", symbol: "chart.line.uptrend.xyaxis", tint: .green) {
+                            app.navigation.open(.settings(.creator(.insights)))
+                        }
+                        if PremiumFeatureFlags.premiumEnabled() {
+                            TelegramDivider()
+                            TelegramRow(title: "Modula Premium", symbol: "sun.horizon.fill", tint: PremiumPlan.horizon.tint, value: PremiumEntitlementStore.shared.plan.shortTitle) {
+                                app.navigation.open(.settings(.premium(.root)))
+                            }
+                            .accessibilityIdentifier("settings.premium")
                         }
                     }
 
-                    SettingsGroup(title: "Experience") {
-                        VStack(spacing: 0) {
-                            SettingsNavigationRow(title: "Feed", subtitle: feedSubtitle, symbol: "rectangle.stack") {
-                                app.navigation.open(.settings(.feed(.root)))
-                            }
-                            .contextMenu {
-                                Button("Following") { feedMode = "following" }
-                                Button("For You") { feedMode = "for-you" }
-                                Button("Modules") { feedMode = "modules" }
-                            }
-                            SettingsDivider()
-                            category("Moliboo", "Choose, dress up, 3D and more", "pawprint.fill", .moliboo); SettingsDivider()
-                            category("Chats", "Composer, previews and chat privacy", "bubble.left.and.bubble.right", .chats(.root)); SettingsDivider()
-                            category("Media", "Quality, camera and photos", "photo.on.rectangle.angled", .media(.root)); SettingsDivider()
-                            category("Audio", "Playback, voice and haptics", "speaker.wave.2", .audio(.root)); SettingsDivider()
-                            category("Notifications", "Push, digests and quiet hours", "bell", .notifications(.root))
-                            .contextMenu { Button("Digests", systemImage: "envelope.open") { quickPane = .digests } }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Focus", subtitle: "Behaviour during iOS Focus", symbol: "moon.stars") {
-                                app.navigation.open(.settings(.focus(.root)))
-                            }
-                            .contextMenu {
-                                Toggle("Hide tab badges", isOn: $hideBadges)
-                                Toggle("Dim Activity", isOn: $dimActivity)
-                                Toggle("Allow mentions", isOn: $allowMentions)
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Sharing", subtitle: preferNativeShare ? "System sheet preferred" : "Link share preferred", symbol: "square.and.arrow.up") {
-                                quickPane = .sharing
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Gestures", subtitle: "Touch shortcuts", symbol: "hand.draw") {
-                                quickPane = .gestures
-                            }
+                    if query.isEmpty { SettingsRecentsCard() }
+
+                    settingsSection("Privacy & Security") {
+                        TelegramRow(title: "Privacy and Security", symbol: "lock.fill", tint: .gray) { app.navigation.open(.settings(.privacy(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Security Center", symbol: "lock.shield.fill", tint: .indigo) { app.navigation.open(.settings(.privacy(.security))) }
+                            .accessibilityIdentifier("settings.security-center.open")
+                        TelegramDivider()
+                        TelegramRow(title: "Privacy Dashboard", symbol: "checkmark.shield.fill", tint: .indigo) { showsPrivacyDashboard = true }
+                            .accessibilityIdentifier("settings.privacy-dashboard.open")
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionHeader("Appearance & Accessibility")
+                        TelegramSettingsCard {
+                            SettingsLiveAppearanceCard { app.navigation.open(.settings(.appearance(.root))) }
+                        }
+                        TelegramSettingsCard {
+                            TelegramRow(title: "Personalisation", symbol: "slider.horizontal.3", tint: .indigo) { app.navigation.open(.settings(.personalisation(.root))) }
+                            TelegramDivider()
+                            TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
+                            TelegramDivider()
+                            TelegramRow(title: "Language", symbol: "globe", tint: .blue) { app.navigation.open(.settings(.language(.root))) }
                         }
                     }
 
-                    SettingsGroup(title: "System") {
-                        VStack(spacing: 0) {
-                            category("Search", "Lookup behaviour on this device", "magnifyingglass", .finder(.root)); SettingsDivider()
-                            category("Language & Region", "Language, translate, time and units", "globe", .language(.root)); SettingsDivider()
-                            category("Accessibility", "Text, contrast and motion", "accessibility", .accessibility(.root)); SettingsDivider()
-                            category("Data & Storage", "Downloads, cache, backup and export", "internaldrive", .dataStorage(.root)); SettingsDivider()
-                            category("Battery & Data", "Data saver and Low Power", "battery.100.bolt", .battery(.root)); SettingsDivider()
-                            SettingsNavigationRow(title: "Keyboard", subtitle: "Typing shortcuts", symbol: "keyboard") { quickPane = .keyboard }
-                            SettingsDivider()
-                            category("Widgets", "Home Screen surfaces", "rectangle.on.rectangle.angled", .widgets(.root))
-                        }
+                    settingsSection("Notifications & Communication") {
+                        TelegramRow(title: "Notifications and Sounds", symbol: "bell.fill", tint: .red) { app.navigation.open(.settings(.notifications(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Chats", symbol: "bubble.left.and.bubble.right.fill", tint: .green) { app.navigation.open(.settings(.chats(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Audio and Haptics", symbol: "speaker.wave.2.fill", tint: .pink) { app.navigation.open(.settings(.audio(.root))) }
                     }
 
-                    SettingsGroup(title: "Privacy & Security") {
-                        VStack(spacing: 0) {
-                            SettingsNavigationRow(title: "Privacy & Security", subtitle: "Security, app lock and blocked accounts", symbol: "lock.shield") {
-                                app.navigation.open(.settings(.privacy(.root)))
-                            }
-                            .contextMenu {
-                                Button("Passkeys", systemImage: "person.badge.key") { app.navigation.open(.settings(.passkeys(.root))) }
-                                Button("Location", systemImage: "location") { app.navigation.open(.settings(.location(.root))) }
-                                Button("Network", systemImage: "network") { app.navigation.open(.settings(.network(.root))) }
-                            }
-                            SettingsDivider()
-                            category("Safety", "Reporting and sensitive content", "shield.checkered", .safety(.root))
-                        }
+                    settingsSection("Content, Social & Activity") {
+                        TelegramRow(title: "Saved", symbol: "bookmark.fill", tint: .blue) { app.navigation.open(.saved(.root)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Recent Activity", symbol: "clock.fill", tint: .orange, badge: app.activity.state(for: .all).unreadCount) { app.navigation.open(.activity(.all)) }
+                        TelegramDivider()
+                        TelegramRow(title: "Feed", symbol: "rectangle.stack.fill", tint: .pink, value: feedValue) { app.navigation.open(.settings(.feed(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Media and Camera", symbol: "photo.on.rectangle.angled", tint: .pink) { app.navigation.open(.settings(.media(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Gestures, Typing and Sharing", symbol: "hand.draw.fill", tint: .teal) { app.navigation.open(.settings(.gestures(.root))) }
                     }
 
-                    SettingsGroup(title: "Platform", subtitle: "Connectors and commerce stay capability-honest.") {
-                        VStack(spacing: 0) {
-                            category("Modules", moduleSummary, "shippingbox", .modules(.root))
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Platform services", subtitle: "Connectors, integrations, plans and family", symbol: "puzzlepiece.extension") {
-                                app.navigation.open(.settings(.connectors(.root)))
-                            }
-                            .contextMenu {
-                                Button("Connectors", systemImage: "link") { app.navigation.open(.settings(.connectors(.root))) }
-                                Button("Integrations", systemImage: "puzzlepiece.extension") { app.navigation.open(.settings(.integrations(.root))) }
-                                Button("Monetisation", systemImage: "creditcard") { app.navigation.open(.settings(.monetisation(.root))) }
-                                Button("Family", systemImage: "figure.2.and.child.holdinghands") { app.navigation.open(.settings(.family(.root))) }
-                                Button("Updates", systemImage: "arrow.triangle.2.circlepath") { app.navigation.open(.settings(.updates(.root))) }
-                            }
-                        }
+                    settingsSection("Modules & Intelligence") {
+                        TelegramRow(title: "Modules", symbol: "shippingbox.fill", tint: .green, value: "\(app.catalogue.installedIDs.count)") { app.navigation.open(.settings(.modules(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Intelligence", symbol: "brain", tint: .purple, value: intelligenceStatus) { app.navigation.open(.settings(.intelligence(.root))) }
                     }
 
-                    SettingsGroup(title: "Modula", subtitle: versionSummary) {
-                        VStack(spacing: 0) {
-                            category("What’s New", "Release highlights", "sparkles", .whatsNew(.root))
-                            SettingsDivider()
-                            category("Help", "Guides, contact and status", "questionmark.circle", .help(.root))
-                            SettingsDivider()
-                            category("About", "Version, acknowledgements and legal information", "info.circle", .about(.root))
-                            #if DEBUG
-                            SettingsDivider()
-                            category("Developer", "Native shell, bridge and feature diagnostics", "hammer", .developer(.root))
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Component Catalog", subtitle: "Canonical native visual reference", symbol: "square.grid.3x3") {
-                                app.navigation.open(.developer(.components))
-                            }
-                            SettingsDivider()
-                            SettingsNavigationRow(title: "Runtime diagnostics", subtitle: "N1 runtime and memory evidence", symbol: "stethoscope") {
-                                app.navigation.open(.settings(.developer(.runtime)))
-                            }
+                    settingsSection("Devices, Storage & Sync") {
+                        TelegramRow(title: "Devices", symbol: "laptopcomputer", tint: .orange) { app.navigation.open(.settings(.account(.sessions))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Data and Storage", symbol: "internaldrive.fill", tint: .green) { app.navigation.open(.settings(.dataStorage(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Storage & Downloads", symbol: "square.stack.3d.up.fill", tint: .yellow) { app.navigation.open(.settings(.dataStorage(.packages))) }
+                        TelegramDivider()
+                        TelegramRow(title: "Power Saving", symbol: "battery.100.bolt", tint: .green, value: dataSaver ? "On" : "Off") { app.navigation.open(.settings(.battery(.root))) }
+                        TelegramDivider()
+                        // Atlas v5.0 M-01: after Devices/Storage, before Help & About.
+                        TelegramRow(title: "Migration", symbol: "arrow.triangle.swap", tint: .teal, value: "Not yet available") { app.navigation.open(.settings(.migration(.root))) }
+                            .accessibilityHint("Move your account to another GreenField node. Explanation only for now.")
+                            .accessibilityIdentifier("settings.migration")
+                    }
+
+                    settingsSection("Help, Legal & About") {
+                        TelegramRow(title: "Help and Status", symbol: "questionmark.bubble.fill", tint: .orange) { app.navigation.open(.settings(.help(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "What’s New", symbol: "sparkles", tint: .blue) { app.navigation.open(.settings(.whatsNew(.root))) }
+                        TelegramDivider()
+                        TelegramRow(title: "About", symbol: "info.circle.fill", tint: .gray, value: shortVersion) { app.navigation.open(.settings(.about(.root))) }
+                    }
+
+                    #if DEBUG
+                    SettingsGroup(title: "Developer", subtitle: "Debug builds only — includes previews of features without a backend.") {
+                        row("Developer", "hammer.fill", value: nil, .developer(.root))
+                        SettingsDivider()
+                        row("Labs", "flask.fill", value: nil, .labs(.root))
+                        SettingsDivider()
+                        SettingsTileRow(title: "Component Catalog", symbol: "square.grid.3x3.fill") { app.navigation.open(.developer(.components)) }
+                        SettingsDivider()
+                        row("Runtime diagnostics", "stethoscope", value: nil, .developer(.runtime))
                             .accessibilityIdentifier("settings.runtime")
-                            #endif
-                        }
+                        SettingsDivider()
+                        tinted("Glass Privacy (preview)", "eye.slash.circle.fill", .teal, .privacy(.glassPrivacy))
+                        SettingsDivider()
+                        tinted("Connectors & Integrations (preview)", "link.circle.fill", .blue, .connectors(.root))
+                        SettingsDivider()
+                        tinted("Monetisation (preview)", "creditcard.fill", .green, .monetisation(.root))
+                        SettingsDivider()
+                        tinted("Family (preview)", "figure.2.and.child.holdinghands", .orange, .family(.root))
+                        SettingsDivider()
+                        tinted("Widgets & Location (preview)", "location.square.fill", .purple, .widgets(.root))
                     }
+                    #endif
+
+                    Text(versionSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
+                        .accessibilityIdentifier("settings.footer.version")
                 }
             }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.bottom, 28)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, SettingsInsets.bottom)
         }
-        .ignoresSafeArea(edges: .top)
-        .modulaScrollProgressTracking(collapseDistance: 88, progress: $headerProgress)
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, y in
+            scrollY = y
+        }
         .modulaSoftScrollEdge()
-        .modulaCanvas()
-        .navigationTitle(compactVisible ? "" : "Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(compactVisible ? colorScheme : .dark, for: .navigationBar)
-        .searchable(text: $query, isPresented: $searchPresented, prompt: "Search Settings")
-        .modulaMinimizedSearchToolbar()
-        .task { await refreshIntelligenceStatus() }
-        .sheet(item: $quickPane) { pane in
-            SettingsQuickSheet(pane: pane)
+        .background(SettingsAmbientBackdrop().ignoresSafeArea())
+        .overlay {
+            if !isSearching {
+                IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }
+            }
         }
+        // Title only once the hero header has collapsed: no cramped title between the buttons.
+        .navigationTitle(collapse > 0.6 ? "Settings" : "")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                if compactVisible {
-                    SettingsCompactIdentity(
-                        namespace: identityNamespace,
-                        displayName: identityDisplayName,
-                        initials: identityInitials,
-                        avatarURL: identityAvatarURL
-                    )
-                    .opacity(reduceMotion ? 1 : Double(ModulaScrollProgress.clamp((headerProgress - 0.35) / 0.4)))
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(headerProgress < 0.45)
+            // Trailing, not leading: an invisible-but-present leading item sat in the same glass
+            // group as Back and soaked up taps meant for it once the header collapsed.
+            ToolbarItem(placement: .topBarTrailing) {
+                if collapse < 0.6 {
+                    Button { showsQR = true } label: { Image(systemName: "qrcode") }
+                        .accessibilityLabel("My QR code")
                 }
+            }
+            ToolbarItem(placement: .principal) {
+                Text(identityDisplayName)
+                    .font(.headline)
+                    .opacity(Double(max(0, (collapse - 0.6) / 0.4)))
+                    .offset(y: reduceMotion ? 0 : (1 - collapse) * 8)
+                    .accessibilityHidden(collapse < 0.6)
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Section("Shortcuts") {
-                        Button("Appearance", systemImage: "paintpalette") { app.navigation.open(.settings(.appearance(.root))) }
-                        Button("Intelligence", systemImage: "brain") { app.navigation.open(.settings(.intelligence(.root))) }
-                        Button("Privacy & Security", systemImage: "lock.shield") { app.navigation.open(.settings(.privacy(.root))) }
-                        Button("Module Settings", systemImage: "shippingbox") { app.navigation.open(.settings(.modules(.root))) }
-                    }
-                    Section("Information") {
-                        Button("About Modula", systemImage: "info.circle") { app.navigation.open(.settings(.about(.root))) }
-                        Label("Runtime: \(app.runtime.state.capitalized)", systemImage: "memorychip")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
+                if collapse > 0.85 || scrollY < -40 {
+                    Button { searchPresented = true } label: { Image(systemName: "magnifyingglass") }
+                        .transition(.opacity)
+                        .accessibilityLabel("Search Settings")
                 }
-                .accessibilityLabel("Settings menu")
             }
         }
+        .animation(.easeOut(duration: 0.18), value: collapse > 0.85 || scrollY < -40)
+        .sheet(isPresented: $showsPrivacyDashboard) {
+            SettingsPrivacyDashboard()
+                .presentationDetents([.large])
+        }
+        .fullScreenCover(isPresented: $showsQR) {
+            SettingsQRModal { showsQR = false }
+                .transition(.scale)
+        }
+        // Liquid Glass search capsule pinned under the nav bar (replaces the system `.searchable`
+        // field, which rendered as a flat grey rounded rect). Same query → same results.
+        .modifier(SettingsSearchBarPlacement(query: $query, presented: $searchPresented))
+        .task {
+            await refreshIntelligenceStatus()
+            guard app.auth.account != nil else { return }
+            await app.profile.loadIfNeeded(
+                .me,
+                handleHint: nil,
+                accountHandle: app.auth.account?.primaryHandle,
+                catalogue: app.catalogue.products
+            )
+        }
+        #if DEBUG
+        // Screenshot hooks: `--debug-settings-query <text>` prefills search,
+        // `--debug-settings-scroll <y>` parks the page at an offset.
+        .scrollPosition($debugScroll)
+        .task {
+            let args = ProcessInfo.processInfo.arguments
+            func value(_ flag: String) -> String? {
+                guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
+                return args[i + 1]
+            }
+            try? await Task.sleep(for: .seconds(1))
+            if let q = value("--debug-settings-query") { query = q }
+            if let y = value("--debug-settings-scroll").flatMap(Double.init) { debugScroll.scrollTo(y: y) }
+        }
+        #endif
         .accessibilityIdentifier("settings.root")
+    }
+
+    /// 0 → 1 as the hero name scrolls under the nav bar.
+    private var collapse: CGFloat { min(max(scrollY / 150, 0), 1) }
+
+    private func heroAvatar(size: CGFloat) -> some View {
+        ModulaAvatar(initials: identityInitials, url: identityAvatarURL, size: size)
+    }
+
+    /// Cover banner: real profile cover when the account has one, otherwise the accent gradient.
+    /// Counts come from `GET /v1/profiles/:handle` via the profile store. Missing profile hides the chips.
+    private var settingsCover: some View {
+        let profile = app.profile.ownProfile
+        let merge = IslandAvatarMerge<EmptyView>.progress(for: avatarFrame)
+        return VStack(alignment: .leading, spacing: 12) {
+            ZStack(alignment: .bottomLeading) {
+                settingsCoverArt
+                    .frame(height: 156)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
+                    .allowsHitTesting(false)
+                HStack(alignment: .center, spacing: 12) {
+                    heroAvatar(size: 64)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                        .scaleEffect(reduceMotion ? 1 : 1 + min(max(0, -scrollY) / 280, 0.25), anchor: .bottom)
+                        .opacity(merge > 0 ? 0 : 1)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+                        .onTapGesture { openProfileEdit() }
+                        .accessibilityLabel("Profile photo")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(identityDisplayName)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if let identityHandle {
+                            Text(identityHandle)
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.88))
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Button("Edit profile") { openProfileEdit() }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                        .background(.white.opacity(0.22), in: Capsule())
+                        .accessibilityIdentifier("settings.edit.cover")
+                }
+                .padding(14)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+            if app.auth.account != nil, let profile {
+                HStack(spacing: 8) {
+                    settingsStat(profile.postCount, "Posts", "square.and.pencil")
+                    settingsStat(profile.followerCount, "Followers", "person.fill")
+                    settingsStat(profile.followingCount, "Following", "person.2.fill")
+                }
+            } else if app.auth.account == nil {
+                Text("Sign in to see your posts, followers and following.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier("settings.cover")
+    }
+
+    @ViewBuilder
+    private var settingsCoverArt: some View {
+        if let url = app.profile.ownProfile?.coverURL {
+            ModulaRemoteImage(url: url, cacheKey: "settings-cover:\(url.absoluteString)") { phase in
+                switch phase {
+                case .success(let image):
+                    Image(uiImage: image).resizable().scaledToFill()
+                default:
+                    settingsCoverFallback
+                }
+            }
+        } else {
+            settingsCoverFallback
+        }
+    }
+
+    private var settingsCoverFallback: some View {
+        LinearGradient(
+            colors: [Color(hex: app.profile.ownProfile?.coverColour ?? "#369CAA"), app.appearance.liveAccent.opacity(0.85)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func settingsStat(_ count: Int, _ label: String, _ symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(count.formatted(), systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+                .labelStyle(.titleAndIcon)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label), \(count.formatted())")
+    }
+
+    private func settingsSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.none)
+                .padding(.leading, 4)
+            TelegramSettingsCard { content() }
+        }
+    }
+
+    /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).
+    private func tinted(_ title: String, _ symbol: String, _ tint: Color, _ route: SettingsRoute) -> some View {
+        TelegramRow(title: title, symbol: symbol, tint: tint) { app.navigation.open(.settings(route)) }
+    }
+
+    private func row(_ title: String, _ symbol: String, value: String?, _ route: SettingsRoute) -> some View {
+        SettingsTileRow(title: title, value: value, symbol: symbol) { app.navigation.open(.settings(route)) }
+    }
+
+    private var themeValue: String {
+        switch app.appearance.theme { case .system: "System"; case .light: "Light"; case .dark: "Dark" }
+    }
+
+    private var feedValue: String {
+        switch feedMode { case "for-you": "For You"; case "modules": "Modules"; default: "Following" }
+    }
+
+    private var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
     private var identityDisplayName: String {
@@ -406,7 +593,7 @@ struct SettingsView: View {
     private var versionSummary: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return "Version \(version) (\(build)) · native SwiftUI shell"
+        return "Modula \(version) (\(build))"
     }
 
     private var searchItems: [SettingsSearchItem] {
@@ -416,8 +603,14 @@ struct SettingsView: View {
             #else
             false
             #endif
-        }()).map {
-            SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route, $0.anchor)
+        }()).filter { entry in
+            #if DEBUG
+            return true
+            #else
+            return !SettingsAudit.previewOnly(entry.route)
+            #endif
+        }.map {
+            SettingsSearchItem($0.title, $0.subtitle, $0.symbol, $0.route, $0.anchor, unavailable: $0.availability == .capabilityUnavailable)
         }
     }
 
@@ -429,7 +622,7 @@ struct SettingsView: View {
             nodusLabel = availability == .available ? "Nodus available" : availability.displayName
         }
         let product = providers.filter { $0.id != DeterministicLocalProvider.providerID }
-        intelligenceStatus = product.isEmpty ? "No product provider registered" : "Local · \(nodusLabel)"
+        intelligenceStatus = product.isEmpty ? "Not set up" : (nodusLabel == "Nodus available" ? "Nodus ready" : "On device")
     }
 
     private var filteredSearchItems: [SettingsSearchItem] { searchItems }
@@ -460,6 +653,127 @@ struct SettingsView: View {
         SettingsNavigationRow(title: title, subtitle: subtitle, symbol: symbol) { app.navigation.open(.settings(route)) }
     }
 
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 4)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Pinned first-party 2D companion card (Atlas v5 S5-03). Opens the existing Moliboo settings directly.
+    private var molibooHero: some View {
+        let kind = ModulaMascotKind(rawValue: molibooKindRaw) ?? .pip
+        return Button {
+            HapticEngine.shared.play(.selection)
+            app.navigation.open(.settings(.moliboo))
+        } label: {
+            HStack(spacing: 14) {
+                MolibooEmptyArt(mood: .happy, size: 58, animated: !reduceMotion)
+                    .frame(width: 72, height: 72)
+                    .background(app.appearance.liveAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("MOLIBOO · YOUR COMPANION")
+                        .font(.caption2.weight(.bold))
+                        .tracking(0.6)
+                        .foregroundStyle(app.appearance.liveAccent)
+                    Text(kind.name)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.primary)
+                    Text("Studio, wardrobe, where it appears and sounds")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 6)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Moliboo, your companion: \(kind.name)")
+        .accessibilityHint("Opens Moliboo settings")
+        .accessibilityIdentifier("settings.moliboo.hero")
+    }
+
+    /// Launch shortcuts (Atlas v5 09.001). Each opens an existing, working destination.
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            quickAction("Privacy", "checkmark.shield.fill", .indigo, id: "privacy") { showsPrivacyDashboard = true }
+            quickAction("Account", "person.crop.circle.fill", .blue, id: "account") { openAccountOrLogin() }
+            quickAction("Appearance", "paintbrush.fill", .cyan, id: "appearance") { app.navigation.open(.settings(.appearance(.root))) }
+            quickAction("Modules", "shippingbox.fill", .green, id: "modules") { app.navigation.open(.settings(.modules(.root))) }
+        }
+        .accessibilityIdentifier("settings.quick-actions")
+    }
+
+    private func quickAction(_ title: String, _ symbol: String, _ tint: Color, id: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            action()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity, minHeight: 76)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityIdentifier("settings.quick.\(id)")
+    }
+
+    /// Shown while the search field is focused and empty (Atlas v5 09.002 "suggested searches").
+    private var suggestedSearches: some View {
+        SettingsGroup(title: "Suggested") {
+            ForEach(Array(Self.suggestions.enumerated()), id: \.offset) { index, suggestion in
+                SettingsTileRow(title: suggestion.0, symbol: suggestion.1) { query = suggestion.0 }
+                if index < Self.suggestions.count - 1 { SettingsDivider() }
+            }
+        }
+        .accessibilityIdentifier("settings.search.suggested")
+    }
+
+    private static let suggestions: [(String, String)] = [
+        ("Privacy", "lock.fill"), ("Notifications", "bell.fill"), ("Appearance", "paintbrush.fill"),
+        ("Moliboo", "pawprint.fill"), ("Storage", "internaldrive.fill"), ("Accessibility", "accessibility")
+    ]
+
+    private var groupedSearchItems: [(category: String, items: [SettingsSearchItem])] {
+        var order: [String] = []
+        var buckets: [String: [SettingsSearchItem]] = [:]
+        for item in filteredSearchItems {
+            let category = SettingsV5Category.title(for: item.route)
+            if buckets[category] == nil { order.append(category) }
+            buckets[category, default: []].append(item)
+        }
+        return order.sorted { SettingsV5Category.rank($0) < SettingsV5Category.rank($1) }
+            .map { ($0, buckets[$0] ?? []) }
+    }
+
+    private func searchSubtitle(_ item: SettingsSearchItem, category: String) -> String {
+        let crumb = "Settings › \(category)"
+        if item.unavailable { return "\(crumb) · Not available yet" }
+        return item.subtitle.isEmpty ? crumb : "\(crumb) · \(item.subtitle)"
+    }
+
     private func openAccountOrLogin() {
         app.navigation.open(app.auth.account == nil ? .auth(.login) : .settings(.account(.root)))
     }
@@ -468,7 +782,8 @@ struct SettingsView: View {
         if app.auth.account == nil {
             app.navigation.open(.auth(.login))
         } else {
-            app.navigation.open(.me(.edit))
+            // Push on top of Settings so Cancel/Back returns here (open() swapped the Profile tab root).
+            app.navigation.push(.me(.edit))
         }
     }
 }
@@ -604,8 +919,10 @@ private struct SettingsSearchItem: Identifiable {
     let symbol: String
     let route: SettingsRoute
     let anchor: String?
+    var unavailable = false
 
-    init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute, _ anchor: String?) {
+    init(_ title: String, _ subtitle: String, _ symbol: String, _ route: SettingsRoute, _ anchor: String?, unavailable: Bool = false) {
+        self.unavailable = unavailable
         id = RouteSerializer.serialize(.settings(route)) + (anchor ?? "")
         self.title = title
         self.subtitle = subtitle
@@ -619,14 +936,286 @@ struct AppearanceSettingsView: View {
     let focus: AppearanceSettingsRoute
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmsReset = false
+    @State private var showsAdvanced = false
+    @State private var wheel = Color(hex: "#369CAA")
 
     var body: some View {
         @Bindable var store = app.appearance
+        Group {
+            if focus == .root {
+                rootExperience(store)
+            } else {
+                legacyExperience(store)
+            }
+        }
+        .confirmationDialog("Reset Appearance?", isPresented: $confirmsReset, titleVisibility: .visible) {
+            Button("Reset Appearance", role: .destructive) { store.reset() }
+        } message: {
+            Text("This restores Modula appearance defaults without changing other settings.")
+        }
+        .accessibilityIdentifier("settings.appearance")
+        .onAppear {
+            wheel = store.customAccentHex.map(Color.init(hex:)) ?? store.accent.color
+        }
+    }
+
+    private func rootExperience(_ store: AppearanceStore) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("YOUR EXPERIENCE")
+                        .font(.caption.weight(.bold))
+                        .tracking(1.1)
+                        .foregroundStyle(store.liveAccent)
+                    Text("Make it yours.")
+                        .font(.largeTitle.bold())
+                    Text("See every change before you apply it.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+
+                AppearanceLivePreview(scheme: previewScheme(store))
+                    .accessibilityIdentifier("appearance.live-preview")
+
+                themeSection(store)
+                accentSection(store)
+                brandingSection(store)
+                advancedSection(store)
+
+                Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("appearance.storage-note")
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+                HStack(spacing: 12) {
+                    Button("Restore defaults") { confirmsReset = true }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityIdentifier("appearance.restore")
+                    Button {
+                        app.navigation.open(.settings(.appearance(.preview)))
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("Preview full screen")
+                            Image(systemName: "arrow.up.right")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .modulaAccentCTA()
+                    .accessibilityIdentifier("appearance.preview-full")
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.vertical, 8)
+        }
+        .modulaSoftScrollEdge()
+        .modulaCanvas()
+        .navigationTitle("Appearance")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Reset") { confirmsReset = true }
+                    .accessibilityIdentifier("appearance.reset")
+            }
+        }
+    }
+
+    private func previewScheme(_ store: AppearanceStore) -> ColorScheme {
+        switch store.theme {
+        case .light: .light
+        case .dark: .dark
+        case .system: scheme
+        }
+    }
+
+    private func themeSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Choose your appearance").font(.headline)
+                Spacer()
+                Text("Theme").font(.subheadline).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 10) {
+                AppearanceThemeCard(title: "Light", kind: .light, selected: store.theme == .light, accent: store.liveAccent) {
+                    select(store, theme: .light)
+                }
+                AppearanceThemeCard(title: "Dark", kind: .dark, selected: store.theme == .dark, accent: store.liveAccent) {
+                    select(store, theme: .dark)
+                }
+                AppearanceThemeCard(title: "System", kind: .system, selected: store.theme == .system, accent: store.liveAccent) {
+                    select(store, theme: .system)
+                }
+            }
+            Text(store.theme == .system ? "System follows your iPhone, switching to dark at night if you've set that up in iOS." : "Modula stays \(store.theme == .dark ? "dark" : "light") whatever your iPhone is set to.")
+                .font(.footnote).foregroundStyle(.secondary)
+            if store.theme == .dark || (store.theme == .system && scheme == .dark) {
+                Text("Dark canvas").font(.subheadline.weight(.semibold))
+                darkCanvasChoices(store)
+                Text("Dim is softer on the eyes; OLED uses true black, which saves battery on iPhone OLED screens.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func darkCanvasChoices(_ store: AppearanceStore) -> some View {
+        @Bindable var store = store
+        return HStack(spacing: 8) {
+            AppearanceChoice(title: "Standard", symbol: nil, value: .standard, selection: $store.darkStyle)
+            AppearanceChoice(title: "Dim", symbol: nil, value: .dim, selection: $store.darkStyle)
+            AppearanceChoice(title: "OLED", symbol: nil, value: .oled, selection: $store.darkStyle)
+        }
+    }
+
+    private func select(_ store: AppearanceStore, theme: AppearanceStore.Theme) {
+        let change = {
+            store.theme = theme
+            HapticEngine.shared.play(.selection)
+        }
+        if reduceMotion { change() } else { withAnimation(.snappy) { change() } }
+    }
+
+    private func accentSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Accent colour").font(.headline)
+                Spacer()
+                Text("\(store.accentTitle) selected")
+                    .font(.subheadline)
+                    .foregroundStyle(store.liveAccent)
+            }
+            HStack(spacing: 12) {
+                ForEach(AppearanceStore.Accent.allCases) { accent in
+                    let selected = store.customAccentHex == nil && store.accent == accent
+                    Button {
+                        store.selectNamedAccent(accent)
+                        wheel = accent.color
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        Circle()
+                            .fill(accent.color)
+                            .frame(width: 34, height: 34)
+                            .overlay {
+                                if selected {
+                                    Circle().strokeBorder(Color.primary, lineWidth: 2).padding(-5)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel(accent.title)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                    .accessibilityIdentifier("appearance.accent.\(accent.rawValue)")
+                }
+                ColorPicker("Custom accent colour", selection: $wheel, supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 44, height: 44)
+                    .overlay {
+                        if store.customAccentHex != nil {
+                            Circle().strokeBorder(Color.primary, lineWidth: 2).padding(2)
+                        }
+                    }
+                    .accessibilityIdentifier("appearance.accent.custom")
+                    .onChange(of: wheel) { _, newValue in
+                        let hex = AppearanceStore.hex(from: newValue)
+                        if let match = AppearanceStore.Accent.allCases.first(where: { $0.hex.caseInsensitiveCompare(hex) == .orderedSame }) {
+                            if store.customAccentHex != nil || store.accent != match { store.selectNamedAccent(match) }
+                        } else if store.customAccentHex?.caseInsensitiveCompare(hex) != .orderedSame {
+                            store.selectCustomAccent(hex: hex)
+                        }
+                    }
+            }
+            Text("Your accent colours every button, toggle and highlight. Use the wheel for any custom colour.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func brandingSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Header branding").font(.headline)
+                Spacer()
+                Text("Shown on Home").font(.subheadline).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 12) {
+                ForEach(AppearanceStore.BrandWordmark.allCases) { mark in
+                    AppearanceLogoChoice(mark: mark, selected: store.brandWordmark == mark) {
+                        store.brandWordmark = mark
+                        HapticEngine.shared.play(.selection)
+                    }
+                }
+            }
+            Text("The wordmark at the top of Home. It only changes how Modula looks to you.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+    }
+
+    private func advancedSection(_ store: AppearanceStore) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                if reduceMotion { showsAdvanced.toggle() } else { withAnimation(.snappy) { showsAdvanced.toggle() } }
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Fine-tune your interface").font(.headline).foregroundStyle(.primary)
+                        Text("Type, glass, motion and more").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(showsAdvanced ? "Hide" : "Advanced")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(store.liveAccent)
+                    Image(systemName: showsAdvanced ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(store.liveAccent)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("appearance.advanced")
+            if showsAdvanced {
+                advancedGroups(store)
+            }
+        }
+        .padding(16)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func advancedGroups(_ store: AppearanceStore) -> some View {
+        @Bindable var store = store
+        VStack(alignment: .leading, spacing: 18) {
+            AppearanceMenuRow(title: "Contrast & Transparency", symbol: "circle.righthalf.filled", selection: $store.contrastTransparency, options: AppearanceStore.ContrastTransparency.allCases, label: display)
+            AppearanceMenuRow(title: "Font Family", symbol: "textformat", selection: $store.fontFamily, options: AppearanceStore.FontFamily.allCases, label: display)
+            AppearanceMenuRow(title: "Text Size", symbol: "textformat.size", selection: $store.textSize, options: AppearanceStore.TextSize.allCases, label: display)
+            TypographyPreviewCard(family: store.fontFamily)
+            GlassIntensityRow()
+            AppearanceMenuRow(title: "Density", symbol: "arrow.up.left.and.arrow.down.right", selection: $store.density, options: AppearanceStore.Density.allCases, label: display)
+            AppearanceMenuRow(title: "Motion", symbol: "waveform.path", selection: $store.motion, options: AppearanceStore.MotionPersonality.allCases, label: display)
+            AppearanceMenuRow(title: "Haptics", symbol: "hand.tap", selection: $store.haptics, options: AppearanceStore.HapticIntensity.allCases, label: display)
+            AppearanceMenuRow(title: "Icon Style", symbol: "circle.grid.cross", selection: $store.iconStyle, options: AppearanceStore.IconStyle.allCases, label: display)
+            AppearanceMenuRow(title: "Interface Shape", symbol: "rectangle.roundedtop", selection: $store.interfaceShape, options: AppearanceStore.InterfaceShape.allCases, label: display)
+            AppearanceMenuRow(title: "Module Branding", symbol: "paintbrush", selection: $store.moduleBranding, options: AppearanceStore.ModuleBranding.allCases, label: display)
+        }
+    }
+
+    @ViewBuilder
+    private func legacyExperience(_ store: AppearanceStore) -> some View {
+        @Bindable var store = store
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                AppearancePreviewView(compact: true)
-                SettingsGroup(title: "Colour", subtitle: "Teal remains the Modula semantic default.") {
+                AppearanceLivePreview(scheme: previewScheme(store))
+                SettingsGroup(title: "Colour") {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Theme").font(.subheadline.weight(.semibold))
                         ViewThatFits(in: .horizontal) {
@@ -654,7 +1243,7 @@ struct AppearanceSettingsView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 12)], spacing: 12) {
                             ForEach(AppearanceStore.Accent.allCases) { accent in
                                 Button {
-                                    store.accent = accent
+                                    store.selectNamedAccent(accent)
                                     HapticEngine.shared.play(.selection)
                                 } label: {
                                     VStack(spacing: 7) {
@@ -675,6 +1264,16 @@ struct AppearanceSettingsView: View {
                         AppearanceMenuRow(title: "Contrast & Transparency", symbol: "circle.righthalf.filled", selection: $store.contrastTransparency, options: AppearanceStore.ContrastTransparency.allCases, label: display)
                     }
                 }
+                SettingsGroup(title: "Logo", subtitle: "Shown at the top of Home. Both follow your theme and accent.") {
+                    HStack(spacing: 12) {
+                        ForEach(AppearanceStore.BrandWordmark.allCases) { mark in
+                            AppearanceLogoChoice(mark: mark, selected: store.brandWordmark == mark) {
+                                store.brandWordmark = mark
+                                HapticEngine.shared.play(.selection)
+                            }
+                        }
+                    }
+                }
                 SettingsGroup(title: "Typography", subtitle: "Every sample responds to Dynamic Type.") {
                     VStack(spacing: 0) {
                         AppearanceMenuRow(title: "Font Family", symbol: "textformat", selection: $store.fontFamily, options: AppearanceStore.FontFamily.allCases, label: display)
@@ -686,9 +1285,7 @@ struct AppearanceSettingsView: View {
                 }
                 SettingsGroup(title: "Interface") {
                     VStack(spacing: 0) {
-                        SettingsNavigationRow(title: "App Icon", subtitle: "Default · device-local", symbol: "app.dashed") {
-                            app.navigation.open(.settings(.appearance(.appIcon)))
-                        }
+                        GlassIntensityRow()
                         SettingsDivider()
                         AppearanceMenuRow(title: "Density", symbol: "arrow.up.left.and.arrow.down.right", selection: $store.density, options: AppearanceStore.Density.allCases, label: display)
                         SettingsDivider()
@@ -701,10 +1298,6 @@ struct AppearanceSettingsView: View {
                         AppearanceMenuRow(title: "Interface Shape", symbol: "rectangle.roundedtop", selection: $store.interfaceShape, options: AppearanceStore.InterfaceShape.allCases, label: display)
                         SettingsDivider()
                         AppearanceMenuRow(title: "Module Branding", symbol: "paintbrush", selection: $store.moduleBranding, options: AppearanceStore.ModuleBranding.allCases, label: display)
-                        SettingsDivider()
-                        SettingsNavigationRow(title: "Edge Picker", subtitle: "Position, size, side, glass", symbol: "rectangle.trailinghalf.inset.filled") {
-                            app.navigation.open(.settings(.appearance(.edgePicker)))
-                        }
                     }
                 }
                 SettingsGroup(title: "Preview & Defaults") {
@@ -729,19 +1322,176 @@ struct AppearanceSettingsView: View {
         }
         .modulaSoftScrollEdge()
         .modulaCanvas()
-        .navigationTitle(focus == .root ? "Appearance" : display(focus.rawValue))
+        .navigationTitle(display(focus.rawValue))
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Reset Appearance?", isPresented: $confirmsReset, titleVisibility: .visible) {
-            Button("Reset Appearance", role: .destructive) { store.reset() }
-        } message: {
-            Text("This restores Modula appearance defaults without changing other settings.")
-        }
-        .accessibilityIdentifier("settings.appearance")
     }
 
     private func display<T: RawRepresentable>(_ value: T) -> String where T.RawValue == String { display(value.rawValue) }
     private func display(_ value: String) -> String {
         value.replacingOccurrences(of: "([a-z])([A-Z])", with: "$1 $2", options: .regularExpression).replacingOccurrences(of: "-", with: " ").capitalized
+    }
+}
+
+struct AppearanceLivePreview: View {
+    var scheme: ColorScheme
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        let store = app.appearance
+        let accent = store.liveAccent
+        let resolved = scheme == .dark ? "Dark" : "Light"
+        let label = store.theme == .system ? "System (\(resolved))" : resolved
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Live preview").font(.subheadline.weight(.semibold))
+                Spacer()
+                HStack(spacing: 6) {
+                    Circle().fill(accent).frame(width: 7, height: 7)
+                    Text("Previewing \(label) · \(store.accentTitle)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(accent)
+                }
+            }
+            .accessibilityHidden(true)
+            chrome
+                .padding(12)
+                .background(scheme == .dark ? Color(red: 0.11, green: 0.12, blue: 0.14) : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .environment(\.colorScheme, scheme)
+                .tint(accent)
+        }
+        .padding(14)
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(reduceTransparency ? AnyShapeStyle(Color.primary.opacity(0.06)) : AnyShapeStyle(.background))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Live preview. \(label), \(store.accentTitle) accent, \(store.brandWordmark.title) header.")
+    }
+
+    private var chrome: some View {
+        let accent = app.appearance.liveAccent
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                switch app.appearance.brandWordmark {
+                case .modula: ModulaWordmark(height: 16)
+                case .moliboos: MoliboosWordmark(height: 18)
+                }
+                Spacer()
+                Image(systemName: "plus").font(.caption.weight(.bold))
+                Image(systemName: "ellipsis").font(.caption.weight(.bold)).padding(.leading, 8)
+            }
+            .foregroundStyle(.primary)
+            HStack(spacing: 8) {
+                Circle().fill(accent).frame(width: 26, height: 26)
+                    .overlay(Image(systemName: "plus").font(.system(size: 10, weight: .bold)).foregroundStyle(.white))
+                Circle().fill(Color.primary.opacity(0.12)).frame(width: 26, height: 26)
+                Text("Stories").font(.caption.weight(.semibold))
+                Text("Following").font(.caption).foregroundStyle(.secondary)
+            }
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(app.auth.account?.primaryHandle ?? "modula") · preview")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("A space that feels like yours.")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(2)
+                    HStack(spacing: 10) {
+                        Image(systemName: "heart.fill").foregroundStyle(accent)
+                        Image(systemName: "bubble.left")
+                        Image(systemName: "arrow.2.squarepath")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(LinearGradient(colors: [accent.opacity(0.55), accent.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 78, height: 52)
+                    .accessibilityHidden(true)
+            }
+            HStack {
+                Label("Home", systemImage: "house.fill").foregroundStyle(accent).labelStyle(.titleAndIcon)
+                Spacer()
+                Image(systemName: "safari")
+                Spacer()
+                Image(systemName: "shippingbox")
+                Spacer()
+                Image(systemName: "bell")
+                Spacer()
+                Image(systemName: "person")
+            }
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+private struct AppearanceThemeCard: View {
+    enum Kind { case light, dark, system }
+    let title: String
+    let kind: Kind
+    let selected: Bool
+    let accent: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                preview
+                    .frame(height: 74)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity)
+            .background(selected ? accent.opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? accent : Color.clear, lineWidth: 2))
+            .overlay(alignment: .bottomTrailing) {
+                if selected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(accent)
+                        .padding(6)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title) appearance")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("appearance.theme.\(title.lowercased())")
+    }
+
+    @ViewBuilder private var preview: some View {
+        switch kind {
+        case .light:
+            miniature(background: Color(red: 0.96, green: 0.97, blue: 0.98), ink: .black.opacity(0.72))
+        case .dark:
+            miniature(background: Color(red: 0.12, green: 0.13, blue: 0.15), ink: .white.opacity(0.86))
+        case .system:
+            HStack(spacing: 0) {
+                miniature(background: Color(red: 0.96, green: 0.97, blue: 0.98), ink: .black.opacity(0.72))
+                miniature(background: Color(red: 0.12, green: 0.13, blue: 0.15), ink: .white.opacity(0.86))
+            }
+        }
+    }
+
+    private func miniature(background: Color, ink: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Capsule().fill(ink.opacity(0.4)).frame(width: 34, height: 6)
+            HStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(ink.opacity(0.16)).frame(height: 22)
+                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(ink.opacity(0.16)).frame(height: 22)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(background)
+        .accessibilityHidden(true)
     }
 }
 
@@ -756,28 +1506,47 @@ struct AppearancePreviewView: View {
                     ModulaAvatar(initials: "M")
                         .accessibilityHidden(true)
                     VStack(alignment: .leading) {
-                        ModulaText(text: "Modula Preview", role: .headline)
-                        Text("How your choices look").font(.caption).foregroundStyle(.secondary)
+                        ModulaText(text: app.auth.account?.primaryHandle ?? "modula", role: .headline)
+                        Text("Just now · Preview").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                     ModulaBadge(title: "Live", symbol: "sparkles")
                 }
-                ModulaText(text: "Your digital world, your way.", role: compact ? .headline : .title)
-                HStack {
-                    ModulaMetric(value: "3", label: "Modes"); Spacer()
-                    ModulaMetric(value: "1", label: "Runtime"); Spacer()
-                    ModulaMetric(value: "Swift", label: "Shell")
+                ModulaText(text: "Trying out a new look for my Modula. What do you think? 🎨", role: compact ? .body : .headline)
+                // A realistic mini post, so accent / theme / density changes are visible live.
+                HStack(spacing: 18) {
+                    Label("24", systemImage: "heart.fill").foregroundStyle(app.appearance.liveAccent)
+                    Label("6", systemImage: "bubble.left")
+                    Label("2", systemImage: "arrow.2.squarepath")
+                    Spacer()
+                    Image(systemName: "bookmark")
                 }
-                if !compact { ModulaButton(title: "Primary Action", symbol: "arrow.right") {} }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+                if !compact { ModulaButton(title: "Follow", symbol: "person.badge.plus") {} }
             }
         }
     }
 }
 
 struct AppearancePreviewScreen: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+
+    private var previewScheme: ColorScheme {
+        switch app.appearance.theme {
+        case .light: .light
+        case .dark: .dark
+        case .system: scheme
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                AppearanceLivePreview(scheme: previewScheme)
+                    .accessibilityIdentifier("appearance.live-preview.full")
                 AppearancePreviewView()
                 ModulaSection(title: "Navigation accessory") {
                     VStack(alignment: .leading, spacing: 8) {
@@ -787,7 +1556,6 @@ struct AppearancePreviewScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ModulaSection(title: "Edge Picker") { HStack { Spacer(); ShellEdgeLoop(route: .home(.following)) } }
                 ModulaSection(title: "Module sample") {
                     ModulaCard {
                         VStack(alignment: .leading, spacing: 10) {
@@ -963,7 +1731,7 @@ struct ComponentCatalogView: View {
                 }
                 catalog("Global sidebar") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Leading overlay for library and account destinations. The five root tabs stay in the tab bar; Edge Picker stays on the content edge.")
+                        Text("Leading overlay for library and account destinations. The five root tabs stay in the tab bar; route contexts live in the tab accessory.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         ShellSidebarTrigger()
@@ -972,29 +1740,14 @@ struct ComponentCatalogView: View {
                         }
                     }
                 }
-                catalog("Edge Picker") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Canonical carved-edge channel — orange-reference geometry. Outer silhouette stays fixed; the selection aperture expands vertically with whole-phrase rotated labels.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Spacer(minLength: 0)
-                            ShellEdgeLoop(route: .home(.following))
-                                .frame(height: 280)
-                        }
-                        Text("Tune Position / Size / Side / Labels / Glass under Appearance → Edge Picker. ContainedLoopPicker (Typography) does not use the shell carve.")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
                 catalog("Messages, stories, profile accent") {
                     VStack(alignment: .leading, spacing: 16) {
                         MessageBubble(message: MessagingFixtures.thread()[1]) { _ in }
                         MessageBubble(message: MessagingFixtures.thread()[0]) { _ in }
                         HStack(spacing: 16) {
-                            StoryRing(state: .unseen, accent: app.appearance.accent.color)
-                            StoryRing(state: .seen, accent: app.appearance.accent.color)
-                            StoryRing(state: .own, accent: app.appearance.accent.color)
+                            StoryRing(state: .unseen, accent: app.appearance.liveAccent)
+                            StoryRing(state: .seen, accent: app.appearance.liveAccent)
+                            StoryRing(state: .own, accent: app.appearance.liveAccent)
                         }
                         StoryProgressBar(count: 4, index: 1, progress: 0.4)
                         ProfileAccentPicker(selection: .constant(.violet), writable: true)
@@ -1008,7 +1761,7 @@ struct ComponentCatalogView: View {
                             kind: .post,
                             capabilities: .production,
                             developerMode: true,
-                            accent: app.appearance.accent.color,
+                            accent: app.appearance.liveAccent,
                             photoPicker: { EmptyView() },
                             videoPicker: { EmptyView() },
                             onTool: { _ in }
@@ -1029,9 +1782,14 @@ struct ComponentCatalogView: View {
                             action: {}
                         )
                         DraftRow(
-                            kind: .post,
-                            preview: "Profile should become the social OS home",
-                            lastEdited: Date(),
+                            item: DraftLibraryItem(
+                                id: "sample",
+                                kind: .post,
+                                preview: "Profile should become the social OS home",
+                                lastEdited: Date(),
+                                mediaCount: 0,
+                                audienceTitle: nil
+                            ),
                             onContinue: {},
                             onDelete: {}
                         )
@@ -1152,6 +1910,203 @@ private struct FormFieldCatalogSample: View {
                 .textInputAutocapitalization(.never)
             ModulaFormField(title: "Password", symbol: "lock", text: $secret, kind: .secure,
                             focus: $focused, focusValue: Field.secret, identifier: "catalog.form-field.secret")
+        }
+    }
+}
+
+
+/// Glass intensity: Clear (iOS 26 clear glass), Standard, or Frosted (extra material backing).
+private struct GlassIntensityRow: View {
+    @AppStorage(ModulaGlassIntensity.storageKey) private var raw = ModulaGlassIntensity.standard.rawValue
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "cube.transparent")
+                .frame(width: 31)
+                .foregroundStyle(.secondary)
+            Text("Glass Intensity")
+            Spacer(minLength: 8)
+            Picker("Glass Intensity", selection: $raw) {
+                ForEach(ModulaGlassIntensity.allCases) { level in
+                    Text(level.title).tag(level.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+        .frame(minHeight: 48)
+        .accessibilityIdentifier("appearance.glass-intensity")
+    }
+}
+
+
+/// Appearance → header branding. The real wordmark assets, never a retyped logo.
+private struct AppearanceLogoChoice: View {
+    let mark: AppearanceStore.BrandWordmark
+    let selected: Bool
+    let action: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                switch mark {
+                case .modula:
+                    ModulaWordmark(height: 20)
+                case .moliboos:
+                    Image(systemName: "sparkle")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(app.appearance.liveAccent)
+                        .accessibilityHidden(true)
+                    MoliboosWordmark(height: 22)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .padding(.horizontal, 12)
+            .background(selected ? app.appearance.liveAccent.opacity(0.1) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(selected ? app.appearance.liveAccent : Color.primary.opacity(0.08), lineWidth: selected ? 1.5 : 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(mark.title) header")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("appearance.logo.\(mark.rawValue)")
+    }
+}
+
+
+// MARK: - Glass search bar
+
+/// Pins the search capsule at the top. On iOS 26 `safeAreaBar` lets the scroll view's soft top
+/// edge blur extend under it, so rows scrolling up dissolve behind the glass instead of
+/// running sharp under it.
+private struct SettingsSearchBarPlacement: ViewModifier {
+    @Binding var query: String
+    @Binding var presented: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.safeAreaBar(edge: .top, spacing: 0) { bar }
+        } else {
+            content.safeAreaInset(edge: .top, spacing: 0) { bar }
+        }
+    }
+
+    private var bar: some View {
+        SettingsGlassSearchBar(text: $query, presented: $presented)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+    }
+}
+
+/// Capsule Liquid Glass field matching the 44pt header glass buttons, interactive while focused,
+/// with an inline clear button and a Cancel capsule that clears and dismisses.
+private struct SettingsGlassSearchBar: View {
+    @Binding var text: String
+    @Binding var presented: Bool
+    @FocusState private var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var active: Bool { focused || !text.isEmpty }
+
+    var body: some View {
+        ModulaGlassGroup(spacing: 10) {
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    TextField("Search Settings", text: $text)
+                        .textFieldStyle(.plain)
+                        .focused($focused)
+                        .submitLabel(.search)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("settings.search")
+                    if !text.isEmpty {
+                        Button {
+                            text = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Clear search")
+                        .transition(.opacity)
+                    }
+                }
+                .padding(.leading, 14)
+                .padding(.trailing, text.isEmpty ? 14 : 8)
+                .frame(height: 44)
+                .contentShape(Capsule())
+                .onTapGesture { focused = true }
+                .modulaGlass(in: Capsule(), interactive: focused, specular: true)
+
+                if active {
+                    Button {
+                        text = ""
+                        focused = false
+                        presented = false
+                    } label: {
+                        Text("Cancel")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 16)
+                            .frame(height: 44)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityIdentifier("settings.search.cancel")
+                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
+                }
+            }
+        }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: active)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: text.isEmpty)
+        // The collapsed-header magnifying glass still "presents" search: focus the field.
+        .onChange(of: presented) { _, isPresented in
+            if isPresented != focused { focused = isPresented }
+        }
+        .onChange(of: focused) { _, isFocused in
+            if isFocused != presented { presented = isFocused }
+        }
+    }
+}
+
+/// Atlas v5 category names used as search breadcrumbs. Presentation only: routes are unchanged.
+enum SettingsV5Category {
+    static let order = [
+        "Moliboo", "Account & Membership", "Privacy & Security", "Appearance & Accessibility",
+        "Notifications & Communication", "Content, Social & Activity", "Modules & Marketplace",
+        "Intelligence & Agents", "Connections & Automations", "Devices, Storage & Sync",
+        "Help, Legal & About", "Developer & Labs"
+    ]
+
+    static func rank(_ title: String) -> Int { order.firstIndex(of: title) ?? order.count }
+
+    static func title(for route: SettingsRoute) -> String {
+        switch route {
+        case .moliboo: "Moliboo"
+        case .account, .premium, .creator, .passkeys, .qrCode, .family, .monetisation: "Account & Membership"
+        case .privacy, .safety: "Privacy & Security"
+        case .appearance, .personalisation, .accessibility, .language, .translate, .keyboard, .timeUnits: "Appearance & Accessibility"
+        case .notifications, .chats, .audio, .digests, .focus: "Notifications & Communication"
+        case .feed, .media, .camera, .photos, .gestures, .sharing, .finder: "Content, Social & Activity"
+        case .modules, .features, .updates: "Modules & Marketplace"
+        case .intelligence: "Intelligence & Agents"
+        case .connectors, .integrations, .widgets, .location: "Connections & Automations"
+        case .dataStorage, .battery, .network, .migration: "Devices, Storage & Sync"
+        case .help, .whatsNew, .about: "Help, Legal & About"
+        case .developer, .labs: "Developer & Labs"
+        default: "Settings"
         }
     }
 }

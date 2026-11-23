@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.198",
+  "key": "glitcho",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#B195F0",
+    "accent": "#D7C9F7",
+    "light": "#D7C9F7",
+    "dark": "#9E85D6"
+  },
+  "form": "Violet body, square pastel freckles"
+}

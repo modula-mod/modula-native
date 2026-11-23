@@ -50,6 +50,7 @@ struct ProfileMediaWorkspace: ViewModifier {
     @State private var cropSession: ProfileMediaCropSession?
     @State private var showsLibrary = false
     @State private var showsCamera = false
+    @State private var showsScenes = false
     @State private var libraryItem: PhotosPickerItem?
     @State private var activeKind: ProfileMediaKind = .avatar
 
@@ -60,6 +61,10 @@ struct ProfileMediaWorkspace: ViewModifier {
                     Button("Take Photo") { showsCamera = true }
                 }
                 Button("Choose from Library") { showsLibrary = true }
+                if currentKind == .cover {
+                    Button("Modula scenes") { showsScenes = true }
+                        .accessibilityIdentifier("profile.cover.scenes.button")
+                }
                 if canViewCurrent {
                     Button("View") { onView(currentKind) }
                 }
@@ -75,6 +80,13 @@ struct ProfileMediaWorkspace: ViewModifier {
                 Button("Cancel", role: .cancel) { action = nil }
             }
             .photosPicker(isPresented: $showsLibrary, selection: $libraryItem, matching: .images)
+            .sheet(isPresented: $showsScenes, onDismiss: {
+                if cropSession == nil { action = nil }
+            }) {
+                ShellSceneCoverPicker { data in
+                    Task { await beginCrop(data: data, kind: .cover) }
+                }
+            }
             .onChange(of: libraryItem) { _, item in
                 guard let item else { return }
                 Task { await loadPickerItem(item) }
@@ -137,7 +149,7 @@ struct ProfileMediaWorkspace: ViewModifier {
                 if case .pick = action { return true }
                 return false
             },
-            set: { if !$0, cropSession == nil, !showsLibrary, !showsCamera { action = nil } }
+            set: { if !$0, cropSession == nil, !showsLibrary, !showsCamera, !showsScenes { action = nil } }
         )
     }
 

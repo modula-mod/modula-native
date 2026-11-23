@@ -93,7 +93,7 @@ struct CreatorInsightsView: View {
                             x: .value("Day", point.day, unit: .day),
                             y: .value(metric.rawValue, revealed ? metric.value(point) : 0)
                         )
-                        .foregroundStyle(app.appearance.accent.color.gradient)
+                        .foregroundStyle(app.appearance.liveAccent.gradient)
                         .cornerRadius(3)
                     }
                     .chartYAxis { AxisMarks(position: .leading) }
@@ -168,6 +168,7 @@ struct PayoutsLedgerView: View {
     var body: some View {
         SettingsScrollCanvas {
             SettingsHeroBanner(title: "Payouts", subtitle: "Your earnings ledger. Every amount comes from a recorded entry.", symbol: "banknote")
+            SproutIllustrationView(illustration: .finance, height: 140)
             if let ledger {
                 SettingsGroup(title: "Balance") {
                     if ledger.balances.isEmpty {

@@ -86,9 +86,9 @@ enum OnboardingLanding {
     struct Emitter: Sendable {
         var seed: UInt64 = 0x6D6F_6475_6C61 // "modula"
         /// Mean time between spawns (seconds).
-        var interval: Double = 0.24
-        var minLifetime: Double = 6.0
-        var maxLifetime: Double = 9.6
+        var interval: Double = 0.17
+        var minLifetime: Double = 3.4
+        var maxLifetime: Double = 5.2
         /// Distance from the + centre to just past the top edge (reference points).
         var rise: Double = 560
         /// How far a newborn bubble pops out of the + before it starts to float (reference points).
@@ -104,7 +104,13 @@ enum OnboardingLanding {
         static let maxStretch = 0.2
         /// While younger than this a bubble is still emerging from the + (the view draws
         /// it underneath the +, so it is first seen through the +'s glass).
-        static let birthWindow = 0.95
+        static let birthWindow = 0.5
+        /// Fixed number of reusable bubble slots. A particle always lands in slot
+        /// `index % poolSize`, so views are recycled in place (no identity churn) and
+        /// the live range never needs more slots than this.
+        static let poolSize = 36
+
+        static func slot(for index: Int) -> Int { index % poolSize }
 
         func particle(_ index: Int) -> Particle {
             var rng = SplitMix64(seed: seed &+ UInt64(bitPattern: Int64(index)) &* 0x9E37_79B9_7F4A_7C15)
@@ -120,8 +126,11 @@ enum OnboardingLanding {
             // Far particles rise slower.
             let lifetime = maxLifetime - (maxLifetime - minLifetime) * depth * (0.8 + 0.2 * rng.unit())
             // Alternate sides (with the odd surprise) so the stream fans out evenly.
-            let side = (index.isMultiple(of: 2) ? 1.0 : -1.0) * (rng.unit() < 0.18 ? -1 : 1)
-            let spread = side * (16 + 160 * pow(rng.unit(), 0.8))
+            // Golden-ratio lanes: consecutive spawns land far apart across the fan, so the
+            // stream fills evenly instead of clumping near the + (small jitter keeps it organic).
+            let lane = (Double(index) * 0.618_033_988_75).truncatingRemainder(dividingBy: 1)
+            _ = rng.unit()
+            let spread = (lane * 2 - 1) * 168 + (rng.unit() - 0.5) * 14
             return Particle(
                 index: index,
                 spawnTime: Double(index) * interval + jitter * interval * 0.7,
@@ -151,8 +160,11 @@ enum OnboardingLanding {
             let t = age / p.lifetime
             // Buoyant: pops out of the + with an ease-out, lingers just above it (dense
             // stream), then accelerates up and out of the top.
-            let popOut = pop * (1 - exp(-age * 2.6))
-            let climb = pow(t, 1.75)
+            // Snappy, slightly springy pop (critically damped-ish, a touch of overshoot).
+            let popOut = pop * (1 - exp(-age * 5.2) * (1 + age * 2.2))
+            // Eases into the climb a little sooner than before, so newborns clear the + and
+            // don't pile up just above it.
+            let climb = pow(t, 1.55)
             // Rise as a column straight out of the +, then spread wider as they climb.
             let fan = smoothstep(0.03, 0.78, t)
             let swayIn = smoothstep(0.04, 0.3, t)
@@ -160,11 +172,11 @@ enum OnboardingLanding {
             let x = Double(p.birthOffset.width) * (1 - fan) + p.drift * fan + sway
             let y = Double(p.birthOffset.height) - popOut - (rise - pop) * climb - 14 * fan
             // Born small at the +, grow as they leave it.
-            let grow = smoothstep(0, 0.24, t)
+            let grow = smoothstep(0, 0.2, t)
             let scale = Emitter.birthScale + (1 - Emitter.birthScale) * grow
             // Pinches off the + stretched, then a damped squash/stretch wobble and a faint
             // living jiggle.
-            let pinch = 0.17 * exp(-age * 1.9) * cos(age * 8.6)
+            let pinch = 0.17 * exp(-age * 3.4) * cos(age * 13)
             let jiggle = 0.025 * sin(age * (2.4 + p.swayFrequency) + p.swayPhase)
             let stretch = 1 + max(-Emitter.maxStretch, min(Emitter.maxStretch, pinch + jiggle))
             // Lean slightly into the sideways motion.
@@ -188,7 +200,7 @@ enum OnboardingLanding {
             var best = 0.0
             for i in max(0, index - 1)...index + 1 {
                 let since = time - particle(i).spawnTime
-                if since >= 0 { best = max(best, exp(-since * 6)) }
+                if since >= 0 { best = max(best, exp(-since * 9)) }
             }
             return best
         }
@@ -200,7 +212,7 @@ enum OnboardingLanding {
     /// Composed frame shown under Reduce Motion (a well-populated moment of the stream).
     static let staticTime: Double = 41.3
     /// The live stream starts this far in, so the screen is already full on appear.
-    static let warmUp: Double = 6.5
+    static let warmUp: Double = 5.6
 
     // MARK: Backdrop
 
@@ -219,6 +231,17 @@ enum OnboardingLanding {
             "#0E5A5E", "#2A3FA8", "#7A2C7E", "#173E80",
             "#030608", "#071417", "#0A0D1C", "#030608",
         ]
+
+        /// Bright, airy light-mode palette with enough colour in the middle rows for the
+        /// glass to refract; near-white at the bottom so the dark headline and button read.
+        static let lightColors: [String] = [
+            "#F3F6FF", "#DCE6FF", "#F0E0FF", "#F6F4FF",
+            "#B8ECEC", "#A6B8FF", "#E2B0F0", "#C2D8FF",
+            "#86DDD4", "#8A98FF", "#F09CCF", "#96C2FF",
+            "#FFFFFF", "#F1F7FA", "#F7F2FF", "#FFFFFF",
+        ]
+
+        static func colors(dark: Bool) -> [String] { dark ? colors : lightColors }
 
         static func points(at time: Double) -> [SIMD2<Float>] {
             var result: [SIMD2<Float>] = []

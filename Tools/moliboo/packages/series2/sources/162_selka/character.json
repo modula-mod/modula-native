@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.162",
+  "key": "selka",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#387B9A",
+    "accent": "#9ABCCB",
+    "light": "#9ABCCB",
+    "dark": "#326D89"
+  },
+  "form": "Deep-teal body, floating mint ribbon"
+}

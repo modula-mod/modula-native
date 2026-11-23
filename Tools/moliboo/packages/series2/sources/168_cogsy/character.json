@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.168",
+  "key": "cogsy",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#D4A87D",
+    "accent": "#E9D3BD",
+    "light": "#E9D3BD",
+    "dark": "#BD966F"
+  },
+  "form": "Little copper gear ears, blue body"
+}

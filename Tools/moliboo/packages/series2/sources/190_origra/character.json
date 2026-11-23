@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.190",
+  "key": "origra",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F0D4A4",
+    "accent": "#F7E9D1",
+    "light": "#F7E9D1",
+    "dark": "#D6BD92"
+  },
+  "form": "Folded-paper winglets, coral body"
+}

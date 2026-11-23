@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.143",
+  "key": "lavajo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F9B475",
+    "accent": "#FCD9B9",
+    "light": "#FCD9B9",
+    "dark": "#DEA068"
+  },
+  "form": "Sunset-red wavy body, lava crest"
+}

@@ -105,15 +105,44 @@ final class PDFReaderModel {
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
-            self?.runSearch()
+            await self?.runSearch()
         }
     }
 
-    private func runSearch() {
+    /// Text search runs off the main actor on a private copy of the file; only the
+    /// (page, range) hits come back, turned into selections on the displayed document.
+    nonisolated private static func findRanges(url: URL, query: String) -> [(Int, NSRange)]? {
+        guard let copy = PDFDocument(url: url) else { return nil }
+        var hits: [(Int, NSRange)] = []
+        for index in 0..<copy.pageCount {
+            if Task.isCancelled { return hits }
+            guard let text = copy.page(at: index)?.string as NSString? else { continue }
+            var range = NSRange(location: 0, length: text.length)
+            while hits.count < 500 {
+                let found = text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive], range: range)
+                guard found.location != NSNotFound else { break }
+                hits.append((index, found))
+                let next = found.location + max(found.length, 1)
+                range = NSRange(location: next, length: text.length - next)
+            }
+            if hits.count >= 500 { break }
+        }
+        return hits
+    }
+
+    private func runSearch() async {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let document, query.count >= 2 else { clearSearch(keepQuery: true); return }
         searching = true
-        let found = document.findString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+        let url = url
+        let ranges = await Task.detached(priority: .userInitiated) { Self.findRanges(url: url, query: query) }.value
+        guard !Task.isCancelled, query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) else { searching = false; return }
+        let found: [PDFSelection]
+        if let ranges {
+            found = ranges.compactMap { document.page(at: $0.0)?.selection(for: $0.1) }
+        } else {
+            found = document.findString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+        }
         searchResults = Array(found.prefix(500))
         searchResults.forEach { $0.color = UIColor.systemYellow.withAlphaComponent(0.55) }
         searchIndex = 0
@@ -246,7 +275,7 @@ struct ModulaPDFImmersiveReader: View {
                 .accessibilityIdentifier("pdf.reader.search")
                 ModulaGlassIconButton(title: model.isBookmarked ? "Remove bookmark" : "Bookmark page",
                                       systemImage: model.isBookmarked ? "bookmark.fill" : "bookmark",
-                                      size: 40, tint: model.isBookmarked ? app.appearance.accent.color : nil) { model.toggleBookmark() }
+                                      size: 40, tint: model.isBookmarked ? app.appearance.liveAccent : nil) { model.toggleBookmark() }
                     .accessibilityIdentifier("pdf.reader.bookmark")
                 moreMenu
             }
@@ -306,11 +335,11 @@ struct ModulaPDFImmersiveReader: View {
                         Button { model.go(to: index) } label: {
                             PDFThumbnailCell(url: model.url, page: index, width: 34)
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: 4).stroke(index == model.currentPage ? app.appearance.accent.color : .clear, lineWidth: 2)
+                                    RoundedRectangle(cornerRadius: 4).stroke(index == model.currentPage ? app.appearance.liveAccent : .clear, lineWidth: 2)
                                 }
                                 .overlay(alignment: .topTrailing) {
                                     if model.bookmarks.contains(index) {
-                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(app.appearance.accent.color).padding(2)
+                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(app.appearance.liveAccent).padding(2)
                                     }
                                 }
                         }
@@ -337,7 +366,7 @@ struct ModulaPDFImmersiveReader: View {
             let fraction = PDFReadingMath.fraction(forPage: scrubPage ?? model.currentPage, pageCount: model.pageCount)
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.18)).frame(height: 4)
-                Capsule().fill(app.appearance.accent.color).frame(width: max(4, proxy.size.width * fraction), height: 4)
+                Capsule().fill(app.appearance.liveAccent).frame(width: max(4, proxy.size.width * fraction), height: 4)
                 Circle().fill(.white).frame(width: scrubPage == nil ? 14 : 20, height: scrubPage == nil ? 14 : 20)
                     .shadow(radius: 3)
                     .offset(x: max(0, proxy.size.width * fraction - 10))

@@ -1,0 +1,268 @@
+{
+  "$schema": "https://modula.digital/schemas/product-standard/1.0/product.schema.json",
+  "accessibility": {
+    "keyboardNavigation": true,
+    "reduceMotion": true,
+    "scalableText": true,
+    "screenReader": true
+  },
+  "backend": {
+    "mode": "greenfield-records",
+    "records": [
+      {
+        "id": "playerProgress",
+        "schemaPath": "src/schemas/playerProgress.schema.json",
+        "schemaVersion": "1.0.0",
+        "title": "playerProgress"
+      },
+      {
+        "id": "gameSettings",
+        "schemaPath": "src/schemas/gameSettings.schema.json",
+        "schemaVersion": "1.0.0",
+        "title": "gameSettings"
+      },
+      {
+        "id": "runHistory",
+        "schemaPath": "src/schemas/runHistory.schema.json",
+        "schemaVersion": "1.0.0",
+        "title": "runHistory"
+      }
+    ]
+  },
+  "capabilities": {
+    "provides": [
+      "game.session"
+    ],
+    "requests": [],
+    "requires": []
+  },
+  "compatibility": {
+    "greenfieldProtocol": "greenfield.v1",
+    "host": ">=1.1.0",
+    "moduleProfile": "2.1.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "productStandard": "^1.0.0"
+  },
+  "data": {
+    "export": {
+      "format": "application/json",
+      "handler": "greenfield.export",
+      "owner": "greenfield",
+      "supported": true
+    },
+    "resources": [
+      {
+        "backupMethodClass": "platform",
+        "backupOwner": "greenfield",
+        "deleteOwner": "greenfield",
+        "encryption": "platform-default",
+        "exportFormat": "application/json",
+        "exportOwner": "greenfield",
+        "exportSupported": true,
+        "id": "playerProgress",
+        "owner": "GREENFIELD_HOSTED_DATA",
+        "retention": "account-lifetime",
+        "schemaPath": "src/schemas/playerProgress.schema.json",
+        "schemaVersion": "1.0.0",
+        "sensitivity": "private",
+        "type": "greenfield-records"
+      },
+      {
+        "backupMethodClass": "platform",
+        "backupOwner": "greenfield",
+        "deleteOwner": "greenfield",
+        "encryption": "platform-default",
+        "exportFormat": "application/json",
+        "exportOwner": "greenfield",
+        "exportSupported": true,
+        "id": "gameSettings",
+        "owner": "GREENFIELD_HOSTED_DATA",
+        "retention": "account-lifetime",
+        "schemaPath": "src/schemas/gameSettings.schema.json",
+        "schemaVersion": "1.0.0",
+        "sensitivity": "private",
+        "type": "greenfield-records"
+      },
+      {
+        "backupMethodClass": "platform",
+        "backupOwner": "greenfield",
+        "deleteOwner": "greenfield",
+        "encryption": "platform-default",
+        "exportFormat": "application/json",
+        "exportOwner": "greenfield",
+        "exportSupported": true,
+        "id": "runHistory",
+        "owner": "GREENFIELD_HOSTED_DATA",
+        "retention": "account-lifetime",
+        "schemaPath": "src/schemas/runHistory.schema.json",
+        "schemaVersion": "1.0.0",
+        "sensitivity": "private",
+        "type": "greenfield-records"
+      }
+    ],
+    "uninstall": {
+      "accountDeletion": "delete",
+      "deleteData": true,
+      "keepData": true
+    }
+  },
+  "frontend": {
+    "artifact": {
+      "entryView": "home",
+      "mediaType": "application/vnd.modula.frontend+json",
+      "path": "frontend/frontend.manifest.json",
+      "schemaVersion": "1.0.0",
+      "sha256": "4edd0c791a5e9831e730b98d828f642f6ee0ae6d8634ef775b3a95463f6fb171"
+    },
+    "mode": "declarative"
+  },
+  "gameRuntime": {
+    "artifact": {
+      "mediaType": "application/vnd.modula.game-web+tgz",
+      "path": "game/game.tgz",
+      "sha256": "01042ceddb64ca3ea436ed267502d9c1cc1e43f369feef21b3b2cec78c304548"
+    },
+    "assetInventory": "game.files.json",
+    "compressedSizeLimitBytes": 52428800,
+    "contractVersion": "1.0.0",
+    "engine": "playcanvas",
+    "engineVersion": "2.23.3",
+    "entryPath": "index.html",
+    "graphics": "webgl2",
+    "minimumHostVersion": ">=1.1.0",
+    "network": "none",
+    "offline": true,
+    "orientation": "any",
+    "performanceProfile": "balanced",
+    "touchControls": "drag",
+    "type": "web-mini-game"
+  },
+  "identity": {
+    "description": "Orbit Arena 3D Web generated as an MPS 1.0 / GreenField module.",
+    "displayName": "Orbit Arena 3D Web",
+    "id": "digital.modula.orbit-playcanvas",
+    "kind": "game",
+    "status": "development",
+    "version": "0.1.1",
+    "visibility": "private"
+  },
+  "licence": {
+    "declaredByPublisher": true,
+    "evidence": [
+      "LICENSE"
+    ],
+    "spdx": "MIT"
+  },
+  "marketplace": {
+    "category": "games"
+  },
+  "permissions": [
+    {
+      "category": "system",
+      "id": "settings:register",
+      "reason": "Register a settings surface for this module.",
+      "required": true,
+      "risk": "low"
+    },
+    {
+      "category": "system",
+      "id": "settings:read",
+      "reason": "Read module settings the user saved.",
+      "required": true,
+      "risk": "low"
+    },
+    {
+      "category": "system",
+      "id": "settings:write",
+      "reason": "Update module settings the user edits.",
+      "required": true,
+      "risk": "medium"
+    },
+    {
+      "category": "records",
+      "id": "records:read",
+      "reason": "Read only this game’s account-scoped records.",
+      "required": true,
+      "risk": "low"
+    },
+    {
+      "category": "records",
+      "id": "records:write",
+      "reason": "Save only this game’s account-scoped records.",
+      "required": true,
+      "risk": "medium"
+    }
+  ],
+  "presentation": {
+    "cover": {
+      "developmentAsset": true,
+      "height": 1,
+      "mediaType": "image/png",
+      "path": "assets/cover.png",
+      "role": "product.cover",
+      "sha256": "c414cd0e204de974f73753c7e28d7638e7b3691bb8b1a2bab6b25bb7fed7ce77",
+      "width": 1
+    },
+    "icon": {
+      "developmentAsset": true,
+      "mediaType": "image/svg+xml",
+      "path": "assets/icon.svg",
+      "role": "product.icon",
+      "sha256": "784d77615a0b6d37a7467a38972c84868fc90d1df6614bc3ae640974f107060c"
+    }
+  },
+  "privacy": {
+    "analytics": "none",
+    "dataAccessed": [
+      "module settings"
+    ],
+    "dataCreated": [
+      "module settings"
+    ],
+    "dataTransmitted": [
+      "none-by-default"
+    ],
+    "deletion": "settings removed with the module",
+    "export": "not-applicable",
+    "retention": "until uninstall",
+    "telemetry": "none"
+  },
+  "productStandard": "1.0",
+  "publisher": {
+    "displayName": "modula",
+    "id": "modula"
+  },
+  "release": {
+    "builder": "@modula/create-module",
+    "channel": "development",
+    "notes": "Generated development module. Not published.",
+    "provenance": {
+      "frontendSha256": "4edd0c791a5e9831e730b98d828f642f6ee0ae6d8634ef775b3a95463f6fb171"
+    }
+  },
+  "schema": "modula.product.1.0",
+  "security": {
+    "arbitraryRemoteCode": "forbidden-by-default",
+    "baseline": "mps-1.0",
+    "crossProductDatabaseAccess": "forbidden",
+    "rawUserBearerForwarding": "forbidden"
+  },
+  "source": {
+    "commit": "ce4b9a65ea64122bc142eea686484431a0b933b1",
+    "manifestPath": "games/orbit-playcanvas/product/modula.product.json",
+    "provider": "github",
+    "repository": "modula-mod/modula-game-lab"
+  },
+  "storage": {
+    "mode": "greenfield-records"
+  },
+  "telemetry": {
+    "destinationClass": "none",
+    "optOut": "not-applicable",
+    "purpose": "none"
+  }
+}

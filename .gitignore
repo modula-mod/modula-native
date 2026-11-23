@@ -1,5 +1,6 @@
 node_modules/
 Pods/
+ios/ModulaUITests/GameFixtures/qa-account.json
 build/
 DerivedData/
 *.xcuserstate

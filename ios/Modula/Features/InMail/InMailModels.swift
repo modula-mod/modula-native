@@ -43,7 +43,8 @@ struct InMailBackendCapabilities: Sendable, Equatable {
     var unread = false
     var serverSearch = false
 
-    static let production = InMailBackendCapabilities()
+    /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
+    static let production = InMailBackendCapabilities(list: true, thread: true, send: true, reply: true, unread: true)
 
     enum Paths {
         static func inbox(cursor: String?) -> String {

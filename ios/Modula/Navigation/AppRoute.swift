@@ -54,6 +54,8 @@ enum ProductHubRoute: Hashable {
     case publisher(String)
     case search(String?)
     case module(String, ModuleDetailSection)
+    /// GUBIC games hub (feature-flagged).
+    case gubic
     static let featured = Self.collection(.featured)
 }
 
@@ -64,11 +66,11 @@ enum AppearanceSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, theme, darkStyle = "dark-style", accent, typography, fontFamily = "font-family", textSize = "text-size"
     case appIcon = "app-icon", density, motion, haptics, contrastTransparency = "contrast-transparency"
     case iconStyle = "icon-style", interfaceShape = "interface-shape", moduleBranding = "module-branding"
-    case edgePicker = "edge-picker", preview
+    case preview
 }
 enum NotificationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, push, social, modules, quietHours = "quiet-hours" }
 enum PrivacySettingsRoute: String, CaseIterable, Codable, Hashable { case root, privacy, security, glassPrivacy = "glass-privacy", blocked, appLock = "app-lock", biometrics }
-enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, storage, cache, downloads, backup, export }
+enum DataSettingsRoute: String, CaseIterable, Codable, Hashable { case root, storage, packages = "storage-downloads", cache, downloads, backup, export }
 enum AccessibilitySettingsRoute: String, CaseIterable, Codable, Hashable { case root, text, contrast, motion }
 enum FeatureSettingsRoute: String, CaseIterable, Codable, Hashable { case root, enabled, experimental }
 enum UpdateSettingsRoute: String, CaseIterable, Codable, Hashable { case root, channel, stable, unstable, versionLock = "version-lock" }
@@ -86,6 +88,12 @@ enum PersonalisationSettingsRoute: String, CaseIterable, Codable, Hashable {
 enum ConnectorsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum IntegrationsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum MonetisationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, plans, payouts, invoices }
+/// Modula Premium (gated by `PremiumFeatureFlags`, off in Release).
+enum PremiumSettingsRoute: String, CaseIterable, Codable, Hashable {
+    case root, badge, compare, intro
+    case dashboard, features, manage, studio, storage, visitors, creator, possibilities
+    case purchase, welcome, profile, settings, upsell
+}
 enum ChatsSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, composer, previews, privacy
 }
@@ -109,6 +117,9 @@ enum NetworkSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum DigestsSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum HelpSettingsRoute: String, CaseIterable, Codable, Hashable { case root, guides, contact, status }
 enum WhatsNewSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
+/// Settings › Migration (Atlas v5.0 extension M-01). MX-00 "Explain" only: overview, My
+/// GreenField Node, Data Portability, Identity & Recovery, Help. No transfer routes exist.
+enum MigrationSettingsRoute: String, CaseIterable, Codable, Hashable { case root, node, data, identity, help }
 enum CreatorSettingsRoute: String, CaseIterable, Codable, Hashable { case root, studio, insights }
 enum FocusSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
 enum PasskeysSettingsRoute: String, CaseIterable, Codable, Hashable { case root }
@@ -130,6 +141,7 @@ enum SettingsRoute: Hashable {
     case intelligence(IntelligenceSettingsRoute)
     case chats(ChatsSettingsRoute)
     case moliboo
+    case premium(PremiumSettingsRoute)
     case audio(AudioSettingsRoute)
     case language(LanguageSettingsRoute)
     case media(MediaSettingsRoute)
@@ -148,6 +160,7 @@ enum SettingsRoute: Hashable {
     case digests(DigestsSettingsRoute)
     case help(HelpSettingsRoute)
     case whatsNew(WhatsNewSettingsRoute)
+    case migration(MigrationSettingsRoute)
     case creator(CreatorSettingsRoute)
     case focus(FocusSettingsRoute)
     case passkeys(PasskeysSettingsRoute)
@@ -175,6 +188,9 @@ enum MessagesRoute: Hashable {
     case inMail(InMailRoute)
     case new
     case conversation(String)
+    /// 1:1 chat with a person (handle or profile id): opens the existing conversation, else a starter
+    /// addressed to them. Never the inbox.
+    case direct(String)
 }
 enum InMailRoute: Hashable { case inbox, compose, thread(String) }
 enum StoriesRoute: Hashable { case root, create, story(String) }
@@ -212,6 +228,8 @@ enum AppRoute: Hashable {
     case saved(SavedRoute)
     case collections(CollectionsRoute)
     case drafts(DraftsRoute)
+    /// Debug community shell. Not a sixth tab. The flag is off in Release.
+    case community(CommunityRoute)
 
     var tab: AppTab? {
         switch self {
@@ -329,6 +347,10 @@ enum RouteParser {
             case "stories": return .drafts(.stories)
             default: return nil
             }
+        case "community":
+            guard p.count <= 2 else { return nil }
+            if p.count == 1 { return .community(.hub) }
+            return CommunityRoute(rawValue: p[1]).map(AppRoute.community)
         default: return nil
         }
     }
@@ -345,6 +367,9 @@ enum RouteParser {
         case "new":
             guard p.count == 2 else { return nil }
             return .messages(.new)
+        case "to":
+            guard p.count == 3, validID(p[2]) else { return nil }
+            return .messages(.direct(p[2]))
         case "in-mail":
             if p.count == 2 { return .messages(.inMail(.inbox)) }
             guard p.count == 3 else { return nil }
@@ -361,6 +386,7 @@ enum RouteParser {
         if p[1] == "category", p.count == 3, validID(p[2]) { return .productHub(.category(p[2])) }
         if p[1] == "publisher", p.count == 3, validID(p[2]) { return .productHub(.publisher(p[2])) }
         if p[1] == "search", p.count == 2 { return .productHub(.search(query["q"])) }
+        if p[1] == "gubic", p.count == 2 { return .productHub(.gubic) }
         if p[1] == "module", p.count == 3 || p.count == 4, validID(p[2]) {
             let section = p.count == 3 ? ModuleDetailSection.overview : ModuleDetailSection(rawValue: p[3])
             return section.map { .productHub(.module(p[2], $0)) }
@@ -407,6 +433,7 @@ enum RouteParser {
         case "integrations": return IntegrationsSettingsRoute(rawValue: tail).map { .settings(.integrations($0)) }
         case "monetisation": return MonetisationSettingsRoute(rawValue: tail).map { .settings(.monetisation($0)) }
         case "moliboo": return .settings(.moliboo)
+        case "premium": return PremiumSettingsRoute(rawValue: tail).map { .settings(.premium($0)) }
         case "chats": return ChatsSettingsRoute(rawValue: tail).map { .settings(.chats($0)) }
         case "audio": return AudioSettingsRoute(rawValue: tail).map { .settings(.audio($0)) }
         case "language": return LanguageSettingsRoute(rawValue: tail).map { .settings(.language($0)) }
@@ -426,6 +453,7 @@ enum RouteParser {
         case "digests": return DigestsSettingsRoute(rawValue: tail).map { .settings(.digests($0)) }
         case "help": return HelpSettingsRoute(rawValue: tail).map { .settings(.help($0)) }
         case "whats-new": return WhatsNewSettingsRoute(rawValue: tail).map { .settings(.whatsNew($0)) }
+        case "migration": return MigrationSettingsRoute(rawValue: tail).map { .settings(.migration($0)) }
         case "creator": return CreatorSettingsRoute(rawValue: tail).map { .settings(.creator($0)) }
         case "focus": return FocusSettingsRoute(rawValue: tail).map { .settings(.focus($0)) }
         case "passkeys": return PasskeysSettingsRoute(rawValue: tail).map { .settings(.passkeys($0)) }
@@ -500,6 +528,7 @@ enum RouteSerializer {
             case .requests: "/messages/requests"
             case .new: "/messages/new"
             case .conversation(let id): "/messages/\(id)"
+            case .direct(let person): "/messages/to/\(person)"
             case .inMail(let mail):
                 switch mail {
                 case .inbox: "/messages/in-mail"
@@ -541,6 +570,8 @@ enum RouteSerializer {
             case .inMail: "/drafts/in-mail"
             case .stories: "/drafts/stories"
             }
+        case .community(let route):
+            route == .hub ? "/community" : path("community", route.rawValue)
         }
     }
     private static func productHub(_ route: ProductHubRoute) -> String {
@@ -550,6 +581,7 @@ enum RouteSerializer {
         case .publisher(let id): path("product-hub", "publisher", id)
         case .search(let q): queryPath("/product-hub/search", q)
         case .module(let id, let section): path("product-hub", "module", id, section == .overview ? nil : section.rawValue)
+        case .gubic: path("product-hub", "gubic")
         }
     }
     private static func settings(_ route: SettingsRoute) -> String {
@@ -584,6 +616,7 @@ enum RouteSerializer {
         case .integrations(let r): setting("integrations", r.rawValue)
         case .monetisation(let r): setting("monetisation", r.rawValue)
         case .moliboo: setting("moliboo", "root")
+        case .premium(let r): setting("premium", r.rawValue)
         case .chats(let r): setting("chats", r.rawValue)
         case .audio(let r): setting("audio", r.rawValue)
         case .language(let r): setting("language", r.rawValue)
@@ -603,6 +636,7 @@ enum RouteSerializer {
         case .digests(let r): setting("digests", r.rawValue)
         case .help(let r): setting("help", r.rawValue)
         case .whatsNew(let r): setting("whats-new", r.rawValue)
+        case .migration(let r): setting("migration", r.rawValue)
         case .creator(let r): setting("creator", r.rawValue)
         case .focus(let r): setting("focus", r.rawValue)
         case .passkeys(let r): setting("passkeys", r.rawValue)

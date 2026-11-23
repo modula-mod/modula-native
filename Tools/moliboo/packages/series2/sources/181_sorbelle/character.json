@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.181",
+  "key": "sorbelle",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F6A2BC",
+    "accent": "#FAD0DD",
+    "light": "#FAD0DD",
+    "dark": "#DB90A7"
+  },
+  "form": "Raspberry ripple ears, cream body"
+}

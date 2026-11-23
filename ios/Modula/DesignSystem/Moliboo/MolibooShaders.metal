@@ -110,7 +110,9 @@ static inline half3 mbHue(float h) {
     float d = length(uv) * 2.0;
     float radius = age * 0.95;
     float fade = clamp(1.0 - age / 1.4, 0.0, 1.0);
-    float ring = exp(-pow((d - radius) * 14.0, 2.0)) * fade;
+    // Fade out before the layer's edge so the wave never ends on a hard clip line.
+    float edge = 1.0 - smoothstep(0.78, 0.98, d);
+    float ring = exp(-pow((d - radius) * 14.0, 2.0)) * fade * edge;
     half3 pulse = mix(tint.rgb, mbHue(fract(d * 1.5 - age * 0.8)), 0.35h) * half(ring * 0.75);
     return half4(color.rgb + pulse, max(color.a, half(ring * 0.65)));
 }

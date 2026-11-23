@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.152",
+  "key": "veyla",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#B5BAEC",
+    "accent": "#D9DCF5",
+    "light": "#D9DCF5",
+    "dark": "#A1A6D2"
+  },
+  "form": "Bluebell silhouette, leaf-shaped cheeks"
+}

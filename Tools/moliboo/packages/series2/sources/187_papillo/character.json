@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.187",
+  "key": "papillo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#F1E4D0",
+    "accent": "#F8F1E7",
+    "light": "#F8F1E7",
+    "dark": "#D6CBB9"
+  },
+  "form": "Folded paper-triangle ears, cream body"
+}

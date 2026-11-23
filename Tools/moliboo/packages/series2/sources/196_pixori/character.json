@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.196",
+  "key": "pixori",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#63B9EC",
+    "accent": "#AFDBF5",
+    "light": "#AFDBF5",
+    "dark": "#58A5D2"
+  },
+  "form": "Cobalt body, stepped pixel-shaped ears"
+}

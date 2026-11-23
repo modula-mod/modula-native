@@ -48,8 +48,10 @@ struct CreatePostIntent: AppIntent {
     static var description: IntentDescription { IntentDescription("Opens the Modula post composer. Does not publish.") }
     static var openAppWhenRun: Bool { true }
 
-    func perform() async throws -> some IntentResult {
-        .result()
+    // Enhancements-50: actually route instead of only opening the app.
+    @MainActor func perform() async throws -> some IntentResult {
+        ModulaIntentInbox.deliver(.compose(.post))
+        return .result()
     }
 }
 
@@ -62,8 +64,10 @@ struct SearchModulaIntent: AppIntent {
     @Parameter(title: "Query")
     var query: String?
 
-    func perform() async throws -> some IntentResult {
-        .result()
+    // Enhancements-50: actually route instead of only opening the app.
+    @MainActor func perform() async throws -> some IntentResult {
+        ModulaIntentInbox.deliver(.search(.root(query)))
+        return .result()
     }
 }
 
@@ -73,8 +77,10 @@ struct OpenMessagesIntent: AppIntent {
     static var description: IntentDescription { IntentDescription("Opens Modula Messages.") }
     static var openAppWhenRun: Bool { true }
 
-    func perform() async throws -> some IntentResult {
-        .result()
+    // Enhancements-50: actually route instead of only opening the app.
+    @MainActor func perform() async throws -> some IntentResult {
+        ModulaIntentInbox.deliver(.messages(.inbox))
+        return .result()
     }
 }
 
@@ -84,8 +90,10 @@ struct OpenVaultNotesIntent: AppIntent {
     static var description: IntentDescription { IntentDescription("Opens the installed Vault Notes module via ModuleHost.") }
     static var openAppWhenRun: Bool { true }
 
-    func perform() async throws -> some IntentResult {
-        .result()
+    // Enhancements-50: actually route instead of only opening the app.
+    @MainActor func perform() async throws -> some IntentResult {
+        ModulaIntentInbox.deliver(.module("digital.modula.vault-notes", localPath: nil))
+        return .result()
     }
 }
 

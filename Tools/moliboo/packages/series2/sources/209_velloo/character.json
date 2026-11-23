@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "modula.moliboo.character.1",
+  "characterId": "moliboo.209",
+  "key": "velloo",
+  "assetVersion": "0.1.0",
+  "palette": {
+    "mid": "#869CCA",
+    "accent": "#C1CDE4",
+    "light": "#C1CDE4",
+    "dark": "#778BB4"
+  },
+  "form": "Velvet-blue body, star-tipped streamers"
+}
