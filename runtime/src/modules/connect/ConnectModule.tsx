@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState, type ReactNode} from 'react';
-import {Pressable, ScrollView, Share, StyleSheet, Text, View} from 'react-native';
+import {Animated, Easing, Pressable, ScrollView, Share, StyleSheet, Text, View} from 'react-native';
 import type {Host, ModuleContext} from '@modula/module-sdk';
 import {moduleTheme, type ModuleTheme} from '../../ui/theme';
 import {LoadingRow, ModuleCard, ThemedText} from '../../ui/components';
@@ -11,6 +11,8 @@ import {
   validateCompliance, type AvailableNumber, type ComplianceForm, type ConnectApi, type Country, type IdentityKind,
   type NumberType, type OwnedNumber, type Plan, type Step, type VerificationStatus,
   isMemorable, mockUsage, usageFraction, lifecycleProgress, LIFECYCLE_ORDER,
+  classifySwitchCode, forwardModeLabel, mockVoicemails, nextWorkingDay, PLAN_COMPARISON, TRANSFER_STEPS, validateForwardTarget,
+  validateTransfer, type ForwardMode, type TransferForm,
 } from './model';
 
 /**
@@ -100,6 +102,37 @@ function PreviewBanner({theme}: {theme: ModuleTheme}) {
   </View>;
 }
 
+/** Results rise in one after another (search/refresh); instant under Reduce Motion. */
+function Reveal({theme, index, children}: {theme: ModuleTheme; index: number; children: ReactNode}) {
+  const progress = useRef(new Animated.Value(theme.reduceMotion ? 1 : 0)).current;
+  useEffect(() => {
+    if (theme.reduceMotion) return;
+    Animated.timing(progress, {toValue: 1, duration: 260, delay: Math.min(index, 8) * 45,
+      easing: Easing.out(Easing.cubic), useNativeDriver: true}).start();
+  }, [progress, index, theme.reduceMotion]);
+  return <Animated.View style={{opacity: progress,
+    transform: [{translateY: progress.interpolate({inputRange: [0, 1], outputRange: [12, 0]})}]}}>{children}</Animated.View>;
+}
+
+/** Pulsing search dots while numbers load (static under Reduce Motion). */
+function SearchingPulse({theme}: {theme: ModuleTheme}) {
+  const t = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (theme.reduceMotion) return;
+    const loop = Animated.loop(Animated.timing(t, {toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: true}));
+    loop.start();
+    return () => loop.stop();
+  }, [t, theme.reduceMotion]);
+  const dot = (i: number) => <Animated.View key={i} style={{width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.text,
+    opacity: theme.reduceMotion ? 0.6 : t.interpolate({inputRange: [0, 0.33 * i, 0.33 * i + 0.25, 1], outputRange: [0.25, 0.25, 1, 0.25], extrapolate: 'clamp'})}}/>;
+  return <View accessible accessibilityLabel="Finding numbers" style={[styles.row, {gap: 8, justifyContent: 'center', paddingVertical: 18}]}>
+    {[0, 1, 2].map(dot)}
+    <ThemedText theme={theme} secondary style={{marginLeft: 6}}>Finding numbers…</ThemedText>
+  </View>;
+}
+
+const EMPTY_TRANSFER: TransferForm = {number: '', provider: '', code: '', accountHolder: ''};
+
 const EMPTY_FORM: ComplianceForm = {kind: 'personal', fullName: '', addressLine: '', postcode: '', email: '', mobile: ''};
 
 export function ConnectModule({context, host}: {context: ModuleContext; host: Host; lifecycle: string}) {
@@ -131,6 +164,15 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
   const [shortlist, setShortlist] = useState<string[]>([]);
   const [memorableOnly, setMemorableOnly] = useState(false);
   const [nickname, setNickname] = useState('');
+  const [transfer, setTransfer] = useState<TransferForm>(EMPTY_TRANSFER);
+  const [transferErrors, setTransferErrors] = useState<string[]>([]);
+  const [transferSubmittedAt, setTransferSubmittedAt] = useState<Date | null>(null);
+  const [forwardMode, setForwardMode] = useState<ForwardMode>('off');
+  const [forwardTo, setForwardTo] = useState('');
+  const [forwardError, setForwardError] = useState<string | null>(null);
+  const [greeting, setGreeting] = useState<'default' | 'custom'>('default');
+  const [greetingText, setGreetingText] = useState('');
+  const [openVoicemail, setOpenVoicemail] = useState<string | null>(null);
 
   const haptic = useCallback(() => { void host.request('haptics.selection').catch(() => {}); }, [host]);
   const push = useCallback((next: Step) => { haptic(); setNotice(null); setStack(s => [...s, next]); }, [haptic]);
@@ -234,7 +276,8 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
       body = <>
         <Choice theme={theme} title="Get a new Modula Number" subtitle="Pick a UK (+44) number that lives in Modula." onPress={() => push('country')} testID="connect.new"/>
         <Choice theme={theme} title="Connect my existing number" subtitle="Verify your SIM number so friends can find you. It stays with your carrier." onPress={() => setNotice('Verifying an existing number is coming soon in this preview.')}/>
-        <Choice theme={theme} title="Transfer a number" subtitle="Move a number to Modula." disabled trailing={<Badge theme={theme} label="Coming soon"/>}/>
+        <Choice theme={theme} title="Transfer a number" subtitle="Move your UK mobile number to Modula with a PAC code." onPress={() => push('transfer')}
+          trailing={<Badge theme={theme} label="Preview"/>} testID="connect.transfer"/>
       </>;
       break;
     case 'country':
@@ -253,9 +296,9 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
         <Action theme={theme} title="Refresh numbers" secondary onPress={() => { setGone(false); setSeed(s => s + 1); void loadNumbers(seed + 1); }}/>
         <ToggleRow theme={theme} label="Memorable numbers only" value={memorableOnly} onChange={setMemorableOnly} testID="connect.memorable"/>
         {shortlist.length > 0 && <ThemedText theme={theme} role="caption" secondary>{`Shortlisted: ${shortlist.length}. Tap ☆ to keep a number in view while you compare.`}</ThemedText>}
-        {!shown ? <LoadingRow theme={theme} label="Finding numbers"/> : shown.length === 0
+        {!shown ? <SearchingPulse theme={theme}/> : shown.length === 0
           ? <ThemedText theme={theme} secondary>No numbers match. Try other digits or refresh.</ThemedText>
-          : shown.map(n => <Choice key={n.id} theme={theme} title={n.display} subtitle={`${typeLabel(n.type)}${n.locality ? ` · ${n.locality}` : ''} · ${n.capabilities.map(capabilityLabel).join(' + ')}`}
+          : shown.map((n, i) => <Reveal key={`${seed}-${n.id}`} theme={theme} index={i}><Choice theme={theme} title={n.display} subtitle={`${typeLabel(n.type)}${n.locality ? ` · ${n.locality}` : ''} · ${n.capabilities.map(capabilityLabel).join(' + ')}`}
               disabled={busy} onPress={() => void choose(n)} selected={shortlist.includes(n.id)}
               trailing={<View style={[styles.row, {gap: 8}]}>
                 {isMemorable(n.display) && <Badge theme={theme} label="Memorable"/>}
@@ -264,7 +307,7 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
                   hitSlop={10} onPress={() => toggleShortlist(n.id)}>
                   <Text style={{color: theme.colors.text, fontSize: 20}}>{shortlist.includes(n.id) ? '★' : '☆'}</Text>
                 </Pressable>
-              </View>}/>)}
+              </View>}/></Reveal>)}
       </>;
       break;
     case 'details':
@@ -289,6 +332,7 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
           subtitle={`${p.allowances.join(' · ')}\nExtra usage: ${p.extraUsage}`} selected={plan?.id === p.id}
           disabled={!p.publicNumber} onPress={() => setPlan(p)}
           trailing={!p.publicNumber ? <Badge theme={theme} label="No number"/> : undefined}/>)}
+        <Action theme={theme} title="Compare plans" secondary onPress={() => push('compare')} testID="connect.compare"/>
         <Action theme={theme} title="Continue" disabled={!plan} onPress={() => push(status === 'approved' ? 'review' : 'verify')}/>
       </>;
       break;
@@ -417,8 +461,12 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
           })}
         </Section>
         <Action theme={theme} title="Share number" secondary onPress={() => void Share.share({message: `${selectedOwned.number.display} (Modula Connect preview — illustrative number)`}).catch(() => {})}/>
-        <ToggleRow theme={theme} label="Voicemail (later)" value={selectedOwned.settings.voicemail} disabled onChange={() => {}}/>
-        <ToggleRow theme={theme} label="Call forwarding (later)" value={selectedOwned.settings.forwarding} disabled onChange={() => {}}/>
+        <Choice theme={theme} title="Voicemail" subtitle={selectedOwned.settings.voicemail ? `On · ${selectedOwned.settings.voicemailGreeting === 'custom' ? 'Custom greeting' : 'Default greeting'}` : 'Off · greeting and sample inbox'}
+          onPress={() => { setGreeting(selectedOwned.settings.voicemailGreeting ?? 'default'); setGreetingText(selectedOwned.settings.voicemailText ?? ''); push('voicemail'); }}
+          trailing={<Badge theme={theme} label="Preview"/>} testID="connect.voicemail"/>
+        <Choice theme={theme} title="Call forwarding" subtitle={selectedOwned.settings.forwarding ? `${forwardModeLabel(selectedOwned.settings.forwardMode ?? 'always')} → ${selectedOwned.settings.forwardTo ?? ''}` : 'Off'}
+          onPress={() => { setForwardMode(selectedOwned.settings.forwardMode ?? 'off'); setForwardTo(selectedOwned.settings.forwardTo ?? ''); setForwardError(null); push('forwarding'); }}
+          trailing={<Badge theme={theme} label="Preview"/>} testID="connect.forwarding"/>
         {selectedOwned.state === 'active' && <Action theme={theme} title="Cancel number" secondary onPress={() => void api.cancel(selectedOwned.id).then(record => {
           if (!alive.current) return;
           setSelectedOwned(record);
@@ -426,6 +474,117 @@ export function ConnectModule({context, host}: {context: ModuleContext; host: Ho
         })}/>}
       </>;
       break;
+    case 'transfer': {
+      const kind = classifySwitchCode(transfer.code);
+      const t = (key: keyof TransferForm) => (value: string) => setTransfer(f => ({...f, [key]: value}));
+      body = <>
+        <ThemedText theme={theme} secondary>Text PAC to 65075 from the phone you’re moving. Your provider replies with a code within a minute. Keep your old SIM active until the switch.</ThemedText>
+        <FormField theme={theme} label="Number to move" value={transfer.number} onChangeText={t('number')} keyboardType="numeric" placeholder="07…"/>
+        <SegmentedControl theme={theme} label="Current provider" value={transfer.provider || 'none'} onChange={(v: string) => setTransfer(f => ({...f, provider: v === 'none' ? '' : v}))}
+          options={[{value: 'none', label: '—'}, {value: 'EE', label: 'EE'}, {value: 'O2', label: 'O2'}, {value: 'Vodafone', label: 'Vodafone'}, {value: 'Three', label: 'Three'}, {value: 'Other', label: 'Other'}]}/>
+        <FormField theme={theme} label="PAC code" value={transfer.code} onChangeText={value => setTransfer(f => ({...f, code: value.toUpperCase().slice(0, 11)}))}
+          placeholder="ABC123456" hint={kind === 'pac' ? 'Looks like a valid PAC.' : kind === 'stac' ? 'This is a STAC — it won’t keep your number.' : 'Three letters and six digits.'}/>
+        <FormField theme={theme} label="Account holder" value={transfer.accountHolder} onChangeText={t('accountHolder')}/>
+        {transferErrors.length > 0 && <InlineNotice theme={theme} tone="danger" message={transferErrors.join('\n')}/>}
+        <Action theme={theme} title="Request transfer (preview)" onPress={() => {
+          const errors = validateTransfer(transfer);
+          setTransferErrors(errors);
+          if (errors.length) return;
+          setTransferSubmittedAt(new Date());
+          push('transferStatus');
+        }} testID="connect.transfer.submit"/>
+        <ThemedText theme={theme} role="caption" secondary>Preview: no request is sent to your provider and nothing moves.</ThemedText>
+      </>;
+      break;
+    }
+    case 'transferStatus': {
+      const submitted = transferSubmittedAt ?? new Date();
+      const switchDay = nextWorkingDay(submitted).toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long'});
+      body = <>
+        <ModuleCard theme={theme}>
+          <Badge theme={theme} label="Preview — nothing is moving"/>
+          <ThemedText theme={theme} role="title">{transfer.number}</ThemedText>
+          <ThemedText theme={theme} secondary>{`From ${transfer.provider} · switch day would be ${switchDay}`}</ThemedText>
+        </ModuleCard>
+        <Section theme={theme} title="What happens next" footer="UK switches usually finish within one working day of a valid PAC.">
+          {TRANSFER_STEPS.map((label, i) => <Reveal key={label} theme={theme} index={i}>
+            <View accessible accessibilityLabel={`${label}${i === 0 ? ', done' : ''}`} style={[styles.row, {gap: 10, minHeight: 34}]}>
+              <Text style={{color: theme.colors.text, fontSize: 16, width: 20, textAlign: 'center'}}>{i === 0 ? '●' : '○'}</Text>
+              <ThemedText theme={theme} secondary={i > 0}>{label}</ThemedText>
+            </View>
+          </Reveal>)}
+        </Section>
+        <Action theme={theme} title="Done" onPress={() => reset(owned.length ? 'dashboard' : 'welcome')}/>
+      </>;
+      break;
+    }
+    case 'forwarding':
+      body = selectedOwned && <>
+        <ThemedText theme={theme} secondary>Send calls to another number when you can’t answer in Modula.</ThemedText>
+        <SegmentedControl theme={theme} label="Forward calls" value={forwardMode} onChange={(m: ForwardMode) => { haptic(); setForwardMode(m); }}
+          options={(['off', 'always', 'busy', 'noAnswer'] as const).map(m => ({value: m, label: forwardModeLabel(m)}))}/>
+        {forwardMode !== 'off' && <FormField theme={theme} label="Forward to" value={forwardTo} onChangeText={v => { setForwardTo(v); setForwardError(null); }}
+          keyboardType="numeric" placeholder="07… or 020…" error={forwardError ?? undefined}/>}
+        {forwardMode === 'noAnswer' && <ThemedText theme={theme} role="caption" secondary>Rings in Modula for 20 seconds first.</ThemedText>}
+        <Action theme={theme} title="Save" onPress={() => {
+          if (forwardMode !== 'off') {
+            const error = validateForwardTarget(forwardTo);
+            if (error) { setForwardError(error); return; }
+          }
+          void update({forwarding: forwardMode !== 'off', forwardMode, forwardTo: forwardMode === 'off' ? undefined : forwardTo.trim()});
+          setNotice(forwardMode === 'off' ? 'Forwarding off.' : `Calls forward ${forwardModeLabel(forwardMode).toLowerCase()} (preview).`);
+          back();
+        }} testID="connect.forwarding.save"/>
+        <ThemedText theme={theme} role="caption" secondary>Preview: no calls are forwarded. Forwarded calls may be charged at your plan’s rate when live.</ThemedText>
+      </>;
+      break;
+    case 'voicemail':
+      body = selectedOwned && <>
+        <ToggleRow theme={theme} label="Voicemail" value={selectedOwned.settings.voicemail} onChange={v => void update({voicemail: v})}/>
+        <SegmentedControl theme={theme} label="Greeting" value={greeting} onChange={(g: 'default' | 'custom') => { haptic(); setGreeting(g); }}
+          options={[{value: 'default', label: 'Default'}, {value: 'custom', label: 'Custom'}]}/>
+        {greeting === 'default'
+          ? <ModuleCard theme={theme}><ThemedText theme={theme} secondary>{`“You’ve reached ${selectedOwned.settings.nickname || selectedOwned.number.display}. Please leave a message after the tone.”`}</ThemedText></ModuleCard>
+          : <FormField theme={theme} label="Greeting text" value={greetingText} multiline onChangeText={v => setGreetingText(v.slice(0, 240))}
+              hint={`${greetingText.length}/240 · read aloud by a natural voice when live`}/>}
+        <Action theme={theme} title="Save greeting" secondary onPress={() => { void update({voicemailGreeting: greeting, voicemailText: greetingText.trim()}); setNotice('Greeting saved (preview).'); }}/>
+        <Section theme={theme} title="Sample inbox" footer="Illustrative voicemails with transcripts. No audio exists in the preview.">
+          {mockVoicemails(selectedOwned.id).map((vm, i) => <Reveal key={vm.id} theme={theme} index={i}>
+            <Choice theme={theme} title={`${vm.from} · ${vm.seconds}s`} subtitle={openVoicemail === vm.id ? vm.transcript : `${vm.ago} · tap to read transcript`}
+              selected={openVoicemail === vm.id} onPress={() => { haptic(); setOpenVoicemail(id => (id === vm.id ? null : vm.id)); }}
+              trailing={<Badge theme={theme} label="Illustrative"/>}/>
+          </Reveal>)}
+        </Section>
+      </>;
+      break;
+    case 'compare': {
+      const list = plans ?? [];
+      const cell = (v: string | boolean | undefined) => (v === true ? '✓' : v === false || v === undefined ? '–' : v);
+      body = <>
+        <ThemedText theme={theme} role="caption" secondary>Proposed plans — prices aren’t final.</ThemedText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{gap: 0}}>
+            <View style={[styles.row, {borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border}]}>
+              <View style={{width: 150}}/>
+              {list.map(p => <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`Choose ${p.name}`} disabled={!p.publicNumber}
+                onPress={() => { haptic(); setPlan(p); back(); }}
+                style={{width: 104, padding: 8, borderRadius: 12, backgroundColor: plan?.id === p.id ? theme.colors.surfaceRaised : 'transparent'}}>
+                <ThemedText theme={theme} role="headline">{p.name.replace('Connect ', '')}</ThemedText>
+                <ThemedText theme={theme} role="caption" secondary>{formatPrice(p.monthlyPence, p.fromPrice)}</ThemedText>
+              </Pressable>)}
+            </View>
+            {PLAN_COMPARISON.map((row, i) => <Reveal key={row.label} theme={theme} index={i}>
+              <View style={[styles.row, {minHeight: 40, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border}]}>
+                <ThemedText theme={theme} style={{width: 150}}>{row.label}</ThemedText>
+                {list.map(p => <ThemedText key={p.id} theme={theme} secondary={row.values[p.id] === false} style={{width: 104, textAlign: 'center'}}>{cell(row.values[p.id])}</ThemedText>)}
+              </View>
+            </Reveal>)}
+          </View>
+        </ScrollView>
+        <ThemedText theme={theme} role="caption" secondary>Tap a plan name to choose it.</ThemedText>
+      </>;
+      break;
+    }
   }
 
   return <View style={{flex: 1, backgroundColor: theme.colors.canvas}} testID={`connect.${step}`}>

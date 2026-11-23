@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {canTransition, createMockConnectApi, recurringTotal, displayUK, filterNumbers, formatPrice, isIllustrativeNumber, mockNumbers, transition, validateCompliance,
+import {DEFAULT_NUMBER_SETTINGS, classifySwitchCode, nextWorkingDay, validateForwardTarget, validateTransfer, canTransition, createMockConnectApi, recurringTotal, displayUK, filterNumbers, formatPrice, isIllustrativeNumber, mockNumbers, transition, validateCompliance,
   MOCK_PLAN_CONFIG, type OwnedNumber} from '../src/modules/connect/model';
 
 test('mock numbers are only fictional 07700 900xxx', () => {
@@ -18,7 +18,7 @@ test('lifecycle only allows the documented transitions', () => {
   assert.ok(canTransition('provisioning', 'active'));
   assert.ok(!canTransition('available', 'active'));
   const base: OwnedNumber = {id: 'x', number: mockNumbers(0)[0], planID: 'personal', state: 'available',
-    settings: {smsNotifications: true, callNotifications: true, voicemail: false, forwarding: false}};
+    settings: {...DEFAULT_NUMBER_SETTINGS}};
   assert.throws(() => transition(base, 'active'));
   assert.equal(transition(base, 'verificationPending').state, 'verificationPending');
 });
@@ -74,4 +74,17 @@ test('memorable numbers, usage and lifecycle helpers (t237u)', async () => {
   assert.equal(lifecycleProgress('active'), 4);
   assert.equal(lifecycleProgress('suspended'), -1);
   assert.equal(DEFAULT_NUMBER_SETTINGS.spamFilter, true);
+});
+
+test('switch codes, transfer form and forwarding targets', () => {
+  assert.equal(classifySwitchCode('abc 123456'), 'pac');
+  assert.equal(classifySwitchCode('123456ABC'), 'stac');
+  assert.equal(classifySwitchCode('nope'), null);
+  assert.deepEqual(validateTransfer({number: '07700 900123', provider: 'EE', code: 'ABC123456', accountHolder: 'A Person'}), []);
+  assert.ok(validateTransfer({number: '123', provider: '', code: '123456ABC', accountHolder: ''}).length >= 4);
+  assert.equal(validateForwardTarget('07700 900123'), null);
+  assert.equal(validateForwardTarget('+44 20 7946 0000'), null);
+  assert.ok(validateForwardTarget('0900 123456'));
+  const friday = new Date(2026, 10, 27);
+  assert.equal(nextWorkingDay(friday).getDay(), 1);
 });
