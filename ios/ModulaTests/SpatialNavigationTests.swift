@@ -270,3 +270,130 @@ final class SpatialNavigationTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class SpatialRecentsTests: XCTestCase {
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: "SpatialRecentsTests")
+        defaults.removePersistentDomain(forName: "SpatialRecentsTests")
+    }
+
+    func testRecordsNamedDestinationsNewestFirstWithoutDuplicates() {
+        SpatialRecents.note(.saved(.root), defaults: defaults)
+        SpatialRecents.note(.settings(.appearance(.root)), defaults: defaults)
+        SpatialRecents.note(.saved(.root), defaults: defaults)
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults).first, .saved(.root))
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults).count, 2)
+    }
+
+    func testIgnoresUnnamedOrTransientRoutes() {
+        SpatialRecents.note(.post("p1", .root), defaults: defaults)
+        SpatialRecents.note(.auth(.login), defaults: defaults)
+        SpatialRecents.note(.home(.following), defaults: defaults)
+        XCTAssertTrue(SpatialRecents.load(defaults: defaults).isEmpty)
+    }
+
+    func testKeepsModulesForTheRecentModulesSection() {
+        SpatialRecents.note(.module("digital.modula.vault-notes", localPath: nil), defaults: defaults)
+        XCTAssertEqual(SpatialRecents.load(defaults: defaults), [.module("digital.modula.vault-notes", localPath: nil)])
+    }
+
+    func testIsCapped() {
+        let routes: [AppRoute] = [.saved(.root), .drafts(.root), .collections(.root), .messages(.inbox), .settings(.root),
+                                  .settings(.moliboo), .settings(.privacy(.root)), .developer(.studio), .productHub(.featured),
+                                  .settings(.notifications(.root))]
+        routes.forEach { SpatialRecents.note($0, defaults: defaults) }
+        XCTAssertEqual(defaults.stringArray(forKey: SpatialRecents.key)?.count, SpatialRecents.limit)
+        XCTAssertLessThanOrEqual(SpatialRecents.load(defaults: defaults).count, SpatialRecents.limit)
+    }
+}
+
+@MainActor
+final class SpatialDockTests: XCTestCase {
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: "SpatialDockTests")
+        defaults.removePersistentDomain(forName: "SpatialDockTests")
+    }
+
+    func testPinsToggleAndKeepOrder() {
+        SpatialDockPins.toggle("a", defaults: defaults)
+        SpatialDockPins.toggle("b", defaults: defaults)
+        SpatialDockPins.toggle("c", defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "b", "c"])
+        SpatialDockPins.toggle("b", defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c"])
+        XCTAssertFalse(SpatialDockPins.isPinned("b", defaults: defaults))
+    }
+
+    func testArrangeMovesWithinBounds() {
+        ["a", "b", "c"].forEach { SpatialDockPins.toggle($0, defaults: defaults) }
+        SpatialDockPins.move("c", by: -1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("a", by: -1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("b", by: 5, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("missing", by: 1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+    }
+
+    func testSortOrders() {
+        let modules = [
+            module("m.zeta", name: "Zeta", publisher: "Acme"),
+            module("m.alpha", name: "alpha", publisher: "Zed"),
+            module("m.beta", name: "Beta", publisher: "Acme"),
+        ]
+        XCTAssertEqual(SpatialDockSort.name.sorted(modules, recents: []).map(\.id), ["m.alpha", "m.beta", "m.zeta"])
+        XCTAssertEqual(SpatialDockSort.publisher.sorted(modules, recents: []).map(\.id), ["m.beta", "m.zeta", "m.alpha"])
+        XCTAssertEqual(SpatialDockSort.recent.sorted(modules, recents: ["m.zeta", "m.beta"]).map(\.id), ["m.zeta", "m.beta", "m.alpha"])
+    }
+
+    func testEntryPointIsTheRegisteredModuleRoute() {
+        let tile = module("digital.modula.vault-notes", name: "Vault Notes", publisher: "Modula")
+        XCTAssertEqual(tile.entryPoint, .module("digital.modula.vault-notes", localPath: nil))
+    }
+
+    private func module(_ id: String, name: String, publisher: String) -> SpatialDockModule {
+        SpatialDockModule(product: CatalogueProduct(
+            moduleId: id, productKind: "module", name: name, description: "", publisherId: publisher.lowercased(),
+            publisherName: publisher, latestVersion: "1.0.0", status: "published", installable: true,
+            platforms: ["ios"], betaClassification: nil, installability: nil
+        ), runnable: true)
+    }
+}
+
+@MainActor
+final class SpatialFeatureFlagTests: XCTestCase {
+    func testDefaultsOnInDebugAndFollowsTheLabsSwitch() {
+        let defaults = UserDefaults(suiteName: "SpatialFeatureFlagTests")!
+        defaults.removePersistentDomain(forName: "SpatialFeatureFlagTests")
+        #if DEBUG
+        XCTAssertTrue(SpatialNavigationFeature.defaultValue)
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: defaults))
+        #else
+        XCTAssertFalse(SpatialNavigationFeature.defaultValue)
+        #endif
+        defaults.set(false, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: defaults))
+        defaults.set(true, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: defaults))
+    }
+
+    func testRoutingFollowsTheFlagAtCallTime() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = false
+        navigation.select(.profile)
+        XCTAssertEqual(navigation.selectedTab, .profile)
+        navigation.spatialEnabledOverride = true
+        navigation.select(.home)
+        navigation.select(.profile)
+        XCTAssertEqual(navigation.selectedTab, .home)
+        XCTAssertTrue(navigation.spatial.isProfileOpen)
+    }
+}

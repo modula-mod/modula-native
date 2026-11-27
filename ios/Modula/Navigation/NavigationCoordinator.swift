@@ -74,6 +74,7 @@ final class NavigationCoordinator {
         open(route); return true
     }
     func open(_ route: AppRoute) {
+        SpatialRecents.note(route)
         if routeSpatially(route) { return }
         // Edit Profile is a task on top of wherever you are, never a tab root swap.
         switch route {

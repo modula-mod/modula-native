@@ -184,6 +184,8 @@
 		5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
+		A89B6A52EB1E9CCC2F94B6C3 /* SpatialModulesDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79B6A52EB1E9CCC2F94B6C3 /* SpatialModulesDock.swift */; };
+		A8B5A89A79BFCEC3EE28ECF1 /* SpatialRecents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B5A89A79BFCEC3EE28ECF1 /* SpatialRecents.swift */; };
 		A8DE40B421667C89E1926F20 /* SpatialSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7DE40B421667C89E1926F20 /* SpatialSurfaces.swift */; };
 		A8DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift */; };
 		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
@@ -726,6 +728,8 @@
 		1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusContextBudget.swift; path = Core/Intelligence/Nodus/Reasoning/NodusContextBudget.swift; sourceTree = "<group>"; };
 		206E73E88F38E0B83B3CDED7 /* NodusKnowledgeRetriever.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeRetriever.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeRetriever.swift; sourceTree = "<group>"; };
 		2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationCoordinator.swift; path = Navigation/NavigationCoordinator.swift; sourceTree = "<group>"; };
+		A79B6A52EB1E9CCC2F94B6C3 /* SpatialModulesDock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpatialModulesDock.swift; path = Navigation/SpatialModulesDock.swift; sourceTree = "<group>"; };
+		A7B5A89A79BFCEC3EE28ECF1 /* SpatialRecents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpatialRecents.swift; path = Navigation/SpatialRecents.swift; sourceTree = "<group>"; };
 		A7DE40B421667C89E1926F20 /* SpatialSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpatialSurfaces.swift; path = Navigation/SpatialSurfaces.swift; sourceTree = "<group>"; };
 		A7DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpatialNavigationCoordinator.swift; path = Navigation/SpatialNavigationCoordinator.swift; sourceTree = "<group>"; };
 		35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaBridge.swift; path = ModuleRuntime/Bridge/ModulaBridge.swift; sourceTree = "<group>"; };
@@ -1546,6 +1550,8 @@
 				5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
+				A79B6A52EB1E9CCC2F94B6C3 /* SpatialModulesDock.swift */,
+				A7B5A89A79BFCEC3EE28ECF1 /* SpatialRecents.swift */,
 				A7DE40B421667C89E1926F20 /* SpatialSurfaces.swift */,
 				A7DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
@@ -2340,6 +2346,8 @@
 				5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
 				045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */,
+				A89B6A52EB1E9CCC2F94B6C3 /* SpatialModulesDock.swift in Sources */,
+				A8B5A89A79BFCEC3EE28ECF1 /* SpatialRecents.swift in Sources */,
 				A8DE40B421667C89E1926F20 /* SpatialSurfaces.swift in Sources */,
 				A8DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift in Sources */,
 				490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */,

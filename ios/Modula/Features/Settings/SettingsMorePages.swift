@@ -269,6 +269,7 @@ struct LabsSettingsHost: View {
     @AppStorage("settings.labs.experimentalChrome") private var experimentalChrome = false
     @AppStorage("settings.labs.debugOverlays") private var debugOverlays = false
     @AppStorage("settings.labs.verboseLogging") private var verboseLogging = false
+    @AppStorage(SpatialNavigationFeature.enabledKey) private var gestureNavigation = SpatialNavigationFeature.defaultValue
 
     var body: some View {
         switch route {
@@ -280,8 +281,10 @@ struct LabsSettingsHost: View {
                     Toggle("Experimental bottom chrome", isOn: $experimentalChrome)
                     Toggle("Debug overlay", isOn: $debugOverlays)
                     Toggle("Verbose network logging", isOn: $verboseLogging)
+                    Toggle("Gesture navigation", isOn: $gestureNavigation)
+                        .accessibilityIdentifier("settings.labs.gestureNavigation")
                 }
-                SettingsAPIFootnote(text: "Experimental bottom chrome swaps the system tab bar for Modula’s floating bar. The debug overlay shows route, network, power and motion state. Verbose logging writes request method, path, status and timing (never headers or content) to the device log.")
+                SettingsAPIFootnote(text: "Experimental bottom chrome swaps the system tab bar for Modula’s floating bar. The debug overlay shows route, network, power and motion state. Verbose logging writes request method, path, status and timing (never headers or content) to the device log. Gesture navigation opens Profile as a sheet from the right edge, the sidebar from the left and the Modules Dock by swiping up on the bottom bar; every gesture also has a button.")
             }
             .navigationTitle("Labs")
             .navigationBarTitleDisplayMode(.inline)
