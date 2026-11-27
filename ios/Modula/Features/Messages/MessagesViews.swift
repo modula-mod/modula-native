@@ -49,6 +49,8 @@ struct MessagesRootView: View {
         .modulaCanvas()
         .navigationBarBackButtonHidden(false)
         .toolbar(.hidden, for: .tabBar)
+        // Messaging batch 1: scheduled messages go out while any messaging screen is open.
+        .messagingScheduleDispatcher()
     }
 
     /// Inbox and an open thread share a sidebar on iPad; requests, In-Mail and new-chat stay full screen.
@@ -553,8 +555,21 @@ struct ConversationListView: View {
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         if conversation.isUnread, app.messaging.capabilities.markRead {
                             Button {
+                                MessagingExtras.shared.clearUnreadMark(conversation.id)
                                 Task { await app.messaging.markConversationRead(conversation.id) }
                             } label: { Label("Read", systemImage: "checkmark.message.fill") }
+                            .tint(app.appearance.liveAccent)
+                        } else if MessagingExtras.shared.isMarkedUnread(conversation.id) {
+                            Button {
+                                MessagingExtras.shared.clearUnreadMark(conversation.id)
+                                HapticEngine.shared.play(.selection)
+                            } label: { Label("Read", systemImage: "checkmark.message.fill") }
+                            .tint(app.appearance.liveAccent)
+                        } else {
+                            Button {
+                                MessagingExtras.shared.markUnread(conversation.id)
+                                HapticEngine.shared.play(.selection)
+                            } label: { Label("Unread", systemImage: "message.badge.fill") }
                             .tint(app.appearance.liveAccent)
                         }
                     }
@@ -686,7 +701,17 @@ struct ConversationListView: View {
                systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash" : "pin") { togglePin(conversation) }
         if conversation.isUnread, app.messaging.capabilities.markRead {
             Button("Mark as Read", systemImage: "checkmark.message") {
+                MessagingExtras.shared.clearUnreadMark(conversation.id)
                 Task { await app.messaging.markConversationRead(conversation.id) }
+            }
+        } else if MessagingExtras.shared.isMarkedUnread(conversation.id) {
+            Button("Mark as Read", systemImage: "checkmark.message") {
+                MessagingExtras.shared.clearUnreadMark(conversation.id)
+            }
+        } else {
+            Button("Mark as Unread", systemImage: "message.badge") {
+                MessagingExtras.shared.markUnread(conversation.id)
+                HapticEngine.shared.play(.selection)
             }
         }
         if let person = conversation.participants.first {
@@ -1014,7 +1039,7 @@ struct ConversationRow: View {
     }
 
     var body: some View {
-        let unread = conversation.isUnread
+        let unread = conversation.isUnread || MessagingExtras.shared.isMarkedUnread(conversation.id)
         let accent = app.appearance.liveAccent
         HStack(alignment: .center, spacing: 12) {
             ConversationAvatar(participants: conversation.participants, unread: unread, size: dynamicTypeSize.isAccessibilitySize ? 40 : 50)
@@ -1109,6 +1134,8 @@ struct ConversationRow: View {
         parts.append(Self.relative(conversation.updatedAt))
         if conversation.isUnread {
             parts.append(String(localized: "\(conversation.unreadCount) unread"))
+        } else if MessagingExtras.shared.isMarkedUnread(conversation.id) {
+            parts.append("Marked as unread")
         } else {
             parts.append("Read")
         }
@@ -1226,6 +1253,11 @@ struct ConversationView: View {
     @State private var selectedMessageIDs: Set<MessageID> = []
     @State private var prefetchingOlder = false
     @State private var replyStackFor: MessageID?
+    @State private var selectingText: IdentifiedMessageText?
+    @State private var sharingText: IdentifiedMessageText?
+    @State private var showTranslate = false
+    @State private var translateText = ""
+    @State private var showSchedule = false
 
     var body: some View {
         thread
@@ -1264,6 +1296,12 @@ struct ConversationView: View {
                     )
                     .padding(.bottom, 6)
                     .transition(.opacity)
+                } else {
+                    ConversationExtrasHeader(
+                        conversationID: conversationID,
+                        onJump: { jumpTarget = $0 },
+                        onScheduled: { showSchedule = true }
+                    )
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -1335,6 +1373,14 @@ struct ConversationView: View {
             // Roadmap #14: links in this chat (bubbles and Chat info) open an inspector first,
             // so the real destination is visible before leaving the conversation.
             .messageLinkInspector()
+            .modifier(ConversationExtrasPresenter(
+                conversationID: conversationID,
+                selectingText: $selectingText,
+                sharingText: $sharingText,
+                showTranslate: $showTranslate,
+                translateText: translateText,
+                showSchedule: $showSchedule
+            ))
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
@@ -2036,6 +2082,22 @@ struct ConversationView: View {
             app.messaging.toggleStar(message.id)
         case "report":
             Task { _ = await app.messaging.report(message: message) }
+        case "pinMessage":
+            MessagingExtras.shared.togglePin(message)
+            HapticEngine.shared.play(.confirmation)
+        case "selectText":
+            selectingText = IdentifiedMessageText(text: MessageQuoteText.split(message.body.text).body)
+        case "shareMessage":
+            sharingText = IdentifiedMessageText(text: MessageQuoteText.split(message.body.text).body)
+        case "translate":
+            translateText = MessageQuoteText.split(message.body.text).body
+            showTranslate = true
+        case let id where id.hasPrefix("remind:"):
+            if let option = MessageReminderOption(rawValue: String(id.dropFirst(7))) {
+                let title = conversation.map { app.messaging.title(for: $0) } ?? "Chat"
+                HapticEngine.shared.play(.confirmation)
+                Task { await MessagingExtras.shared.remind(about: message, chatTitle: title, option: option) }
+            }
         case let id where id.hasPrefix("react:"):
             let emoji = String(id.dropFirst(6))
             MessageRecentTokenStore.rememberReaction(emoji)
@@ -2234,6 +2296,10 @@ struct ConversationComposerDock: View {
     var body: some View {
         VStack(spacing: 0) {
             smartReplies
+            MessageQuickReplySuggestions(composerText: text) { reply in
+                text = reply
+                focus.wrappedValue = true
+            }
             MessageRecentTokensRow(tokens: recent) { token in
                 insert(token)
             }
@@ -2658,6 +2724,8 @@ struct MessageBubble: View {
         }
         let starred = app.messaging.isStarred(message.id)
         items.insert(.init(id: "star", title: starred ? "Unstar" : "Star", systemImage: starred ? "star.slash" : "star"), at: min(1, items.count))
+        // Messaging batch 1: pin in chat, select text, translate (on-device), share, remind me.
+        items.insert(contentsOf: MessageExtraActions.items(for: message, local: local), at: min(2, items.count))
         if caps.reactions, !local {
             let emojis = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
             items.insert(.init(id: "react", title: "React", systemImage: "face.smiling",
@@ -3916,6 +3984,7 @@ struct ChatInfoSheet: View {
     @State private var nickname = ""
     @State private var confirmBlock = false
     @State private var blocked = false
+    @State private var showSchedule = false
 
     private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
     private var messages: [Message] { app.messaging.messages(for: conversationID) }
@@ -4008,6 +4077,21 @@ struct ChatInfoSheet: View {
                         }
                         .padding(.vertical, 10)
                     }
+                    infoGroup("Tools", footer: "Scheduled messages and quick replies are kept on this iPhone.") {
+                        ChatToolsSection(
+                            conversationID: conversationID,
+                            title: conversation.map { app.messaging.title(for: $0) } ?? "Chat",
+                            exportText: {
+                                ChatTranscriptExporter.transcript(
+                                    title: conversation.map { app.messaging.title(for: $0) } ?? "Chat",
+                                    messages: messages
+                                )
+                            },
+                            onSchedule: { showSchedule = true }
+                        ) { title, symbol, value, chevron in
+                            infoRow(title, symbol: symbol, value: value, chevron: chevron)
+                        }
+                    }
                     infoGroup("Actions") {
                         Button {
                             showsSearch = true
@@ -4082,6 +4166,7 @@ struct ChatInfoSheet: View {
             }
         }
         .presentationDetents([.large])
+        .sheet(isPresented: $showSchedule) { ChatScheduleSheet(conversationID: conversationID) }
         .onAppear { nickname = app.messaging.nicknames[conversationID] ?? "" }
         .onDisappear { app.messaging.setNickname(nickname, for: conversationID) }
         .accessibilityIdentifier("messages.info")
