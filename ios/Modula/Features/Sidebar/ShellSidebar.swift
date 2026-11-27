@@ -576,13 +576,11 @@ struct ShellSidebarView: View {
                   keywords: "chat dm inbox"),
             .init(id: "notifications", title: "Alerts", symbol: "bell",
                   route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0,
-                  keywords: "notifications activity"),
+                  keywords: "notifications alerts activity history"),
             .init(id: "reels", title: "Reels", symbol: "play.rectangle.on.rectangle",
                   route: .reels(.feed), requiresSignIn: false, keywords: "videos clips watch"),
             .init(id: "story", title: "New story", symbol: "circle.dashed.inset.filled",
                   route: .stories(.create), requiresSignIn: true, keywords: "stories camera add"),
-            .init(id: "vault", title: "Vault", symbol: "lock.doc",
-                  route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "notes"),
         ]
         if GubicFeature.enabled() {
             items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
