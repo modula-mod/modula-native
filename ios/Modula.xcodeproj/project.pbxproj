@@ -65,6 +65,7 @@
 		99CBEC9E23A4AF4672887C07 /* MolibooFitValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */; };
 		21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */; };
 		7A3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift */; };
+		A863011182256D60BCF119BA /* SpatialNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A763011182256D60BCF119BA /* SpatialNavigationTests.swift */; };
 		95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */; };
 		680D9256E1826DE4F3EAEA97 /* MOL03StudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */; };
 		23F9F9582ACCE39AAB61C618 /* MolibooBrand.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */; };
@@ -183,6 +184,8 @@
 		5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */; };
 		02ED22D448BC35987DA41C41 /* RuntimeDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007CD230CBDABCF2514B4866 /* RuntimeDiagnosticsView.swift */; };
 		045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */; };
+		A8DE40B421667C89E1926F20 /* SpatialSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7DE40B421667C89E1926F20 /* SpatialSurfaces.swift */; };
+		A8DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift */; };
 		083850E345065E6A6AB4731F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */; };
 		0D772D4E34456894E5A2A5FD /* libPods-ModulaTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DE7A82A7615F703ED7EFABC2 /* libPods-ModulaTests.a */; };
 		0D960245240024C1142077ED /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF0F5DFEB2FC30D2769C391 /* Foundation.framework */; };
@@ -605,6 +608,7 @@
 		B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooFitValidator.swift; sourceTree = "<group>"; };
 		9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03WardrobeTests.swift; sourceTree = "<group>"; };
 		8F3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MolibooCostumeTests.swift; sourceTree = "<group>"; };
+		A763011182256D60BCF119BA /* SpatialNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialNavigationTests.swift; sourceTree = "<group>"; };
 		8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03CollectionTests.swift; sourceTree = "<group>"; };
 		06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MOL03StudioTests.swift; sourceTree = "<group>"; };
 		53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = MolibooBrand.xcassets; path = Resources/Moliboo3D/MolibooBrand.xcassets; sourceTree = "<group>"; };
@@ -722,6 +726,8 @@
 		1A05D1CCD30E918E9BEC8E68 /* NodusContextBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusContextBudget.swift; path = Core/Intelligence/Nodus/Reasoning/NodusContextBudget.swift; sourceTree = "<group>"; };
 		206E73E88F38E0B83B3CDED7 /* NodusKnowledgeRetriever.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusKnowledgeRetriever.swift; path = Core/Intelligence/Nodus/Knowledge/NodusKnowledgeRetriever.swift; sourceTree = "<group>"; };
 		2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NavigationCoordinator.swift; path = Navigation/NavigationCoordinator.swift; sourceTree = "<group>"; };
+		A7DE40B421667C89E1926F20 /* SpatialSurfaces.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpatialSurfaces.swift; path = Navigation/SpatialSurfaces.swift; sourceTree = "<group>"; };
+		A7DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpatialNavigationCoordinator.swift; path = Navigation/SpatialNavigationCoordinator.swift; sourceTree = "<group>"; };
 		35DD2D0F98FBF95AC2D68618 /* ModulaBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaBridge.swift; path = ModuleRuntime/Bridge/ModulaBridge.swift; sourceTree = "<group>"; };
 		370553C58FD3D96B35F6C6AF /* IntelligenceRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IntelligenceRouter.swift; path = Core/Intelligence/Routing/IntelligenceRouter.swift; sourceTree = "<group>"; };
 		37BECD2968D22B6943830857 /* SignInView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = Core/Authentication/SignInView.swift; sourceTree = "<group>"; };
@@ -1158,6 +1164,7 @@
 				B2F5AECF0C4381A87D0DDF7F /* MolibooFitValidator.swift */,
 				9AE2EFB23974BDCACBE76C96 /* MOL03WardrobeTests.swift */,
 				8F3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift */,
+				A763011182256D60BCF119BA /* SpatialNavigationTests.swift */,
 				8415B91940EF56AAD117C257 /* MOL03CollectionTests.swift */,
 				06DB44C2F136EFCF899E8023 /* MOL03StudioTests.swift */,
 				R40100000000000000000050 /* SettingsRealFeaturesTests.swift */,
@@ -1539,6 +1546,8 @@
 				5F58083A4720CF4F63459061 /* SettingsSurfaceCards.swift */,
 				B1CE650B6C652A42BE2E3FE4 /* AppRoute.swift */,
 				2E3E6DEE1CD1A1469C273634 /* NavigationCoordinator.swift */,
+				A7DE40B421667C89E1926F20 /* SpatialSurfaces.swift */,
+				A7DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift */,
 				586EC2A3D1894A46296513D8 /* PrivacyInfo.xcprivacy */,
 				D4010000000000000000001A /* Assets.xcassets */,
 				53094F3F0B318C54A1D1D505 /* MolibooBrand.xcassets */,
@@ -2024,6 +2033,7 @@
 				99CBEC9E23A4AF4672887C07 /* MolibooFitValidator.swift in Sources */,
 				21C0A4BE4E3DEE15DDC6FE50 /* MOL03WardrobeTests.swift in Sources */,
 				7A3C1A92B0E64C7D9A55E118 /* MolibooCostumeTests.swift in Sources */,
+				A863011182256D60BCF119BA /* SpatialNavigationTests.swift in Sources */,
 				95A2A40B751C33992987DF6A /* MOL03CollectionTests.swift in Sources */,
 				680D9256E1826DE4F3EAEA97 /* MOL03StudioTests.swift in Sources */,
 				R50100000000000000000050 /* SettingsRealFeaturesTests.swift in Sources */,
@@ -2330,6 +2340,8 @@
 				5B083A4720CF4F634590613D /* SettingsSurfaceCards.swift in Sources */,
 				90EC78DC1C87A9562EC08717 /* AppRoute.swift in Sources */,
 				045022BFF07BCC1674A60821 /* NavigationCoordinator.swift in Sources */,
+				A8DE40B421667C89E1926F20 /* SpatialSurfaces.swift in Sources */,
+				A8DEBEDD2392AF100A02335F /* SpatialNavigationCoordinator.swift in Sources */,
 				490B3AA11BC41A7FD192FAA4 /* ModulaBridge.swift in Sources */,
 				2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */,
 				7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */,

@@ -6,6 +6,8 @@ import XCTest
 final class NativeFoundationTests: XCTestCase {
     func testNativeRoutingWithoutRuntime() {
         let coordinator = NavigationCoordinator()
+        // Classic tab routing (the Gesture Navigation profile sheet is covered in SpatialNavigationTests).
+        coordinator.spatialEnabledOverride = false
         coordinator.open(.productHub(.featured))
         coordinator.open(.productHub(.module("digital.modula.vault-notes", .overview)))
         XCTAssertEqual(coordinator.selectedTab, .modules)
