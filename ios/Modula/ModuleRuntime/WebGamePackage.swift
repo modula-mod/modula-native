@@ -2,11 +2,70 @@ import CryptoKit
 import Foundation
 import zlib
 
+/// One reviewed dispatch table for every signed/data-only package surface the
+/// native host understands. Category and schema are part of the dispatch key:
+/// a familiar media type in the wrong package shape remains unsupported.
+enum PackageMediaCompatibility {
+    enum PayloadKind: String, CaseIterable, Hashable, Sendable {
+        case molibooContent, stickerManifest, stickerAsset
+        case moduleContent, gubicGame, gubicRuntime
+    }
+
+    struct Rule: Equatable, Sendable {
+        let kind: PayloadKind
+        let schemaVersion: String
+        let category: String
+        let mediaType: String
+    }
+
+    static let packageSchemaVersion = "modula.package.1"
+    static let stickerSchemaVersion = "modula.sticker-pack.1"
+    static let moliboo = Rule(
+        kind: .molibooContent, schemaVersion: packageSchemaVersion, category: "asset-pack",
+        mediaType: "application/vnd.modula.moliboo-asset-pack+json"
+    )
+    static let stickerManifest = Rule(
+        kind: .stickerManifest, schemaVersion: stickerSchemaVersion, category: "sticker-manifest",
+        mediaType: "application/json"
+    )
+    static let stickerAsset = Rule(
+        kind: .stickerAsset, schemaVersion: stickerSchemaVersion, category: "sticker-asset",
+        mediaType: "image/png"
+    )
+    static let module = Rule(
+        kind: .moduleContent, schemaVersion: packageSchemaVersion, category: "module",
+        mediaType: "application/gzip"
+    )
+    static let gubicGame = Rule(
+        kind: .gubicGame, schemaVersion: packageSchemaVersion, category: "game-content",
+        mediaType: "application/vnd.modula.game-web+tgz"
+    )
+    static let gubicRuntime = Rule(
+        kind: .gubicRuntime, schemaVersion: packageSchemaVersion, category: "web-runtime",
+        mediaType: "application/vnd.modula.web-runtime+tgz"
+    )
+
+    static let rules = [moliboo, stickerManifest, stickerAsset, module, gubicGame, gubicRuntime]
+    static let legacyGubicArchiveMediaType = "application/gzip"
+    static let gubicInstalledArtifactMediaTypes = Set([legacyGubicArchiveMediaType, gubicGame.mediaType])
+    /// Migration 077 introduced these generic blob types. Native does not execute
+    /// the generic asset archive, but later migrations must preserve its storage.
+    static let preMolibooOptionalDatabaseMediaTypes = Set([
+        gubicGame.mediaType, gubicRuntime.mediaType, "application/vnd.modula.asset-pack+tgz"
+    ])
+
+    static func dispatch(schemaVersion: String, category: String, mediaType: String) -> PayloadKind? {
+        rules.first {
+            $0.schemaVersion == schemaVersion && $0.category == category && $0.mediaType == mediaType
+        }?.kind
+    }
+}
+
 enum WebGamePackageError: Error, LocalizedError {
     case invalid(String)
 
     var errorDescription: String? {
-        if case .invalid(let reason) = self { return "Game package rejected: \(reason)" }
+        if case .invalid(let reason) = self { return "Downloaded package rejected: \(reason)" }
         return nil
     }
 }
@@ -15,7 +74,7 @@ enum WebGamePackageError: Error, LocalizedError {
 /// This deliberately accepts only regular ustar files; links, PAX extensions,
 /// devices, nested archives, and native binaries are not game content.
 struct WebGamePackage {
-    static let mediaType = "application/vnd.modula.game-web+tgz"
+    static let mediaType = PackageMediaCompatibility.gubicGame.mediaType
     static let maximumCompressedBytes = 50 * 1_024 * 1_024
     static let maximumExpandedBytes = 64 * 1_024 * 1_024
     let sha256: String
@@ -176,13 +235,13 @@ struct WebGamePackage {
     static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
-    private static func safe(_ path: String) -> Bool {
+    fileprivate static func safe(_ path: String) -> Bool {
         path.count > 0 && path.count <= 100 && !path.hasPrefix("/") && !path.contains("\\") &&
         path.utf8.allSatisfy { (48...57).contains($0) || (65...90).contains($0) ||
             (97...122).contains($0) || $0 == 45 || $0 == 46 || $0 == 95 || $0 == 47 } &&
         !path.split(separator: "/", omittingEmptySubsequences: false).contains { $0 == "." || $0 == ".." || $0.isEmpty }
     }
-    private static func nativePayload(_ path: String) -> Bool {
+    fileprivate static func nativePayload(_ path: String) -> Bool {
         let lower = path.lowercased()
         return [".app", ".framework", ".dylib", ".so", ".dll", ".exe", ".node", ".ipa", ".a", ".o", ".wasm", ".jar", ".class", ".cs"].contains { lower.hasSuffix($0) || lower.contains("\($0)/") }
     }
@@ -431,6 +490,7 @@ enum WebGameDocumentPolicy {
 /// A signed web-runtime archive has one engine module and no HTML entry point.
 /// It is parsed with the same strict ustar and native-payload checks as game content.
 struct WebRuntimePackage {
+    static let mediaType = PackageMediaCompatibility.gubicRuntime.mediaType
     let sha256: String
     let archive: Data
     let engine: Data
@@ -449,5 +509,118 @@ struct WebRuntimePackage {
         self.sha256 = expectedSha256
         self.archive = archive
         self.engine = engine
+    }
+}
+
+/// A content-only module package uses the same fail-closed archive rules as a
+/// web game but never exposes downloaded bytes as executable code. Its Product
+/// UI document is the only entry the existing declarative ModuleHost consumes.
+struct ModuleContentPackage {
+    static let mediaType = PackageMediaCompatibility.module.mediaType
+    static let frontendPath = "frontend/frontend.manifest.json"
+
+    let sha256: String
+    let archive: Data
+    let files: [String: Data]
+    let frontend: Data
+
+    init(archive: Data, expectedSha256: String) throws {
+        var members = try WebGamePackage.members(archive: archive, expectedSha256: expectedSha256)
+        guard let inventoryData = members.removeValue(forKey: "package.files.json"),
+              let inventory = try? JSONDecoder().decode(WebGamePackage.Inventory.self, from: inventoryData),
+              inventory.schema == "modula.package-files.1",
+              Set(inventory.files.keys) == Set(members.keys),
+              let frontend = members[Self.frontendPath] else {
+            throw WebGamePackageError.invalid("module inventory or frontend")
+        }
+        for (path, bytes) in members where inventory.files[path] != WebGamePackage.digest(bytes) {
+            throw WebGamePackageError.invalid("module member digest: \(path)")
+        }
+        self.sha256 = expectedSha256
+        self.archive = archive
+        files = members
+        self.frontend = frontend
+    }
+
+    func install(in parent: URL) throws -> URL {
+        let destination = parent.appendingPathComponent(sha256, isDirectory: true)
+        let partial = parent.appendingPathComponent("\(sha256).partial", isDirectory: true)
+        let manager = FileManager.default
+        try manager.createDirectory(at: parent, withIntermediateDirectories: true)
+        if manager.fileExists(atPath: partial.path) { try manager.removeItem(at: partial) }
+        try manager.createDirectory(at: partial, withIntermediateDirectories: true)
+        do {
+            for (path, bytes) in files {
+                let target = partial.appendingPathComponent(path)
+                try manager.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try bytes.write(to: target, options: .atomic)
+            }
+            let inventory = WebGamePackage.Inventory(
+                schema: "modula.package-files.1", files: files.mapValues(WebGamePackage.digest)
+            )
+            try JSONEncoder().encode(inventory).write(
+                to: partial.appendingPathComponent("package.files.json"), options: .atomic
+            )
+            if manager.fileExists(atPath: destination.path) { try manager.removeItem(at: destination) }
+            try manager.moveItem(at: partial, to: destination)
+            return destination
+        } catch {
+            try? manager.removeItem(at: partial)
+            throw error
+        }
+    }
+
+    /// Revalidates both the immutable archive and every extracted member on
+    /// each launch. Extra files, links, replacements, and partial installs fail.
+    static func verifyInstalled(
+        at directory: URL,
+        archiveURL: URL,
+        expectedSha256: String
+    ) throws -> Data {
+        let archiveValues = try archiveURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard archiveValues.isRegularFile == true, archiveValues.isSymbolicLink != true else {
+            throw WebGamePackageError.invalid("module archive type")
+        }
+        let trusted = try ModuleContentPackage(
+            archive: Data(contentsOf: archiveURL), expectedSha256: expectedSha256
+        )
+        let rootValues = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard directory.lastPathComponent == expectedSha256,
+              rootValues.isDirectory == true, rootValues.isSymbolicLink != true,
+              let inventoryData = try? Data(contentsOf: directory.appendingPathComponent("package.files.json")),
+              let inventory = try? JSONDecoder().decode(WebGamePackage.Inventory.self, from: inventoryData),
+              inventory.schema == "modula.package-files.1",
+              inventory.files == trusted.files.mapValues(WebGamePackage.digest) else {
+            throw WebGamePackageError.invalid("installed module inventory")
+        }
+        let manager = FileManager.default
+        let members = try manager.subpathsOfDirectory(atPath: directory.path)
+        var actual: [String] = []
+        for path in members {
+            guard WebGamePackage.safe(path) else { throw WebGamePackageError.invalid("installed module path") }
+            let values = try directory.appendingPathComponent(path).resourceValues(
+                forKeys: [.isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey]
+            )
+            guard values.isSymbolicLink != true else { throw WebGamePackageError.invalid("installed module link") }
+            if values.isDirectory == true { continue }
+            guard values.isRegularFile == true else { throw WebGamePackageError.invalid("installed module member type") }
+            actual.append(path)
+        }
+        guard Set(actual) == Set(inventory.files.keys).union(["package.files.json"]),
+              Set(actual.map { $0.lowercased() }).count == actual.count else {
+            throw WebGamePackageError.invalid("installed module member set")
+        }
+        for (path, digest) in inventory.files {
+            guard WebGamePackage.safe(path), !WebGamePackage.nativePayload(path) else {
+                throw WebGamePackageError.invalid("installed module path")
+            }
+            let url = directory.appendingPathComponent(path)
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true,
+                  let bytes = try? Data(contentsOf: url), WebGamePackage.digest(bytes) == digest else {
+                throw WebGamePackageError.invalid("installed module digest: \(path)")
+            }
+        }
+        return trusted.frontend
     }
 }

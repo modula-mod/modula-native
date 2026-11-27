@@ -44,6 +44,13 @@ struct DraftsView: View {
                     .modulaAccentCTA()
                 }
             }
+            if app.drafts.capabilities.serverPostDrafts, let error = app.drafts.syncError {
+                Section {
+                    Label(error, systemImage: "arrow.triangle.2.circlepath.icloud")
+                        .foregroundStyle(.secondary)
+                    Button("Retry Sync") { Task { await app.drafts.refresh() } }
+                }
+            }
             Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -70,10 +77,22 @@ struct DraftsView: View {
             } else {
                 Section {
                     ForEach(items) { item in
-                        DraftRow(item: item) {
-                            continueDraft(kind: item.kind, id: item.id)
-                        } onDelete: {
-                            pendingDiscard = (item.kind, item.id)
+                        VStack(alignment: .leading, spacing: 8) {
+                            DraftRow(item: item) {
+                                continueDraft(kind: item.kind, id: item.id)
+                            } onDelete: {
+                                pendingDiscard = (item.kind, item.id)
+                            }
+                            if app.drafts.capabilities.serverPostDrafts, item.kind == .post, item.syncState == .conflict {
+                                Text("This draft changed on another device. Both versions are preserved until you choose.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                HStack {
+                                    Button("Use Server") { app.drafts.resolveConflictUsingServer(id: item.id) }
+                                    Button("Keep Both") { app.drafts.resolveConflictKeepingLocal(id: item.id) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
                         }
                     }
                 }
@@ -82,12 +101,20 @@ struct DraftsView: View {
                 if let saved = app.drafts.lastSavedAt {
                     ModulaAutosaveIndicator(savedAt: saved)
                 }
-                Text("Drafts are saved automatically. They’re stored on this device. There isn’t a drafts API.")
+                Text(app.drafts.capabilities.serverPostDrafts
+                     ? "Post drafts sync with your account and keep a private offline cache. Story and In-Mail drafts remain device-only because their server contracts are separate."
+                     : "Drafts are saved automatically. They’re stored on this device. There isn’t a drafts API.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
         .modulaSoftScrollEdge()
+        .refreshableIf(app.drafts.capabilities.serverPostDrafts) { await app.drafts.refresh() }
+        .task {
+            if app.drafts.capabilities.serverPostDrafts {
+                await app.drafts.refresh()
+            }
+        }
         .modulaCanvas()
         .navigationTitle("Drafts")
         .accessibilityIdentifier("drafts.root")
@@ -135,6 +162,7 @@ struct DraftsView: View {
 }
 
 struct DraftRow: View {
+    @Environment(AppEnvironment.self) private var app
     let item: DraftLibraryItem
     var onContinue: () -> Void
     var onDelete: () -> Void
@@ -169,6 +197,11 @@ struct DraftRow: View {
                         }
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    }
+                    if app.drafts.capabilities.serverPostDrafts, item.kind == .post {
+                        Label(syncLabel, systemImage: syncSymbol)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -210,6 +243,26 @@ struct DraftRow: View {
         case .story: "circle.dashed"
         }
     }
+
+    private var syncLabel: String {
+        switch item.syncState {
+        case .synced: "Synced"
+        case .pending: "Waiting to sync"
+        case .conflict: "Needs review"
+        case .failed: "Sync failed"
+        case .localOnly: "On this device"
+        }
+    }
+
+    private var syncSymbol: String {
+        switch item.syncState {
+        case .synced: "checkmark.icloud"
+        case .pending: "arrow.triangle.2.circlepath.icloud"
+        case .conflict: "exclamationmark.arrow.triangle.2.circlepath"
+        case .failed: "icloud.slash"
+        case .localOnly: "iphone"
+        }
+    }
 }
 
 /// Offered when opening compose with an existing draft.
@@ -245,5 +298,17 @@ struct DraftRestorePrompt: View {
         }
         .padding(20)
         .accessibilityIdentifier("drafts.restore")
+    }
+}
+
+
+private extension View {
+    @ViewBuilder
+    func refreshableIf(_ enabled: Bool, action: @escaping @Sendable () async -> Void) -> some View {
+        if enabled {
+            self.refreshable(action: action)
+        } else {
+            self
+        }
     }
 }

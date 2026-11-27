@@ -168,8 +168,10 @@ struct PremiumHubView: View {
             return
         }
         do {
-            try await PremiumRemote.loadTiers(client: app.client)
-            catalogueNote = "Live catalogue loaded. It has no declared price fields, so the prices above stay the on-device catalogue."
+            _ = try await PremiumRemote.loadTiers(client: app.client)
+            await app.premiumPurchases.prepare()
+            catalogueNote = app.premiumPurchases.message
+                ?? "GreenField’s confirmed Apple Sandbox mappings are available. Apple supplies the checkout price."
         } catch {
             catalogueNote = "Couldn’t refresh the live catalogue. Showing the on-device catalogue."
         }
@@ -437,7 +439,7 @@ struct PremiumDeveloperCard: View {
                     .pickerStyle(.menu)
                     .accessibilityIdentifier("premium.debugPlan")
                 }
-                Text("Local preview only. Never saved to your account or sent to Modula. No purchases exist yet.")
+                Text("Local presentation preview only. It never changes GreenField membership or substitutes for an Apple Sandbox purchase.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -448,7 +450,6 @@ struct PremiumDeveloperCard: View {
     }
 }
 #endif
-
 
 // MARK: - Reference redesign pieces
 

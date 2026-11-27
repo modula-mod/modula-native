@@ -2,80 +2,110 @@ import SwiftUI
 
 struct CommunitySettingsView: View {
     @Environment(AppEnvironment.self) private var app
-    @State private var settings = CommunityLocalSettings.load()
+    @State private var draft: CommunitySettingsDraft?
 
-    private var accent: Color { app.appearance.liveAccent }
+    private var canManage: Bool { app.communities.capabilities.canManage }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text(CommunityCopy.settingsFootnote)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                identity
-                section("Identity", footnote: "Shown only on this device") {
-                    field("Community name", prompt: "Name people would see", text: $settings.displayName)
-                    field("Description", prompt: "A short summary", text: $settings.summary, axis: .vertical)
-                    comingSoonRow("Community icon", symbol: "photo")
-                    comingSoonRow("Cover image", symbol: "photo.on.rectangle")
+                if !app.auth.isSignedIn {
+                    ModulaEmptyState(title: "Sign in required", message: "Sign in to manage community preferences.", symbol: "person.crop.circle")
+                } else if app.communities.contentState.isLoading && draft == nil {
+                    ProgressView("Loading settings…")
+                        .frame(maxWidth: .infinity).padding(.vertical, 40)
+                } else if let binding = Binding($draft) {
+                    settingsForm(binding)
+                } else {
+                    ModulaEmptyState(
+                        title: "Settings unavailable",
+                        message: app.communities.contentState.message ?? "Join this community to manage its settings.",
+                        symbol: "gearshape"
+                    )
                 }
-                section("Analytics", footnote: CommunityCopy.analyticsUnavailable) {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        analytic("Member growth")
-                        analytic("Posts")
-                        analytic("Replies")
-                        analytic("Engagement")
-                    }
-                }
-                section("Membership", footnote: "Not published") {
-                    Picker("Community type", selection: $settings.isPrivate) {
-                        Text("Public").tag(false)
-                        Text("Private").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    Toggle("Join approval", isOn: $settings.joinApproval)
-                    Toggle("Invite links", isOn: $settings.inviteLinks)
-                }
-                section("Posting", footnote: "Not published") {
-                    Picker("Who can post", selection: $settings.adminsOnlyPosting) {
-                        Text("Everyone").tag(false)
-                        Text("Admins").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    Toggle("Allow file attachments", isOn: $settings.allowAttachments)
-                    Toggle("Reactions", isOn: $settings.reactions)
-                    Toggle("Featured posts", isOn: $settings.featuredPosts)
-                }
-                section("Moderation", footnote: "No moderation queue yet") {
-                    comingSoonRow("Admins", symbol: "person.2.badge.gearshape")
-                    comingSoonRow("Community rules", symbol: "list.bullet.rectangle")
-                    comingSoonRow("Auto filters", symbol: "line.3.horizontal.decrease")
-                    comingSoonRow("Report queue", symbol: "flag")
-                }
-                section("Notifications", footnote: "On this device") {
-                    Toggle("Mentions", isOn: $settings.notifyMentions)
-                    Toggle("Weekly digest", isOn: $settings.weeklyDigest)
-                    Toggle("Event reminders", isOn: $settings.eventReminders)
-                }
-                section("Safety", footnote: "On this device") {
-                    field("Blocked words", prompt: "Words to hide locally", text: $settings.blockedWords, axis: .vertical)
-                    comingSoonRow("Archived members", symbol: "person.crop.circle.badge.minus")
-                }
-                Button(action: save) {
-                    Text("Save")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 48)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .modulaAccentCTA()
-                .accessibilityIdentifier("community.settings.save")
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 12)
         }
         .modulaSoftScrollEdge()
+        .task { await app.communities.loadBuildersIfNeeded(signedIn: app.auth.isSignedIn) }
+        .task(id: app.communities.settings?.version) { synchronizeDraft() }
+    }
+
+    @ViewBuilder
+    private func settingsForm(_ draft: Binding<CommunitySettingsDraft>) -> some View {
+        if let message = app.communities.actionError {
+            CommunityStateBanner(message: message, symbol: "exclamationmark.triangle")
+        }
+        identity
+        if !canManage {
+            CommunityStateBanner(
+                message: "Your server role allows notification preferences only. Administrator settings are read-only.",
+                symbol: "lock"
+            )
+        }
+        section("Identity", footnote: canManage ? "Published to GreenField" : "Administrator only") {
+            field("Community name", prompt: "Community name", text: draft.name)
+            field("Description", prompt: "A short summary", text: draft.description, axis: .vertical)
+        }
+        .disabled(!canManage)
+        section("Membership", footnote: canManage ? "Server-enforced policy" : "Administrator only") {
+            Picker("Community type", selection: draft.visibility) {
+                Text("Public").tag(CommunityVisibility.public)
+                Text("Private").tag(CommunityVisibility.private)
+            }
+            .pickerStyle(.segmented)
+            Picker("Join policy", selection: draft.membershipPolicy) {
+                Text("Open").tag(CommunityMembershipPolicy.open)
+                Text("Approval").tag(CommunityMembershipPolicy.approval)
+            }
+            .pickerStyle(.segmented)
+            Toggle("Invite links", isOn: draft.inviteLinksEnabled)
+        }
+        .disabled(!canManage)
+        section("Posting", footnote: canManage ? "Server-enforced policy" : "Administrator only") {
+            Picker("Who can post", selection: draft.postingPolicy) {
+                Text("Members").tag(CommunityPostingPolicy.members)
+                Text("Moderators").tag(CommunityPostingPolicy.moderators)
+            }
+            .pickerStyle(.segmented)
+            Toggle("Allow file attachments", isOn: draft.allowAttachments)
+            Toggle("Reactions", isOn: draft.reactionsEnabled)
+            Toggle("Featured posts", isOn: draft.featuredPostsEnabled)
+        }
+        .disabled(!canManage)
+        section("Moderation", footnote: canManage ? "Applied by GreenField" : "Administrator only") {
+            field("Blocked words", prompt: "Comma-separated words", text: draft.blockedWords, axis: .vertical)
+        }
+        .disabled(!canManage)
+        section("Notifications", footnote: "Your membership preferences") {
+            Toggle("Mentions", isOn: draft.notifyMentions)
+            Toggle("Weekly digest", isOn: draft.weeklyDigest)
+            Toggle("Event reminders", isOn: draft.eventReminders)
+        }
+        Button {
+            Task {
+                guard let value = self.draft else { return }
+                if await app.communities.saveSettings(value) {
+                    synchronizeDraft()
+                    HapticEngine.shared.play(.success)
+                    app.navigation.flash("Community settings saved", symbol: "checkmark.circle")
+                } else {
+                    HapticEngine.shared.play(.failure)
+                }
+            }
+        } label: {
+            Group {
+                if app.communities.actionInProgress { ProgressView() } else { Text("Save") }
+            }
+            .font(.headline)
+            .frame(maxWidth: .infinity).frame(minHeight: 48)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .modulaAccentCTA()
+        .disabled(app.communities.actionInProgress)
+        .accessibilityIdentifier("community.settings.save")
     }
 
     private var identity: some View {
@@ -83,11 +113,10 @@ struct CommunitySettingsView: View {
             HStack(spacing: 12) {
                 CommunityMark()
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(settings.shownName)
+                    Text(app.communities.selectedCommunity?.summary.name ?? CommunityCopy.buildersTitle)
                         .font(.headline)
-                    Text(CommunityCopy.buildersStatus)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(app.communities.selectedCommunity?.summary.viewerRole?.rawValue.capitalized ?? "Community member")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
@@ -102,130 +131,46 @@ struct CommunitySettingsView: View {
 
     private func field(_ title: String, prompt: String, text: Binding<String>, axis: Axis = .horizontal) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-            TextField(prompt, text: text, axis: axis)
-                .textFieldStyle(.roundedBorder)
+            Text(title).font(.subheadline.weight(.semibold))
+            TextField(prompt, text: text, axis: axis).textFieldStyle(.roundedBorder)
         }
         .padding(.vertical, 4)
     }
 
-    private func analytic(_ title: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("—")
-                .font(.title3.weight(.semibold))
-                .accessibilityLabel("Not available")
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private func comingSoonRow(_ title: String, symbol: String) -> some View {
-        Button {
-            app.navigation.flash(CommunityCopy.comingSoon, symbol: "clock")
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: symbol)
-                    .frame(width: 28)
-                    .foregroundStyle(accent)
-                Text(title)
-                    .font(.body)
-                Spacer()
-                Text(CommunityCopy.comingSoon)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(minHeight: 44)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func save() {
-        settings.save()
-        HapticEngine.shared.play(.success)
-        app.navigation.flash(CommunityCopy.savedOnDevice, symbol: "checkmark.circle")
+    private func synchronizeDraft() {
+        guard let community = app.communities.selectedCommunity,
+              let settings = app.communities.settings else { return }
+        draft = CommunitySettingsDraft(community: community, settings: settings)
     }
 }
 
 struct CommunityPollView: View {
     @Environment(AppEnvironment.self) private var app
-    @State private var postID = ""
-    @State private var rows: [CommunityPollRow] = []
-    @State private var lookedUp = false
-    @State private var loading = false
-    @State private var message: String?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 CommunityPanel {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Community poll")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
-                        Text("No community poll feed")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("COMMUNITY POLLS").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                        Text(app.communities.selectedCommunity?.summary.name ?? CommunityCopy.buildersTitle)
                             .font(.title2.bold())
-                        Text(CommunityCopy.pollFootnote)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        Text("Vote results and your selected option come from GreenField.")
+                            .font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Post id", text: $postID)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("community.poll.postID")
-                    Button(action: { Task { await load() } }) {
-                        Group {
-                            if loading {
-                                ProgressView()
-                            } else {
-                                Text("Look up comment polls")
-                            }
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.white)
-                    .modulaAccentCTA()
-                    .disabled(loading || !CommunityPollListing.acceptsPostID(postID))
-                    .accessibilityIdentifier("community.poll.load")
-                    if !app.auth.isSignedIn {
-                        Text("Sign in to vote. Looking up comments does not require a vote.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                if let message = app.communities.actionError {
+                    CommunityStateBanner(message: message, symbol: "exclamationmark.triangle")
                 }
-                if let message {
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("community.poll.message")
-                }
-                if lookedUp && rows.isEmpty && message == nil {
-                    CommunityPanel {
-                        Text("This post has no comment polls.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                ForEach(rows) { row in
-                    CommunityPanel {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if !row.comment.text.isEmpty {
-                                Text(row.comment.text)
-                                    .font(.subheadline)
-                            }
-                            CommentPollView(poll: row.poll) { option in
-                                Task { await vote(row, option: option) }
-                            }
+                if app.communities.contentState.isLoading && app.communities.polls.isEmpty {
+                    ProgressView("Loading polls…").frame(maxWidth: .infinity).padding(.vertical, 36)
+                } else if app.communities.polls.isEmpty {
+                    ModulaEmptyState(title: "No polls", message: CommunityCopy.pollsEmpty, symbol: "chart.bar")
+                } else {
+                    ForEach(app.communities.polls) { poll in
+                        pollCard(poll)
+                        if poll.id == app.communities.polls.last?.id, app.communities.pollsNextCursor != nil {
+                            ProgressView().task { await app.communities.loadMorePolls() }
                         }
                     }
                 }
@@ -234,51 +179,52 @@ struct CommunityPollView: View {
             .padding(.vertical, 12)
         }
         .modulaSoftScrollEdge()
+        .refreshable { await app.communities.refreshSelected(signedIn: app.auth.isSignedIn) }
+        .task { await app.communities.loadBuildersIfNeeded(signedIn: app.auth.isSignedIn) }
     }
 
-    private func load() async {
-        let id = postID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard CommunityPollListing.acceptsPostID(id) else { return }
-        loading = true
-        message = nil
-        defer { loading = false }
-        do {
-            let repository = GreenfieldPostRepository(client: app.client)
-            let page = try await repository.comments(postID: id, cursor: nil)
-            rows = CommunityPollListing.rows(in: page.items)
-            lookedUp = true
-        } catch {
-            rows = []
-            lookedUp = true
-            message = (error as? APIError)?.userFacingMessage ?? "Couldn’t load comments."
-        }
-    }
-
-    private func vote(_ row: CommunityPollRow, option: Int?) async {
-        guard app.auth.isSignedIn else {
-            message = "Sign in to Modula to vote."
-            return
-        }
-        let id = postID.trimmingCharacters(in: .whitespacesAndNewlines)
-        do {
-            let repository = GreenfieldPostRepository(client: app.client)
-            let fresh = try await repository.voteCommentPoll(commentID: row.comment.id, postID: id, option: option)
-            if let fresh, let poll = fresh.media.compactMap(\.poll).first,
-               let index = rows.firstIndex(where: { $0.id == row.id }) {
-                rows[index] = CommunityPollRow(comment: fresh, poll: poll)
+    private func pollCard(_ poll: CommunityPoll) -> some View {
+        CommunityPanel {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(poll.question).font(.headline)
+                ForEach(poll.options.sorted { $0.position < $1.position }) { option in
+                    let selected = poll.viewerOptionID == option.id
+                    Button {
+                        Task {
+                            await app.communities.vote(pollID: poll.id, optionID: option.id)
+                            HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                            Text(option.text)
+                            Spacer()
+                            if let count = option.voteCount { Text("\(count)").foregroundStyle(.secondary) }
+                        }
+                        .font(.subheadline.weight(selected ? .semibold : .regular))
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(
+                        poll.closed || poll.status != "open" || app.communities.actionInProgress
+                            || !app.communities.capabilities.canVoteAndRSVP
+                            || (poll.viewerOptionID != nil && !poll.allowVoteChanges)
+                    )
+                    .accessibilityIdentifier("community.poll.option.\(option.id)")
+                }
+                HStack {
+                    Text(poll.closed ? "Closed" : "Closes \(poll.closesAt.formatted(date: .abbreviated, time: .shortened))")
+                    Spacer()
+                    if let total = poll.totalVotes { Text("\(total) votes") }
+                }
+                .font(.caption).foregroundStyle(.secondary)
             }
-            message = nil
-            HapticEngine.shared.play(.success)
-        } catch {
-            message = (error as? APIError)?.userFacingMessage ?? "Couldn’t vote."
-            HapticEngine.shared.play(.failure)
         }
     }
 }
 
 struct CommunityEventView: View {
     @Environment(AppEnvironment.self) private var app
-    @State private var settings = CommunityLocalSettings.load()
 
     private var accent: Color { app.appearance.liveAccent }
 
@@ -287,106 +233,129 @@ struct CommunityEventView: View {
             VStack(alignment: .leading, spacing: 16) {
                 ZStack(alignment: .bottomLeading) {
                     Image("SceneMoonLake")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(height: 230)
-                        .frame(maxWidth: .infinity)
-                        .clipped()
+                        .resizable().scaledToFill()
+                        .frame(height: 230).frame(maxWidth: .infinity).clipped()
                         .accessibilityHidden(true)
                     LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("COMMUNITY EVENT")
+                        Text("COMMUNITY EVENTS")
                             .font(.caption2.weight(.bold))
                             .padding(.horizontal, 10).frame(height: 24)
                             .modulaGlass(in: Capsule(), interactive: false)
-                        Text(CommunityCopy.comingSoon)
+                        Text(app.communities.selectedCommunity?.summary.name ?? CommunityCopy.buildersTitle)
                             .font(.system(size: 30, weight: .bold, design: .rounded))
                     }
-                    .foregroundStyle(.white)
-                    .padding(18)
+                    .foregroundStyle(.white).padding(18)
                 }
                 .frame(height: 230)
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
                 .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(spacing: 2) {
-                        Text("—")
-                            .font(.title2.bold())
-                        Text("Date")
-                            .font(.caption2.weight(.semibold))
-                    }
-                    .frame(width: 64, height: 64)
-                    .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false, specular: true)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Not scheduled")
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Not scheduled")
-                            .font(.title3.bold())
-                        Text(CommunityCopy.eventFootnote)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                if let message = app.communities.actionError {
+                    CommunityStateBanner(message: message, symbol: "exclamationmark.triangle")
+                }
+                if app.communities.contentState.isLoading && app.communities.events.isEmpty {
+                    ProgressView("Loading events…").frame(maxWidth: .infinity).padding(.vertical, 36)
+                } else if app.communities.events.isEmpty {
+                    ModulaEmptyState(title: "No events", message: CommunityCopy.eventsEmpty, symbol: "calendar")
+                } else {
+                    ForEach(app.communities.events) { event in
+                        eventCard(event)
+                        if event.id == app.communities.events.last?.id, app.communities.eventsNextCursor != nil {
+                            ProgressView().task { await app.communities.loadMoreEvents() }
+                        }
                     }
                 }
-                HStack(spacing: 10) {
-                    CommunityComingSoonButton(title: "Join event")
-                    ShareLink(item: CommunityCopy.eventShareText) {
-                        Image(systemName: "square.and.arrow.up")
-                            .frame(width: 48, height: 48)
-                    }
-                    .buttonStyle(.plain)
-                    .modulaGlass(in: Circle(), interactive: true, specular: true)
-                    .accessibilityLabel("Share")
-                    Button {
-                        settings.interestedOnDevice.toggle()
-                        settings.save()
-                        HapticEngine.shared.play(.selection)
-                        app.navigation.flash(settings.interestedOnDevice ? "Interested on this device" : "Interest cleared on this device", symbol: "bookmark")
-                    } label: {
-                        Image(systemName: settings.interestedOnDevice ? "bookmark.fill" : "bookmark")
-                            .frame(width: 48, height: 48)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(settings.interestedOnDevice ? accent : Color.primary)
-                    .modulaGlass(in: Circle(), interactive: true, tint: settings.interestedOnDevice ? accent : nil, specular: true)
-                    .accessibilityLabel("Interested on this device")
-                    .accessibilityValue(settings.interestedOnDevice ? "On" : "Off")
-                    .accessibilityIdentifier("community.event.interest")
-                }
-                VStack(spacing: 0) {
-                    CommunityInfoRow(symbol: "clock", tint: accent, title: "Time isn’t set", subtitle: "Shown in your time zone once scheduled")
-                    Divider().padding(.leading, 64)
-                    CommunityInfoRow(symbol: "globe", tint: .blue, title: "No place or link yet", subtitle: "Access details arrive with community events")
-                    Divider().padding(.leading, 64)
-                    CommunityInfoRow(symbol: "person.2", tint: .purple, title: settings.interestedOnDevice ? "You’re interested on this device" : "Headcount isn’t available", subtitle: "No attendee route yet")
-                }
-                .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
-                VStack(alignment: .leading, spacing: 8) {
-                    ModulaSectionHeader(title: "About this event")
-                    Text("Workshops and calls need a community events endpoint. Until then this page stays empty of dates, hosts and headcounts.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Toggle("Remind me on this device", isOn: $settings.eventReminders)
-                    .onChange(of: settings.eventReminders) { _, _ in
-                        settings.save()
-                    }
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.vertical, 12)
         }
         .modulaSoftScrollEdge()
+        .refreshable { await app.communities.refreshSelected(signedIn: app.auth.isSignedIn) }
+        .task { await app.communities.loadBuildersIfNeeded(signedIn: app.auth.isSignedIn) }
         .accessibilityIdentifier("community.event.screen")
+    }
+
+    private func eventCard(_ event: CommunityEvent) -> some View {
+        CommunityPanel {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(spacing: 2) {
+                        Text(event.startsAt.formatted(.dateTime.day()))
+                            .font(.title2.bold())
+                        Text(event.startsAt.formatted(.dateTime.month(.abbreviated)).uppercased())
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .frame(width: 64, height: 64)
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false, specular: true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.title).font(.title3.bold())
+                        Text(event.startsAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Text(event.location.name ?? locationLabel(event.location.type))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if !event.description.isEmpty {
+                    Text(event.description).font(.subheadline).foregroundStyle(.secondary)
+                }
+                HStack(spacing: 10) {
+                    responseButton("Going", response: .going, event: event)
+                    responseButton("Interested", response: .interested, event: event)
+                    ShareLink(item: event.location.onlineURL?.absoluteString ?? "\(event.title) — \(event.startsAt.formatted(date: .abbreviated, time: .shortened))") {
+                        Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Circle(), interactive: true, specular: true)
+                    .accessibilityLabel("Share event")
+                }
+                HStack {
+                    Label("\(event.goingCount) going", systemImage: "person.2")
+                    Spacer()
+                    Text("\(event.interestedCount) interested")
+                }
+                .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func responseButton(_ title: String, response: CommunityEventResponse, event: CommunityEvent) -> some View {
+        let selected = event.viewerResponse == response
+        return Button {
+            Task {
+                await app.communities.respond(eventID: event.id, response: selected ? nil : response)
+                HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+            }
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12).frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(selected ? Color.white : Color.primary)
+        .modulaGlass(in: Capsule(), interactive: true, tint: selected ? accent : nil, prominent: selected, specular: true)
+        .disabled(
+            event.status != "scheduled" || app.communities.actionInProgress
+                || !app.communities.capabilities.canVoteAndRSVP
+        )
+        .accessibilityIdentifier("community.event.\(response.rawValue).\(event.id)")
+    }
+
+    private func locationLabel(_ type: String) -> String {
+        switch type {
+        case "online": "Online"
+        case "inPerson": "In person"
+        default: "To be announced"
+        }
     }
 }
 
-
-/// Reference event info row: tinted icon tile, bold title, secondary detail.
 struct CommunityInfoRow: View {
     let symbol: String
     let tint: Color
     let title: String
     let subtitle: String
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)

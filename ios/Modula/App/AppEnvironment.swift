@@ -11,10 +11,12 @@ final class AppEnvironment {
     let runtime = ModuleRuntimeController()
     let moduleActivation = ModuleActivationController()
     let client: GreenfieldClient
+    let premiumPurchases: PremiumStoreKitController
     let catalogue: ProductHubStore
     let auth: AuthenticationStore
     let activity: ActivityStore
     let discover: DiscoverStore
+    let communities: CommunityStore
     let posts: PostStateStore
     let postActions: PostActionController
     let home: HomeStore
@@ -34,6 +36,7 @@ final class AppEnvironment {
     let publishing: GreenfieldPublishingRepository
     let mediaUploader: any MediaUploading
     let attachmentDownloads: AttachmentDownloadManager
+    let molibooOwnership: MolibooOwnershipStore
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
@@ -77,6 +80,12 @@ final class AppEnvironment {
         #else
         client = GreenfieldClient(baseURL: url)
         #endif
+        premiumPurchases = PremiumStoreKitController(client: client)
+        molibooOwnership = MolibooOwnershipStore(client: client)
+        MolibooPackageManager.shared.configure(greenfieldClient: client, baseURL: url)
+        MolibooPackageManager.shared.authorization = { [weak molibooOwnership] descriptor in
+            molibooOwnership?.canActivate(characterID: descriptor.moliboo.characterId) == true
+        }
         catalogue = ProductHubStore(client: client)
         catalogue.activation = moduleActivation
         #if DEBUG
@@ -89,12 +98,14 @@ final class AppEnvironment {
         runtime.activation = moduleActivation
         auth = AuthenticationStore(client: client, pendingStore: PendingSignupStore(baseURL: url))
         push = PushNotificationController(client: client)
-        auth.willSignOut = { [push] in
+        auth.willSignOut = { [push, molibooOwnership] in
             await CallManager.shared.signOut()
             await push.unregisterForSignOut()
+            molibooOwnership.clear()
         }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
+        communities = CommunityStore(client: client)
         posts = PostStateStore()
         postActions = PostActionController(client: client, state: posts)
         home = HomeStore(client: client, posts: posts, postActions: postActions)
@@ -105,9 +116,9 @@ final class AppEnvironment {
         reels = ReelStore(client: client)
         commandRecents = CommandRecentsStore()
         saved = SavedStore(client: client, state: posts)
-        collections = CollectionStore()
+        collections = CollectionStore(client: client)
         draftMedia = DraftMediaStore()
-        drafts = DraftStore(mediaStore: draftMedia)
+        drafts = DraftStore(client: client, mediaStore: draftMedia)
         publishing = GreenfieldPublishingRepository(client: client, capabilities: .production)
         mediaUploader = GreenfieldMediaUploader(client: client)
         attachmentDownloads = AttachmentDownloadManager(downloader: GreenfieldAttachmentDownloader(client: client))
@@ -143,13 +154,19 @@ final class AppEnvironment {
         )
         let catalogueStore = catalogue
         let draftsStore = drafts
-        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
+        let premiumPurchaseStore = premiumPurchases
+        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore, weak premiumPurchaseStore] account in
             runtime?.setAccount(account?.accountId)
             CallManager.shared.accountChanged(signedIn: account != nil)
             catalogueStore?.accountID = account?.accountId
+            premiumPurchaseStore?.setAccountID(account?.accountId)
             draftsStore.setAccountID(account?.accountId)
+            self?.collections.setAccountID(account?.accountId)
+            self?.molibooOwnership.setAccountID(account?.accountId)
+            self?.communities.resetForAccountChange()
             Task {
                 await catalogueStore?.load()
+                await self?.molibooOwnership.refresh()
                 await MainActor.run { self?.refreshLaunchState() }
             }
         }

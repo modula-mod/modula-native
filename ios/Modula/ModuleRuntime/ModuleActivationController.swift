@@ -66,7 +66,9 @@ final class ModuleActivationController {
         gameArchive: Data? = nil,
         gameSha256: String? = nil,
         runtimeArchive: Data? = nil,
-        runtimeSha256: String? = nil
+        runtimeSha256: String? = nil,
+        moduleArchive: Data? = nil,
+        modulePackageSha256: String? = nil
     ) throws {
         if let descriptor {
             if descriptor.revoked || descriptor.quarantined { throw ModuleActivationError.revoked }
@@ -77,7 +79,10 @@ final class ModuleActivationController {
         }
         let digest = SHA256.hash(data: frontend).map { String(format: "%02x", $0) }.joined()
         guard digest == frontendSha256 else { throw ModuleActivationError.digestMismatch("frontend") }
-        _ = try ProductUIDocument.parse(data: frontend, productId: moduleId, version: version)
+        let productUI = try ProductUIDocument.parse(data: frontend, productId: moduleId, version: version)
+        guard productUI.requiredCapabilities.allSatisfy(ModuleCapabilityBroker.hostSupports) else {
+            throw ModuleActivationError.incompatible
+        }
         let game: WebGamePackage?
         if let gameArchive, let gameSha256 {
             game = try WebGamePackage(archive: gameArchive, expectedSha256: gameSha256)
@@ -86,6 +91,20 @@ final class ModuleActivationController {
         } else {
             throw WebGamePackageError.invalid("missing archive or digest")
         }
+        let modulePackage: ModuleContentPackage?
+        if let moduleArchive, let modulePackageSha256 {
+            modulePackage = try ModuleContentPackage(
+                archive: moduleArchive, expectedSha256: modulePackageSha256
+            )
+            guard modulePackage?.frontend == frontend else {
+                throw ModuleActivationError.digestMismatch("module package frontend")
+            }
+        } else if moduleArchive == nil && modulePackageSha256 == nil {
+            modulePackage = nil
+        } else {
+            throw WebGamePackageError.invalid("missing module archive or digest")
+        }
+        guard game == nil || modulePackage == nil else { throw ModuleActivationError.incompatible }
         // Keep the runtime pinned from verification until the durable STAGED
         // release metadata becomes visible to the reclaimer.
         let runtimePin = runtimeSha256.map(WebRuntimeSessionPin.init)
@@ -104,7 +123,8 @@ final class ModuleActivationController {
             try store.stage(
                 accountID: accountID, moduleId: moduleId, version: version, releaseId: releaseId,
                 frontend: frontend, frontendSha256: frontendSha256, mediaType: mediaType,
-                hostManifest: hostManifest, descriptor: descriptor, game: game, runtimeSha256: runtimeSha256
+                hostManifest: hostManifest, descriptor: descriptor, game: game,
+                runtimeSha256: runtimeSha256, modulePackage: modulePackage
             )
         }
     }
@@ -115,6 +135,7 @@ final class ModuleActivationController {
                 let data = try store.frontendData(for: staged)
                 _ = try ProductUIDocument.parse(data: data, productId: staged.moduleId, version: staged.version)
                 if staged.gameSha256 != nil { _ = try store.verifiedGameEntry(for: staged) }
+                if staged.modulePackageSha256 != nil { _ = try store.verifiedModuleFrontend(for: staged) }
             } catch {
                 recordAudit(accountID: accountID, moduleId: moduleId, reason: "digest-rejected")
                 throw error

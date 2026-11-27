@@ -7,6 +7,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     case saved
     case drafts
     case collections
+    case community
     case settings
     case appearance
     case developer
@@ -18,6 +19,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "Saved"
         case .drafts: "Drafts"
         case .collections: "Collections"
+        case .community: "Community"
         case .settings: "Settings"
         case .appearance: "Appearance"
         case .developer: "Module Studio"
@@ -29,6 +31,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "Bookmarks and later"
         case .drafts: "Unpublished work"
         case .collections: "Private groupings"
+        case .community: "Groups, builders and events"
         case .settings: "Account and device"
         case .appearance: "Theme, type and motion"
         case .developer: "Create and edit modules"
@@ -40,6 +43,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "bookmark"
         case .drafts: "doc.text"
         case .collections: "rectangle.stack"
+        case .community: "person.3"
         case .settings: "gearshape"
         case .appearance: "paintpalette"
         case .developer: "wrench.and.screwdriver"
@@ -51,6 +55,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: .orange
         case .drafts: .blue
         case .collections: .purple
+        case .community: .accentColor
         case .settings: .gray
         case .appearance: .pink
         case .developer: .indigo
@@ -62,6 +67,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: .saved(.root)
         case .drafts: .drafts(.root)
         case .collections: .collections(.root)
+        case .community: .community(.hub)
         case .settings: .settings(.root)
         case .appearance: .settings(.appearance(.root))
         case .developer: .developer(.studio)
@@ -71,16 +77,23 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     var requiresSignIn: Bool {
         switch self {
         case .saved, .drafts, .collections: true
-        case .settings, .appearance, .developer: false
+        case .community, .settings, .appearance, .developer: false
         }
     }
 
     var section: Section {
         switch self {
-        case .saved, .drafts, .collections: .library
+        case .saved, .drafts, .collections, .community: .library
         case .settings, .appearance: .manage
         case .developer: .developer
         }
+    }
+
+
+    /// Community appears in the library only when the live API flag is on.
+    /// Flag-off matches main, which has no Community sidebar item.
+    static func libraryDestinations(apiEnabled: Bool = CommunityAPIFeatureFlags.isEnabled) -> [ShellSidebarDestination] {
+        allCases.filter { $0.section == .library && ($0 != .community || apiEnabled) }
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -529,16 +542,16 @@ struct ShellSidebarView: View {
             items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
         }
         items.append(.init(id: "moliboos", title: "Moliboos", symbol: "sparkles", route: .settings(.moliboo), requiresSignIn: false, keywords: "mascot pet"))
-        // Premium is gated: the upsell row only appears for free accounts.
-        if !PremiumEntitlementStore.shared.plan.isPaid {
+        // Premium is developer-only and off in Release. The upsell row appears
+        // only when the surface is enabled and the account is not already paid.
+        if PremiumFeatureFlags.premiumEnabled(), !PremiumEntitlementStore.shared.plan.isPaid {
             items.append(.init(id: "premium", title: "Premium", symbol: "sun.horizon", route: .settings(.premium(.root)), requiresSignIn: false))
         }
         return items
     }
 
     private var libraryItems: [ShellSidebarItem] {
-        var items = ShellSidebarDestination.allCases
-            .filter { $0.section == .library }
+        var items = ShellSidebarDestination.libraryDestinations()
             .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
                                     requiresSignIn: $0.requiresSignIn,
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.

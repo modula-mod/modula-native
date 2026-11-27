@@ -7,7 +7,7 @@ struct SavedBackendCapabilities: Sendable, Equatable {
     var listSavedPosts = true
     var listSavedModules = false
     var listSavedLinks = false
-    var pagination = false
+    var pagination = true
     var unsaveFromList = true
 
     static let production = SavedBackendCapabilities()
@@ -15,7 +15,12 @@ struct SavedBackendCapabilities: Sendable, Equatable {
     enum Paths {
         /// Greenfield returns the authenticated account's hydrated saved posts.
         static func savedPosts(cursor: String?) -> String {
-            "/v1/saves"
+            var components = URLComponents()
+            components.queryItems = [
+                URLQueryItem(name: "limit", value: "30"),
+                URLQueryItem(name: "cursor", value: cursor),
+            ].filter { $0.value != nil }
+            return "/v1/saves?\(components.percentEncodedQuery ?? "limit=30")"
         }
     }
 }

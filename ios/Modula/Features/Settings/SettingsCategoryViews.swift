@@ -1093,6 +1093,7 @@ struct DeveloperSettingsHost: View {
         case .root:
             Form {
                 CommunityDeveloperEntry()
+                CollectionDraftSyncDeveloperEntry()
                 Button("Module Studio") { app.navigation.open(.developer(.studio)) }
                     .accessibilityIdentifier("developer.settings.studio")
                 Button("Runtime") { app.navigation.open(.settings(.developer(.runtime))) }

@@ -518,7 +518,7 @@ struct ModulaShareSheet: View {
 
         let text = ShareOutboundMessage.text(note: note, payload: payload)
         var sent: [String] = []
-        var noChat: [String] = []
+        var sentConversations: [ConversationID] = []
         var failed: [String] = []
         for key in keys {
             let person = known[key] ?? audience.first(where: { $0.key == key })
@@ -526,12 +526,27 @@ struct ModulaShareSheet: View {
                 failed.append(key)
                 continue
             }
-            guard let conversationID = conversationID(for: key) else {
-                noChat.append(person.displayName)
-                continue
+            if let conversationID = conversationID(for: key) {
+                let ok = await app.messaging.sendPrepared(text: text, conversation: conversationID)
+                if ok {
+                    sent.append(key)
+                    sentConversations.append(conversationID)
+                } else {
+                    failed.append(person.displayName)
+                }
+            } else if let conversation = await app.messaging.startConversation(handle: person.handle, text: text) {
+                sent.append(key)
+                sentConversations.append(conversation.id)
+                known[key] = ShareRecipient(
+                    personID: person.personID,
+                    handle: person.handle,
+                    displayName: person.displayName,
+                    avatarURL: person.avatarURL,
+                    conversationID: conversation.id
+                )
+            } else {
+                failed.append(person.displayName)
             }
-            let ok = await app.messaging.sendPrepared(text: text, conversation: conversationID)
-            if ok { sent.append(key) } else { failed.append(person.displayName) }
         }
 
         withAnimation(motion) {
@@ -542,10 +557,14 @@ struct ModulaShareSheet: View {
             HapticEngine.shared.play(.success)
             let separately = keys.count >= 2
             dismiss()
-            app.navigation.flash(separately ? "Sent separately" : "Sent", symbol: "paperplane.fill")
+            if !separately, let conversationID = sentConversations.first {
+                app.navigation.open(.messages(.conversation(conversationID)))
+            } else {
+                app.navigation.flash("Sent separately", symbol: "paperplane.fill")
+            }
         } else {
             HapticEngine.shared.play(.failure)
-            let copy = failureCopy(noChat: noChat, failed: failed, sentCount: sent.count)
+            let copy = failureCopy(failed: failed, sentCount: sent.count)
             sendError = copy.isEmpty ? "Couldn't send." : copy
         }
     }
@@ -554,10 +573,9 @@ struct ModulaShareSheet: View {
         ShareAudience.directConversationID(matching: key, in: app.messaging.conversations)
     }
 
-    private func failureCopy(noChat: [String], failed: [String], sentCount: Int) -> String {
+    private func failureCopy(failed: [String], sentCount: Int) -> String {
         var parts: [String] = []
         if sentCount > 0 { parts.append("Sent to \(sentCount).") }
-        if !noChat.isEmpty { parts.append("No chat with \(noChat.joined(separator: ", ")) yet.") }
         if !failed.isEmpty { parts.append("Couldn't send to \(failed.joined(separator: ", ")).") }
         return parts.joined(separator: " ")
     }
