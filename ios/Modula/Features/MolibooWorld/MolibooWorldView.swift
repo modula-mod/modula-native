@@ -214,7 +214,7 @@ struct MolibooWorldView: View {
             }
             if MOL03DebugHarness.arg("-MOLWorldPush") == "studio", route == nil { try? await Task.sleep(for: .seconds(2)); route = .studio(characterID) }
             #endif
-            if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
+            if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence, memory: app.nodusMemoryStore)) }
             care.refresh(characterID)
             stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds)   // brief hello, then settle
             stage.startAmbient { motionAllowed && route == nil && sheet == nil }

@@ -462,10 +462,32 @@ protocol MolibooChatBackend: Sendable {
 struct MolibooChatUnavailable: Error, Equatable { let reason: String }
 
 /// Backed by `ModulaIntelligence` (`.generate`, local-only). The deterministic test provider is rejected.
+/// When a memory store is provided, the Moliboo recalls confirmed memories
+/// about the user before answering (global scope only — the Moliboo chat is
+/// not a Nodus conversation, so no other conversation's memories can leak
+/// in). Retrieval is keyword-overlap over confirmed items only; nothing is
+/// ever written from here.
 struct MolibooIntelligenceChatBackend: MolibooChatBackend {
     let service: any ModulaIntelligenceService
+    /// Memories the Moliboo can recall. Nil when the caller has no store (the
+    /// backend still works — it just answers without memory).
+    let memory: NodusMemoryStore?
+
+    init(service: any ModulaIntelligenceService, memory: NodusMemoryStore? = nil) {
+        self.service = service
+        self.memory = memory
+    }
+
     func reply(to text: String, as character: String) async throws -> (text: String, provider: String) {
-        let prompt = "You are \(character), a small friendly Moliboo companion. Reply in one or two short, warm sentences.\nUser: \(text)"
+        var memoryBlock = ""
+        if let memory {
+            let matches = await memory.retrieve(query: text, conversationID: nil, topK: 3)
+            if !matches.isEmpty {
+                let lines = matches.enumerated().map { "[MEMORY \($0.offset + 1)] \($0.element.item.kind.rawValue): \($0.element.item.text)" }
+                memoryBlock = "\nWhat you remember about the user:\n" + lines.joined(separator: "\n")
+            }
+        }
+        let prompt = "You are \(character), a small friendly Moliboo companion. Reply in one or two short, warm sentences.\(memoryBlock)\nUser: \(text)"
         let req = IntelligenceRequest(capability: .generate, input: .string(prompt), privacy: .localOnly, source: .nativeFeature)
         let res: IntelligenceResponse
         do { res = try await service.execute(req) } catch let e as IntelligenceError {
@@ -526,3 +548,4 @@ final class MolibooChatModel {
     func reset() { task?.cancel(); phase = .composing }
     func cancel() { task?.cancel(); task = nil; if phase == .awaiting || phase == .submitting { phase = .composing } }
 }
+
