@@ -8,7 +8,7 @@ struct ProductUIDocument: Equatable, Sendable {
     static let schema = "modula.frontend.1.0"
     static let maxBytes = 1_048_576
     static let supportedRuntimes: Set<String> = ["declarative", "product-ui"]
-    static let supportedHostVersions = ["0.1.0", "1.0.0"]
+    static let supportedHostVersions = ["0.1.0", "1.0.0", "1.1.0"]
 
     static let forbiddenKeys: Set<String> = [
         "script", "rawjs", "rawhtml", "html", "jsx", "tsx", "css", "style",

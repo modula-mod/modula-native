@@ -29,7 +29,7 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
             "This module doesn't have permission to change your records. Review its permissions, then try again."
         case .rejected(_, "REVISION_CONFLICT"), .rejected(_, "NOTE_REVISION_CONFLICT"):
-            "This note changed. Open it again, then save."
+            "This record changed. Open it again, then save."
         case .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
             "That file is too large to upload. Try a smaller photo."
         case .rejected(_, "SERVER_UNAVAILABLE"):
@@ -677,6 +677,20 @@ actor GreenfieldClient {
             throw APIError.invalidResponse
         }
         return temporaryURL
+    }
+
+    func downloadModuleAttachment(_ assetID: String, expectedAccountID: String) async throws -> URL {
+        guard accountID == expectedAccountID, UUID(uuidString: assetID) != nil,
+              let baseURL, baseURL.scheme == "https",
+              let url = URL(string: "/v1/attachments/\(assetID)/content", relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host else { throw APIError.invalidResponse }
+        let generation = epoch
+        let temporary = try await downloadMedia(from: url)
+        guard generation == epoch, accountID == expectedAccountID else {
+            try? FileManager.default.removeItem(at: temporary)
+            throw APIError.accountChanged
+        }
+        return temporary
     }
 
     /// Authenticated WebSocket request for Greenfield realtime routes (GUBIC lobbies).
