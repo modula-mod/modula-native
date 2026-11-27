@@ -195,7 +195,9 @@ final class DraftStore {
     private var syncingIDs: Set<String> = []
     private let autosaveNanoseconds: UInt64
 
-    let capabilities: DraftBackendCapabilities
+    private let configuredCapabilities: DraftBackendCapabilities?
+    var capabilities: DraftBackendCapabilities { configuredCapabilities ?? .production }
+    private var syncEnabled: Bool { capabilities.serverPostDrafts }
     private(set) var accountID: String?
     private(set) var posts: [PostDraft] = []
     private(set) var inMails: [PersistedInMailDraft] = []
@@ -209,14 +211,14 @@ final class DraftStore {
 
     init(
         client: GreenfieldClient? = nil,
-        capabilities: DraftBackendCapabilities = .production,
+        capabilities: DraftBackendCapabilities? = nil,
         fileStore: PrivateFileStore = PrivateFileStore(domain: .drafts),
         mediaStore: DraftMediaStore = DraftMediaStore(),
         autosaveMilliseconds: UInt64 = 600,
         defaults: UserDefaults = .standard
     ) {
         repository = client.map { GreenfieldDraftRepository(client: $0) }
-        self.capabilities = capabilities
+        self.configuredCapabilities = capabilities
         self.fileStore = fileStore
         self.mediaStore = mediaStore
         self.autosaveNanoseconds = autosaveMilliseconds * 1_000_000
@@ -265,7 +267,7 @@ final class DraftStore {
         let legacyStories = accountID == nil ? stories : []
         accountID = next
         load()
-        if next != nil, repository != nil, posts.isEmpty, inMails.isEmpty, stories.isEmpty,
+        if next != nil, syncEnabled, repository != nil, posts.isEmpty, inMails.isEmpty, stories.isEmpty,
            !legacyPosts.isEmpty || !legacyMail.isEmpty || !legacyStories.isEmpty {
             posts = legacyPosts.map { value in
                 var migrated = value
@@ -277,7 +279,7 @@ final class DraftStore {
             stories = legacyStories
             _ = persist()
         }
-        guard next != nil else { return }
+        guard next != nil, syncEnabled else { return }
         Task { [weak self] in await self?.refresh() }
     }
 
@@ -309,9 +311,9 @@ final class DraftStore {
             scoped.serverUpdatedAt = existing.serverUpdatedAt
             scoped.publishedPostID = existing.publishedPostID
             scoped.syncConflict = existing.syncConflict
-            scoped.syncState = existing.syncState == .conflict ? .conflict : (accountID == nil ? .localOnly : .pending)
+            scoped.syncState = existing.syncState == .conflict ? .conflict : (accountID == nil || !syncEnabled ? .localOnly : .pending)
         } else {
-            scoped.syncState = accountID == nil ? .localOnly : .pending
+            scoped.syncState = accountID == nil || !syncEnabled ? .localOnly : .pending
         }
         pendingPosts[scoped.id] = scoped
         schedule(id: scoped.id, debounce: debounce) { [weak self] in
@@ -341,7 +343,7 @@ final class DraftStore {
     func discardPost(id: String = "post-primary") {
         cancelPending(id: id)
         let existing = posts.first { $0.id == id } ?? pendingPosts[id]
-        if let serverID = existing?.serverID, let version = existing?.serverVersion {
+        if syncEnabled, let serverID = existing?.serverID, let version = existing?.serverVersion {
             pendingDeletes.removeAll { $0.serverID == serverID }
             pendingDeletes.append(DeleteMutation(serverID: serverID, expectedVersion: version))
         }
@@ -359,7 +361,7 @@ final class DraftStore {
     func publish(_ creation: CreationDraft, fallback: PublishingRepository) async throws -> SocialPost {
         upsertCreation(creation, debounce: false)
         guard flush() else { throw DraftSyncError.localSave(saveError ?? "The draft could not be saved locally.") }
-        guard let repository, accountID != nil else {
+        guard syncEnabled, let repository, accountID != nil else {
             let post = try await fallback.publish(creation)
             markPublished(id: creation.id)
             return post
@@ -423,7 +425,7 @@ final class DraftStore {
     }
 
     func refresh() async {
-        guard let repository, accountID != nil, !isRefreshing else { return }
+        guard syncEnabled, let repository, accountID != nil, !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         await replayDeletes()
@@ -520,7 +522,7 @@ final class DraftStore {
 
     @discardableResult
     private func syncPost(id: String) async -> Bool {
-        guard let repository, accountID != nil else { return true }
+        guard syncEnabled, let repository, accountID != nil else { return true }
         guard !syncingIDs.contains(id), let snapshot = postDraft(id: id), snapshot.syncState != .conflict else { return false }
         let payload = GreenfieldDraftRepository.payload(snapshot)
         guard !payload.text.isEmpty || !payload.content.isEmpty else { return false }
@@ -592,12 +594,12 @@ final class DraftStore {
     }
 
     private func replayDeletesSoon() {
-        guard repository != nil, accountID != nil else { return }
+        guard syncEnabled, repository != nil, accountID != nil else { return }
         Task { [weak self] in await self?.replayDeletes() }
     }
 
     private func replayDeletes() async {
-        guard let repository, accountID != nil else { return }
+        guard syncEnabled, let repository, accountID != nil else { return }
         while let mutation = pendingDeletes.first {
             do {
                 try await repository.delete(id: mutation.serverID, expectedVersion: mutation.expectedVersion)
@@ -690,11 +692,11 @@ final class DraftStore {
             next.serverUpdatedAt = existing.serverUpdatedAt
             next.publishedPostID = existing.publishedPostID
             next.syncConflict = existing.syncConflict
-            next.syncState = existing.syncState == .conflict ? .conflict : (accountID == nil ? .localOnly : .pending)
+            next.syncState = existing.syncState == .conflict ? .conflict : (accountID == nil || !syncEnabled ? .localOnly : .pending)
         }
         if let index = posts.firstIndex(where: { $0.id == next.id }) { posts[index] = next } else { posts.append(next) }
         if persist() { markSaved() }
-        if next.syncState == .pending { Task { [weak self] in _ = await self?.syncPost(id: next.id) } }
+        if syncEnabled, next.syncState == .pending { Task { [weak self] in _ = await self?.syncPost(id: next.id) } }
         ModulaLog.app.info("draft.autosave kind=post count=\(self.posts.count, privacy: .public)")
     }
 

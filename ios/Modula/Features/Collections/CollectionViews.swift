@@ -10,7 +10,9 @@ struct CollectionsView: View {
         List {
             if let error = app.collections.error { Text(error).foregroundStyle(.red) }
             Section {
-                Text("Named collections sync with your Modula account. A private on-device cache keeps them responsive when you’re offline.")
+                Text(app.collections.capabilities.serverCollections
+                     ? "Named collections sync with your Modula account. A private on-device cache keeps them responsive when you’re offline."
+                     : "Save posts on this iPhone. Collections aren’t synced — there isn’t a collections API.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -39,9 +41,13 @@ struct CollectionsView: View {
             }
         }
         .modulaSoftScrollEdge()
-        .refreshable { await app.collections.refresh() }
-        .task {
+        .refreshableIf(app.collections.capabilities.serverCollections) {
             await app.collections.refresh()
+        }
+        .task {
+            if app.collections.capabilities.serverCollections {
+                await app.collections.refresh()
+            }
             await app.saved.load()
         }
         .navigationTitle("Collections")
@@ -66,9 +72,14 @@ struct CollectionsView: View {
                         .textFieldStyle(.plain)
                         .padding(14)
                         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    Label("Saved locally, synced to your account", systemImage: "checkmark.icloud")
+                    Label(app.collections.capabilities.serverCollections
+                          ? "Saved locally, synced to your account"
+                          : "Stored on this iPhone",
+                          systemImage: app.collections.capabilities.serverCollections ? "checkmark.icloud" : "iphone")
                         .font(.subheadline.weight(.semibold))
-                    Text("If you’re offline, the collection is queued and replays safely after sign-in and connectivity return.")
+                    Text(app.collections.capabilities.serverCollections
+                         ? "If you’re offline, the collection is queued and replays safely after sign-in and connectivity return."
+                         : "Collections stay on this device. There isn’t a collections API, so they aren’t synced.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
@@ -136,11 +147,11 @@ struct CollectionDetailView: View {
             if let collection = app.collections.collections.first(where: { $0.id == collectionID }) {
                 List {
                     Section {
-                        Text(collection.isDefault ? "Your existing Saved posts remain server-backed." : syncDescription(collection.syncState))
+                        Text(detailDescription(collection))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
-                    if collection.syncState == .conflict {
+                    if app.collections.capabilities.serverCollections, collection.syncState == .conflict {
                         Section("Sync conflict") {
                             Text("This collection changed on another device. The local cache has not overwritten it.")
                                 .foregroundStyle(.secondary)
@@ -186,12 +197,16 @@ struct CollectionDetailView: View {
                     Button("Save") { app.collections.rename(id: collection.id, name: renameName) }
                         .disabled(renameName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } message: {
-                    Text("The new name syncs to your Modula account.")
+                    Text(app.collections.capabilities.serverCollections
+                         ? "The new name syncs to your Modula account."
+                         : "The name is saved on this iPhone.")
                 }
                 .task(id: collection.itemIDs) { await loadPosts(collection.itemIDs) }
                 // Enhancements-50: pull to re-fetch every saved post from Greenfield.
                 .modulaRefreshable {
-                    await app.collections.refresh()
+                    if app.collections.capabilities.serverCollections {
+                        await app.collections.refresh()
+                    }
                     await MainActor.run {
                         unavailable.removeAll()
                         posts.removeAll()
@@ -294,6 +309,16 @@ struct CollectionDetailView: View {
         }
     }
 
+    private func detailDescription(_ collection: ModulaCollection) -> String {
+        guard app.collections.capabilities.serverCollections else {
+            return collection.storage == .local
+                ? "Saved on this iPhone only."
+                : "Collections stay on this iPhone. They aren’t synced."
+        }
+        if collection.isDefault { return "Your existing Saved posts remain server-backed." }
+        return syncDescription(collection.syncState)
+    }
+
     private func syncDescription(_ state: CollectionSyncState) -> String {
         switch state {
         case .synced: "Synced with your Modula account."
@@ -308,6 +333,7 @@ struct CollectionDetailView: View {
 struct CollectionCard: View {
     let collection: ModulaCollection
     var itemCountOverride: Int? = nil
+    @Environment(AppEnvironment.self) private var app
 
     var body: some View {
         HStack(spacing: 12) {
@@ -339,8 +365,11 @@ struct CollectionCard: View {
     private var itemCount: Int { itemCountOverride ?? collection.itemCount }
 
     private var status: String {
+        if !app.collections.capabilities.serverCollections {
+            return collection.storage == .local ? "On This Device" : "On your account"
+        }
         if collection.isDefault { return "Saved" }
-        return switch collection.syncState {
+        switch collection.syncState {
         case .synced: "Synced"
         case .pending: "Waiting to sync"
         case .conflict: "Conflict"
@@ -404,3 +433,29 @@ struct CollectionPicker: View {
         .accessibilityIdentifier("collections.picker")
     }
 }
+
+
+private extension View {
+    @ViewBuilder
+    func refreshableIf(_ enabled: Bool, action: @escaping @Sendable () async -> Void) -> some View {
+        if enabled {
+            self.refreshable(action: action)
+        } else {
+            self
+        }
+    }
+}
+
+#if DEBUG
+struct CollectionDraftSyncDeveloperEntry: View {
+    @State private var enabled = CollectionDraftSyncFeatureFlags.isEnabled
+
+    var body: some View {
+        Toggle("Collection and draft server sync", isOn: $enabled)
+            .onChange(of: enabled) { _, value in
+                CollectionDraftSyncFeatureFlags.setEnabled(value)
+            }
+            .accessibilityIdentifier("developer.collections.drafts.sync.toggle")
+    }
+}
+#endif

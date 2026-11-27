@@ -700,7 +700,7 @@ final class CreationStudioStore {
             resetActiveUploads(to: .failed, message: "Sync required")
             draft.state = .failed
             persist(debounce: false)
-            publishError = "Couldn't publish your post. Your draft is safe."
+            publishError = api.userFacingMessage
             HapticEngine.shared.play(.failure)
             return nil
         } catch {

@@ -29,7 +29,7 @@ struct CreationCapabilities: Sendable, Equatable {
     var sensitiveMediaControls = false
 
     /// Production defaults from repository contracts. Live VPS re-audit may widen.
-    static let production: CreationCapabilities = {
+    static var production: CreationCapabilities {
         var value = CreationCapabilities()
         value.photoPost = true
         value.carouselPost = true
@@ -37,13 +37,13 @@ struct CreationCapabilities: Sendable, Equatable {
         value.audioPost = true
         value.mediaUpload = true
         value.maxMediaCount = 10
-        value.serverDrafts = true
-        // Character limit stays nil: creation-backend.md marks it MISSING (hide the counter; do not invent one).
+        value.serverDrafts = CollectionDraftSyncFeatureFlags.isEnabled
+        value.characterLimit = 5_000
         // Same Greenfield search / suggest paths comments already use.
         value.mentionsLookup = true
         value.topicsLookup = true
         return value
-    }()
+    }
 
     static let developerPreview: CreationCapabilities = {
         var value = CreationCapabilities()
