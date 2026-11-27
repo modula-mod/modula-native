@@ -7,6 +7,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     case saved
     case drafts
     case collections
+    case community
     case settings
     case appearance
     case developer
@@ -18,6 +19,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "Saved"
         case .drafts: "Drafts"
         case .collections: "Collections"
+        case .community: "Community"
         case .settings: "Settings"
         case .appearance: "Appearance"
         case .developer: "Module Studio"
@@ -29,6 +31,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "Bookmarks and later"
         case .drafts: "Unpublished work"
         case .collections: "Private groupings"
+        case .community: "Groups, builders and events"
         case .settings: "Account and device"
         case .appearance: "Theme, type and motion"
         case .developer: "Create and edit modules"
@@ -40,6 +43,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: "bookmark"
         case .drafts: "doc.text"
         case .collections: "rectangle.stack"
+        case .community: "person.3"
         case .settings: "gearshape"
         case .appearance: "paintpalette"
         case .developer: "wrench.and.screwdriver"
@@ -51,6 +55,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: .orange
         case .drafts: .blue
         case .collections: .purple
+        case .community: .accentColor
         case .settings: .gray
         case .appearance: .pink
         case .developer: .indigo
@@ -62,6 +67,7 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         case .saved: .saved(.root)
         case .drafts: .drafts(.root)
         case .collections: .collections(.root)
+        case .community: .community(.hub)
         case .settings: .settings(.root)
         case .appearance: .settings(.appearance(.root))
         case .developer: .developer(.studio)
@@ -71,16 +77,23 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
     var requiresSignIn: Bool {
         switch self {
         case .saved, .drafts, .collections: true
-        case .settings, .appearance, .developer: false
+        case .community, .settings, .appearance, .developer: false
         }
     }
 
     var section: Section {
         switch self {
-        case .saved, .drafts, .collections: .library
+        case .saved, .drafts, .collections, .community: .library
         case .settings, .appearance: .manage
         case .developer: .developer
         }
+    }
+
+
+    /// Community appears in the library only when the live API flag is on.
+    /// Flag-off matches main, which has no Community sidebar item.
+    static func libraryDestinations(apiEnabled: Bool = CommunityAPIFeatureFlags.isEnabled) -> [ShellSidebarDestination] {
+        allCases.filter { $0.section == .library && ($0 != .community || apiEnabled) }
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -381,6 +394,8 @@ struct ShellSidebarView: View {
     @AppStorage(ModulaMascotSettings.kindKey) private var mascotRaw = ModulaMascotKind.pip.rawValue
     @AppStorage("shell.sidebar.developerExpanded") private var developerExpanded = false
     @State private var query = ""
+    /// Local-only, newest first, newline separated (never synced).
+    @AppStorage("shell.sidebar.recentSearches") private var recentSearchesRaw = ""
     @State private var searching = false
     @FocusState private var searchFocused: Bool
     /// Scales with Dynamic Type; 40pt at the default size (tighter than the old 46pt rows).
@@ -408,6 +423,9 @@ struct ShellSidebarView: View {
                 VStack(alignment: .leading, spacing: ModulaSpacing.md) {
                     if isFiltering {
                         searchResults(chats: chats)
+                    } else if searching, !recentSearches.isEmpty {
+                        recentSearchSection
+                        section(nil) { ForEach(primaryItems) { row($0) } }
                     } else {
                         section(nil) { ForEach(primaryItems) { row($0) } }
                         section("Library") { ForEach(libraryItems) { row($0) } }
@@ -498,7 +516,7 @@ struct ShellSidebarView: View {
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 40, height: 40)
-                    .background(Color.primary.opacity(0.07), in: Circle())
+                    .modulaGlass(in: Circle(), interactive: true, specular: true)
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
             }
@@ -520,7 +538,10 @@ struct ShellSidebarView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .focused($searchFocused)
-                .onSubmit { if let first = filteredItems.first { onSelect(first.route, first.requiresSignIn) } }
+                .onSubmit {
+                    rememberQuery()
+                    if let first = filteredItems.first { onSelect(first.route, first.requiresSignIn) }
+                }
                 .accessibilityIdentifier("shell.sidebar.search.field")
             if !query.isEmpty {
                 Button { query = "" } label: {
@@ -533,7 +554,7 @@ struct ShellSidebarView: View {
         }
         .padding(.horizontal, ModulaSpacing.sm)
         .frame(minHeight: 40)
-        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous), interactive: true)
     }
 
     private func endSearch() {
@@ -546,29 +567,40 @@ struct ShellSidebarView: View {
 
     private var primaryItems: [ShellSidebarItem] {
         var items: [ShellSidebarItem] = [
+            .init(id: "home", title: "Home", symbol: "house", route: app.navigation.root(for: .home),
+                  requiresSignIn: false,
+                  badge: app.stories.trayGroups.reduce(0) { $0 + ((!$1.isOwn && $1.hasStories && $1.ring == .unseen) ? 1 : 0) },
+                  keywords: "feed posts timeline stories"),
             .init(id: "messages", title: "Messages", symbol: "bubble.left.and.bubble.right",
                   route: .messages(.inbox), requiresSignIn: true, badge: app.messaging.accountUnreadCount ?? 0,
                   keywords: "chat dm inbox"),
             .init(id: "notifications", title: "Activity", symbol: "bell",
                   route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0,
                   keywords: "notifications alerts activity history"),
+            .init(id: "reels", title: "Reels", symbol: "play.rectangle.on.rectangle",
+                  route: .reels(.feed), requiresSignIn: false, keywords: "videos clips watch"),
+            .init(id: "story", title: "New story", symbol: "circle.dashed.inset.filled",
+                  route: .stories(.create), requiresSignIn: true, keywords: "stories camera add"),
         ]
         if GubicFeature.enabled() {
             items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
         }
         items.append(.init(id: "moliboos", title: "Moliboos", symbol: "sparkles", route: .settings(.moliboo), requiresSignIn: false, keywords: "mascot pet"))
-        // Premium is gated: the upsell row only appears for free accounts.
-        if !PremiumEntitlementStore.shared.plan.isPaid {
+        // Premium is developer-only and off in Release. The upsell row appears
+        // only when the surface is enabled and the account is not already paid.
+        if PremiumFeatureFlags.premiumEnabled(), !PremiumEntitlementStore.shared.plan.isPaid {
             items.append(.init(id: "premium", title: "Premium", symbol: "sun.horizon", route: .settings(.premium(.root)), requiresSignIn: false))
         }
         return items
     }
 
     private var libraryItems: [ShellSidebarItem] {
-        var items = ShellSidebarDestination.allCases
-            .filter { $0.section == .library }
+        var items = ShellSidebarDestination.libraryDestinations()
             .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
-                                    requiresSignIn: $0.requiresSignIn, keywords: $0.subtitle ?? "") }
+                                    requiresSignIn: $0.requiresSignIn,
+                                    // Unpublished posts/stories on this device, so drafts aren't forgotten.
+                                    badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
+                                    keywords: $0.subtitle ?? "") }
         return items
     }
 
@@ -688,6 +720,59 @@ struct ShellSidebarView: View {
 
     // MARK: Search
 
+    private var recentSearches: [String] {
+        recentSearchesRaw.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+
+    private func rememberQuery() {
+        let q = trimmedQuery
+        guard q.count >= 2 else { return }
+        var list = recentSearches.filter { $0.caseInsensitiveCompare(q) != .orderedSame }
+        list.insert(q, at: 0)
+        recentSearchesRaw = list.prefix(6).joined(separator: "\n")
+    }
+
+    private var recentSearchSection: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.xxs) {
+            HStack {
+                Text("Recent searches")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button("Clear") { recentSearchesRaw = "" }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(app.appearance.liveAccent)
+                    .accessibilityIdentifier("shell.sidebar.recent.clear")
+            }
+            .padding(.horizontal, rowInset)
+            ScrollView(.horizontal) {
+                HStack(spacing: ModulaSpacing.xs) {
+                    ForEach(recentSearches, id: \.self) { term in
+                        Button { query = term } label: {
+                            Label(term, systemImage: "clock.arrow.circlepath")
+                                .font(.subheadline)
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .frame(height: 30)
+                                .modulaGlass(in: Capsule(), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Search \(term)")
+                        .contextMenu {
+                            Button("Remove", systemImage: "xmark", role: .destructive) {
+                                recentSearchesRaw = recentSearches.filter { $0 != term }.joined(separator: "\n")
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, rowInset)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isFiltering: Bool { searching && !trimmedQuery.isEmpty }
 
@@ -711,10 +796,10 @@ struct ShellSidebarView: View {
         let items = filteredItems
         let chats = filteredChats(lists)
         if !items.isEmpty {
-            section("Destinations") { ForEach(items) { row($0) } }
+            section("Destinations") { ForEach(items) { row($0).simultaneousGesture(TapGesture().onEnded { rememberQuery() }) } }
         }
         if !chats.isEmpty {
-            section("Chats") { ForEach(chats) { chatRow($0) } }
+            section("Chats") { ForEach(chats) { chatRow($0).simultaneousGesture(TapGesture().onEnded { rememberQuery() }) } }
         }
         section(items.isEmpty && chats.isEmpty ? "No matches" : nil) {
             Button {
@@ -746,16 +831,16 @@ struct ShellSidebarView: View {
         }
     }
 
-    private func rowLabel(symbol: String, title: String, badge: Int = 0) -> some View {
+    private func rowLabel(symbol: String, title: String, badge: Int = 0, selected: Bool = false) -> some View {
         HStack(spacing: ModulaSpacing.sm) {
             Image(systemName: symbol)
-                .font(.body.weight(.regular))
+                .font(.body.weight(selected ? .semibold : .regular))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(.primary.opacity(0.78))
+                .foregroundStyle(selected ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(Color.primary.opacity(0.78)))
                 .frame(width: 24)
                 .accessibilityHidden(true)
             Text(title)
-                .font(.body)
+                .font(selected ? .body.weight(.semibold) : .body)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             Spacer(minLength: 0)
@@ -771,13 +856,24 @@ struct ShellSidebarView: View {
         }
         .padding(.horizontal, rowInset)
         .frame(minHeight: rowHeight)
+        .background {
+            if selected {
+                // Current destination: one tinted Liquid Glass pill.
+                let pill = RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous)
+                Color.clear
+                    .modulaGlass(in: pill, interactive: false, tint: app.appearance.liveAccent.opacity(0.4), specular: true)
+                    .padding(.horizontal, 6)
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.medium, style: .continuous))
     }
 
     private func row(_ item: ShellSidebarItem) -> some View {
-        Button { onSelect(item.route, item.requiresSignIn) } label: {
-            rowLabel(symbol: item.symbol, title: item.title, badge: item.badge)
+        let selected = item.route == app.navigation.root(for: app.navigation.selectedTab)
+        return Button { onSelect(item.route, item.requiresSignIn) } label: {
+            rowLabel(symbol: item.symbol, title: item.title, badge: item.badge, selected: selected)
         }
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .buttonStyle(ShellSidebarRowStyle())
         .accessibilityLabel(item.badge > 0 ? "\(item.title), \(item.badge) unread" : item.title)
         .accessibilityIdentifier("shell.sidebar.\(item.id)")
@@ -796,8 +892,13 @@ struct ShellSidebarView: View {
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
                 if chat.isUnread {
-                    Circle().fill(app.appearance.liveAccent).frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
+                    Text(chat.unreadCount > 99 ? "99+" : "\(chat.unreadCount)")
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(chat.isMuted ? Color.secondary : Color.white)
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .background(chat.isMuted ? Color.primary.opacity(0.12) : app.appearance.liveAccent, in: Capsule())
+                        .accessibilityLabel("\(chat.unreadCount) unread")
                 }
             }
             .padding(.horizontal, rowInset)
@@ -868,16 +969,24 @@ struct ShellSidebarView: View {
             let profile = app.profile.ownProfile
             Button { onSelect(.me(.overview), true) } label: {
                 HStack(spacing: ModulaSpacing.xs) {
-                    ModulaAvatar(initials: profile?.initials ?? "", url: profile?.avatarURL, size: 30, name: profile?.displayName)
-                    Text(profile?.displayName ?? "Profile")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    ModulaAvatar(initials: profile?.initials ?? "", url: profile?.avatarURL, size: 32, name: profile?.displayName)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(profile?.displayName ?? "Profile")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if let handle = profile?.handle, !handle.isEmpty, !typeSize.isAccessibilitySize {
+                            Text("@\(handle)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
                 .padding(.leading, 4).padding(.trailing, ModulaSpacing.sm)
-                .frame(minHeight: 40)
-                .background(Color.primary.opacity(0.06), in: Capsule())
+                .frame(minHeight: 44)
+                .modulaGlass(in: Capsule(), interactive: true, specular: true)
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -946,7 +1055,31 @@ struct ShellSidebarView: View {
         .buttonStyle(.plain)
         .modulaAccentCTA()
         .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
+        // Long-press: quick-create straight into a specific composer.
+        .contextMenu {
+            Button("Text post", systemImage: "text.alignleft") { quickCreate(.post) }
+            Button("Photo", systemImage: "photo") { quickCreate(.photo) }
+            Button("Video", systemImage: "video") { quickCreate(.video) }
+            Button("Poll", systemImage: "chart.bar.xaxis") { quickCreate(.poll) }
+            Button("Link", systemImage: "link") { quickCreate(.link) }
+            Divider()
+            Button("All create options", systemImage: "plus.square.on.square") {
+                onClose()
+                app.navigation.presented = .createPicker
+            }
+        }
+        .accessibilityHint("Long-press for photo, video, poll or link")
         .accessibilityIdentifier("shell.sidebar.create")
+    }
+
+    private func quickCreate(_ route: ComposeRoute) {
+        onClose()
+        if app.auth.isSignedIn {
+            app.navigation.presented = .composer(route)
+        } else {
+            app.navigation.requestAuthentication(returningTo: .compose(route))
+        }
+        HapticEngine.shared.play(.contextOpen)
     }
 }
 
