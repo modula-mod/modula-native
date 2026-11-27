@@ -576,7 +576,7 @@ struct ShellSidebarView: View {
                   keywords: "chat dm inbox"),
             .init(id: "notifications", title: "Activity", symbol: "bell",
                   route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0,
-                  keywords: "notifications alerts activity history"),
+                  keywords: "notifications activity"),
             .init(id: "reels", title: "Reels", symbol: "play.rectangle.on.rectangle",
                   route: .reels(.feed), requiresSignIn: false, keywords: "videos clips watch"),
             .init(id: "story", title: "New story", symbol: "circle.dashed.inset.filled",
