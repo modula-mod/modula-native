@@ -601,6 +601,12 @@ struct ShellSidebarView: View {
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.
                                     badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
                                     keywords: $0.subtitle ?? "") }
+        #if DEBUG
+        items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
+                           requiresSignIn: false, keywords: "intelligence ai assistant"))
+        items.append(.init(id: "developer", title: "Builder", symbol: "hammer", route: .developer(.studio),
+                           requiresSignIn: false, keywords: "module studio create build"))
+        #endif
         return items
     }
 
@@ -610,12 +616,6 @@ struct ShellSidebarView: View {
             .init(id: "vault", title: "Vault Notes", symbol: "lock.doc",
                   route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "vault notes"),
         ]
-        #if DEBUG
-        items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
-                           requiresSignIn: false, keywords: "intelligence ai assistant"))
-        items.append(.init(id: "developer", title: "Builder", symbol: "hammer", route: .developer(.studio),
-                           requiresSignIn: false, keywords: "module studio create build"))
-        #endif
         return items
     }
 
