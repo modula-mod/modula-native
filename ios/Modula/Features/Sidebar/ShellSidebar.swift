@@ -89,6 +89,13 @@ enum ShellSidebarDestination: String, CaseIterable, Identifiable {
         }
     }
 
+
+    /// Community appears in the library only when the live API flag is on.
+    /// Flag-off matches main, which has no Community sidebar item.
+    static func libraryDestinations(apiEnabled: Bool = CommunityAPIFeatureFlags.isEnabled) -> [ShellSidebarDestination] {
+        allCases.filter { $0.section == .library && ($0 != .community || apiEnabled) }
+    }
+
     enum Section: String, CaseIterable, Identifiable {
         case library
         case manage
@@ -580,7 +587,7 @@ struct ShellSidebarView: View {
             .init(id: "messages", title: "Messages", symbol: "bubble.left.and.bubble.right",
                   route: .messages(.inbox), requiresSignIn: true, badge: app.messaging.accountUnreadCount ?? 0,
                   keywords: "chat dm inbox"),
-            .init(id: "notifications", title: "Activity", symbol: "bell",
+            .init(id: "notifications", title: "Alerts", symbol: "bell",
                   route: .activity(.all), requiresSignIn: true, badge: app.activity.state(for: .all).unreadCount ?? 0,
                   keywords: "notifications alerts activity history"),
             .init(id: "reels", title: "Reels", symbol: "play.rectangle.on.rectangle",
@@ -592,25 +599,33 @@ struct ShellSidebarView: View {
             items.append(.init(id: "games", title: "GUBIC", symbol: "gamecontroller", route: .productHub(.gubic), requiresSignIn: false, keywords: "games"))
         }
         items.append(.init(id: "moliboos", title: "Moliboos", symbol: "sparkles", route: .settings(.moliboo), requiresSignIn: false, keywords: "mascot pet"))
-        // Premium is gated: the upsell row only appears for free accounts.
-        if !PremiumEntitlementStore.shared.plan.isPaid {
+        // Premium is developer-only and off in Release. The upsell row appears
+        // only when the surface is enabled and the account is not already paid.
+        if PremiumFeatureFlags.premiumEnabled(), !PremiumEntitlementStore.shared.plan.isPaid {
             items.append(.init(id: "premium", title: "Premium", symbol: "sun.horizon", route: .settings(.premium(.root)), requiresSignIn: false))
         }
         return items
     }
 
     private var libraryItems: [ShellSidebarItem] {
-        let items = ShellSidebarDestination.allCases
-            .filter { $0.section == .library }
+        var items = ShellSidebarDestination.libraryDestinations()
             .map { ShellSidebarItem(id: $0.id, title: $0.title, symbol: $0.symbol, route: $0.route,
                                     requiresSignIn: $0.requiresSignIn,
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.
                                     badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
                                     keywords: $0.subtitle ?? "") }
         // Synced saved messages (messaging features 4); hidden until the server offers them.
-        guard app.messaging.capabilities.features4.savedMessages else { return items }
-        return items + [ShellSidebarItem(id: "messages.saved", title: "Saved messages", symbol: "bookmark.square",
-                                         route: .messages(.saved), requiresSignIn: true, keywords: "saved messages bookmarks chat")]
+        if app.messaging.capabilities.features4.savedMessages {
+            items.append(.init(id: "messages.saved", title: "Saved messages", symbol: "bookmark.square",
+                               route: .messages(.saved), requiresSignIn: true, keywords: "saved messages bookmarks chat"))
+        }
+        #if DEBUG
+        items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
+                           requiresSignIn: false, keywords: "intelligence ai assistant"))
+        items.append(.init(id: "developer", title: "Builder", symbol: "hammer", route: .developer(.studio),
+                           requiresSignIn: false, keywords: "module studio create build"))
+        #endif
+        return items
     }
 
     /// Shortcuts into personal tools. Links only: their interfaces never render in the sidebar.
@@ -619,12 +634,6 @@ struct ShellSidebarView: View {
             .init(id: "vault", title: "Vault Notes", symbol: "lock.doc",
                   route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "vault notes"),
         ]
-        #if DEBUG
-        items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
-                           requiresSignIn: false, keywords: "intelligence ai assistant"))
-        items.append(.init(id: "developer", title: "Builder", symbol: "hammer", route: .developer(.studio),
-                           requiresSignIn: false, keywords: "module studio create build"))
-        #endif
         return items
     }
 

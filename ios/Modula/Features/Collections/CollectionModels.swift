@@ -1,5 +1,32 @@
 import Foundation
 
+/// GreenField `/v1/me/collections` and `/v1/me/drafts` server sync.
+/// Off by default in Debug (key unset or false). Always off in Release.
+/// Flag-off keeps collections and drafts local-first, matching main.
+enum CollectionDraftSyncFeatureFlags {
+    static let storageKey = "dev.collections.drafts.sync"
+
+    static var isEnabled: Bool { isEnabled(defaults: .standard, release: isReleaseBuild) }
+
+    static var isReleaseBuild: Bool {
+        #if DEBUG
+        false
+        #else
+        true
+        #endif
+    }
+
+    static func isEnabled(defaults: UserDefaults, release: Bool) -> Bool {
+        if release { return false }
+        return defaults.bool(forKey: storageKey)
+    }
+
+    static func setEnabled(_ enabled: Bool, defaults: UserDefaults = .standard) {
+        guard !isReleaseBuild else { return }
+        defaults.set(enabled, forKey: storageKey)
+    }
+}
+
 enum CollectionStorage: String, Sendable, Codable, Hashable {
     case local
     case greenfield
@@ -78,7 +105,11 @@ struct CollectionBackendCapabilities: Sendable, Equatable {
     var serverReorder = false
     var localCollections = true
 
-    static let production = CollectionBackendCapabilities()
+    static var production: CollectionBackendCapabilities {
+        var value = CollectionBackendCapabilities()
+        value.serverCollections = CollectionDraftSyncFeatureFlags.isEnabled
+        return value
+    }
 }
 
 struct CollectionCursorPage<Item: Sendable>: Sendable {
@@ -122,3 +153,4 @@ struct CollectionMutation: Codable, Sendable, Equatable, Identifiable {
         self.expectedVersion = expectedVersion
     }
 }
+

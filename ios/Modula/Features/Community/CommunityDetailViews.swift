@@ -50,13 +50,25 @@ struct CommunitySettingsView: View {
         }
         .disabled(!canManage)
         section("Membership", footnote: canManage ? "Server-enforced policy" : "Administrator only") {
-            ModulaSegmentedControl("Community type", selection: draft.visibility, segments: [(CommunityVisibility.public, "Public"), (CommunityVisibility.private, "Private")])
-            ModulaSegmentedControl("Join policy", selection: draft.membershipPolicy, segments: [(CommunityMembershipPolicy.open, "Open"), (CommunityMembershipPolicy.approval, "Approval")])
+            Picker("Community type", selection: draft.visibility) {
+                Text("Public").tag(CommunityVisibility.public)
+                Text("Private").tag(CommunityVisibility.private)
+            }
+            .pickerStyle(.segmented)
+            Picker("Join policy", selection: draft.membershipPolicy) {
+                Text("Open").tag(CommunityMembershipPolicy.open)
+                Text("Approval").tag(CommunityMembershipPolicy.approval)
+            }
+            .pickerStyle(.segmented)
             Toggle("Invite links", isOn: draft.inviteLinksEnabled)
         }
         .disabled(!canManage)
         section("Posting", footnote: canManage ? "Server-enforced policy" : "Administrator only") {
-            ModulaSegmentedControl("Who can post", selection: draft.postingPolicy, segments: [(CommunityPostingPolicy.members, "Members"), (CommunityPostingPolicy.moderators, "Moderators")])
+            Picker("Who can post", selection: draft.postingPolicy) {
+                Text("Members").tag(CommunityPostingPolicy.members)
+                Text("Moderators").tag(CommunityPostingPolicy.moderators)
+            }
+            .pickerStyle(.segmented)
             Toggle("Allow file attachments", isOn: draft.allowAttachments)
             Toggle("Reactions", isOn: draft.reactionsEnabled)
             Toggle("Featured posts", isOn: draft.featuredPostsEnabled)

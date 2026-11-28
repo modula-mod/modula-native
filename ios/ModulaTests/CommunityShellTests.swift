@@ -3,10 +3,107 @@ import XCTest
 @testable import Modula
 
 final class CommunityShellTests: XCTestCase {
-    func testCommunityCapabilityIsEnabledInReleaseAndDebug() {
-        let defaults = UserDefaults(suiteName: "community.tests.\(UUID().uuidString)")!
-        XCTAssertTrue(CommunityFeatureFlags.isEnabled(defaults: defaults, release: true))
+    func testReleaseBuildNeverEnablesTheShell() {
+        let defaults = suite()
+        XCTAssertFalse(CommunityFeatureFlags.isEnabled(defaults: defaults, release: true))
+        defaults.set(true, forKey: CommunityFeatureFlags.storageKey)
+        XCTAssertFalse(CommunityFeatureFlags.isEnabled(defaults: defaults, release: true))
+    }
+
+    func testDebugDefaultIsOnUntilTurnedOff() {
+        let defaults = suite()
         XCTAssertTrue(CommunityFeatureFlags.isEnabled(defaults: defaults, release: false))
+        defaults.set(false, forKey: CommunityFeatureFlags.storageKey)
+        XCTAssertFalse(CommunityFeatureFlags.isEnabled(defaults: defaults, release: false))
+        defaults.set(true, forKey: CommunityFeatureFlags.storageKey)
+        XCTAssertTrue(CommunityFeatureFlags.isEnabled(defaults: defaults, release: false))
+    }
+
+    func testCommunityAPIFlagIsOffByDefaultAndAlwaysOffInRelease() {
+        let defaults = suite()
+        XCTAssertFalse(CommunityAPIFeatureFlags.isEnabled(defaults: defaults, release: false))
+        XCTAssertFalse(CommunityAPIFeatureFlags.isEnabled(defaults: defaults, release: true))
+        defaults.set(true, forKey: CommunityAPIFeatureFlags.storageKey)
+        XCTAssertTrue(CommunityAPIFeatureFlags.isEnabled(defaults: defaults, release: false))
+        XCTAssertFalse(CommunityAPIFeatureFlags.isEnabled(defaults: defaults, release: true))
+        defaults.set(false, forKey: CommunityAPIFeatureFlags.storageKey)
+        XCTAssertFalse(CommunityAPIFeatureFlags.isEnabled(defaults: defaults, release: false))
+    }
+
+    func testCommunityAPIRegistryEntryIsOffAndHiddenFromProduction() {
+        XCTAssertFalse(FeatureFlagRegistry.isEnabled("community.api"))
+        XCTAssertFalse(FeatureFlagRegistry.isEnabled("community.shell"))
+        let api = FeatureFlagRegistry.all.first { $0.id == "community.api" }
+        let shell = FeatureFlagRegistry.all.first { $0.id == "community.shell" }
+        XCTAssertEqual(api?.enabled, false)
+        XCTAssertEqual(api?.exposedToProduction, false)
+        XCTAssertEqual(shell?.enabled, false)
+        XCTAssertEqual(shell?.exposedToProduction, false)
+    }
+
+    func testCommunitySidebarItemIsHiddenWhenAPIFlagIsOff() {
+        let off = ShellSidebarDestination.libraryDestinations(apiEnabled: false)
+        XCTAssertFalse(off.contains(.community))
+        XCTAssertTrue(off.contains(.saved))
+        XCTAssertTrue(off.contains(.collections))
+        let on = ShellSidebarDestination.libraryDestinations(apiEnabled: true)
+        XCTAssertTrue(on.contains(.community))
+    }
+
+    func testCopyDoesNotInventMembersOrCounts() {
+        let blob = CommunityLocalCopy.catalogued.joined(separator: "\n")
+        XCTAssertNil(blob.range(of: #"\d"#, options: .regularExpression))
+        XCTAssertFalse(blob.localizedCaseInsensitiveContains("members"))
+        XCTAssertFalse(blob.localizedCaseInsensitiveContains("going"))
+        XCTAssertFalse(blob.localizedCaseInsensitiveContains("votes"))
+    }
+
+    func testLocalSettingsRoundTripWithoutAServer() {
+        let defaults = suite()
+        var settings = CommunityLocalSettings()
+        XCTAssertEqual(settings.shownName, CommunityLocalCopy.buildersTitle)
+        settings.displayName = "Local draft"
+        settings.summary = "On this device"
+        settings.isPrivate = true
+        settings.interestedOnDevice = true
+        settings.blockedWords = "spam"
+        settings.save(defaults: defaults)
+        let loaded = CommunityLocalSettings.load(defaults: defaults)
+        XCTAssertEqual(loaded, settings)
+        XCTAssertEqual(loaded.shownName, "Local draft")
+    }
+
+    func testCommentPollVoteMatchesTheAtlasRoute() {
+        XCTAssertEqual(CommentPollVote.path(commentID: "cmt_1"), "/v1/comments/cmt_1/poll/vote")
+        XCTAssertEqual(
+            CommentPollVote.path(commentID: "a b"),
+            "/v1/comments/a%20b/poll/vote"
+        )
+        XCTAssertEqual(CommentPollVote.body(optionIndex: 2), .object(["optionIndex": .number(2)]))
+        XCTAssertEqual(CommentPollVote.body(optionIndex: nil), .object(["optionIndex": .null]))
+        XCTAssertTrue(CommunityPollListing.acceptsPostID("post-1"))
+        XCTAssertFalse(CommunityPollListing.acceptsPostID(" "))
+        XCTAssertFalse(CommunityPollListing.acceptsPostID("post/1"))
+    }
+
+    func testPollListingUsesOnlyCommentPolls() {
+        var withPoll = comment("c1", text: "Question")
+        var media = SocialCommentMedia(id: "poll:1", kind: .poll, url: SocialCommentMedia.placeholderURL)
+        media.poll = CommentPoll(
+            question: "Real question",
+            options: ["A", "B"],
+            counts: [1, 0],
+            totalVotes: 1,
+            viewerVote: 0,
+            closed: false,
+            closesAt: nil
+        )
+        withPoll.media = [media]
+        let plain = comment("c2", text: "Hello")
+        let rows = CommunityPollListing.rows(in: [plain, withPoll])
+        XCTAssertEqual(rows.map(\.id), ["c1"])
+        XCTAssertEqual(rows.first?.poll.question, "Real question")
+        XCTAssertEqual(rows.first?.poll.totalVotes, 1)
     }
 
     func testCommunityRoutesRoundTrip() {
@@ -165,6 +262,29 @@ final class CommunityShellTests: XCTestCase {
             viewerRole: role, recentActivityAt: value.recentActivityAt, artwork: value.artwork, version: value.version
         )
     }
+    private func comment(_ id: String, text: String) -> SocialComment {
+        SocialComment(
+            id: id,
+            postID: "post-1",
+            author: nil,
+            createdAt: Date(timeIntervalSince1970: 0),
+            editedAt: nil,
+            text: text,
+            parentID: nil,
+            replyCount: 0,
+            liked: false,
+            likeCount: 0,
+            isPending: false
+        )
+    }
+
+    private func suite() -> UserDefaults {
+        let name = "community.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
 }
 
 private final class CommunityContractProtocol: URLProtocol, @unchecked Sendable {

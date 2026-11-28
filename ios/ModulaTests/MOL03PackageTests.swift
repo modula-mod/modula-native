@@ -80,10 +80,14 @@ final class MOL03PackageTests: XCTestCase {
 
         let ok1 = await m.install(v1)
         XCTAssertTrue(ok1, m.lastError ?? "")
+        XCTAssertTrue(m.statusHistory.contains(.downloading(v1.id)))
+        XCTAssertTrue(m.statusHistory.contains(.verifying(v1.id)))
+        XCTAssertTrue(m.statusHistory.contains(.installing(v1.id)))
         XCTAssertEqual(m.installedVersions["moliboo.character.100"], "1.0.1")
         XCTAssertEqual(m.updates.map(\.version), ["2.0.0"])
         let ok2 = await m.install(v2)
         XCTAssertTrue(ok2, m.lastError ?? "")
+        XCTAssertTrue(m.statusHistory.contains(.updating(v2.id)))
         XCTAssertEqual(m.runtime.store.index("moliboo.character.100").active, "2.0.0")
         XCTAssertEqual(m.runtime.store.index("moliboo.character.100").previous, "1.0.1")
 
@@ -148,6 +152,32 @@ final class MOL03PackageTests: XCTestCase {
         var d = try publish(container(patch(), packageId: "moliboo.character.100", version: "2.0.0"))
         d.signature.signature = try key.signature(for: Data("something else".utf8)).base64EncodedString()
         try await assertRejected(d) { $0.contains("signature") }
+    }
+
+    func testRejectsActivationWithoutConfirmedOwnership() async throws {
+        let descriptor = try publish(container(patch(), packageId: "moliboo.character.100", version: "2.0.0"))
+        let m = try manager(catalog: [descriptor])
+        m.authorization = { _ in false }
+        let requestsBeforeInstall = MolibooStubProtocol.requests
+        let accepted = await m.install(descriptor)
+        XCTAssertFalse(accepted)
+        XCTAssertEqual(m.lastError, MolibooPackageError.unauthorized.errorDescription)
+        XCTAssertEqual(MolibooStubProtocol.requests, requestsBeforeInstall, "ownership is checked before artifact download")
+        XCTAssertNil(m.runtime.store.index(descriptor.packageId).active)
+    }
+
+    func testManifestIdentityAndDependencyRangesFailClosed() throws {
+        let discovered = try publish(container(patch(), packageId: "moliboo.character.100", version: "2.0.0"))
+        XCTAssertTrue(MolibooPackageManager.manifestIsSameRelease(discovered, discovered: discovered))
+        var otherRelease = discovered
+        otherRelease.releaseId = "different-release"
+        XCTAssertFalse(MolibooPackageManager.manifestIsSameRelease(otherRelease, discovered: discovered))
+        XCTAssertTrue(MolibooPackageManager.satisfies("2.4.1", range: "^2.0.0"))
+        XCTAssertFalse(MolibooPackageManager.satisfies("3.0.0", range: "^2.0.0"))
+        XCTAssertTrue(MolibooPackageManager.satisfies("0.2.9", range: "^0.2.3"))
+        XCTAssertFalse(MolibooPackageManager.satisfies("0.3.0", range: "^0.2.3"))
+        XCTAssertFalse(MolibooPackageManager.satisfies("0.0.4", range: "^0.0.3"))
+        XCTAssertFalse(MolibooPackageManager.satisfies("2.0.0", range: "not-a-range"))
     }
 
     func testRejectsPathTraversalAbsoluteAndHiddenPaths() async throws {
@@ -220,6 +250,7 @@ final class MOL03PackageTests: XCTestCase {
         let bad = await m.install(next)
         XCTAssertFalse(bad)
         XCTAssertEqual(m.status, .rolledBack("moliboo.character.100"))
+        XCTAssertTrue(m.statusHistory.contains(.rollingBack("moliboo.character.100")))
         XCTAssertEqual(m.runtime.store.index("moliboo.character.100").active, "1.0.0")
         XCTAssertFalse(FileManager.default.fileExists(atPath: m.runtime.store.versionDir("moliboo.character.100", "2.0.0").path), "broken version removed")
     }

@@ -36,8 +36,8 @@ struct AuthChrome<Content: View>: View {
 // MARK: - Liquid Glass field
 
 /// Liquid Glass text input for the auth flow: a capsule of real glass on iOS 26
-/// (`glassEffect`, grouped by `ModulaGlassGroup`), `modulaGlass` before that and a
-/// solid fill under Reduce Transparency. Leading icon, floating label, an inner top
+/// (`glassEffect`, grouped by `ModulaGlassGroup`), and a solid fill before that and
+/// under Reduce Transparency. Leading icon, floating label, an inner top
 /// highlight, an accent glow and slight swell on focus, inline validation with a
 /// gentle shake, and a reveal toggle for passwords. Content types (AutoFill, passkey
 /// suggestions) are set by the caller with `.textContentType`.
@@ -173,9 +173,9 @@ struct AuthGlassField<Focus: Hashable>: View {
                 .glassEffect(.regular.tint(isFocused ? accent.opacity(0.14) : .clear).interactive(), in: Capsule())
                 .overlay { Capsule().fill(AuthFieldSurface.frost(scheme)).allowsHitTesting(false) }
         } else {
-            Color.clear
-                .modulaGlass(in: Capsule(), interactive: false, tint: isFocused ? accent.opacity(0.14) : nil)
-                .overlay { Capsule().fill(AuthFieldSurface.frost(scheme)).allowsHitTesting(false) }
+            // Below iOS 26 there is no system Liquid Glass: a solid fill, never a blur/material imitation.
+            Capsule().fill(Color(uiColor: .secondarySystemBackground))
+                .overlay { Capsule().fill(accent.opacity(isFocused ? 0.10 : 0)).allowsHitTesting(false) }
         }
     }
 
@@ -211,6 +211,20 @@ struct AuthShakeEffect: GeometryEffect {
         let phase = animatableData - animatableData.rounded(.down)
         let x = travel * sin(phase * .pi * 6) * (1 - phase)
         return ProjectionTransform(CGAffineTransform(translationX: x, y: 0))
+    }
+}
+
+/// Real system Liquid Glass capsule for small auth controls on iOS 26; a solid fill below
+/// iOS 26 and under Reduce Transparency. Never a blur or material imitation.
+struct AuthGlassCapsule: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), !reduceTransparency {
+            content.glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            content.background(Capsule().fill(Color(uiColor: .secondarySystemBackground)))
+        }
     }
 }
 
@@ -489,14 +503,14 @@ struct RegisterView: View {
                     .autocorrectionDisabled()
                     .submitLabel(.next)
                     .onSubmit { focus = .displayName }
-                AuthGlassField(title: "Display name", symbol: "person", text: $displayName,
+                AuthGlassField(title: "Display name", symbol: "person", text: $displayName, message: displayNameMessage,
                                focus: $focus, focusValue: Field.displayName, identifier: "auth.register.display-name")
                     .textContentType(.name)
                     .submitLabel(.next)
                     .onSubmit { focus = .password }
                 VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
                     AuthGlassField(title: "Password", symbol: "lock", text: $password, kind: .secure,
-                                   prompt: "At least 8 characters.", focus: $focus, focusValue: Field.password,
+                                   prompt: "At least 10 characters.", focus: $focus, focusValue: Field.password,
                                    identifier: "auth.register.password", shake: shake)
                         .textContentType(.newPassword)
                         .textInputAutocapitalization(.never)
@@ -516,8 +530,12 @@ struct RegisterView: View {
                     }
                     #endif
                 }
-                AuthPrimaryButton(title: "Create Account", busy: busy, enabled: canSubmit) {
-                    Task { await submit() }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let wait = Int(app.auth.rateLimitWait(at: context.date).rounded(.up))
+                    AuthPrimaryButton(title: wait > 0 ? "Try again in \(VerifyEmailView.clock(wait))" : "Create Account",
+                                      busy: busy, enabled: canSubmit && wait == 0) {
+                        Task { await submit() }
+                    }
                 }
                 HStack(spacing: ModulaSpacing.xxs) {
                     Text("Already have an account?").foregroundStyle(.secondary)
@@ -557,12 +575,22 @@ struct RegisterView: View {
         return handle.trimmingCharacters(in: .whitespaces).isEmpty ? "Choose a username." : nil
     }
 
+    private var trimmedDisplayName: String { displayName.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// Greenfield requires a display name of 2 to 80 characters.
+    private var displayNameMessage: String? {
+        guard attempted else { return nil }
+        return (2...80).contains(trimmedDisplayName.count) ? nil : "Enter a display name of 2 to 80 characters."
+    }
+
     private var canSubmit: Bool {
-        !email.isEmpty && !handle.isEmpty && password.count >= 8 && acceptedTerms && !busy
+        SignInView.looksLikeEmail(trimmedEmail) && !handle.trimmingCharacters(in: .whitespaces).isEmpty
+            && (2...80).contains(trimmedDisplayName.count)
+            && password.count >= AuthPasswordRequirement.minimumLength && acceptedTerms && !busy
     }
 
     private func submit() async {
-        guard !busy else { return }
+        guard !busy, app.auth.rateLimitWait() == 0 else { return }
         guard canSubmit else {
             attempted = true
             shake += 1
@@ -575,30 +603,32 @@ struct RegisterView: View {
         diagnostic = nil
         defer { busy = false }
         do {
-            let result = try await app.client.register(payload: RegistrationPayload(
+            // The store keeps {email, account, challenge, expiry} in the Keychain; the
+            // password is only sent here and never stored. Any 2xx (including 202) and
+            // a legacy 409 EMAIL_TAKEN go to the code-entry screen.
+            _ = try await app.auth.register(payload: RegistrationPayload(
                 email: trimmedEmail,
                 password: password,
                 handle: handle.trimmingCharacters(in: .whitespacesAndNewlines),
-                displayName: displayName.isEmpty ? nil : displayName,
+                displayName: trimmedDisplayName,
                 inviteCode: nil,
                 acceptedTerms: acceptedTerms
             ))
             password = ""
             HapticEngine.shared.play(.success)
-            if result.verificationRequired {
-                app.navigation.open(.auth(.verify))
-            } else {
-                app.navigation.open(.auth(.login))
-            }
+            app.navigation.open(.auth(.verify))
         } catch let api as APIError {
-            error = api.userFacingMessage
+            let details = await app.client.lastFailureDetails(path: "/v1/accounts/register")
+            error = AuthenticationStore.isRateLimited(api)
+                ? (app.auth.rateLimitNotice ?? AuthenticationStore.signupMessage(api, details: details))
+                : AuthenticationStore.signupMessage(api, details: details)
             #if DEBUG
             diagnostic = api.diagnosticDescription
             #endif
             shake += 1
             HapticEngine.shared.play(.failure)
         } catch {
-            self.error = "Unable to create an account right now."
+            self.error = AuthenticationStore.offlineMessage
             shake += 1
             HapticEngine.shared.play(.failure)
         }
@@ -609,100 +639,237 @@ struct RegisterView: View {
 
 struct VerifyEmailView: View {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var code = ""
-    @State private var token = ""
     @State private var email = ""
-    @State private var error: String?
-    @State private var busy = false
-    @State private var sent = false
-    @State private var resending = false
+    @State private var attempted = false
     @State private var verified = false
     @State private var shake = 0
     @FocusState private var focus: Field?
 
-    private enum Field: Hashable { case code, token, email }
+    private enum Field: Hashable { case code, email }
+
+    /// Greenfield emails 6-digit codes (ChallengeService `codeDigits` default).
+    static let codeLength = 6
+
+    /// Neutral existing-account way out on the code-entry screen. Both routes are the
+    /// live sign-in and forgot-password flows (no dead controls). Tests read these
+    /// so the copy and destinations cannot drift from the buttons.
+    enum AlternateActions {
+        static let existingAccountCopy = "If you already have an account, you’ll get an email to sign in or reset your password instead."
+        static let signInTitle = "Sign in"
+        static let forgotPasswordTitle = "Forgot password"
+        static let signInRoute: AppRoute = .auth(.login)
+        static let forgotPasswordRoute: AppRoute = .auth(.forgotPassword)
+    }
+
+    private var pending: PendingSignup? { app.auth.pendingSignup }
+
+    private var subtitle: String {
+        if verified { return "Your email is confirmed." }
+        if let pending { return "Enter the \(Self.codeLength)-digit code we sent to \(pending.recipient ?? pending.email). It can take a minute to arrive; check spam too." }
+        return "Enter the email you signed up with and we’ll send a new code."
+    }
 
     var body: some View {
-        AuthChrome(title: verified ? "You’re verified" : "Verify your email", subtitle: verified ? "Your email is confirmed." : "Enter the code we emailed you.") {
+        AuthChrome(title: verified ? "You’re verified" : "Verify your email", subtitle: subtitle) {
             if verified {
                 AuthSuccessState(title: "Email verified", message: "Sign in to start building your Modula.", actionTitle: "Continue to Sign In") {
                     app.navigation.open(.auth(.login))
                 }
+                .accessibilityIdentifier("auth.verify.done")
+            } else if let pending {
+                codeStep(pending)
             } else {
-                VStack(alignment: .leading, spacing: ModulaSpacing.md) {
-                    AuthGlassField(title: "Verification code", symbol: "number", text: $code,
-                                   focus: $focus, focusValue: Field.code, identifier: "auth.verify.code", shake: shake)
-                        .textContentType(.oneTimeCode)
-                        .keyboardType(.numberPad)
-                    AuthGlassField(title: "Token (optional)", symbol: "key", text: $token,
-                                   focus: $focus, focusValue: Field.token, identifier: "auth.verify.token")
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    AuthGlassField(title: "Email for resend", symbol: "envelope", text: $email,
-                                   focus: $focus, focusValue: Field.email, identifier: "auth.verify.email")
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    if let error { AuthErrorBanner(message: error) }
-                    AuthPrimaryButton(title: "Verify", busy: busy, enabled: !(code.isEmpty && token.isEmpty) && !busy) {
-                        Task { await verify() }
-                    }
-                    Button {
-                        Task { await resend() }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if resending { ProgressView().controlSize(.small) }
-                            Text("Resend code")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
-                    }
-                    .foregroundStyle(app.appearance.liveAccent)
-                    .disabled(email.isEmpty || resending)
-                    if sent {
-                        Label("If that email is registered, a new code is on its way.", systemImage: "paperplane.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                requestStep
             }
         }
         .accessibilityIdentifier("auth.verify")
+        .onAppear {
+            app.auth.restorePendingSignup()
+            if app.auth.pendingSignup != nil { focus = .code }
+        }
+        .onChange(of: code) { _, value in
+            let digits = String(value.filter(\.isNumber).prefix(Self.codeLength))
+            if digits != value { code = digits }
+            if app.auth.signupError != nil, !app.auth.verifying { app.auth.signupError = nil }
+        }
     }
 
+    // MARK: Enter the code
+
+    @ViewBuilder
+    private func codeStep(_ pending: PendingSignup) -> some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.md) {
+            AuthGlassField(title: "Verification code", symbol: "number", text: $code,
+                           prompt: "\(Self.codeLength) digits from the email", focus: $focus, focusValue: Field.code,
+                           identifier: "auth.verify.code", shake: shake)
+                .textContentType(.oneTimeCode)
+                .keyboardType(.numberPad)
+                .submitLabel(.go)
+                .onSubmit { Task { await verify() } }
+            if let notice = app.auth.pendingNotice {
+                AuthNoticeBanner(message: notice).accessibilityIdentifier("auth.verify.notice")
+            }
+            if let error = app.auth.signupError {
+                AuthErrorBanner(message: error).accessibilityIdentifier("auth.verify.error")
+            }
+            AuthPrimaryButton(title: "Verify", busy: app.auth.verifying,
+                              enabled: code.count == Self.codeLength && !pending.isLocked && !app.auth.verifying) {
+                Task { await verify() }
+            }
+            .accessibilityIdentifier("auth.verify.submit")
+            resendButton(pending)
+            Text("This code works until \(pending.expiresAt.formatted(.dateTime.weekday(.abbreviated).hour().minute())).")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("auth.verify.expiry")
+            Text(AlternateActions.existingAccountCopy)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("auth.verify.existing-account")
+            HStack(spacing: ModulaSpacing.md) {
+                Button(AlternateActions.signInTitle) {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(AlternateActions.signInRoute)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.verify.sign-in")
+                Button(AlternateActions.forgotPasswordTitle) {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(AlternateActions.forgotPasswordRoute)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(app.appearance.liveAccent)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .accessibilityIdentifier("auth.verify.forgot-password")
+            }
+            .disabled(app.auth.verifying || app.auth.resending)
+            Button("Use a different account") {
+                app.auth.abandonPendingSignup()
+                app.auth.pendingNotice = nil
+                app.auth.error = nil
+                HapticEngine.shared.play(.navigation)
+                app.navigation.open(.auth(.login))
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(app.appearance.liveAccent)
+            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+            .disabled(app.auth.verifying || app.auth.resending)
+            .accessibilityHint("Forgets this sign-up on this device and returns to Sign In.")
+            .accessibilityIdentifier("auth.verify.different-account")
+        }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: app.auth.signupError)
+    }
+
+    private func resendButton(_ pending: PendingSignup) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let wait = Int(pending.resendWait(at: context.date).rounded(.up))
+            let label = wait > 0 ? "Resend code in \(Self.clock(wait))" : "Resend code"
+            Button {
+                Task { await resend() }
+            } label: {
+                HStack(spacing: 8) {
+                    if app.auth.resending { ProgressView().controlSize(.small) }
+                    Text(label).monospacedDigit()
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, ModulaSpacing.md)
+                .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+                .modifier(AuthGlassCapsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(wait > 0 ? Color.secondary : app.appearance.liveAccent)
+            .disabled(wait > 0 || app.auth.resending || app.auth.verifying)
+            .accessibilityLabel(wait > 0 ? "Resend code, available in \(wait) seconds" : "Resend code")
+            .accessibilityValue(app.auth.resending ? "Sending" : "")
+            .accessibilityIdentifier("auth.verify.resend")
+        }
+    }
+
+    static func clock(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    // MARK: Nothing pending on this device
+
+    private var requestStep: some View {
+        VStack(alignment: .leading, spacing: ModulaSpacing.md) {
+            if let notice = app.auth.pendingNotice {
+                AuthNoticeBanner(message: notice).accessibilityIdentifier("auth.verify.notice")
+            }
+            AuthGlassField(title: "Email", symbol: "envelope", text: $email,
+                           message: attempted && !SignInView.looksLikeEmail(trimmedEmail) ? "Enter the email you signed up with." : nil,
+                           focus: $focus, focusValue: Field.email, identifier: "auth.verify.email", shake: shake)
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.send)
+                .onSubmit { Task { await requestCode() } }
+            if let error = app.auth.signupError {
+                AuthErrorBanner(message: error).accessibilityIdentifier("auth.verify.error")
+            }
+            AuthPrimaryButton(title: "Send a New Code", busy: app.auth.resending, enabled: !trimmedEmail.isEmpty) {
+                Task { await requestCode() }
+            }
+            .accessibilityIdentifier("auth.verify.request")
+            Button("Back to Sign In") {
+                app.auth.pendingNotice = nil
+                app.navigation.open(.auth(.login))
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(app.appearance.liveAccent)
+            .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
+        }
+    }
+
+    private var trimmedEmail: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    // MARK: Actions
+
     private func verify() async {
-        guard !busy else { return }
-        error = nil
-        busy = true
-        defer { busy = false }
-        do {
-            try await app.client.verifyEmail(challengeID: nil, code: code.isEmpty ? nil : code, token: token.isEmpty ? nil : token)
-            withAnimation(.snappy) { verified = true }
-        } catch let api as APIError {
-            error = api.userFacingMessage
+        guard code.count == Self.codeLength, !app.auth.verifying else { return }
+        focus = nil
+        if await app.auth.verifyPendingCode(code) {
+            withAnimation(reduceMotion ? nil : .snappy) { verified = true }
+        } else {
+            code = ""
             shake += 1
             HapticEngine.shared.play(.failure)
-        } catch {
-            self.error = "Verification didn’t succeed."
-            shake += 1
-            HapticEngine.shared.play(.failure)
+            if app.auth.pendingSignup != nil { DispatchQueue.main.async { focus = .code } }
         }
     }
 
     private func resend() async {
-        guard !resending else { return }
-        resending = true
-        defer { resending = false }
-        error = nil
-        do {
-            try await app.client.resendVerification(email: email)
-            sent = true
+        if await app.auth.resendPendingCode() {
+            code = ""
             HapticEngine.shared.play(.confirmation)
-        } catch let api as APIError {
-            error = api.userFacingMessage
-        } catch {
-            self.error = "Unable to resend verification."
+        } else if app.auth.signupError != nil {
+            HapticEngine.shared.play(.failure)
+        }
+    }
+
+    private func requestCode() async {
+        guard SignInView.looksLikeEmail(trimmedEmail) else {
+            attempted = true
+            shake += 1
+            HapticEngine.shared.play(.warning)
+            return
+        }
+        focus = nil
+        if await app.auth.requestCode(for: trimmedEmail) {
+            HapticEngine.shared.play(.confirmation)
+            focus = .code
+        } else {
+            shake += 1
+            HapticEngine.shared.play(.failure)
         }
     }
 }
@@ -766,7 +933,7 @@ struct ResetPasswordView: View {
     }
 
     private var canSubmit: Bool {
-        !token.isEmpty && password.count >= 8 && password == confirm && !busy
+        !token.isEmpty && password.count >= AuthPasswordRequirement.minimumLength && password == confirm && !busy
     }
 
     private func submit() async {
@@ -785,25 +952,28 @@ struct ResetPasswordView: View {
             shake += 1
             HapticEngine.shared.play(.failure)
         } catch {
-            self.error = "Unable to reset the password."
+            self.error = AuthenticationStore.offlineMessage
             shake += 1
             HapticEngine.shared.play(.failure)
         }
     }
 }
 
-/// Live 8+ character requirement shown under new-password fields.
+/// Live minimum-length requirement shown under new-password fields. Greenfield rejects
+/// passwords under 10 characters on register, reset and change.
 struct AuthPasswordRequirement: View {
+    static let minimumLength = 10
     let password: String
     @Environment(AppEnvironment.self) private var app
 
     var body: some View {
-        let met = password.count >= 8
-        Label("At least 8 characters", systemImage: met ? "checkmark.circle.fill" : "circle")
+        let minimum = Self.minimumLength
+        let met = password.count >= minimum
+        Label("At least \(minimum) characters", systemImage: met ? "checkmark.circle.fill" : "circle")
             .font(.footnote)
             .foregroundStyle(met ? app.appearance.liveAccent : Color.secondary)
             .contentTransition(.symbolEffect(.replace))
-            .accessibilityLabel(met ? "Password meets the 8 character minimum" : "Password needs at least 8 characters")
+            .accessibilityLabel(met ? "Password meets the \(minimum) character minimum" : "Password needs at least \(minimum) characters")
     }
 }
 

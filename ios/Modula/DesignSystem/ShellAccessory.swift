@@ -639,6 +639,11 @@ struct ShellAccessoryHost: View {
         .accessibilityAction(named: "Installed modules") {
             app.navigation.openModulesDock()
         }
+        // Gesture Navigation System: every swipe has a VoiceOver / Switch Control equivalent here.
+        .accessibilityAction(named: "Open profile") {
+            if app.navigation.spatialEnabled { app.navigation.spatial.openProfile(.me) } else { app.navigation.open(.me(.overview)) }
+        }
+        .accessibilityAction(named: "Open sidebar") { app.navigation.presentSidebar() }
         .accessibilityAction(named: "Command palette") { CommandPaletteCenter.shared.present() }
         .accessibilityIdentifier("tab.accessory")
         .onChange(of: route) { _, next in page = Self.defaultPage(for: next) }
@@ -672,7 +677,14 @@ struct ShellAccessoryHost: View {
         if page == 2 {
             return [
                 ContextItem(id: "hub", title: "Product Hub", symbol: "shippingbox") { app.navigation.open(.productHub(.featured)) },
-                ContextItem(id: "installed", title: "Installed", symbol: "checkmark.circle") { app.navigation.open(.productHub(.collection(.installed))) },
+                ContextItem(id: "installed", title: app.navigation.spatialEnabled ? "Modules Dock" : "Installed",
+                            symbol: app.navigation.spatialEnabled ? "square.grid.3x3.square" : "checkmark.circle") {
+                    if app.navigation.spatialEnabled {
+                        app.navigation.spatial.openDock(.half)
+                    } else {
+                        app.navigation.open(.productHub(.collection(.installed)))
+                    }
+                },
                 ContextItem(id: "updates", title: "Updates", symbol: "arrow.triangle.2.circlepath") { app.navigation.open(.productHub(.collection(.updates))) }
             ]
         }
@@ -907,6 +919,7 @@ struct ModulaBottomChrome: View {
                     .padding(.bottom, 2)
             }
             ModulaTabBar(embedded: true)
+                .modifier(AccessoryModulesLift())
         }
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
@@ -1074,29 +1087,67 @@ private struct TabBarChrome: ViewModifier {
     }
 }
 
-/// Swipe-up on the Tools accessory opens installed Product Hub modules. Vertical-only
-/// so tab taps, accessory buttons, Edge Picker, and feed scroll keep ownership.
-private struct AccessoryModulesLift: ViewModifier {
+/// Swipe-up on the in-app bottom bar (Tools accessory / Modula tab bar) opens the Modules Dock
+/// (Gesture Navigation System), tracking the finger; with the flag off it opens the installed
+/// modules sheet as before. Vertical-only so tab taps, accessory buttons, Edge Picker, and feed
+/// scroll keep ownership. Starts on Modula's own bar, never the system home-indicator edge.
+struct AccessoryModulesLift: ViewModifier {
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .simultaneousGesture(
-                DragGesture(minimumDistance: 28)
+                DragGesture(minimumDistance: 16, coordinateSpace: .global)
+                    .onChanged { value in
+                        guard spatial else { return }
+                        let dy = value.translation.height
+                        let dx = value.translation.width
+                        guard app.navigation.spatial.canBegin(from: .bottomBar, at: value.startLocation,
+                                                               isAtStackRoot: true,
+                                                               systemSheetPresented: app.navigation.presented != nil,
+                                                               enabled: true),
+                              !app.navigation.spatial.isDockOpen,
+                              dy < 0, abs(dy) > abs(dx) * PostGestureThresholds.verticalDominanceRatio else { return }
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) { app.navigation.spatial.liveDockDrag = dy }
+                    }
                     .onEnded { value in
                         let dy = value.translation.height
                         let dx = value.translation.width
+                        if spatial {
+                            let tracked = app.navigation.spatial.liveDockDrag < 0
+                            let container = UIScreen.main.bounds.height
+                            let next = SpatialNavigationCoordinator.settledDock(
+                                from: .collapsed, translation: dy,
+                                predicted: value.predictedEndTranslation.height, container: container)
+                            withAnimation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring) {
+                                app.navigation.spatial.liveDockDrag = 0
+                                if tracked, next != .collapsed { app.navigation.spatial.setDock(next) }
+                            }
+                            if tracked, next != .collapsed { HapticEngine.shared.play(.contextOpen) }
+                            return
+                        }
                         guard dy < -PostGestureThresholds.commentSheetThreshold else { return }
                         guard abs(dy) > abs(dx) * PostGestureThresholds.verticalDominanceRatio else { return }
                         present()
                     }
             )
-            .accessibilityAction(named: "Installed modules", present)
+            .accessibilityAction(named: spatial ? "Modules Dock" : "Installed modules", present)
     }
+
+    private var spatial: Bool { app.navigation.spatialEnabled }
 
     private func present() {
         HapticEngine.shared.play(.contextOpen)
-        app.navigation.openModulesDock()
+        if spatial {
+            withAnimation(reduceMotion ? SpatialSheetMetrics.reduceMotionFade : SpatialSheetMetrics.settleSpring) {
+                app.navigation.spatial.openDock(.half)
+            }
+        } else {
+            PresentationCoordinator.present(.installedModules, in: app.navigation)
+        }
     }
 }
 

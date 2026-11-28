@@ -9,14 +9,26 @@ import SwiftUI
 // ever open, every gesture has a button equivalent, and views never attach their own
 // competing swipe handlers. Pure state + math: views read it and feed it drag values.
 
-/// On by default in every build (Andy: the side sheet ships). The dev toggle
-/// (`dev.spatialNavigation.enabled` = false) and `--spatial-navigation-disabled` are off switches.
+/// Debug: on by default. Release: off unless switched on (Settings → Labs), matching GUBIC.
 enum SpatialNavigationFeature {
     static let enabledKey = "dev.spatialNavigation.enabled"
 
-    static func enabled(defaults: UserDefaults = .standard, arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
-        if arguments.contains("--spatial-navigation-disabled") { return false }
+    /// Value used when the switch was never touched (Settings → Labs binds to the same key).
+    static var defaultValue: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    static func enabled(defaults: UserDefaults = .standard) -> Bool {
+        if ProcessInfo.processInfo.arguments.contains("--spatial-navigation-disabled") { return false }
+        #if DEBUG
         return defaults.object(forKey: enabledKey) as? Bool ?? true
+        #else
+        return defaults.bool(forKey: enabledKey)
+        #endif
     }
 }
 
@@ -101,6 +113,9 @@ final class SpatialNavigationCoordinator {
     private(set) var lastTransition = SpatialTransition(from: nil, to: nil)
     /// Screens pushed from inside the profile sheet stay inside it (own back stack).
     var sheetPath: [AppRoute] = []
+    /// Live upward drag on the bottom bar (negative = finger moving up) so the dock tracks the
+    /// finger before it settles. Reset to 0 when the drag ends.
+    var liveDockDrag: CGFloat = 0
     /// Called on every change (NavigationCoordinator mirrors the sidebar freeze flags).
     @ObservationIgnored var onTransition: (@MainActor (SpatialSheet?, SpatialSheet?) -> Void)?
     /// Global frames of inner horizontal galleries / module surfaces that own horizontal drags.

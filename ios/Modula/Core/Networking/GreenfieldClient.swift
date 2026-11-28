@@ -19,15 +19,17 @@ enum APIError: Error, LocalizedError, Equatable {
         case .rejected(_, "UNAUTHENTICATED"): "Sign in to Modula to continue."
         case .rejected(_, "ACCOUNT_INACTIVE"), .rejected(_, "ACCOUNT_DISABLED"):
             "This account is not active. Verify your email or contact support."
-        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"):
+        case .rejected(_, "EMAIL_NOT_VERIFIED"), .rejected(_, "VERIFICATION_REQUIRED"), .rejected(_, "EMAIL_VERIFICATION_REQUIRED"):
             "Verify your email before signing in."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
+        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"):
+            "Confirm your password to continue."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
         case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
             "This module doesn't have permission to change your records. Review its permissions, then try again."
         case .rejected(_, "REVISION_CONFLICT"), .rejected(_, "NOTE_REVISION_CONFLICT"):
-            "This note changed. Open it again, then save."
+            "This record changed. Open it again, then save."
         case .rejected(413, _), .rejected(_, "PAYLOAD_TOO_LARGE"):
             "That file is too large to upload. Try a smaller photo."
         case .rejected(_, "SERVER_UNAVAILABLE"):
@@ -48,6 +50,22 @@ enum APIError: Error, LocalizedError, Equatable {
     var code: String? {
         if case .rejected(_, let code) = self { return code }
         return nil
+    }
+
+    /// `401 STEP_UP_REQUIRED` means the session is still valid; the action needs a
+    /// recent password / passkey / Apple confirmation. It must not be treated as a
+    /// revoked token (refresh + sign-out).
+    var requiresStepUp: Bool {
+        if case .rejected(_, let code) = self { return Self.isStepUpCode(code) }
+        return false
+    }
+
+    static func isStepUpCode(_ code: String) -> Bool {
+        code == "STEP_UP_REQUIRED" || code == "FORBIDDEN_STEP_UP"
+    }
+
+    static func requiresStepUp(_ error: Error) -> Bool {
+        (error as? APIError)?.requiresStepUp == true
     }
 }
 
@@ -185,6 +203,7 @@ actor GreenfieldClient {
     private var epoch = 0
     private var accountID: String?
     private var sessionInvalidated: (@Sendable () -> Void)?
+    private var authFailureDetails: [String: GreenfieldFailureDetails] = [:]
 
     /// Called (off the main actor) when the server rejects the session and a refresh
     /// can't recover it, so the app can leave the signed-in state instead of silently
@@ -193,19 +212,29 @@ actor GreenfieldClient {
 
     /// Non-secret origin label for diagnostics (fixture vs production host).
     var apiOriginHost: String? { baseURL?.host }
+    var apiOriginIdentifier: String? {
+        guard let baseURL, let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
+        return "\(scheme)://\(host)\(baseURL.port.map { ":\($0)" } ?? "")"
+    }
 
     init(baseURL: URL?, transport: URLSession = .shared) {
         self.keychain = KeychainStore(namespace: baseURL?.absoluteString ?? "unconfigured")
         self.offlineAccountKeychain = KeychainStore(namespace: (baseURL?.absoluteString ?? "unconfigured") + "|offline-account")
         self.baseURL = baseURL
-        self.transport = transport
         if transport === URLSession.shared {
+            // Never use URLSession.shared (and its URLCache) for credential or API calls.
+            // The server sends Cache-Control: no-store (#203); the client must not store them either.
             let configuration = URLSessionConfiguration.ephemeral
             configuration.urlCache = nil
             configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-            self.artifactTransport = URLSession(configuration: configuration)
+            configuration.httpCookieAcceptPolicy = .never
+            configuration.httpShouldSetCookies = false
+            let session = URLSession(configuration: configuration)
+            self.transport = session
+            self.artifactTransport = session
         } else {
             // Preserve injected transports, including the isolated-network test session.
+            self.transport = transport
             self.artifactTransport = transport
         }
     }
@@ -487,6 +516,41 @@ actor GreenfieldClient {
         return data
     }
 
+    /// Downloads one exact Moliboo release from the configured GreenField origin.
+    /// The manifest identity supplies the path and digest; a catalogue URL is never
+    /// allowed to redirect the client to a different host or package.
+    func downloadVerifiedMolibooPack(
+        packageID: String,
+        version: String,
+        expectedSha256: String,
+        maximumBytes: Int
+    ) async throws -> Data {
+        guard packageID.range(of: "^moliboo\\.character\\.[0-9]{1,4}$", options: .regularExpression) != nil,
+              version.range(of: "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$", options: .regularExpression) != nil,
+              InstallDescriptorVerifier.isHex64(expectedSha256),
+              let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil else {
+            throw APIError.invalidResponse
+        }
+        let path = "/v1/moliboos/packs/\(packageID)/download?version=\(version)"
+        guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host, url.port == baseURL.port else { throw APIError.invalidResponse }
+        var request = try await mediaRequest(for: url)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue(PackageMediaCompatibility.moliboo.mediaType, forHTTPHeaderField: "Accept")
+        request.allowsCellularAccess = UserDefaults.standard.bool(forKey: "settings.downloads.allowCellular")
+        let (data, response) = try await artifactTransport.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
+              http.expectedContentLength <= Int64(maximumBytes),
+              data.count <= maximumBytes,
+              http.value(forHTTPHeaderField: "X-Modula-Artifact-Sha256") == expectedSha256 else {
+            throw APIError.invalidResponse
+        }
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard digest == expectedSha256 else { throw APIError.invalidResponse }
+        return data
+    }
+
     /// Package locks may contain the registry's internal public URL. Fetch the
     /// pinned artifact from this app's configured GreenField origin instead.
     nonisolated static func registryArtifactURL(ref: String, expectedSha256: String, baseURL: URL) throws -> URL {
@@ -615,6 +679,20 @@ actor GreenfieldClient {
         return temporaryURL
     }
 
+    func downloadModuleAttachment(_ assetID: String, expectedAccountID: String) async throws -> URL {
+        guard accountID == expectedAccountID, UUID(uuidString: assetID) != nil,
+              let baseURL, baseURL.scheme == "https",
+              let url = URL(string: "/v1/attachments/\(assetID)/content", relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host else { throw APIError.invalidResponse }
+        let generation = epoch
+        let temporary = try await downloadMedia(from: url)
+        guard generation == epoch, accountID == expectedAccountID else {
+            try? FileManager.default.removeItem(at: temporary)
+            throw APIError.accountChanged
+        }
+        return temporary
+    }
+
     /// Authenticated WebSocket request for Greenfield realtime routes (GUBIC lobbies).
     /// The bearer travels in the header, never in the URL.
     func webSocketRequest(path: String) async throws -> URLRequest {
@@ -673,15 +751,21 @@ actor GreenfieldClient {
             let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
+        } catch let error as APIError where error.requiresStepUp && generation == epoch {
+            // Session is valid; the action needs a recent re-auth. Do not refresh or sign out.
+            throw error
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
             // The access token was rejected although it looked valid locally (revoked
-            // session, clock skew). A 401 means the request wasn't processed, so refresh
-            // once and retry; if the refresh is rejected too, the session is gone.
+            // session, clock skew). A 401 that is not STEP_UP_REQUIRED means the request
+            // wasn't processed, so refresh once and retry; if the refresh is rejected too,
+            // the session is gone. Concurrent callers share one in-flight refresh.
             let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
             do {
                 let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
+            } catch let error as APIError where error.requiresStepUp && generation == epoch {
+                throw error
             } catch APIError.rejected(401, let code) where generation == epoch {
                 // The refresh just succeeded, so the shell's own session is valid. For
                 // module-scoped calls a repeated 401 is the module's rejection, not a
@@ -714,23 +798,42 @@ actor GreenfieldClient {
 
     /// Only a definitive rejection of the refresh token ends the session. Offline, timeouts
     /// and 5xx keep the stored tokens so the user stays signed in and can retry.
+    /// `401 STEP_UP_REQUIRED` is not a revoked session and must never sign the user out.
     nonisolated static func refreshFailureEndsSession(_ error: Error) -> Bool {
+        if APIError.requiresStepUp(error) { return false }
         switch error {
+        case APIError.rejected(_, "UNAUTHENTICATED"): return true
         case APIError.rejected(let status, _): return status == 400 || status == 401 || status == 403
         case APIError.unauthenticated: return true
         default: return false
         }
     }
 
+    /// One in-flight refresh shared by every caller (actor-isolated). Concurrent 401s
+    /// all await this task so the same refresh token is never presented twice
+    /// (GreenField #203 / #195). A 401 `UNAUTHENTICATED` (including reuse) clears the
+    /// session once, with no retry loop.
     private func accessToken(forceRefresh: Bool = false, rejected: String? = nil) async throws -> String {
-        if let refreshTask { return try await refreshTask.value.accessToken }
+        if let refreshTask {
+            return try await awaitSharedRefresh(refreshTask)
+        }
         guard let current = tokens else { throw APIError.unauthenticated }
         // Another request may already have rotated the token that was rejected.
         if forceRefresh, let rejected, current.accessToken != rejected { return current.accessToken }
         if current.accessValid && !forceRefresh { return current.accessToken }
+        let presented = current.refreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !presented.isEmpty else {
+            invalidateSession()
+            throw APIError.unauthenticated
+        }
         let generation = epoch
         let task = Task<SessionTokens, Error> {
-            let next: SessionTokens = try await self.send("POST", path: "/v1/sessions/refresh", body: .object(["refreshToken": .string(current.refreshToken)]))
+            // Always a JSON object body; never an empty refreshToken (#198 / #203).
+            let next: SessionTokens = try await self.send(
+                "POST",
+                path: "/v1/sessions/refresh",
+                body: .object(["refreshToken": .string(presented)])
+            )
             guard generation == self.epoch else { throw APIError.accountChanged }
             try self.keychain.save(JSONEncoder().encode(next))
             self.tokens = next
@@ -742,6 +845,20 @@ actor GreenfieldClient {
         catch {
             if generation == epoch, Self.refreshFailureEndsSession(error) {
                 invalidateSession()
+                throw APIError.unauthenticated
+            }
+            throw error
+        }
+    }
+
+    /// Waiters of a shared refresh remap a revoked-refresh failure to `unauthenticated`
+    /// so `authenticated()` cannot start a second refresh (no retry loop). The owner of
+    /// the task is the one that calls `invalidateSession()`.
+    private func awaitSharedRefresh(_ task: Task<SessionTokens, Error>) async throws -> String {
+        do {
+            return try await task.value.accessToken
+        } catch {
+            if Self.refreshFailureEndsSession(error) {
                 throw APIError.unauthenticated
             }
             throw error
@@ -761,6 +878,10 @@ actor GreenfieldClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        // Greenfield authenticates with bearer tokens only (no cookies, CORS credentials off),
+        // so nothing from an earlier request (e.g. a pending sign-up) can ride along.
+        request.httpShouldHandleCookies = false
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
@@ -786,14 +907,32 @@ actor GreenfieldClient {
                 "verbose \(method, privacy: .public) \(safePath, privacy: .public) → \(status, privacy: .public) \(data.count, privacy: .public)B \(elapsed, privacy: .public)ms"
             )
         }
-        // Speed: large bodies (feeds, threads, catalogue) decode on a background executor so the
-        // client actor stays free for the parallel requests that follow them.
-        if data.count > 32_768 {
-            return try await Task.detached(priority: .userInitiated) {
-                try Self.decodeEnvelope(data, response: response, method: method, path: path) as T
-            }.value
+        let http = response as? HTTPURLResponse
+        guard Self.recordsFailureDetails(path) else {
+            // Speed: large bodies (feeds, threads, catalogue) decode on a background executor so the
+            // client actor stays free for the parallel requests that follow them.
+            if data.count > 32_768 {
+                return try await Task.detached(priority: .userInitiated) {
+                    try Self.decodeEnvelope(data, response: response, method: method, path: path) as T
+                }.value
+            }
+            return try Self.decodeEnvelope(data, response: response, method: method, path: path)
         }
-        return try Self.decodeEnvelope(data, response: response, method: method, path: path)
+        do {
+            let value: T
+            if data.count > 32_768 {
+                value = try await Task.detached(priority: .userInitiated) {
+                    try Self.decodeEnvelope(data, response: response, method: method, path: path) as T
+                }.value
+            } else {
+                value = try Self.decodeEnvelope(data, response: response, method: method, path: path)
+            }
+            authFailureDetails[path] = nil
+            return value
+        } catch {
+            authFailureDetails[path] = GreenfieldFailureDetails.parse(data, response: http)
+            throw error
+        }
     }
 
     /// Speed: identical concurrent GETs (same path, same session) share one network round trip —
@@ -811,6 +950,17 @@ actor GreenfieldClient {
         defer { inFlightGETs[key] = nil }
         return try await task.value
     }
+
+    /// Sign-in and account (register / verify / resend) answers carry structured failure
+    /// details (403 EMAIL_VERIFICATION_REQUIRED challenge, 429 retry hints). Errors stay
+    /// `APIError`; the details are read back with `lastFailureDetails(path:)`.
+    nonisolated static func recordsFailureDetails(_ path: String) -> Bool {
+        path == "/v1/sessions" || path.hasPrefix("/v1/accounts/register")
+            || path.hasPrefix("/v1/accounts/verify-email") || path.hasPrefix("/v1/accounts/resend-verification")
+            || path.hasPrefix("/v1/accounts/forgot-password") || path.hasPrefix("/v1/accounts/reset-password")
+    }
+
+    func lastFailureDetails(path: String) -> GreenfieldFailureDetails? { authFailureDetails[path] }
 
     /// Decodes a Greenfield envelope. Responses that are not envelopes (for example the
     /// nginx HTML 413 page in front of both hosts, or an HTML 502/503 from the edge) are

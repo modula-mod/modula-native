@@ -119,7 +119,9 @@ final class CollectionStore {
     private let fileStore: PrivateFileStore
     private let legacyFilename = "collections.json"
     private let repository: GreenfieldCollectionRepository?
-    let capabilities: CollectionBackendCapabilities
+    private let configuredCapabilities: CollectionBackendCapabilities?
+    var capabilities: CollectionBackendCapabilities { configuredCapabilities ?? .production }
+    private var syncEnabled: Bool { capabilities.serverCollections }
     private(set) var accountID: String?
     private(set) var collections: [ModulaCollection] = []
     private(set) var pendingMutations: [CollectionMutation] = []
@@ -129,11 +131,11 @@ final class CollectionStore {
 
     init(
         client: GreenfieldClient? = nil,
-        capabilities: CollectionBackendCapabilities = .production,
+        capabilities: CollectionBackendCapabilities? = nil,
         fileStore: PrivateFileStore = PrivateFileStore(domain: .collections)
     ) {
         repository = client.map { GreenfieldCollectionRepository(client: $0) }
-        self.capabilities = capabilities
+        self.configuredCapabilities = capabilities
         self.fileStore = fileStore
         load()
         ensureDefaultSaved()
@@ -153,7 +155,7 @@ final class CollectionStore {
         _ = persist()
         accountID = next
         load()
-        if next != nil, repository != nil, userCollections.isEmpty, !legacy.isEmpty {
+        if next != nil, syncEnabled, repository != nil, userCollections.isEmpty, !legacy.isEmpty {
             collections.append(contentsOf: legacy.map { value in
                 var migrated = value
                 migrated.syncState = .pending
@@ -165,12 +167,12 @@ final class CollectionStore {
         }
         ensureDefaultSaved()
         _ = persist()
-        guard next != nil else { return }
+        guard next != nil, syncEnabled else { return }
         Task { [weak self] in await self?.refresh() }
     }
 
     func refresh() async {
-        guard let repository, accountID != nil, !isRefreshing else { return }
+        guard syncEnabled, let repository, accountID != nil, !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         await replayPending()
@@ -205,10 +207,10 @@ final class CollectionStore {
         let collection = ModulaCollection(
             id: UUID().uuidString, name: trimmed, storage: .local, itemIDs: [],
             createdAt: now, updatedAt: now, isDefault: false,
-            syncState: accountID == nil ? .localOnly : .pending
+            syncState: accountID == nil || !syncEnabled ? .localOnly : .pending
         )
         collections.append(collection)
-        if accountID != nil {
+        if accountID != nil, syncEnabled {
             pendingMutations.append(CollectionMutation(kind: .create, collectionID: collection.id, name: trimmed))
         }
         guard persist() else {
@@ -230,7 +232,7 @@ final class CollectionStore {
         }
         collections[index].name = trimmed
         collections[index].updatedAt = Date()
-        if accountID != nil {
+        if accountID != nil, syncEnabled {
             collections[index].syncState = .pending
             pendingMutations.removeAll { $0.kind == .rename && $0.collectionID == id }
             pendingMutations.append(CollectionMutation(
@@ -244,7 +246,7 @@ final class CollectionStore {
     func delete(id: String) {
         guard let collection = collections.first(where: { $0.id == id }), !collection.isDefault else { return }
         collections.removeAll { $0.id == id }
-        if accountID != nil {
+        if accountID != nil, syncEnabled {
             if collection.storage == .local {
                 pendingMutations.removeAll { $0.collectionID == id }
             } else {
@@ -264,7 +266,7 @@ final class CollectionStore {
         guard !collections[index].itemIDs.contains(postID) else { return true }
         collections[index].itemIDs.append(postID)
         collections[index].updatedAt = Date()
-        if accountID != nil {
+        if accountID != nil, syncEnabled {
             collections[index].syncState = .pending
             pendingMutations.append(CollectionMutation(kind: .add, collectionID: collectionID, postID: postID))
         }
@@ -277,7 +279,7 @@ final class CollectionStore {
         guard let index = collections.firstIndex(where: { $0.id == collectionID }) else { return }
         collections[index].itemIDs.removeAll { $0 == postID }
         collections[index].updatedAt = Date()
-        if accountID != nil {
+        if accountID != nil, syncEnabled {
             if let queued = pendingMutations.firstIndex(where: {
                 $0.kind == .add && $0.collectionID == collectionID && $0.postID == postID
             }) {
@@ -294,7 +296,7 @@ final class CollectionStore {
     }
 
     func resolveConflictUsingServer(id: String) async {
-        guard let repository else { return }
+        guard syncEnabled, let repository else { return }
         do {
             var server = try await repository.collection(id: id)
             let items = try await repository.allItems(collectionID: id)
@@ -309,12 +311,12 @@ final class CollectionStore {
     }
 
     private func replaySoon() {
-        guard accountID != nil, repository != nil else { return }
+        guard syncEnabled, accountID != nil, repository != nil else { return }
         Task { [weak self] in await self?.replayPending() }
     }
 
     private func replayPending() async {
-        guard let repository, accountID != nil, !isReplaying else { return }
+        guard syncEnabled, let repository, accountID != nil, !isReplaying else { return }
         isReplaying = true
         defer { isReplaying = false }
         while let mutation = pendingMutations.first {

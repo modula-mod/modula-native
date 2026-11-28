@@ -16,6 +16,7 @@ struct ModuleCachedRelease: Sendable {
     var frontendMediaType: String
     var gameSha256: String?
     var runtimeSha256: String?
+    var modulePackageSha256: String?
     var hostManifest: ModuleManifest
     var descriptor: ModuleInstallDescriptor?
     var slot: ModuleCacheSlot
@@ -93,7 +94,8 @@ final class ModuleArtifactStore: @unchecked Sendable {
         return ModuleCachedRelease(
             moduleId: moduleId, version: version, releaseId: releaseId, accountID: accountID,
             frontendSha256: frontendSha256, frontendMediaType: mediaType,
-            gameSha256: json["gameSha256"]?.string, runtimeSha256: json["runtimeSha256"]?.string, hostManifest: manifest,
+            gameSha256: json["gameSha256"]?.string, runtimeSha256: json["runtimeSha256"]?.string,
+            modulePackageSha256: json["modulePackageSha256"]?.string, hostManifest: manifest,
             descriptor: descriptor, slot: slot, directory: directory
         )
     }
@@ -105,6 +107,11 @@ final class ModuleArtifactStore: @unchecked Sendable {
         guard digest == release.frontendSha256 else {
             throw ModuleActivationError.digestMismatch("frontend")
         }
+        if release.modulePackageSha256 != nil {
+            guard try verifiedModuleFrontend(for: release) == data else {
+                throw ModuleActivationError.digestMismatch("module package frontend")
+            }
+        }
         return data
     }
 
@@ -112,10 +119,15 @@ final class ModuleArtifactStore: @unchecked Sendable {
     func stage(accountID: String, moduleId: String, version: String, releaseId: String,
                frontend: Data, frontendSha256: String, mediaType: String,
                hostManifest: ModuleManifest, descriptor: ModuleInstallDescriptor?,
-               game: WebGamePackage? = nil, runtimeSha256: String? = nil) throws {
+               game: WebGamePackage? = nil, runtimeSha256: String? = nil,
+               modulePackage: ModuleContentPackage? = nil) throws {
         let expected = SHA256.hash(data: frontend).map { String(format: "%02x", $0) }.joined()
         guard expected == frontendSha256 else { throw ModuleActivationError.digestMismatch("frontend") }
         if let traversal = Self.unsafePath(in: frontend) { throw ModuleActivationError.pathTraversal(traversal) }
+        guard game == nil || modulePackage == nil else { throw ModuleActivationError.incompatible }
+        if let modulePackage, modulePackage.frontend != frontend {
+            throw ModuleActivationError.digestMismatch("module package frontend")
+        }
         let staged = slotURL(accountID: accountID, moduleId: moduleId, slot: .staged)
         if fileManager.fileExists(atPath: staged.path) {
             try fileManager.removeItem(at: staged)
@@ -128,6 +140,10 @@ final class ModuleArtifactStore: @unchecked Sendable {
             try atomicWrite(game.archive, to: staging.appendingPathComponent("game.tgz"))
             _ = try game.install(in: staging.appendingPathComponent("Game", isDirectory: true))
         }
+        if let modulePackage {
+            try atomicWrite(modulePackage.archive, to: staging.appendingPathComponent("module-content.tgz"))
+            _ = try modulePackage.install(in: staging.appendingPathComponent("ModulePackage", isDirectory: true))
+        }
         var meta: [String: JSONValue] = [
             "moduleId": .string(moduleId),
             "version": .string(version),
@@ -139,6 +155,7 @@ final class ModuleArtifactStore: @unchecked Sendable {
         if let descriptor { meta["descriptor"] = descriptor.raw }
         if let game { meta["gameSha256"] = .string(game.sha256) }
         if let runtimeSha256 { meta["runtimeSha256"] = .string(runtimeSha256) }
+        if let modulePackage { meta["modulePackageSha256"] = .string(modulePackage.sha256) }
         try atomicWrite(JSONEncoder().encode(JSONValue.object(meta)), to: staging.appendingPathComponent("release.json"))
         try fileManager.moveItem(at: staging, to: staged)
         var current = index(accountID: accountID, moduleId: moduleId)
@@ -156,6 +173,17 @@ final class ModuleArtifactStore: @unchecked Sendable {
         return try WebGamePackage.verifyInstalled(
             at: release.directory.appendingPathComponent("Game/\(digest)", isDirectory: true),
             expectedSha256: digest, trustedFiles: trusted.files
+        )
+    }
+
+    func verifiedModuleFrontend(for release: ModuleCachedRelease) throws -> Data {
+        guard let digest = release.modulePackageSha256 else {
+            throw WebGamePackageError.invalid("module package metadata")
+        }
+        return try ModuleContentPackage.verifyInstalled(
+            at: release.directory.appendingPathComponent("ModulePackage/\(digest)", isDirectory: true),
+            archiveURL: release.directory.appendingPathComponent("module-content.tgz"),
+            expectedSha256: digest
         )
     }
 

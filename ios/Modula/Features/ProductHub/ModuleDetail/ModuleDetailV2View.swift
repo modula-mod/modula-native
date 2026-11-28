@@ -103,24 +103,21 @@ struct ModuleDetailV2View: View {
             .modulaSheetStyle()
         }
         .sheet(isPresented: $confirmRedownload) {
-            Group {
-                ModulePermissionReviewSheet(
-                    moduleID: moduleID,
-                    localDevelopment: false,
-                    moduleName: product?.name ?? "Game",
-                    operation: .download,
-                    fromVersion: installedVersion,
-                    toVersion: installedVersion,
-                    permissions: reviewedPermissions,
-                    previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
-                    onConfirm: { plan in
-                        confirmRedownload = false
-                        Task { await runRedownload(approvedPlan: plan) }
-                    },
-                    onCancel: { confirmRedownload = false }
-                )
-            }
-            .modulaSheetStyle()
+            ModulePermissionReviewSheet(
+                moduleID: moduleID,
+                localDevelopment: false,
+                moduleName: product?.name ?? "Module",
+                operation: .download,
+                fromVersion: installedVersion,
+                toVersion: installedVersion,
+                permissions: reviewedPermissions,
+                previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
+                onConfirm: { plan in
+                    confirmRedownload = false
+                    Task { await runRedownload(approvedPlan: plan) }
+                },
+                onCancel: { confirmRedownload = false }
+            )
         }
         .confirmationDialog("Uninstall \(product?.name ?? "module")?", isPresented: $confirmUninstall, titleVisibility: .visible) {
             Button("Uninstall", role: .destructive) { Task { await runUninstall() } }
@@ -808,9 +805,16 @@ struct ModuleDetailV2View: View {
         let account = app.runtime.accountID ?? app.auth.account?.accountId
         let cached = app.moduleActivation.active(accountID: account, moduleId: moduleID)?.version
         if let installed, cached != installed {
-            if product?.productKind == "game", product?.betaClassification != "local-development" {
-                confirmRedownload = true
-                return
+            if product?.betaClassification != "local-development" {
+                do {
+                    if try await app.catalogue.preparePackagePlan(moduleID, version: installed) != nil {
+                        confirmRedownload = true
+                        return
+                    }
+                } catch {
+                    app.catalogue.lifecycleErrors[moduleID] = error.localizedDescription
+                    return
+                }
             }
             await app.catalogue.activateVerifiedFrontend(moduleID, accountID: account)
         }
@@ -820,7 +824,7 @@ struct ModuleDetailV2View: View {
     }
 
     private func runRedownload(approvedPlan: PackageInstallPlan?) async {
-        if await app.catalogue.redownloadInstalledGame(moduleID, approvedPlan: approvedPlan) {
+        if await app.catalogue.redownloadInstalledPackage(moduleID, approvedPlan: approvedPlan) {
             HapticEngine.shared.play(.success)
             app.navigation.open(.module(moduleID, localPath: nil))
         } else {

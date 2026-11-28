@@ -311,109 +311,93 @@ final class SpatialRecentsTests: XCTestCase {
     }
 }
 
-// MARK: - Gesture Navigation System round 2 (Release default, Modules Dock, quick tabs)
-
 @MainActor
-final class SpatialNavigationReleaseTests: XCTestCase {
-    private func scratchDefaults() -> UserDefaults {
-        let name = "spatial.tests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
-        return defaults
+final class SpatialDockTests: XCTestCase {
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: "SpatialDockTests")
+        defaults.removePersistentDomain(forName: "SpatialDockTests")
     }
 
-    func testSpatialNavigationIsOnByDefaultInEveryBuild() {
-        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: scratchDefaults(), arguments: []))
+    func testPinsToggleAndKeepOrder() {
+        SpatialDockPins.toggle("a", defaults: defaults)
+        SpatialDockPins.toggle("b", defaults: defaults)
+        SpatialDockPins.toggle("c", defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "b", "c"])
+        SpatialDockPins.toggle("b", defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c"])
+        XCTAssertFalse(SpatialDockPins.isPinned("b", defaults: defaults))
     }
 
-    func testDevToggleAndLaunchArgumentAreOffSwitches() {
-        let defaults = scratchDefaults()
-        defaults.set(false, forKey: SpatialNavigationFeature.enabledKey)
-        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: defaults, arguments: []))
-        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: scratchDefaults(), arguments: ["--spatial-navigation-disabled"]))
+    func testArrangeMovesWithinBounds() {
+        ["a", "b", "c"].forEach { SpatialDockPins.toggle($0, defaults: defaults) }
+        SpatialDockPins.move("c", by: -1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("a", by: -1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("b", by: 5, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
+        SpatialDockPins.move("missing", by: 1, defaults: defaults)
+        XCTAssertEqual(SpatialDockPins.load(defaults: defaults), ["a", "c", "b"])
     }
 
-    func testModulesDockOpensAtHalfThenRaises() {
-        let navigation = NavigationCoordinator()
-        navigation.spatialEnabledOverride = true
-        navigation.openModulesDock()
-        XCTAssertEqual(navigation.spatial.dockState, .half)
-        XCTAssertNil(navigation.presented)
-        navigation.openModulesDock()
-        XCTAssertEqual(navigation.spatial.dockState, .expanded)
+    func testSortOrders() {
+        let modules = [
+            module("m.zeta", name: "Zeta", publisher: "Acme"),
+            module("m.alpha", name: "alpha", publisher: "Zed"),
+            module("m.beta", name: "Beta", publisher: "Acme"),
+        ]
+        XCTAssertEqual(SpatialDockSort.name.sorted(modules, recents: []).map(\.id), ["m.alpha", "m.beta", "m.zeta"])
+        XCTAssertEqual(SpatialDockSort.publisher.sorted(modules, recents: []).map(\.id), ["m.beta", "m.zeta", "m.alpha"])
+        XCTAssertEqual(SpatialDockSort.recent.sorted(modules, recents: ["m.zeta", "m.beta"]).map(\.id), ["m.zeta", "m.beta", "m.alpha"])
     }
 
-    func testModulesDockFallsBackToSheetWhenSpatialIsOff() {
-        let navigation = NavigationCoordinator()
-        navigation.spatialEnabledOverride = false
-        navigation.openModulesDock()
-        XCTAssertEqual(navigation.presented, .installedModules)
-        XCTAssertFalse(navigation.spatial.isDockOpen)
+    func testEntryPointIsTheRegisteredModuleRoute() {
+        let tile = module("digital.modula.vault-notes", name: "Vault Notes", publisher: "Modula")
+        XCTAssertEqual(tile.entryPoint, .module("digital.modula.vault-notes", localPath: nil))
     }
 
-    func testDockThenProfileLeavesOnlyProfileOpen() {
-        let navigation = NavigationCoordinator()
-        navigation.spatialEnabledOverride = true
-        navigation.openModulesDock()
-        navigation.select(.profile)
-        XCTAssertTrue(navigation.spatial.isProfileOpen)
-        XCTAssertFalse(navigation.spatial.isDockOpen)
-    }
-
-    func testDockThenSidebarLeavesOnlySidebarOpen() {
-        let navigation = NavigationCoordinator()
-        navigation.spatialEnabledOverride = true
-        navigation.openModulesDock()
-        navigation.sidebarPresented = true
-        XCTAssertTrue(navigation.spatial.isSidebarOpen)
-        XCTAssertFalse(navigation.spatial.isDockOpen)
-    }
-
-    func testBottomTabTapClosesTheDock() {
-        let navigation = NavigationCoordinator()
-        navigation.spatialEnabledOverride = true
-        navigation.openModulesDock()
-        navigation.select(.discover)
-        XCTAssertTrue(navigation.spatial.isHome)
-        XCTAssertEqual(navigation.selectedTab, .discover)
-    }
-
-    func testDockPinsAreOrderedDedupedAndMovable() {
-        XCTAssertEqual(ModulesDockPrefs.decode(ModulesDockPrefs.encode(["a", "b", "a", "c"])), ["a", "b", "c"])
-        XCTAssertEqual(ModulesDockPrefs.move(["a", "b", "c"], id: "c", by: -1), ["a", "c", "b"])
-        XCTAssertEqual(ModulesDockPrefs.move(["a", "b", "c"], id: "a", by: -1), ["a", "b", "c"])
-        XCTAssertEqual(ModulesDockPrefs.move(["a"], id: "missing", by: 1), ["a"])
-        XCTAssertEqual(ModulesDockPrefs.pinnedFirst(["x", "b", "y", "a"], pins: ["a", "b", "a"], id: { $0 }), ["a", "b", "x", "y"])
-    }
-
-    // MARK: Quick tabs (accessory page 0)
-
-    func testQuickTabFollowsTheCurrentRoute() {
-        XCTAssertEqual(ShellQuickTab.current(.home(.following)), .following)
-        XCTAssertEqual(ShellQuickTab.current(.home(.forYou)), .forYou)
-        XCTAssertNil(ShellQuickTab.current(.saved(.root)))
-    }
-
-    func testQuickTabsOpenTheirDestinations() {
-        let navigation = NavigationCoordinator()
-        navigation.spatialEnabledOverride = true
-        ShellQuickTab.discover.open(in: navigation)
-        XCTAssertEqual(navigation.selectedTab, .discover)
-        ShellQuickTab.following.open(in: navigation)
-        XCTAssertEqual(navigation.selectedTab, .home)
-        XCTAssertEqual(ShellQuickTab.current(navigation.currentRoute), .following)
-        ShellQuickTab.modules.open(in: navigation)
-        XCTAssertEqual(navigation.selectedTab, .modules)
-    }
-
-    func testQuickTabsHaveDistinctTitlesAndSymbols() {
-        let tabs = ShellQuickTab.allCases
-        XCTAssertEqual(Set(tabs.map(\.title)).count, tabs.count)
-        XCTAssertEqual(Set(tabs.map(\.symbol)).count, tabs.count)
+    private func module(_ id: String, name: String, publisher: String) -> SpatialDockModule {
+        SpatialDockModule(product: CatalogueProduct(
+            moduleId: id, productKind: "module", name: name, description: "", publisherId: publisher.lowercased(),
+            publisherName: publisher, latestVersion: "1.0.0", status: "published", installable: true,
+            platforms: ["ios"], betaClassification: nil, installability: nil
+        ), runnable: true)
     }
 }
 
 @MainActor
+final class SpatialFeatureFlagTests: XCTestCase {
+    func testDefaultsOnInDebugAndFollowsTheLabsSwitch() {
+        let defaults = UserDefaults(suiteName: "SpatialFeatureFlagTests")!
+        defaults.removePersistentDomain(forName: "SpatialFeatureFlagTests")
+        #if DEBUG
+        XCTAssertTrue(SpatialNavigationFeature.defaultValue)
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: defaults))
+        #else
+        XCTAssertFalse(SpatialNavigationFeature.defaultValue)
+        #endif
+        defaults.set(false, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertFalse(SpatialNavigationFeature.enabled(defaults: defaults))
+        defaults.set(true, forKey: SpatialNavigationFeature.enabledKey)
+        XCTAssertTrue(SpatialNavigationFeature.enabled(defaults: defaults))
+    }
+
+    func testRoutingFollowsTheFlagAtCallTime() {
+        let navigation = NavigationCoordinator()
+        navigation.spatialEnabledOverride = false
+        navigation.select(.profile)
+        XCTAssertEqual(navigation.selectedTab, .profile)
+        navigation.spatialEnabledOverride = true
+        navigation.select(.home)
+        navigation.select(.profile)
+        XCTAssertEqual(navigation.selectedTab, .home)
+        XCTAssertTrue(navigation.spatial.isProfileOpen)
+    }
+}
+
 final class QuickTabNeighbourTests: XCTestCase {
     func testNeighboursFollowBarOrderWithoutWrapping() {
         XCTAssertEqual(ShellQuickTab.following.neighbour(1), .forYou)

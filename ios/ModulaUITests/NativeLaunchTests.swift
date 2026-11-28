@@ -1,10 +1,13 @@
 import XCTest
 import UIKit
 
-/// The accepted Edge Picker is scrub-only. Drive the real adjustable surface
-/// instead of reviving the obsolete tappable-item contract.
+/// Following, For You, and Modules use the Feeds sheet. Other routes still scrub the Edge Picker.
 @MainActor
 private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: Bool = true) {
+    if let mode = homeFeedMode(route) {
+        selectHomeFeed(app, route: route, mode: mode)
+        return
+    }
     let picker = app.descendants(matching: .any)["shell.edge-loop"].firstMatch
     guard picker.waitForExistence(timeout: 5) else {
         XCTFail("Shell Edge Picker is missing for \(route)")
@@ -24,6 +27,75 @@ private func scrubEdgePicker(_ app: XCUIApplication, to route: String, forward: 
         let identifier = String(route.dropFirst()).replacingOccurrences(of: "/", with: ".")
         XCTAssertTrue(app.descendants(matching: .any)[identifier].firstMatch.waitForExistence(timeout: 5))
     }
+}
+
+/// Polls until the Feeds sheet is gone and `native.home` shows `route`.
+private final class HomeFeedArrival: NSObject, @unchecked Sendable {
+    private let app: XCUIApplication
+    private let route: String
+
+    init(app: XCUIApplication, route: String) {
+        self.app = app
+        self.route = route
+    }
+
+    var sheetIsGone: Bool {
+        !app.descendants(matching: .any)["modula.sheet"].firstMatch.exists
+    }
+
+    var sheetDismissedOnRoute: NSPredicate {
+        NSPredicate { object, _ in
+            guard let probe = object as? HomeFeedArrival else { return false }
+            let home = probe.app.descendants(matching: .any)["native.home"].firstMatch
+            return probe.sheetIsGone && (home.value as? String) == probe.route
+        }
+    }
+}
+
+/// The three Home modes exposed by `HomeFeedsSheet` (`home.feeds.<mode>`).
+private func homeFeedMode(_ route: String) -> String? {
+    switch route {
+    case "/home/following": "following"
+    case "/home/for-you": "for-you"
+    case "/home/modules": "modules"
+    default: nil
+    }
+}
+
+@MainActor
+private func selectHomeFeed(_ app: XCUIApplication, route: String, mode: String) {
+    let feeds = app.buttons["accessory.feeds"].firstMatch
+    XCTAssertTrue(feeds.waitForExistence(timeout: 5), "Feeds control is missing for \(route)")
+    feeds.tap()
+    let feed = app.buttons["home.feeds.\(mode)"].firstMatch
+    XCTAssertTrue(feed.waitForExistence(timeout: 5), "Home feed \(mode) is missing for \(route)")
+    feed.tap()
+    let settled = HomeFeedArrival(app: app, route: route)
+    let arrival = XCTNSPredicateExpectation(predicate: settled.sheetDismissedOnRoute, object: settled)
+    let result = XCTWaiter().wait(for: [arrival], timeout: 5)
+    let home = app.descendants(matching: .any)["native.home"].firstMatch
+    XCTAssertTrue(home.waitForExistence(timeout: 5))
+    XCTAssertEqual(home.value as? String, route)
+    XCTAssertTrue(result == .completed && settled.sheetIsGone, "Feeds sheet still presented for \(route) (\(result))")
+}
+
+/// Settings root has no button whose identifier is "Appearance". Scroll to the live card or the Experience row.
+@MainActor
+private func openAppearanceFromSettings(_ app: XCUIApplication) {
+    let moreOptions = app.buttons.matching(NSPredicate(format: "label == %@", "More appearance options")).firstMatch
+    let appearanceRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Appearance")).firstMatch
+    for _ in 0..<6 {
+        if moreOptions.isHittable {
+            moreOptions.tap()
+            return
+        }
+        if appearanceRow.exists, appearanceRow.isHittable {
+            appearanceRow.tap()
+            return
+        }
+        app.swipeUp()
+    }
+    XCTFail("Appearance control not reachable after scrolling Settings")
 }
 
 @MainActor
@@ -119,7 +191,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
 
         openSettingsFromShell(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5))
-        app.buttons["Appearance"].firstMatch.tap()
+        openAppearanceFromSettings(app)
         XCTAssertTrue(app.descendants(matching: .any)["settings.appearance"].waitForExistence(timeout: 5))
     }
 
@@ -1044,6 +1116,244 @@ private extension Duration {
     var milliseconds: Double { Double(components.seconds) * 1_000 + Double(components.attoseconds) / 1e15 }
 }
 
+@MainActor
+final class Vault21CandidateUITests: XCTestCase {
+    private struct GalleryFixture: Decodable {
+        struct Note: Decodable { let recordId: String }
+        let folders: [String: Note]
+        let tags: [String: Note]
+        let notes: [String: Note]
+    }
+
+    private struct MediaFixture: Decodable { let bindingId: String }
+
+    private func capture(_ name: String, app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "vault21-\(name)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testEightScreenVisualBaseline() throws {
+        continueAfterFailure = false
+        let qaPath = "/Users/msjoy/Library/Application Support/Modula/QA/vault21-n1.json"
+        guard FileManager.default.fileExists(atPath: qaPath) else {
+            throw XCTSkip("Disposable Vault 2.1 N1 QA credentials are unavailable on this Mac")
+        }
+        let credentials = try JSONDecoder().decode(N1UITestFixture.self, from: Data(contentsOf: URL(fileURLWithPath: qaPath)))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-signed-out", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launchEnvironment["N1_SECRET_FILE"] = qaPath
+        app.launch()
+        try awaitShellReady(app, credentials: credentials, timeout: 90)
+        openProductHubFromShell(app)
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 20))
+        vault.tap()
+        tapModuleOpen(app)
+        XCTAssertTrue(app.descendants(matching: .any)["module.host.product-ui"].firstMatch.waitForExistence(timeout: 30))
+        capture("home", app: app)
+        for (label, name) in [("Pinned", "pinned"), ("Favourites", "favourites"), ("Folders", "folders"), ("Tags", "tags"), ("Trash", "trash")] {
+            let button = app.buttons[label].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "Missing \(label) button: \(app.debugDescription)")
+            button.tap()
+            capture(name, app: app)
+            let back = app.buttons["product-ui.back"].firstMatch
+            XCTAssertTrue(back.waitForExistence(timeout: 8), "Missing back control from \(label)")
+            back.tap()
+        }
+        let record = app.buttons["product-ui.record.01a154d4-cb2f-7283-a80b-65b0302df3e6"].firstMatch
+        XCTAssertTrue(record.waitForExistence(timeout: 10), "Rich writing QA note missing from Home")
+        app.swipeUp()
+        record.tap()
+        capture("detail", app: app)
+        let edit = app.buttons["Edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 10), "Edit action missing from note detail")
+        edit.tap()
+        capture("editor", app: app)
+    }
+
+    func testGalleryVisualCandidateWithDisposableAccount() throws {
+        continueAfterFailure = false
+        let qaPath = "/Users/msjoy/Library/Application Support/Modula/QA/vault21-n1-secondary.json"
+        let fixturesPath = "/Users/msjoy/Documents/Codex/2026-10-18/modula-vault-21-acceptance-02-full/evidence/n1-vault21-gallery-fixtures.json"
+        guard FileManager.default.fileExists(atPath: qaPath), FileManager.default.fileExists(atPath: fixturesPath) else {
+            throw XCTSkip("Disposable gallery QA fixtures are unavailable on this Mac")
+        }
+        let credentials = try JSONDecoder().decode(N1UITestFixture.self, from: Data(contentsOf: URL(fileURLWithPath: qaPath)))
+        let fixtures = try JSONDecoder().decode(GalleryFixture.self, from: Data(contentsOf: URL(fileURLWithPath: fixturesPath)))
+        guard let writing = fixtures.notes["A garden after rain"] else { throw XCTSkip("Rich writing fixture missing") }
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-signed-out", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launchEnvironment["N1_SECRET_FILE"] = qaPath
+        app.launch()
+        try awaitShellReady(app, credentials: credentials, timeout: 90)
+        openProductHubFromShell(app)
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 20))
+        vault.tap()
+        tapModuleOpen(app)
+        XCTAssertTrue(app.descendants(matching: .any)["module.host.product-ui"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["product-ui.record.\(writing.recordId)"].firstMatch.waitForExistence(timeout: 30), "Gallery Home did not finish loading its notes")
+        capture("gallery-home", app: app)
+        for (label, name, expectedRecordId) in [
+            ("Folders", "gallery-folders", fixtures.folders["Writing"]?.recordId ?? ""),
+            ("Tags", "gallery-tags", fixtures.tags["Ideas"]?.recordId ?? "")
+        ] {
+            XCTAssertFalse(expectedRecordId.isEmpty, "Gallery \(label) fixture missing")
+            let button = app.buttons[label].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 10))
+            button.tap()
+            XCTAssertTrue(app.buttons["product-ui.record.\(expectedRecordId)"].firstMatch.waitForExistence(timeout: 30), "Gallery \(label) did not finish loading")
+            capture(name, app: app)
+            let back = app.buttons["product-ui.back"].firstMatch
+            XCTAssertTrue(back.waitForExistence(timeout: 8))
+            back.tap()
+        }
+        let search = app.textFields["product-ui.search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("garden")
+        let result = app.buttons["product-ui.record.\(writing.recordId)"].firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 20), "Body search did not show the gallery note")
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
+        capture("gallery-search", app: app)
+        result.tap()
+        capture("gallery-detail", app: app)
+        let edit = app.buttons["Edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 10))
+        edit.tap()
+        capture("gallery-editor", app: app)
+    }
+
+    func testDisposableAttachmentReopensInVault() throws {
+        continueAfterFailure = false
+        let qaPath = "/Users/msjoy/Library/Application Support/Modula/QA/vault21-n1-secondary.json"
+        let fixturesPath = "/Users/msjoy/Documents/Codex/2026-10-18/modula-vault-21-acceptance-02-full/evidence/n1-vault21-gallery-fixtures.json"
+        let mediaPath = "/Users/msjoy/Documents/Codex/2026-10-18/modula-vault-21-acceptance-02-full/evidence/n1-vault21-media-qa.json"
+        guard [qaPath, fixturesPath, mediaPath].allSatisfy(FileManager.default.fileExists(atPath:)) else {
+            throw XCTSkip("Disposable Vault attachment fixture is unavailable on this Mac")
+        }
+        let credentials = try JSONDecoder().decode(N1UITestFixture.self, from: Data(contentsOf: URL(fileURLWithPath: qaPath)))
+        let fixtures = try JSONDecoder().decode(GalleryFixture.self, from: Data(contentsOf: URL(fileURLWithPath: fixturesPath)))
+        let media = try JSONDecoder().decode(MediaFixture.self, from: Data(contentsOf: URL(fileURLWithPath: mediaPath)))
+        let noteId = try XCTUnwrap(fixtures.notes["A garden after rain"]?.recordId)
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-signed-out", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launchEnvironment["N1_SECRET_FILE"] = qaPath
+        app.launch()
+        try awaitShellReady(app, credentials: credentials, timeout: 90)
+        openProductHubFromShell(app)
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 20))
+        vault.tap()
+        tapModuleOpen(app)
+        let note = app.buttons["product-ui.record.\(noteId)"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 30))
+        note.tap()
+        let attachment = app.buttons["product-ui.record.\(media.bindingId)"].firstMatch
+        XCTAssertTrue(attachment.waitForExistence(timeout: 30), "Uploaded file is missing from the note")
+        capture("attachment-bound", app: app)
+        attachment.tap()
+        XCTAssertTrue(app.buttons["Done"].firstMatch.waitForExistence(timeout: 20), "Attachment preview did not open: \(app.debugDescription)")
+        Thread.sleep(forTimeInterval: 2)
+        capture("attachment-preview", app: app)
+        app.buttons["Done"].firstMatch.tap()
+        let actions = app.buttons["product-ui.record-actions.\(media.bindingId)"].firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 8))
+        actions.tap()
+        let remove = app.buttons["Remove attachment"].firstMatch
+        XCTAssertTrue(remove.waitForExistence(timeout: 8))
+        remove.tap()
+        let confirm = app.buttons["Remove attachment"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 8))
+        confirm.tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: attachment)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 20), .completed, "Attachment remained bound after removal")
+        capture("attachment-removed", app: app)
+    }
+
+    func testRichEditorKeyboardUndoRedoAndSave() throws {
+        continueAfterFailure = false
+        let qaPath = "/Users/msjoy/Library/Application Support/Modula/QA/vault21-n1.json"
+        guard FileManager.default.fileExists(atPath: qaPath) else {
+            throw XCTSkip("Disposable Vault 2.1 N1 QA credentials are unavailable on this Mac")
+        }
+        let credentials = try JSONDecoder().decode(N1UITestFixture.self, from: Data(contentsOf: URL(fileURLWithPath: qaPath)))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-signed-out", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launchEnvironment["N1_SECRET_FILE"] = qaPath
+        app.launch()
+        try awaitShellReady(app, credentials: credentials, timeout: 90)
+        openProductHubFromShell(app)
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 20))
+        vault.tap()
+        tapModuleOpen(app)
+        XCTAssertTrue(app.descendants(matching: .any)["module.host.product-ui"].firstMatch.waitForExistence(timeout: 30))
+        let record = app.buttons["product-ui.record.01a154d4-cb2f-7283-a80b-65b0302df3e6"].firstMatch
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        app.swipeUp()
+        record.tap()
+        let edit = app.buttons["Edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 10))
+        edit.tap()
+        let block = app.descendants(matching: .any)["product-ui.block.welcome-opening"].firstMatch
+        XCTAssertTrue(block.waitForExistence(timeout: 15), "Structured paragraph is not editable")
+        let before = String(describing: block.value)
+        block.tap()
+        block.typeText(" simulator proof")
+        capture("editor-keyboard", app: app)
+        let typed = String(describing: block.value)
+        XCTAssertNotEqual(typed, before, "Keyboard input did not change the structured paragraph")
+        let undo = app.buttons["product-ui.richtext.undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        undo.tap()
+        let redo = app.buttons["product-ui.richtext.redo"].firstMatch
+        XCTAssertTrue(redo.waitForExistence(timeout: 5))
+        redo.tap()
+        let done = app.buttons["product-ui.form.done"].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        capture("editor-saved", app: app)
+        XCTAssertFalse(app.descendants(matching: .any)["module.host.failed"].exists)
+    }
+
+    func testSignedN1CandidateOpensInGenericModuleHost() throws {
+        continueAfterFailure = false
+        let qaPath = "/Users/msjoy/Library/Application Support/Modula/QA/vault21-n1.json"
+        guard FileManager.default.fileExists(atPath: qaPath) else {
+            throw XCTSkip("Disposable Vault 2.1 N1 QA credentials are unavailable on this Mac")
+        }
+        let credentials = try JSONDecoder().decode(N1UITestFixture.self, from: Data(contentsOf: URL(fileURLWithPath: qaPath)))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-signed-out", "--uitest-n1-api", "--uitest-skip-first-run"]
+        app.launchEnvironment["N1_SECRET_FILE"] = qaPath
+        app.launch()
+        try awaitShellReady(app, credentials: credentials, timeout: 90)
+        openProductHubFromShell(app)
+        let vault = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Vault Notes")).firstMatch
+        XCTAssertTrue(vault.waitForExistence(timeout: 20), "Vault catalogue entry missing in N1")
+        vault.tap()
+        let primary = app.descendants(matching: .any)["module.primary"].firstMatch
+        XCTAssertTrue(primary.waitForExistence(timeout: 15), "Vault detail has no primary action")
+        let detail = XCTAttachment(screenshot: app.screenshot())
+        detail.name = "vault21-n1-detail-before-open"
+        detail.lifetime = .keepAlways
+        add(detail)
+        XCTAssertEqual(primary.label, "Open", "The QA account should already have signed Vault 2.1 installed")
+        tapModuleOpen(app)
+        let productUI = app.descendants(matching: .any)["module.host.product-ui"].firstMatch
+        let loaded = productUI.waitForExistence(timeout: 30)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "vault21-n1-first-open"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        XCTAssertTrue(loaded, "Signed Vault 2.1 did not render in ModuleHost: \(app.debugDescription)")
+        XCTAssertFalse(app.descendants(matching: .any)["module.host.failed"].exists)
+    }
+}
+
 private struct N1UITestFixture: Decodable {
     let email: String
     let password: String
@@ -1105,6 +1415,9 @@ private func launchThroughAppGate(
         args.append("--uitest-skip-first-run")
     }
     app.launchArguments = args
+    if let secretPath = ProcessInfo.processInfo.environment["N1_SECRET_FILE"] {
+        app.launchEnvironment["N1_SECRET_FILE"] = secretPath
+    }
     app.launch()
     try awaitShellReady(app, credentials: fixture, timeout: timeout)
     return app
@@ -1191,7 +1504,7 @@ private func signInThroughAppGate(_ app: XCUIApplication, credentials: N1UITestF
     }
 
     let fixtureButton = app.descendants(matching: .any)["auth.sign-in-fixture"]
-    if fixtureButton.waitForExistence(timeout: 3) {
+    if fixtureButton.waitForExistence(timeout: 3), app.launchEnvironment["N1_SECRET_FILE"] == nil {
         fixtureButton.tap()
     } else {
         let emailField = app.descendants(matching: .any)["auth.email"]
@@ -1203,6 +1516,7 @@ private func signInThroughAppGate(_ app: XCUIApplication, credentials: N1UITestF
         }
         pasteText(credentials.email, into: emailField, app: app)
         pasteText(credentials.password, into: passwordField, app: app)
+        UIPasteboard.general.string = nil
         XCTAssertTrue(signIn.waitForExistence(timeout: 3))
         signIn.tap()
     }
@@ -1727,7 +2041,16 @@ final class N3CHomeUITests: XCTestCase {
         summary.tap()
         let sheet = app.descendants(matching: .any)["modula.sheet"].firstMatch
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["home.summary"].firstMatch.waitForExistence(timeout: 4))
+        let summaryClose = app.descendants(matching: .any)["home.summary.close"].firstMatch
+        XCTAssertTrue(
+            summaryClose.waitForExistence(timeout: 4),
+            "Summary close control home.summary.close did not appear for /home/for-you"
+        )
+        let summaryTitle = app.staticTexts.matching(NSPredicate(format: "label == %@", "For You at a glance")).firstMatch
+        XCTAssertTrue(
+            summaryTitle.waitForExistence(timeout: 4),
+            "Summary did not show For You at a glance for /home/for-you"
+        )
         dismissModulaSheet(sheet)
 
         showAccessoryToolsPage(app)

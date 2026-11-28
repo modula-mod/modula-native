@@ -11,6 +11,7 @@ final class AppEnvironment {
     let runtime = ModuleRuntimeController()
     let moduleActivation = ModuleActivationController()
     let client: GreenfieldClient
+    let premiumPurchases: PremiumStoreKitController
     let catalogue: ProductHubStore
     let auth: AuthenticationStore
     let activity: ActivityStore
@@ -35,6 +36,7 @@ final class AppEnvironment {
     let publishing: GreenfieldPublishingRepository
     let mediaUploader: any MediaUploading
     let attachmentDownloads: AttachmentDownloadManager
+    let molibooOwnership: MolibooOwnershipStore
     var creationCapabilities: CreationCapabilities { .production }
     let gate = AppGate()
     let appLock = AppLockStore()
@@ -86,6 +88,12 @@ final class AppEnvironment {
         #else
         client = GreenfieldClient(baseURL: url)
         #endif
+        premiumPurchases = PremiumStoreKitController(client: client)
+        molibooOwnership = MolibooOwnershipStore(client: client)
+        MolibooPackageManager.shared.configure(greenfieldClient: client, baseURL: url)
+        MolibooPackageManager.shared.authorization = { [weak molibooOwnership] descriptor in
+            molibooOwnership?.canActivate(characterID: descriptor.moliboo.characterId) == true
+        }
         catalogue = ProductHubStore(client: client)
         catalogue.activation = moduleActivation
         #if DEBUG
@@ -96,11 +104,12 @@ final class AppEnvironment {
         }
         #endif
         runtime.activation = moduleActivation
-        auth = AuthenticationStore(client: client)
+        auth = AuthenticationStore(client: client, pendingStore: PendingSignupStore(baseURL: url))
         push = PushNotificationController(client: client)
-        auth.willSignOut = { [push] in
+        auth.willSignOut = { [push, molibooOwnership] in
             await CallManager.shared.signOut()
             await push.unregisterForSignOut()
+            molibooOwnership.clear()
         }
         activity = ActivityStore(client: client)
         discover = DiscoverStore(client: client)
@@ -153,12 +162,15 @@ final class AppEnvironment {
         )
         let catalogueStore = catalogue
         let draftsStore = drafts
-        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore] account in
+        let premiumPurchaseStore = premiumPurchases
+        auth.onAccountChange = { [weak self, weak runtime, weak catalogueStore, weak premiumPurchaseStore] account in
             runtime?.setAccount(account?.accountId)
             CallManager.shared.accountChanged(signedIn: account != nil)
             catalogueStore?.accountID = account?.accountId
+            premiumPurchaseStore?.setAccountID(account?.accountId)
             draftsStore.setAccountID(account?.accountId)
             self?.collections.setAccountID(account?.accountId)
+            self?.molibooOwnership.setAccountID(account?.accountId)
             // Fires on every account write (incl. a same-account revalidation refresh); only a
             // real sign-out / switch drops the previous account's in-memory stores. (Communities
             // used to be wiped on every write, e.g. when the cached launch account was refreshed.)
@@ -179,6 +191,7 @@ final class AppEnvironment {
             }
             Task {
                 await catalogueStore?.load()
+                await self?.molibooOwnership.refresh()
                 await MainActor.run { self?.refreshLaunchState() }
             }
         }
@@ -351,6 +364,7 @@ final class AppEnvironment {
             }
         }
         refreshLaunchState()
+        resumePendingSignupIfNeeded()
         auth.onRevalidationFailed = { [weak self] in
             await self?.performSignOut(resetAppLock: false)
         }
@@ -398,6 +412,20 @@ final class AppEnvironment {
         refreshQuickActions()
     }
 
+    /// Signed out with a sign-up waiting for its code (restored from the Keychain after the
+    /// app was backgrounded or killed): continue at "Enter the code". Expired state is cleared
+    /// by the store with a notice. Only opens the step from the auth root, never over a
+    /// screen the person is using.
+    func resumePendingSignupIfNeeded() {
+        guard gate.state == .signedOut else { return }
+        let noticeBefore = auth.pendingNotice
+        let restored = auth.restorePendingSignup()
+        let justExpired = auth.pendingNotice != nil && auth.pendingNotice != noticeBefore
+        guard restored != nil || justExpired else { return }
+        let path = navigation.path(for: .home)
+        if path.isEmpty { navigation.open(.auth(.verify)) }
+    }
+
     func handleIncomingURL(_ url: URL) {
         guard let route = RouteParser.parse(url.absoluteString) else { return }
         openRouted(route)
@@ -432,6 +460,7 @@ final class AppEnvironment {
         case .active:
             appLock.evaluateForeground()
             refreshLaunchState()
+            resumePendingSignupIfNeeded()
         @unknown default:
             break
         }
