@@ -2135,43 +2135,64 @@ enum SettingsV5Category {
 
 // MARK: - Custom navigation (tab bar)
 
-/// Settings › Appearance › Custom navigation. Pick 2…5 bar destinations in a 3-column grid of
-/// glass tiles; Home is pinned first. Tap toggles, long-press-drag a selected tile onto another to
-/// reorder. Changes save to `AppearanceStore.tabBar` and the bar updates live.
+/// Settings › Appearance › Custom navigation (t226u/t227u). "In your tab bar" is an ordered list
+/// with native drag handles (Home pinned with a lock, − removes); "More destinations" adds with +.
+/// Presets, per-tab icon + colour, and bar options all preview live and save locally
+/// (`AppearanceStore.tabBar` + `TabBarCustomization`).
 struct CustomNavigationSettingsView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var notice: String?
     @State private var noticeToken = 0
+    @State private var editingTab: AppTab?
+    @State private var editMode: EditMode = .active
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
+    private var custom: TabBarCustomization { TabBarCustomization.shared }
 
     var body: some View {
         let bar = app.appearance.tabBar
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Tab bar").font(.title2.bold())
-                    Text("Choose \(AppTab.minBarCount)–\(AppTab.maxBarCount) destinations. Home stays first. Long-press and drag a selected tile to reorder. Profile is always a swipe from the right edge.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
+        let more = AppTab.barCandidates.filter { !bar.contains($0) }
+        List {
+            Section {
+                CustomNavigationPreviewBar(tabs: bar)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+                presetGrid(bar: bar)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+            } header: {
+                Text("Preview")
+            } footer: {
+                Text("Profile is always a swipe from the right edge.")
+            }
 
-                LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(AppTab.barCandidates) { tab in
-                        tile(tab, bar: bar)
+            Section {
+                ForEach(bar) { tab in
+                    barRow(tab, bar: bar)
+                        .moveDisabled(tab == .home)
+                        .listRowBackground(CustomNavigationRowGlass())
+                }
+                .onMove { from, to in move(from: from, to: to) }
+            } header: {
+                Text("In your tab bar · \(bar.count) of \(AppTab.maxBarCount)")
+            } footer: {
+                Text("Drag to reorder. Tap a tab to change its icon and colour.")
+            }
+
+            if !more.isEmpty {
+                Section("More destinations") {
+                    ForEach(more) { tab in
+                        moreRow(tab, full: bar.count >= AppTab.maxBarCount)
+                            .listRowBackground(CustomNavigationRowGlass())
                     }
                 }
+            }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Preview").font(.headline)
-                    CustomNavigationPreviewBar(tabs: bar)
-                }
+            lookSection
+            behaviourSection
 
-                Button {
-                    restore()
-                } label: {
+            Section {
+                Button { restore() } label: {
                     Label("Restore to default", systemImage: "arrow.counterclockwise")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
@@ -2180,137 +2201,253 @@ struct CustomNavigationSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .modulaGlass(in: Capsule(), interactive: true)
-                .disabled(bar == AppTab.defaultBar)
-                .opacity(bar == AppTab.defaultBar ? 0.5 : 1)
+                .disabled(bar == AppTab.defaultBar && !custom.isCustomised)
+                .opacity(bar == AppTab.defaultBar && !custom.isCustomised ? 0.5 : 1)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
                 .accessibilityIdentifier("custom-navigation.restore")
             }
-            .padding(.horizontal, ModulaLayout.contentInset)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
         }
-        .overlay(alignment: .bottom) {
-            if let notice {
-                Text(notice)
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .modulaGlass(in: Capsule(), interactive: false)
-                    .padding(.bottom, 16)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .accessibilityAddTraits(.updatesFrequently)
-            }
-        }
+        .environment(\.editMode, $editMode)
+        .scrollContentBackground(.hidden)
+        .overlay(alignment: .bottom) { toast }
         .modulaSoftScrollEdge()
         .modulaCanvas()
         .navigationTitle("Custom navigation")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $editingTab) { tab in
+            TabAppearanceSheet(tab: tab).modulaSheetStyle()
+        }
     }
 
-    @ViewBuilder
-    private func tile(_ tab: AppTab, bar: [AppTab]) -> some View {
-        let index = bar.firstIndex(of: tab)
-        let selected = index != nil
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        let base = Button {
-            toggle(tab)
-        } label: {
-            VStack(spacing: 8) {
-                Image(systemName: selected ? tab.selectedIcon : tab.icon)
-                    .font(.system(size: 24, weight: selected ? .semibold : .regular))
-                    .symbolEffect(.bounce, value: selected)
-                    .contentTransition(.symbolEffect(.replace))
-                Text(tab.title)
-                    .font(.footnote.weight(selected ? .semibold : .medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .foregroundStyle(selected ? Color.primary : Color.secondary)
-            .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-            .contentShape(shape)
+    @ViewBuilder private var toast: some View {
+        if let notice {
+            Text(notice)
+                .font(.footnote.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .modulaGlass(in: Capsule(), interactive: false)
+                .padding(.bottom, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
-        .buttonStyle(.plain)
-        .modulaGlass(in: shape, interactive: true)
-        .overlay {
-            shape.strokeBorder(Color.primary.opacity(selected ? 0.9 : 0), lineWidth: 2)
-        }
-        .overlay(alignment: .topTrailing) {
-            if let index {
-                Group {
-                    if tab == .home {
-                        Image(systemName: "pin.fill").font(.system(size: 10, weight: .bold))
-                    } else {
-                        Text("\(index + 1)").font(.caption2.weight(.bold)).monospacedDigit()
+    }
+
+    private func presetGrid(bar: [AppTab]) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            ForEach(TabBarPreset.allCases) { preset in
+                let active = bar == AppTab.sanitizedBar(preset.tabs)
+                Button { apply(preset) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: preset.symbol).font(.body.weight(.semibold))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(preset.title).font(.subheadline.weight(.semibold))
+                            Text("\(preset.tabs.count) tabs").font(.caption).foregroundStyle(active ? Color.modulaOnPrimary.opacity(0.75) : .secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if active { Image(systemName: "checkmark").font(.caption.weight(.bold)) }
                     }
+                    .foregroundStyle(active ? Color.modulaOnPrimary : Color.primary)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                    .background {
+                        if active { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.modulaPrimaryFill) }
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
-                .foregroundStyle(Color(uiColor: .systemBackground))
-                .frame(width: 22, height: 22)
-                .background(Color.primary, in: Circle())
-                .padding(8)
-                .accessibilityHidden(true)
+                .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                .accessibilityLabel("\(preset.title) preset: \(preset.tabs.map(\.title).joined(separator: ", "))")
+                .accessibilityAddTraits(active ? .isSelected : [])
+                .accessibilityIdentifier("custom-navigation.preset.\(preset.rawValue)")
             }
-        }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: selected)
-        .accessibilityLabel(tab.title)
-        .accessibilityValue(selected ? "selected, \((index ?? 0) + 1) of \(bar.count)" : "not selected")
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityHint(tab == .home ? "Always first in the tab bar" : (selected ? "Double-tap to remove from the tab bar" : "Double-tap to add to the tab bar"))
-        .accessibilityActions {
-            if let index, tab != .home {
-                if index > 1 { Button("Move earlier") { move(tab, to: index - 1) } }
-                if index < bar.count - 1 { Button("Move later") { move(tab, to: index + 1) } }
-            }
-        }
-        .accessibilityIdentifier("custom-navigation.tile.\(tab.rawValue)")
-
-        if selected, tab != .home {
-            base
-                .draggable(tab.rawValue)
-                .dropDestination(for: String.self) { items, _ in
-                    guard let raw = items.first, let dragged = AppTab(rawValue: raw),
-                          let target = app.appearance.tabBar.firstIndex(of: tab) else { return false }
-                    move(dragged, to: target)
-                    return true
-                }
-        } else {
-            base
         }
     }
 
-    private func toggle(_ tab: AppTab) {
+    private func icon(_ tab: AppTab, selected: Bool = false) -> some View {
+        let tint = custom.tint(for: tab).color
+        return Image(systemName: custom.symbol(for: tab, selected: selected))
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(tint ?? Color.primary)
+            .frame(width: 40, height: 40)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous), interactive: false)
+            .accessibilityHidden(true)
+    }
+
+    private func barRow(_ tab: AppTab, bar: [AppTab]) -> some View {
+        HStack(spacing: 12) {
+            if tab == .home {
+                Image(systemName: "lock.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .accessibilityLabel("Pinned")
+            } else {
+                Button { remove(tab) } label: {
+                    Image(systemName: "minus")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.borderless)
+                .modulaGlass(in: Circle(), interactive: true)
+                .accessibilityLabel("Remove \(tab.title)")
+                .accessibilityIdentifier("custom-navigation.remove.\(tab.rawValue)")
+            }
+            Button { editingTab = tab } label: {
+                HStack(spacing: 12) {
+                    icon(tab, selected: true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tab.title).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                        Text(tab == .home ? "Always first" : tab.blurb)
+                            .font(.footnote).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Text("\((bar.firstIndex(of: tab) ?? 0) + 1)")
+                        .font(.caption.weight(.bold)).monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityHint("Change icon and colour")
+        }
+        .padding(.vertical, 2)
+        .accessibilityIdentifier("custom-navigation.bar.\(tab.rawValue)")
+    }
+
+    private func moreRow(_ tab: AppTab, full: Bool) -> some View {
+        HStack(spacing: 12) {
+            Button { add(tab) } label: {
+                Image(systemName: "plus")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(full ? Color.secondary : Color.modulaOnPrimary)
+                    .frame(width: 30, height: 30)
+                    .background(full ? Color.clear : Color.modulaPrimaryFill, in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.borderless)
+            .modulaGlass(in: Circle(), interactive: true)
+            .accessibilityLabel("Add \(tab.title)")
+            .accessibilityIdentifier("custom-navigation.add.\(tab.rawValue)")
+            Button { editingTab = tab } label: {
+                HStack(spacing: 12) {
+                    icon(tab)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tab.title).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                        Text(tab.blurb).font(.footnote).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 2)
+        .moveDisabled(true)
+    }
+
+    @ViewBuilder private var lookSection: some View {
+        @Bindable var custom = TabBarCustomization.shared
+        Section {
+            optionRow("Icons") {
+                ModulaSegmentedControl(segments: TabIconStyle.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.iconStyle))
+            }
+            optionRow("Tab bar size") {
+                ModulaSegmentedControl(segments: TabBarSize.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.size))
+            }
+            optionRow("Badges") {
+                ModulaSegmentedControl(segments: TabBadgeStyle.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.badgeStyle))
+            }
+            Toggle("Show labels", isOn: animated($custom.showLabels))
+                .tint(Color.modulaPrimaryFill)
+                .listRowBackground(CustomNavigationRowGlass())
+        } header: {
+            Text("Look")
+        } footer: {
+            Text("Compact shrinks the bar while you scroll; Regular keeps it full size.")
+        }
+    }
+
+    @ViewBuilder private var behaviourSection: some View {
+        @Bindable var custom = TabBarCustomization.shared
+        Section {
+            Picker("Double-tap a tab", selection: $custom.reselect) {
+                ForEach(TabReselectAction.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .tint(.primary)
+            .listRowBackground(CustomNavigationRowGlass())
+            Toggle("Long-press quick menu", isOn: $custom.longPressMenu)
+                .tint(Color.modulaPrimaryFill)
+                .listRowBackground(CustomNavigationRowGlass())
+            Toggle("Haptics", isOn: $custom.haptics)
+                .tint(Color.modulaPrimaryFill)
+                .listRowBackground(CustomNavigationRowGlass())
+        } header: {
+            Text("Behaviour")
+        } footer: {
+            Text("Double-tap the tab you're on. Refresh reloads that tab's screen. The long-press menu works in Modula's own tab bar.")
+        }
+    }
+
+    private func optionRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.subheadline.weight(.semibold))
+            content()
+        }
+        .padding(.vertical, 4)
+        .listRowBackground(CustomNavigationRowGlass())
+    }
+
+    private func animated<Value>(_ binding: Binding<Value>) -> Binding<Value> {
+        reduceMotion ? binding : binding.animation(.snappy)
+    }
+
+    private func add(_ tab: AppTab) {
         var bar = app.appearance.tabBar
-        if tab == .home {
-            flash("Home is always in the tab bar")
+        guard bar.count < AppTab.maxBarCount else {
+            flash("Up to \(AppTab.maxBarCount) tabs. Remove one first.")
             return
         }
-        if let index = bar.firstIndex(of: tab) {
-            guard bar.count > AppTab.minBarCount else {
-                flash("Keep at least \(AppTab.minBarCount) tabs")
-                return
-            }
-            bar.remove(at: index)
-        } else {
-            guard bar.count < AppTab.maxBarCount else {
-                flash("Up to \(AppTab.maxBarCount) tabs — remove one first")
-                return
-            }
-            bar.append(tab)
-        }
-        HapticEngine.shared.play(.selection)
+        bar.append(tab)
+        if custom.haptics { HapticEngine.shared.play(.selection) }
         commit(bar)
     }
 
-    private func move(_ tab: AppTab, to target: Int) {
+    private func remove(_ tab: AppTab) {
         var bar = app.appearance.tabBar
-        guard tab != .home, let from = bar.firstIndex(of: tab), from != target else { return }
-        bar.remove(at: from)
-        bar.insert(tab, at: min(max(target, 1), bar.count))
-        HapticEngine.shared.play(.selection)
+        guard tab != .home, let index = bar.firstIndex(of: tab) else { return }
+        guard bar.count > AppTab.minBarCount else {
+            flash("Keep at least \(AppTab.minBarCount) tabs")
+            return
+        }
+        bar.remove(at: index)
+        if custom.haptics { HapticEngine.shared.play(.selection) }
         commit(bar)
+    }
+
+    private func move(from source: IndexSet, to destination: Int) {
+        var bar = app.appearance.tabBar
+        bar.move(fromOffsets: source, toOffset: max(destination, 1))
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        commit(bar)
+    }
+
+    private func apply(_ preset: TabBarPreset) {
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        custom.applyPresetLook(preset)
+        commit(preset.tabs)
+        UIAccessibility.post(notification: .announcement, argument: "\(preset.title) preset applied")
     }
 
     private func restore() {
-        HapticEngine.shared.play(.selection)
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        custom.reset()
         commit(AppTab.defaultBar)
     }
 
@@ -2320,7 +2457,7 @@ struct CustomNavigationSettingsView: View {
     }
 
     private func flash(_ message: String) {
-        HapticEngine.shared.play(.warning)
+        if custom.haptics { HapticEngine.shared.play(.warning) }
         noticeToken += 1
         let token = noticeToken
         withAnimation(.snappy) { notice = message }
@@ -2332,23 +2469,133 @@ struct CustomNavigationSettingsView: View {
     }
 }
 
+/// Per-tab icon + colour picker (Custom navigation → tap a tab).
+private struct TabAppearanceSheet: View {
+    let tab: AppTab
+    @Environment(\.dismiss) private var dismiss
+    private var custom: TabBarCustomization { TabBarCustomization.shared }
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    let tint = custom.tint(for: tab).color
+                    VStack(spacing: 8) {
+                        Image(systemName: custom.symbol(for: tab, selected: true))
+                            .font(.system(size: 34, weight: .semibold))
+                            .foregroundStyle(tint ?? Color.primary)
+                            .frame(width: 76, height: 76)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                            .contentTransition(.symbolEffect(.replace))
+                        Text(tab.title).font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .combine)
+
+                    Text("Icon").font(.headline)
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(Array(tab.iconChoices.enumerated()), id: \.offset) { index, choice in
+                            let on = custom.iconIndex(for: tab) == index
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy) { custom.setIconIndex(index, for: tab) }
+                            } label: {
+                                Image(systemName: on ? choice.filled : choice.outline)
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(on ? Color.modulaOnPrimary : Color.primary)
+                                    .frame(maxWidth: .infinity, minHeight: 60)
+                                    .background {
+                                        if on { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.modulaPrimaryFill) }
+                                    }
+                                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+                            .accessibilityLabel(index == 0 ? "Default icon" : "Alternate icon \(index)")
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+
+                    Text("Colour").font(.headline)
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(TabIconTint.allCases) { option in
+                            let on = custom.tint(for: tab) == option
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy) { custom.setTint(option, for: tab) }
+                            } label: {
+                                VStack(spacing: 6) {
+                                    swatch(option)
+                                        .frame(width: 40, height: 40)
+                                        .overlay { Circle().strokeBorder(Color.primary, lineWidth: on ? 3 : 0).padding(-5) }
+                                    Text(option.title)
+                                        .font(.caption2.weight(on ? .semibold : .regular))
+                                        .foregroundStyle(on ? Color.primary : Color.secondary)
+                                        .fixedSize()
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 72)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(option.title)
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.vertical, 16)
+            }
+            .navigationTitle("\(tab.title) icon")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { MessagesDoneButton { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder private func swatch(_ option: TabIconTint) -> some View {
+        if let color = option.color {
+            Circle().fill(color)
+        } else {
+            Circle()
+                .fill(LinearGradient(colors: [.black, .black, .white, .white], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay { Circle().strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1) }
+        }
+    }
+}
+
+/// Glass row background for the Custom navigation list (solid with Reduce Transparency via modulaGlass).
+private struct CustomNavigationRowGlass: View {
+    var body: some View {
+        Color.clear.modulaGlass(in: Rectangle(), interactive: false)
+    }
+}
+
 /// Live, non-interactive copy of the bottom bar for the Custom navigation page.
 private struct CustomNavigationPreviewBar: View {
     let tabs: [AppTab]
 
     var body: some View {
+        let custom = TabBarCustomization.shared
         HStack(spacing: 2) {
             ForEach(Array(tabs.enumerated()), id: \.element) { offset, tab in
+                let selected = offset == 0
                 VStack(spacing: 3) {
-                    Image(systemName: offset == 0 ? tab.selectedIcon : tab.icon)
-                        .font(.system(size: 17, weight: offset == 0 ? .semibold : .medium))
-                    Text(tab.title)
-                        .font(.caption2.weight(offset == 0 ? .semibold : .medium))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                    Image(systemName: custom.symbol(for: tab, selected: selected))
+                        .font(.system(size: custom.showLabels ? 18 : 21, weight: selected ? .semibold : .medium))
+                        .foregroundStyle(custom.tint(for: tab).color ?? (selected ? Color.primary : Color.secondary))
+                        .contentTransition(.symbolEffect(.replace))
+                    if custom.showLabels {
+                        Text(tab.title)
+                            .font(.caption2.weight(selected ? .semibold : .medium))
+                            .foregroundStyle(selected ? Color.primary : Color.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
                 }
-                .foregroundStyle(offset == 0 ? Color.primary : Color.secondary)
-                .frame(maxWidth: .infinity, minHeight: 50)
+                .frame(maxWidth: .infinity, minHeight: custom.size == .compact ? 44 : 54)
                 .transition(.scale.combined(with: .opacity))
             }
         }

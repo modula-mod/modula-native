@@ -313,6 +313,12 @@ final class CallManager {
 
     func isFavourite(_ conversationID: String) -> Bool { favourites.contains(conversationID) }
 
+    /// Favourites › Edit: drag to reorder.
+    func moveFavourites(fromOffsets source: IndexSet, toOffset destination: Int) {
+        favourites.move(fromOffsets: source, toOffset: destination)
+        defaults.set(favourites, forKey: "calls.favourites.v1")
+    }
+
     func toggleFavourite(_ conversationID: String) {
         if let index = favourites.firstIndex(of: conversationID) { favourites.remove(at: index) } else { favourites.append(conversationID) }
         defaults.set(favourites, forKey: "calls.favourites.v1")

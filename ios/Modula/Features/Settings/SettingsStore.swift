@@ -208,3 +208,207 @@ extension Color {
         self.init(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
     }
 }
+
+
+// MARK: - Custom navigation options (t226u/t227u)
+
+enum TabIconTint: String, CaseIterable, Codable, Identifiable {
+    case mono, red, orange, yellow, green, mint, teal, blue, indigo, purple, pink, brown
+    var id: Self { self }
+    var title: String { self == .mono ? "Monochrome" : rawValue.capitalized }
+    var uiColor: UIColor? {
+        switch self {
+        case .mono: nil
+        case .red: .systemRed
+        case .orange: .systemOrange
+        case .yellow: .systemYellow
+        case .green: .systemGreen
+        case .mint: .systemMint
+        case .teal: .systemTeal
+        case .blue: .systemBlue
+        case .indigo: .systemIndigo
+        case .purple: .systemPurple
+        case .pink: .systemPink
+        case .brown: .systemBrown
+        }
+    }
+    var color: Color? { uiColor.map(Color.init(uiColor:)) }
+}
+
+enum TabIconStyle: String, CaseIterable, Codable, Identifiable {
+    case automatic, filled, outline
+    var id: Self { self }
+    var title: String { switch self { case .automatic: "Auto"; case .filled: "Filled"; case .outline: "Outline" } }
+}
+
+enum TabBarSize: String, CaseIterable, Codable, Identifiable {
+    case automatic, compact, regular
+    var id: Self { self }
+    var title: String { switch self { case .automatic: "Auto"; case .compact: "Compact"; case .regular: "Regular" } }
+}
+
+enum TabBadgeStyle: String, CaseIterable, Codable, Identifiable {
+    case count, dot, off
+    var id: Self { self }
+    var title: String { switch self { case .count: "Count"; case .dot: "Dot"; case .off: "Off" } }
+}
+
+enum TabReselectAction: String, CaseIterable, Codable, Identifiable {
+    case scrollToTop, refresh, backToStart, nothing
+    var id: Self { self }
+    var title: String {
+        switch self {
+        case .scrollToTop: "Scroll to top"
+        case .refresh: "Refresh"
+        case .backToStart: "Back to start"
+        case .nothing: "Nothing"
+        }
+    }
+}
+
+struct TabIconChoice: Hashable {
+    let outline: String
+    let filled: String
+}
+
+extension AppTab {
+    /// Index 0 is the default icon; the rest are alternates (Custom navigation › Icon).
+    var iconChoices: [TabIconChoice] {
+        let base = TabIconChoice(outline: icon, filled: selectedIcon)
+        let extra: [(String, String)]
+        switch self {
+        case .home: extra = [("house.circle", "house.circle.fill"), ("square.grid.2x2", "square.grid.2x2.fill")]
+        case .discover: extra = [("sparkles", "sparkles"), ("star", "star.fill")]
+        case .modules: extra = [("square.stack.3d.up", "square.stack.3d.up.fill"), ("puzzlepiece", "puzzlepiece.fill")]
+        case .activity: extra = [("heart", "heart.fill"), ("bolt", "bolt.fill")]
+        case .profile: extra = [("person", "person.fill")]
+        case .messages: extra = [("message", "message.fill"), ("bubble.left", "bubble.left.fill")]
+        case .search: extra = [("magnifyingglass.circle", "magnifyingglass.circle.fill")]
+        case .reels: extra = [("film", "film.fill"), ("play.circle", "play.circle.fill")]
+        case .saved: extra = [("star", "star.fill"), ("folder", "folder.fill")]
+        case .drafts: extra = [("square.and.pencil", "square.and.pencil"), ("pencil.line", "pencil.line")]
+        case .communities: extra = [("person.2", "person.2.fill"), ("globe", "globe")]
+        case .teams: extra = [("briefcase", "briefcase.fill"), ("building.2", "building.2.fill")]
+        case .phone: extra = [("phone.circle", "phone.circle.fill"), ("phone.bubble", "phone.bubble.fill")]
+        case .inMail: extra = [("tray", "tray.fill"), ("envelope.open", "envelope.open.fill")]
+        case .moliboo: extra = [("face.smiling", "face.smiling.fill"), ("sparkles", "sparkles")]
+        case .connect: extra = [("simcard", "simcard.fill"), ("network", "network")]
+        }
+        return [base] + extra.map { TabIconChoice(outline: $0.0, filled: $0.1) }
+    }
+}
+
+/// One-tap tab bar presets (Custom navigation).
+enum TabBarPreset: String, CaseIterable, Identifiable {
+    case social, creator, messenger, minimal
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
+    var symbol: String {
+        switch self {
+        case .social: "person.2"
+        case .creator: "camera"
+        case .messenger: "bubble.left.and.bubble.right"
+        case .minimal: "circle.dashed"
+        }
+    }
+    var tabs: [AppTab] {
+        switch self {
+        case .social: [.home, .discover, .reels, .messages, .activity]
+        case .creator: [.home, .reels, .drafts, .modules, .activity]
+        case .messenger: [.home, .messages, .phone, .inMail, .activity]
+        case .minimal: [.home, .search, .activity]
+        }
+    }
+}
+
+/// Local-only look and behaviour of the tab bar (Settings › Appearance › Custom navigation).
+@MainActor @Observable
+final class TabBarCustomization {
+    static let shared = TabBarCustomization()
+    private static let key = "modula.tabBarCustomization.v1"
+
+    private struct Snapshot: Codable {
+        var tints: [String: String] = [:]
+        var icons: [String: Int] = [:]
+        var showLabels = true
+        var iconStyle: TabIconStyle = .automatic
+        var size: TabBarSize = .automatic
+        var badgeStyle: TabBadgeStyle = .count
+        var reselect: TabReselectAction = .scrollToTop
+        var longPressMenu = true
+        var haptics = true
+    }
+
+    private var state: Snapshot { didSet { save() } }
+
+    private init() {
+        if let data = UserDefaults.standard.data(forKey: Self.key),
+           let saved = try? JSONDecoder().decode(Snapshot.self, from: data) {
+            state = saved
+        } else {
+            state = Snapshot()
+        }
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(state) { UserDefaults.standard.set(data, forKey: Self.key) }
+    }
+
+    var showLabels: Bool { get { state.showLabels } set { state.showLabels = newValue } }
+    var iconStyle: TabIconStyle { get { state.iconStyle } set { state.iconStyle = newValue } }
+    var size: TabBarSize { get { state.size } set { state.size = newValue } }
+    var badgeStyle: TabBadgeStyle { get { state.badgeStyle } set { state.badgeStyle = newValue } }
+    var reselect: TabReselectAction { get { state.reselect } set { state.reselect = newValue } }
+    var longPressMenu: Bool { get { state.longPressMenu } set { state.longPressMenu = newValue } }
+    var haptics: Bool { get { state.haptics } set { state.haptics = newValue } }
+
+    func tint(for tab: AppTab) -> TabIconTint {
+        state.tints[tab.rawValue].flatMap(TabIconTint.init(rawValue:)) ?? .mono
+    }
+    func setTint(_ tint: TabIconTint, for tab: AppTab) {
+        state.tints[tab.rawValue] = tint == .mono ? nil : tint.rawValue
+    }
+    func iconIndex(for tab: AppTab) -> Int {
+        let i = state.icons[tab.rawValue] ?? 0
+        return tab.iconChoices.indices.contains(i) ? i : 0
+    }
+    func setIconIndex(_ index: Int, for tab: AppTab) {
+        state.icons[tab.rawValue] = index == 0 ? nil : index
+    }
+    func symbol(for tab: AppTab, selected: Bool) -> String {
+        let choice = tab.iconChoices[iconIndex(for: tab)]
+        switch iconStyle {
+        case .automatic: return selected ? choice.filled : choice.outline
+        case .filled: return choice.filled
+        case .outline: return choice.outline
+        }
+    }
+    /// True when any per-tab or bar option differs from the defaults.
+    var isCustomised: Bool {
+        let d = Snapshot()
+        return !state.tints.isEmpty || !state.icons.isEmpty || state.showLabels != d.showLabels
+            || state.iconStyle != d.iconStyle || state.size != d.size || state.badgeStyle != d.badgeStyle
+            || state.reselect != d.reselect || state.longPressMenu != d.longPressMenu || state.haptics != d.haptics
+    }
+    func reset() { state = Snapshot() }
+    func applyPresetLook(_ preset: TabBarPreset) {
+        state.showLabels = preset != .minimal
+        if preset == .minimal { state.iconStyle = .outline } else if state.iconStyle == .outline { state.iconStyle = .automatic }
+    }
+}
+
+/// Coloured tab icons: the system bar tints template images, so a coloured icon is rendered
+/// once as an original-mode image and cached.
+@MainActor
+enum TabIconRenderer {
+    private static var cache: [String: UIImage] = [:]
+    static func image(_ symbol: String, color: UIColor, selected: Bool) -> UIImage {
+        let key = "\(symbol)|\(color.hashValue)|\(selected)"
+        if let hit = cache[key] { return hit }
+        let config = UIImage.SymbolConfiguration(pointSize: 19, weight: selected ? .semibold : .regular)
+        let base = UIImage(systemName: symbol, withConfiguration: config) ?? UIImage(systemName: "circle", withConfiguration: config) ?? UIImage()
+        let out = base.withTintColor(color, renderingMode: .alwaysOriginal)
+        cache[key] = out
+        return out
+    }
+}

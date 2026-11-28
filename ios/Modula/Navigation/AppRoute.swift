@@ -4,8 +4,37 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     case home, discover, modules, activity, profile
     /// Optional bar destinations (Settings › Appearance › Custom navigation).
     case messages, search, reels, saved, drafts, communities, teams
+    /// More bar destinations (t226u): Phone (calls), In-Mail, Moliboo world, Modula Connect.
+    case phone, inMail = "in-mail", moliboo, connect
     var id: Self { self }
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .messages: "Chats"
+        case .inMail: "In-Mail"
+        default: rawValue.capitalized
+        }
+    }
+    /// One-line description for the Custom navigation editor.
+    var blurb: String {
+        switch self {
+        case .home: "Your feed"
+        case .discover: "Trending, people and topics"
+        case .modules: "Product hub and modules"
+        case .activity: "Notifications and mentions"
+        case .profile: "Your profile"
+        case .messages: "Chats inbox"
+        case .search: "Search everything"
+        case .reels: "Short videos"
+        case .saved: "Bookmarks and collections"
+        case .drafts: "Unfinished posts"
+        case .communities: "Your communities"
+        case .teams: "Teams you belong to"
+        case .phone: "Calls, contacts and keypad"
+        case .inMail: "Longer messages"
+        case .moliboo: "Your Moliboo world"
+        case .connect: "Modula Connect (preview)"
+        }
+    }
     var icon: String {
         switch self {
         case .home: "house"
@@ -20,6 +49,10 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .drafts: "doc.text"
         case .communities: "person.3"
         case .teams: "person.2.badge.gearshape"
+        case .phone: "phone"
+        case .inMail: "envelope"
+        case .moliboo: "pawprint"
+        case .connect: "antenna.radiowaves.left.and.right"
         }
     }
     var selectedIcon: String {
@@ -36,6 +69,10 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .drafts: "doc.text.fill"
         case .communities: "person.3.fill"
         case .teams: "person.2.badge.gearshape.fill"
+        case .phone: "phone.fill"
+        case .inMail: "envelope.fill"
+        case .moliboo: "pawprint.fill"
+        case .connect: "antenna.radiowaves.left.and.right"
         }
     }
     var defaultRoute: AppRoute {
@@ -52,6 +89,10 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .drafts: .drafts(.root)
         case .communities: .community(.hub)
         case .teams: .teams(.root)
+        case .phone: .messages(.calls)
+        case .inMail: .messages(.inMail(.inbox))
+        case .moliboo: .settings(.moliboo)
+        case .connect: .module(ConnectPreview.moduleID, localPath: nil)
         }
     }
 
@@ -59,7 +100,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     /// the sidebar, or the VoiceOver "Open Profile" action.
     static let defaultBar: [AppTab] = [.home, .discover, .modules, .activity]
     /// Everything the user can put in the bar, in picker order (Home always first).
-    static let barCandidates: [AppTab] = [.home, .discover, .modules, .activity, .messages, .search, .reels, .saved, .drafts, .communities, .teams]
+    static let barCandidates: [AppTab] = [.home, .discover, .modules, .activity, .messages, .search, .reels, .saved, .drafts, .communities, .teams, .phone, .inMail, .moliboo, .connect]
     static let minBarCount = 2
     static let maxBarCount = 5
 
@@ -77,6 +118,12 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     /// True when `route` is this optional tab's own screen family (so it opens in that tab).
     func hosts(_ route: AppRoute) -> Bool {
         switch (self, route) {
+        case (.phone, .messages(.calls)), (.inMail, .messages(.inMail)), (.moliboo, .settings(.moliboo)):
+            true
+        case (.connect, .module(let id, _)):
+            id == ConnectPreview.moduleID
+        case (.messages, .messages(.calls)), (.messages, .messages(.inMail)):
+            false
         case (.messages, .messages), (.search, .search), (.reels, .reels), (.saved, .saved),
              (.drafts, .drafts), (.communities, .community), (.teams, .teams):
             true

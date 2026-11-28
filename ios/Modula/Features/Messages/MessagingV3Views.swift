@@ -70,7 +70,9 @@ struct MessageReceiptsSheet: View {
                         if !receipts.readBy.isEmpty {
                             Section("Seen") {
                                 ForEach(receipts.readBy) { row in
-                                    HStack {
+                                    HStack(spacing: 10) {
+                                        ModulaAvatar(initials: row.participant.initials, url: row.participant.avatarURL, size: 28,
+                                                     name: row.participant.displayName)
                                         Text(row.participant.displayName)
                                         Spacer()
                                         if let readAt = row.readAt {
@@ -666,5 +668,111 @@ struct GroupInfoView: View {
             }
         }
         .accessibilityIdentifier("messages.groupInfo")
+    }
+}
+
+
+// MARK: - Read-receipt avatars (groups)
+
+/// Up to three stacked reader faces (+n) under your latest message in a group. Loads the
+/// Seen-by receipts quietly when the delivery state changes; tap opens the full list.
+struct MessageReadAvatarStack: View {
+    let message: Message
+    var onOpen: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let readers = app.messaging.receiptsByMessage[message.id]?.readBy.map(\.participant) ?? []
+        Group {
+            if !readers.isEmpty {
+                Button(action: onOpen) {
+                    HStack(spacing: -5) {
+                        ForEach(readers.prefix(3)) { person in
+                            ModulaAvatar(initials: person.initials, url: person.avatarURL, size: 16, name: person.displayName)
+                                .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 1.5))
+                        }
+                        if readers.count > 3 {
+                            Text("+\(readers.count - 3)")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 8)
+                                .fixedSize()
+                        }
+                    }
+                    .frame(minHeight: 24)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(readers.count == 1 ? "Seen by \(readers[0].displayName)" : "Seen by \(readers.count) people")
+                .accessibilityHint("Shows who has read this")
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .task(id: "\(message.id)-\(message.delivery.rawValue)") {
+            await app.messaging.loadReceipts(message, quiet: true)
+        }
+    }
+}
+
+// MARK: - Per-chat notification presets
+
+/// Chat info › Notifications: server levels (All / Mentions only / Nothing) when offered, plus
+/// timed mute presets (1 hour · 8 hours · 1 week · until I unmute) and Unmute.
+struct ChatNotificationPresetsMenu<Label: View>: View {
+    let conversationID: ConversationID
+    @ViewBuilder var label: (_ title: String, _ symbol: String, _ value: String) -> Label
+    @Environment(AppEnvironment.self) private var app
+
+    private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
+
+    private var summary: String {
+        guard let conversation else { return "All messages" }
+        if conversation.isMuted {
+            if let until = app.messaging.muteUntilDate(for: conversationID) {
+                return "Muted until \(until.formatted(Calendar.current.isDateInToday(until) ? .dateTime.hour().minute() : .dateTime.weekday(.abbreviated).hour().minute()))"
+            }
+            return "Muted"
+        }
+        if let level = conversation.notificationLevel, level != "all" { return MessagingNotificationLevel.title(level) }
+        return "All messages"
+    }
+
+    var body: some View {
+        let levels = app.messaging.capabilities.features4.notificationLevels
+        Menu {
+            if !levels.isEmpty {
+                Section("Notify me about") {
+                    ForEach(levels, id: \.self) { level in
+                        Button {
+                            Task { await app.messaging.setNotificationLevel(conversationID, level: level) }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            SwiftUI.Label(MessagingNotificationLevel.title(level),
+                                          systemImage: (conversation?.notificationLevel ?? "all") == level ? "checkmark" : MessagingNotificationLevel.icon(level))
+                        }
+                    }
+                }
+            }
+            if app.messaging.capabilities.mute {
+                Section("Mute") {
+                    if conversation?.isMuted == true {
+                        Button("Unmute", systemImage: "bell") {
+                            Task { await app.messaging.unmuteNow(conversationID) }
+                            HapticEngine.shared.play(.selection)
+                        }
+                    }
+                    ForEach(MessageMuteDuration.allCases) { duration in
+                        Button(duration.title, systemImage: duration == .forever ? "bell.slash" : "clock") {
+                            Task { await app.messaging.mute(id: conversationID, for: duration) }
+                            HapticEngine.shared.play(.selection)
+                        }
+                    }
+                }
+            }
+        } label: {
+            label("Notifications", conversation?.isMuted == true ? "bell.slash" : "bell", summary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("messages.info.notifications")
     }
 }

@@ -10,6 +10,8 @@ struct MessagesRootView: View {
     @Environment(\.routeTransitionNamespace) private var routeTransitions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// True when Chats / Phone / In-Mail is a tab root (Custom navigation): keep the tab bar.
+    @Environment(\.modulaTabRoot) private var isTabRoot
 
     var body: some View {
         Group {
@@ -55,7 +57,7 @@ struct MessagesRootView: View {
         }
         .modulaCanvas()
         .navigationBarBackButtonHidden(false)
-        .toolbar(.hidden, for: .tabBar)
+        .toolbar(isTabRoot ? .automatic : .hidden, for: .tabBar)
         // Messaging batch 1: scheduled messages go out while any messaging screen is open.
         .messagingScheduleDispatcher()
     }
@@ -116,7 +118,7 @@ struct ConversationListView: View {
     }
 
     enum InboxFilter: String, CaseIterable, Identifiable {
-        case all, unread, needsReply, groups, favourites
+        case all, unread, needsReply, groups, favourites, drafts
         /// Four short choices (Hick's law). "Needs reply" stays reachable from code paths only.
         static var allCases: [InboxFilter] { [.all, .unread, .favourites, .groups] }
         var id: Self { self }
@@ -127,11 +129,12 @@ struct ConversationListView: View {
             case .needsReply: "Needs reply"
             case .groups: "Groups"
             case .favourites: "Favourites"
+            case .drafts: "Drafts"
             }
         }
         /// "Needs reply": the last message came from someone else (Zeigarnik effect: open loops are easy to
         /// spot and close). Uses the real `lastMessage.senderID` from `GET /v1/conversations`.
-        func matches(_ c: Conversation, viewerID: String?, pinned: Set<ConversationID> = []) -> Bool {
+        func matches(_ c: Conversation, viewerID: String?, pinned: Set<ConversationID> = [], drafts: Set<ConversationID> = []) -> Bool {
             switch self {
             case .all: true
             case .unread: c.isUnread
@@ -139,6 +142,7 @@ struct ConversationListView: View {
                 if let sender = c.lastMessage?.senderID, let viewerID { sender != viewerID } else { false }
             case .groups: c.kind == .group || c.participants.count > 1
             case .favourites: pinned.contains(c.id)
+            case .drafts: drafts.contains(c.id)
             }
         }
     }
@@ -288,6 +292,7 @@ struct ConversationListView: View {
                 await app.messaging.loadFolders()
             }
             .sheet(isPresented: $managingFolders) { ManageChatFoldersSheet().modulaSheetStyle() }
+            .background { inboxKeyboardShortcuts }
             .task(id: app.messaging.conversationQuery) {
                 guard app.messaging.capabilities.historySearch else { return }
                 try? await Task.sleep(for: .milliseconds(280))
@@ -484,6 +489,30 @@ struct ConversationListView: View {
         .accessibilityIdentifier("messages.circle")
     }
 
+    /// iPad hardware keyboard: ⌘N new message, ⌘1–4 filters, ⌘⇧A select.
+    private var inboxKeyboardShortcuts: some View {
+        Group {
+            Button("New Message") { showCompose = true }.keyboardShortcut("n", modifiers: .command)
+            ForEach(Array(InboxFilter.allCases.prefix(4).enumerated()), id: \.offset) { index, item in
+                Button(item.title) { filterRaw = item.rawValue }
+                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+            }
+            Button(selecting ? "Done" : "Select") {
+                selecting.toggle()
+                if !selecting { selectedIDs = [] }
+            }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+
+    /// Chats with an unsent draft (kept on this device and mirrored live into each row's preview).
+    private var draftIDs: Set<ConversationID> {
+        Set(app.messaging.drafts.compactMap { $0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0.key })
+    }
+
     /// Inbox filters + synced chat folders in ONE shared segmented control (scrolls past 5, keeps the
     /// selection in view). Picking a folder resets the filter to All and vice versa.
     private var filterRow: some View {
@@ -491,12 +520,14 @@ struct ConversationListView: View {
         let unread = all.filter(\.isUnread).count
         let needsReply = all.filter { InboxFilter.needsReply.matches($0, viewerID: app.auth.account?.accountId) }.count
         // Groups chip only when the server offers groups (or the user is already on it).
-        let filters = InboxFilter.allCases.filter { $0 != .groups || app.messaging.capabilities.groups || filter == .groups }
-            + (needsReply > 0 || filter == .needsReply ? [.needsReply] : [])
+        var filters: [InboxFilter] = InboxFilter.allCases.filter { $0 != .groups || app.messaging.capabilities.groups || filter == .groups }
+        if needsReply > 0 || filter == .needsReply { filters.append(.needsReply) }
+        let draftCount = draftIDs.count
+        if draftCount > 0 || filter == .drafts { filters.append(.drafts) }
         let folders = app.messaging.capabilities.features4.chatFolders ? app.messaging.serverFolders : []
         var segments: [ModulaSegmentedControl<String>.Segment] = filters.map { item in
             .init(id: "filter:\(item.rawValue)", title: item.title,
-                  badgeCount: item == .unread ? unread : (item == .needsReply ? needsReply : nil))
+                  badgeCount: item == .unread ? unread : (item == .needsReply ? needsReply : (item == .drafts ? draftCount : nil)))
         }
         segments += folders.map { .init(id: "folder:\($0.id)", title: [$0.emoji, $0.name].compactMap { $0 }.joined(separator: " ")) }
         let selection = Binding<String>(
@@ -544,8 +575,9 @@ struct ConversationListView: View {
         let viewerID = app.auth.account?.accountId
         let folderMembers = self.folderMembers
         let pinned = Set(app.messaging.pinnedIDs)
+        let drafts = draftIDs
         let items = app.messaging.visibleConversations.filter { conversation in
-            filter.matches(conversation, viewerID: viewerID, pinned: pinned)
+            filter.matches(conversation, viewerID: viewerID, pinned: pinned, drafts: drafts)
             && (folderMembers.map { $0.contains(conversation.id) } ?? true)
             && (searchKind == .all || searchKind.matches(conversation, query: app.messaging.conversationQuery, starredIDs: app.messaging.starredIDs, messages: app.messaging.messages(for: conversation.id)))
         }
@@ -2242,12 +2274,23 @@ struct ConversationView: View {
         }
     }
 
-    /// iPad hardware keyboard: ⌘↩ send, ⌘I chat info, Esc cancels a reply or edit.
+    /// iPad hardware keyboard: ⌘↩ send, ⌘I chat info, ⌘F find (⌘G / ⇧⌘G step matches), ⌘↓ latest,
+    /// Esc closes search or cancels a reply or edit.
     private var keyboardShortcuts: some View {
         Group {
             Button("Send") { sendNow() }.keyboardShortcut(.return, modifiers: .command)
             Button("Chat info") { showInfo = true }.keyboardShortcut("i", modifiers: .command)
-            Button("Cancel") { cancelReply() }.keyboardShortcut(.escape, modifiers: [])
+            Button("Cancel") {
+                if searching { searching = false; searchQuery = ""; searchScope = .all } else { cancelReply() }
+            }
+            .keyboardShortcut(.escape, modifiers: [])
+            Button("Find in Chat") { searching = true }.keyboardShortcut("f", modifiers: .command)
+            Button("Next Match") { stepSearch(1) }.keyboardShortcut("g", modifiers: .command)
+            Button("Previous Match") { stepSearch(-1) }.keyboardShortcut("g", modifiers: [.command, .shift])
+            Button("Jump to Latest") {
+                if let last = app.messaging.messages(for: conversationID).last?.id { jumpTarget = last }
+            }
+            .keyboardShortcut(.downArrow, modifiers: .command)
         }
         .frame(width: 0, height: 0)
         .opacity(0)
@@ -2983,6 +3026,14 @@ struct MessageBubble: View {
                             ModulaAvatar(initials: reader.initials, url: reader.avatarURL, size: 14, name: reader.displayName)
                                 .accessibilityLabel("Read by \(reader.displayName)")
                                 .transition(.scale.combined(with: .opacity))
+                        }
+                        // Groups: up to three stacked reader faces (+n), from the Seen-by receipts.
+                        if showsStatus, app.messaging.capabilities.groupReadReceipts, ModulaPreferences.chatShowReadReceipts,
+                           !message.id.hasPrefix("local-"),
+                           app.messaging.conversation(id: message.conversationID)?.kind == .group {
+                            MessageReadAvatarStack(message: message) {
+                                onAction(.init(id: "receipts", title: "Seen by"))
+                            }
                         }
                     }
                 }
@@ -4448,7 +4499,7 @@ struct ChatInfoSheet: View {
                     }
                     infoGroup("Chat info") {
                         NavigationLink {
-                            ChatSharedContentView(images: imageURLs, links: links)
+                            ChatSharedContentView(images: imageURLs, links: links, messages: messages)
                         } label: {
                             infoRow("Media, links and files", symbol: "photo.on.rectangle",
                                     value: imageURLs.isEmpty && links.isEmpty ? "None yet" : "\(imageURLs.count + links.count)")
@@ -4527,16 +4578,11 @@ struct ChatInfoSheet: View {
                             infoRow("Search in conversation", symbol: "magnifyingglass", chevron: false)
                         }
                         .buttonStyle(.plain)
-                        if app.messaging.capabilities.mute {
+                        if app.messaging.capabilities.mute || !app.messaging.capabilities.features4.notificationLevels.isEmpty {
                             infoDivider
-                            Button {
-                                Task { await app.messaging.toggleMute(conversationID) }
-                                HapticEngine.shared.play(.selection)
-                            } label: {
-                                infoRow(conversation?.isMuted == true ? "Unmute notifications" : "Mute notifications",
-                                        symbol: conversation?.isMuted == true ? "bell" : "bell.slash", chevron: false)
+                            ChatNotificationPresetsMenu(conversationID: conversationID) { title, symbol, value in
+                                infoRow(title, symbol: symbol, value: value, chevron: false)
                             }
-                            .buttonStyle(.plain)
                         }
                         infoDivider
                         Button {
@@ -4781,7 +4827,9 @@ struct ChatInfoSheet: View {
 struct ChatSharedContentView: View {
     let images: [URL]
     let links: [URL]
-    enum Tab: String, CaseIterable, Identifiable { case media = "Media", links = "Links", files = "Files"; var id: String { rawValue } }
+    /// Loaded messages, for photo attachments and voice notes (newest first in the lists).
+    var messages: [Message] = []
+    enum Tab: String, CaseIterable, Identifiable { case media = "Media", links = "Links", voice = "Voice", files = "Files"; var id: String { rawValue } }
     @State private var tab: Tab = .media
     @State private var viewing: ChatViewerItem?
     @Environment(AppEnvironment.self) private var app
@@ -4796,6 +4844,7 @@ struct ChatSharedContentView: View {
                 switch tab {
                 case .media: mediaGrid
                 case .links: linkList
+                case .voice: voiceList
                 case .files:
                     empty("No files", "Files can't be sent in chats yet.", symbol: "doc")
                 }
@@ -4807,7 +4856,38 @@ struct ChatSharedContentView: View {
         .fullScreenCover(item: $viewing) { item in MessageImageViewer(url: item.url, preview: item.image) }
     }
 
+    /// Linked images plus photo attachments, de-duplicated.
+    private var allImages: [URL] {
+        var seen = Set<URL>()
+        let attached = messages.reversed().flatMap { $0.attachments.filter { $0.kind == .image }.compactMap(\.url) }
+        return (images + attached).filter { seen.insert($0).inserted }
+    }
+
+    private var voiceNotes: [(message: Message, attachment: MessageAttachment)] {
+        messages.reversed().compactMap { message in message.voiceAttachment.map { (message, $0) } }
+    }
+
+    @ViewBuilder private var voiceList: some View {
+        if voiceNotes.isEmpty {
+            empty("No voice notes yet", "Voice notes sent in this chat appear here.", symbol: "waveform")
+        } else {
+            LazyVStack(alignment: .leading, spacing: 10) {
+                ForEach(voiceNotes, id: \.attachment.id) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(item.message.isOwn ? "You" : item.message.sender.displayName) · \(MessageTimeline.label(for: item.message.sentAt))")
+                            .font(.caption).foregroundStyle(.secondary)
+                        MessageVoicePlayer(attachment: item.attachment, accent: Color.modulaPrimaryFill)
+                            .padding(10)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+        }
+    }
+
     @ViewBuilder private var mediaGrid: some View {
+        let images = allImages
         if images.isEmpty {
             empty("No photos yet", "Image links shared in this chat appear here.", symbol: "photo")
         } else {
@@ -4862,8 +4942,9 @@ struct ChatSharedContentView: View {
 
     private func tabTitle(_ tab: Tab) -> String {
         switch tab {
-        case .media: return images.isEmpty ? "Media" : "Media (\(images.count))"
+        case .media: return allImages.isEmpty ? "Media" : "Media (\(allImages.count))"
         case .links: return links.isEmpty ? "Links" : "Links (\(links.count))"
+        case .voice: return voiceNotes.isEmpty ? "Voice" : "Voice (\(voiceNotes.count))"
         case .files: return "Files"
         }
     }
