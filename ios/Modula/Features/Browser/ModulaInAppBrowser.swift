@@ -1,6 +1,7 @@
 import AVFoundation
 import SafariServices
 import SwiftUI
+import Translation
 import UIKit
 import WebKit
 
@@ -752,6 +753,7 @@ struct ModulaInAppBrowserView: View {
             if let reader {
                 ModulaReaderView(article: reader, scale: page.zoom, bottomInset: height - top, domain: page.domain,
                                  tweaks: ModulaBrowserExtensions.shared.readerTweaks(for: page.url)) { self.reader = nil }
+                    .modifier(ModulaKeepAwake(key: ModulaKeepAwake.readerKey))
                     .transition(.opacity)
             }
             if let failure = page.failure {
@@ -1105,6 +1107,7 @@ struct ModulaInAppBrowserView: View {
                 Button { copyMarkdownLink() } label: { Label("Copy as Markdown", systemImage: "text.badge.plus") }
                 Button { addToReadingList() } label: { Label("Add to Reading List", systemImage: "eyeglasses") }
                 Button { printPage() } label: { Label("Print…", systemImage: "printer") }
+                Button { savePDF() } label: { Label("Save as PDF…", systemImage: "doc.richtext") }
                 Button { showQR = true } label: { Label("QR code", systemImage: "qrcode") }
                 if let app = ModulaKnownApps.appName(for: page.url) {
                     Button {
@@ -1223,6 +1226,33 @@ struct ModulaInAppBrowserView: View {
         } catch {
             HapticEngine.shared.play(.failure)
             show("Couldn't add to Reading List")
+        }
+    }
+
+    /// Renders the whole page (not just the visible part) to a PDF in tmp and opens the share sheet
+    /// (Save to Files, AirDrop, Mail…). Nothing is uploaded.
+    private func savePDF() {
+        show("Making PDF…")
+        let name = (page.title?.isEmpty == false ? page.title! : page.domain)
+            .components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
+            .prefix(80)
+        page.webView.createPDF { result in
+            Task { @MainActor in
+                switch result {
+                case .success(let data):
+                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(name.isEmpty ? "Page" : String(name)).pdf")
+                    do {
+                        try data.write(to: url, options: .atomic)
+                        HapticEngine.shared.play(.success)
+                        PostSharing.presentSystemSheet(items: [url])
+                    } catch {
+                        show("Couldn’t save PDF")
+                    }
+                case .failure:
+                    HapticEngine.shared.play(.failure)
+                    show("Couldn’t make a PDF of this page")
+                }
+            }
         }
     }
 
@@ -1385,6 +1415,8 @@ private struct ModulaReaderView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: Double = 0
     @State private var speaker = ModulaReaderSpeaker()
+    /// Reader › Translate: Apple's on-device translation sheet over the article text.
+    @State private var translating = false
 
     /// Plain text of the article (title, then blocks), for Listen / Copy / Share.
     private var plainText: String {
@@ -1588,6 +1620,10 @@ private struct ModulaReaderView: View {
                             ModulaToastCenter.shared.show("Article copied", symbol: "doc.on.doc")
                         } label: { Label("Copy article text", systemImage: "doc.on.doc") }
                         ShareLink(item: plainText) { Label("Share article text", systemImage: "square.and.arrow.up") }
+                        Button {
+                            translating = true
+                            HapticEngine.shared.play(.selection)
+                        } label: { Label("Translate", systemImage: "translate") }
                     }
                     Divider()
                     Button { onClose() } label: { Label("Exit reader", systemImage: "doc.richtext") }
@@ -1597,6 +1633,7 @@ private struct ModulaReaderView: View {
                         .frame(width: 40, height: 40)
                         .modulaGlass(in: Circle())
                 }
+                .translationPresentation(isPresented: $translating, text: String(plainText.prefix(20_000)))
                 .tint(.primary)
                 .accessibilityLabel("Reader settings")
                 .accessibilityIdentifier("browser.reader.settings")

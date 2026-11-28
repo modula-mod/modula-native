@@ -293,6 +293,7 @@ extension AppTab {
         case .inMail: extra = [("tray", "tray.fill"), ("envelope.open", "envelope.open.fill")]
         case .moliboo: extra = [("face.smiling", "face.smiling.fill"), ("sparkles", "sparkles")]
         case .connect: extra = [("simcard", "simcard.fill"), ("network", "network")]
+        case .board: extra = [("rectangle.3.group", "rectangle.3.group.fill"), ("square.grid.3x3", "square.grid.3x3.fill"), ("gauge.with.dots.needle.67percent", "gauge.with.dots.needle.67percent")]
         }
         return [base] + extra.map { TabIconChoice(outline: $0.0, filled: $0.1) }
     }

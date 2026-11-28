@@ -31,6 +31,8 @@ struct CreationStudioView: View {
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
     @State private var publishMorph = false
+    @State private var showsAltPrompt = false
+    @AppStorage("compose.altTextPrompt.off") private var altPromptOff = false
     @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: true)
     @State private var showsFullCamera = false
     @State private var cameraLibraryItems: [PhotosPickerItem] = []
@@ -110,6 +112,16 @@ struct CreationStudioView: View {
                 close()
             }
             Button("Continue Editing", role: .cancel) {}
+        }
+        .confirmationDialog("Add alt text?", isPresented: $showsAltPrompt, titleVisibility: .visible) {
+            Button("Add Alt Text") {
+                store.altTextMediaID = store.draft.media.first { $0.kind == .image && $0.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }?.id
+            }
+            Button("Post Without") { startPublishing(store) }
+            Button("Don't Ask Again") { altPromptOff = true; startPublishing(store) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Some photos have no description. Alt text helps people who use VoiceOver.")
         }
         .sheet(item: altTextBinding(store)) { media in
             NavigationStack {
@@ -203,7 +215,11 @@ struct CreationStudioView: View {
             }
 
             Button {
-                startPublishing(store)
+                if !altPromptOff, store.draft.media.contains(where: { $0.kind == .image && $0.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                    showsAltPrompt = true
+                } else {
+                    startPublishing(store)
+                }
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
@@ -711,6 +727,15 @@ struct CreationStudioView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
+            // Emoji suggestions for the word you just typed float above the bar (layout-neutral overlay).
+            .overlay(alignment: .topLeading) {
+                ComposerEmojiSuggestions(text: store.draft.text) { emoji in
+                    let t = store.draft.text
+                    store.handlePaste(t + ((t.last?.isWhitespace ?? true) ? "" : " ") + emoji + " ")
+                }
+                .alignmentGuide(.top) { $0[.bottom] + 8 }
+                .padding(.leading, 8)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
@@ -814,7 +839,17 @@ struct CreationStudioView: View {
         switch store.draft.kind {
         case .story: "Add text"
         case .reel: "Caption"
-        default: "What's happening?"
+        default: Self.timelyPrompt
+        }
+    }
+
+    /// A gentle prompt that follows the time of day.
+    private static var timelyPrompt: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: "Good morning. What's on today?"
+        case 12..<17: "What's happening?"
+        case 17..<22: "How did today go?"
+        default: "Up late? Share what's on your mind."
         }
     }
 
@@ -1062,11 +1097,62 @@ struct ComposerReadingChip: View {
             Text("\(words) words · \(minutes) min")
                 .font(.caption2.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.secondary)
+                // Count rolls as you type instead of snapping.
+                .contentTransition(.numericText(value: Double(words)))
+                .animation(.snappy(duration: 0.2), value: words)
                 .padding(.horizontal, 8)
                 .frame(height: 24)
                 .modulaGlass(in: Capsule(), interactive: false)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 .accessibilityLabel("\(words) words, about \(minutes) minute read")
         }
+    }
+}
+
+
+/// Suggests emoji for the last word typed ("love" → ❤️ 😍 🥰). Tap inserts after the word. Local word list only.
+struct ComposerEmojiSuggestions: View {
+    let text: String
+    let insert: (String) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let table: [String: [String]] = [
+        "love": ["❤️", "😍", "🥰"], "heart": ["❤️", "💖", "🫶"], "happy": ["😊", "😄", "🥳"], "sad": ["😢", "🥺", "😞"],
+        "lol": ["😂", "🤣", "😆"], "haha": ["😂", "🤣", "😆"], "funny": ["😂", "🤣"], "fire": ["🔥", "💥"], "lit": ["🔥", "✨"],
+        "party": ["🥳", "🎉", "🎊"], "birthday": ["🎂", "🥳", "🎉"], "congrats": ["🎉", "👏", "🥂"], "thanks": ["🙏", "🫶", "😊"],
+        "thank": ["🙏", "🫶"], "coffee": ["☕️", "🥐"], "tea": ["🍵", "☕️"], "pizza": ["🍕"], "food": ["😋", "🍽️"],
+        "music": ["🎵", "🎧", "🎶"], "sun": ["☀️", "😎"], "sunny": ["☀️", "😎"], "rain": ["🌧️", "☔️"], "snow": ["❄️", "☃️"],
+        "cool": ["😎", "🆒"], "wow": ["😮", "🤯"], "omg": ["😱", "🤯"], "yes": ["✅", "🙌"], "no": ["❌", "🙅"],
+        "ok": ["👌", "👍"], "okay": ["👌", "👍"], "good": ["👍", "😊"], "great": ["🙌", "💯"], "win": ["🏆", "🥇"],
+        "sleep": ["😴", "💤"], "tired": ["🥱", "😴"], "work": ["💼", "💻"], "code": ["💻", "👩‍💻"], "travel": ["✈️", "🌍"],
+        "beach": ["🏖️", "🌊"], "dog": ["🐶"], "cat": ["🐱"], "money": ["💸", "💰"], "gym": ["💪", "🏋️"], "run": ["🏃", "👟"],
+        "morning": ["🌅", "☕️"], "night": ["🌙", "✨"], "christmas": ["🎄", "🎅"], "football": ["⚽️"], "game": ["🎮"],
+        "idea": ["💡"], "think": ["🤔"], "cry": ["😭"], "angry": ["😠"], "kiss": ["😘"], "hug": ["🤗"], "pray": ["🙏"],
+    ]
+
+    private var suggestions: [String] {
+        guard let last = text.last, !last.isWhitespace else { return [] }
+        let word = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).last.map {
+            String($0).lowercased().trimmingCharacters(in: .punctuationCharacters)
+        } ?? ""
+        return Self.table[word] ?? []
+    }
+
+    var body: some View {
+        let list = suggestions
+        HStack(spacing: 4) {
+            ForEach(list, id: \.self) { e in
+                Button { insert(e); HapticEngine.shared.play(.selection) } label: {
+                    Text(e).font(.system(size: 24)).frame(width: 40, height: 40)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.85))
+                .accessibilityLabel("Insert \(e)")
+                .transition(.scale(scale: 0.4).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, list.isEmpty ? 0 : 6)
+        .background { if !list.isEmpty { Capsule().fill(.clear).modulaGlass(in: Capsule(), interactive: false) } }
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: list)
+        .accessibilityIdentifier("composer.emojiSuggestions")
     }
 }

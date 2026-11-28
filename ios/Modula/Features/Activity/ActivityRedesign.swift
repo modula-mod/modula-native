@@ -422,8 +422,11 @@ struct ActivityClusterCard: View {
         .overlay(alignment: .topLeading) {
             if !cluster.isRead {
                 ActivityUnreadIndicator().offset(x: -12, y: 29)
+                    // Marking read (one or all) pops the dot away instead of it vanishing.
+                    .transition(.scale(scale: 0.2).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: cluster.isRead)
         .contentShape(Rectangle())
         .opacity(dimmed ? 0.5 : 1)
         .accessibilityElement(children: .contain)
@@ -778,11 +781,14 @@ struct ActivityClusterFeed: View {
     @ViewBuilder private var timelineRows: some View {
             let all = sections
             let firstSection = all.first?.section
+            ActivityDaySummary(events: events)
             ForEach(all, id: \.section) { group in
                 sectionHeader(group.section, clusters: group.clusters, isFirst: group.section == firstSection)
                 if !foldedSections.contains(group.section) {
                 ForEach(group.clusters) { cluster in
                     row(cluster)
+                        // Fold/unfold slides rows in from their header instead of popping.
+                        .transition(calm ? .opacity : .opacity.combined(with: .offset(y: -8)))
                     if cluster.expandsInline && expanded.contains(cluster.id) {
                         expandedFollowers(cluster)
                     }
@@ -822,6 +828,7 @@ struct ActivityClusterFeed: View {
                     Image(systemName: "chevron.down")
                         .font(.caption2.weight(.bold))
                         .rotationEffect(.degrees(folded ? -90 : 0))
+                        .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.75), value: folded)
                         .foregroundStyle(.secondary)
                 }
                 .font(.subheadline.weight(.semibold))
@@ -830,7 +837,22 @@ struct ActivityClusterFeed: View {
                 .frame(minHeight: 30)
                 .modulaGlass(in: Capsule(), interactive: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+            // Long-press a section: read it all, or fold/unfold every section at once.
+            .contextMenu {
+                if unread > 0 {
+                    Button("Mark Section as Read", systemImage: "checkmark.circle") {
+                        onMarkRead(clusters.flatMap(\.events))
+                        HapticEngine.shared.play(.success)
+                    }
+                }
+                Button("Fold All Sections", systemImage: "rectangle.compress.vertical") {
+                    withAnimation(.snappy(duration: 0.3)) { foldedSections = Set(sections.map(\.section)) }
+                }
+                Button("Unfold All Sections", systemImage: "rectangle.expand.vertical") {
+                    withAnimation(.snappy(duration: 0.3)) { foldedSections = [] }
+                }
+            }
             .accessibilityLabel(folded ? "\(section.title), folded. Show" : "\(section.title). Fold")
             .accessibilityIdentifier("activity.section.\(section.rawValue)")
             if section == .new, unread > 0 {
@@ -1064,6 +1086,66 @@ extension ActivityTimelineSection {
         case .today: "sun.max.fill"
         case .yesterday: "calendar"
         case .earlier: "clock.arrow.circlepath"
+        }
+    }
+}
+
+
+/// "Last 24 hours" glance strip above the timeline: likes, comments, follows and reposts counted from the
+/// notifications already loaded (no extra request). Hidden when nothing happened in the last day.
+struct ActivityDaySummary: View {
+    let events: [ActivityEvent]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Stat: Identifiable { let id: String; let symbol: String; let count: Int; let noun: String }
+
+    private var stats: [Stat] {
+        let cutoff = Date().addingTimeInterval(-86_400)
+        var likes = 0, comments = 0, follows = 0, reposts = 0
+        for e in events where e.createdAt >= cutoff {
+            let n = max(1, e.primaryActors.count)
+            switch e.kind {
+            case .like, .reaction: likes += n
+            case .comment, .mention: comments += 1
+            case .follow, .followRequest, .followAccepted: follows += n
+            case .repost, .share: reposts += n
+            default: break
+            }
+        }
+        return [
+            Stat(id: "likes", symbol: "heart.fill", count: likes, noun: likes == 1 ? "like" : "likes"),
+            Stat(id: "comments", symbol: "bubble.left.fill", count: comments, noun: comments == 1 ? "comment" : "comments"),
+            Stat(id: "follows", symbol: "person.fill.badge.plus", count: follows, noun: follows == 1 ? "follow" : "follows"),
+            Stat(id: "reposts", symbol: "arrow.2.squarepath", count: reposts, noun: reposts == 1 ? "repost" : "reposts"),
+        ].filter { $0.count > 0 }
+    }
+
+    var body: some View {
+        let items = stats
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Last 24 hours").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, s in
+                        HStack(spacing: 5) {
+                            Image(systemName: s.symbol).font(.caption.weight(.bold))
+                            Text("\(s.count)").font(.subheadline.weight(.bold)).monospacedDigit()
+                                .contentTransition(.numericText(value: Double(s.count)))
+                        }
+                        .padding(.horizontal, 12).frame(height: 34)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                        .modulaAppear(delay: reduceMotion ? 0 : Double(index) * 0.05)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(s.count) \(s.noun)")
+                    }
+                    Spacer(minLength: 0)
+                }
+                .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: items.map(\.count))
+            }
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Last 24 hours")
+            .accessibilityIdentifier("activity.daySummary")
         }
     }
 }

@@ -164,6 +164,15 @@ final class CallManager {
             bridge.reportEnded(uuid: throwaway, reason: .failed)
             return
         }
+        // Local screening (Settings › Calls): blocked callers and quiet hours never ring. PushKit
+        // still needs a CallKit report, so it's reported and ended at once (shows as missed).
+        if session == nil, CallsPersonalStore.shared.silences(handle: push.caller.handle, id: push.caller.id,
+                                                              conversationID: push.conversationID,
+                                                              isFavourite: isFavourite(push.conversationID)) {
+            bridge.reportIncoming(uuid: uuid, name: push.caller.name, handle: push.caller.handle, video: push.mediaKind == .video)
+            bridge.reportEnded(uuid: uuid, reason: .unanswered)
+            return
+        }
         if let current = session {
             // Already ringing from the messaging socket: re-reporting satisfies PushKit.
             bridge.reportIncoming(uuid: uuid, name: push.caller.name, handle: push.caller.handle, video: push.mediaKind == .video)
@@ -202,6 +211,8 @@ final class CallManager {
     private func presentIncoming(callID: CallID) async {
         guard let repository, let record = try? await repository.call(callID),
               record.direction == .incoming, record.state == .ringing, session == nil, let uuid = record.uuid else { return }
+        if CallsPersonalStore.shared.silences(handle: record.other.handle, id: record.other.id,
+                                              conversationID: record.conversationID, isFavourite: isFavourite(record.conversationID)) { return }
         CallMediaEngine.prepareAudioSessionForCallKit()
         session = Session(record: record, phase: .incomingRinging)
         isMinimized = false

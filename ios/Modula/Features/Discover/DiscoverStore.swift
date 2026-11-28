@@ -222,6 +222,9 @@ final class DiscoverStore {
         let hasContent = !search.results.isEmpty
         search.loadState = hasContent ? .refreshing : .loading
         search.lastError = nil
+        // Instruments: "Search" interval (query typed → results in the store).
+        ModulaSignpost.begin("Search", "search")
+        defer { ModulaSignpost.end("Search", "search") }
         do {
             let page = try await repository.search(query: trimmed, entityType: Self.entityType(section), cursor: nil)
             search.results = page.results

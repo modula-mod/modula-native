@@ -39,14 +39,22 @@ struct SettingsToggleCard<Content: View>: View {
                 SettingsGlassCard { rows }
             }
         }
-        .toggleStyle(.switch)
+        // Switches always use the shared accent style (a plain .switch here dropped the accent).
+        .toggleStyle(SettingsHapticToggleStyle())
         .tint(.primary)
     }
 
+    /// 52pt rows; dividers stay hairlines (the minHeight used to apply to each divider too,
+    /// which spaced Push › Notify me about rows ~110pt apart).
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
-            content
-                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            ForEach(subviews: content) { row in
+                if row.containerValues.settingsIsDivider {
+                    row
+                } else {
+                    row.frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                }
+            }
         }
     }
 }
@@ -62,7 +70,12 @@ extension EnvironmentValues {
 }
 
 struct SettingsDivider: View {
-    var body: some View { Divider().padding(.leading, 42) }
+    var body: some View { Divider().padding(.leading, 42).containerValue(\.settingsIsDivider, true) }
+}
+
+extension ContainerValues {
+    /// Marks `SettingsDivider` so card layouts don't give it a row's minimum height.
+    @Entry var settingsIsDivider: Bool = false
 }
 
 struct SettingsNavigationRow: View {
@@ -176,22 +189,30 @@ struct SettingsView: View {
                 if isSearching {
                     // Atlas v5 09.002: grouped matches, each with its breadcrumb; unavailable
                     // destinations say so instead of looking like working settings.
-                    if filteredSearchItems.isEmpty {
+                    // Speed: one registry search per render (it ran twice: once for isEmpty, once to group).
+                    let groups = groupedSearchItems
+                    if groups.isEmpty {
                         SettingsGroup(title: "Results") {
                             ModulaEmptyState(title: "No settings for “\(query)”", message: "Try a broader word, like privacy or theme.", symbol: "magnifyingglass")
                                 .frame(minHeight: 220)
                         }
                     } else {
-                        ForEach(groupedSearchItems, id: \.category) { group in
+                        Text("\(groups.reduce(0) { $0 + $1.items.count }) result\(groups.reduce(0) { $0 + $1.items.count } == 1 ? "" : "s")")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
+                            .accessibilityIdentifier("settings.search.count")
+                        ForEach(Array(groups.enumerated()), id: \.element.category) { gi, group in
                             SettingsGroup(title: group.category) {
                                 ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
                                     SettingsTileRow(title: item.title, subtitle: searchSubtitle(item, category: group.category), symbol: item.symbol) {
+                                        SettingsRecentSearches.add(query)
                                         app.navigation.settingsFocusAnchor = item.anchor
                                         app.navigation.open(.settings(item.route))
                                     }
                                     if index < group.items.count - 1 { SettingsDivider() }
                                 }
                             }
+                            .modulaAppear(delay: Double(min(gi, 5)) * 0.04)
                         }
                     }
                 } else if searchPresented {
@@ -569,7 +590,14 @@ struct SettingsView: View {
                 .padding(.leading, 4)
             TelegramSettingsCard { content() }
         }
+        // Sections rise in once, in reading order (first screenful only; none with Reduce Motion).
+        .modulaAppear(delay: Double(min(Self.sectionOrder.firstIndex(of: title) ?? 6, 6)) * 0.035)
     }
+
+    private static let sectionOrder = [
+        "Account & Membership", "Privacy & Security", "Appearance & Accessibility",
+        "Notifications & Communication", "Content, Social & Activity", "Modules & Intelligence",
+    ]
 
     /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).
     private func tinted(_ title: String, _ symbol: String, _ tint: Color, _ route: SettingsRoute) -> some View {
@@ -734,6 +762,13 @@ struct SettingsView: View {
 
     /// Shown while the search field is focused and empty (Atlas v5 09.002 "suggested searches").
     private var suggestedSearches: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsRecentSearchesGroup { query = $0 }
+            suggestedGroup
+        }
+    }
+
+    private var suggestedGroup: some View {
         SettingsGroup(title: "Suggested") {
             ForEach(Array(Self.suggestions.enumerated()), id: \.offset) { index, suggestion in
                 SettingsTileRow(title: suggestion.0, symbol: suggestion.1) { query = suggestion.0 }
@@ -978,6 +1013,8 @@ struct AppearanceSettingsView: View {
                 navigationSection(store)
                 ChatWallpaperSettingsRow()
                 CallIDSettingsRow()
+                CallsPreferencesRow()
+                ModulaNumberSettingsRow()
                 ConnectPhoneNumbersRow()
                 advancedSection(store)
 
@@ -1090,6 +1127,7 @@ struct AppearanceSettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(store.liveAccent)
             }
+            AccentLivePreview(accent: store.liveAccent)
             HStack(spacing: 12) {
                 ForEach(AppearanceStore.Accent.allCases) { accent in
                     let selected = store.customAccentHex == nil && store.accent == accent
@@ -2364,7 +2402,6 @@ struct CustomNavigationSettingsView: View {
                 ModulaSegmentedControl(segments: TabBadgeStyle.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.badgeStyle))
             }
             Toggle("Show labels", isOn: animated($custom.showLabels))
-                .tint(Color.modulaPrimaryFill)
                 .listRowBackground(CustomNavigationRowGlass())
         } header: {
             Text("Look")
@@ -2383,10 +2420,8 @@ struct CustomNavigationSettingsView: View {
             .tint(.primary)
             .listRowBackground(CustomNavigationRowGlass())
             Toggle("Long-press quick menu", isOn: $custom.longPressMenu)
-                .tint(Color.modulaPrimaryFill)
                 .listRowBackground(CustomNavigationRowGlass())
             Toggle("Haptics", isOn: $custom.haptics)
-                .tint(Color.modulaPrimaryFill)
                 .listRowBackground(CustomNavigationRowGlass())
         } header: {
             Text("Behaviour")
@@ -2643,5 +2678,92 @@ struct SettingsDrapeBackdrop: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+
+// MARK: - Accent live preview (t235u)
+
+/// A small mock of where the accent shows (toggle, link, unread dot, progress, selected tab)
+/// so you can judge a colour before leaving Appearance.
+struct AccentLivePreview: View {
+    let accent: Color
+    @State private var on = true
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Circle().fill(accent).frame(width: 8, height: 8)
+                    Text("New message").font(.subheadline.weight(.semibold))
+                }
+                Text("Read more").font(.footnote.weight(.semibold)).foregroundStyle(accent)
+                ProgressView(value: 0.62).tint(accent).frame(maxWidth: 120)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 10) {
+                Toggle("Preview toggle", isOn: $on)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(accent)
+                HStack(spacing: 14) {
+                    Image(systemName: "house.fill").foregroundStyle(accent)
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    Image(systemName: "bubble.left").foregroundStyle(.secondary)
+                }
+                .font(.system(size: 16, weight: .semibold))
+            }
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(.smooth(duration: 0.3), value: accent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Accent preview")
+        .modulaAppear()
+        .accessibilityIdentifier("settings.appearance.accentPreview")
+    }
+}
+
+
+// MARK: - Recent settings searches
+
+enum SettingsRecentSearches {
+    static let key = "settings.search.recent"
+    static var all: [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+    static func add(_ raw: String) {
+        let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else { return }
+        var list = all.filter { $0.caseInsensitiveCompare(q) != .orderedSame }
+        list.insert(q, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(5)), forKey: key)
+    }
+}
+
+/// Last five searches that led somewhere (saved when you open a result); tap to search again.
+struct SettingsRecentSearchesGroup: View {
+    let pick: (String) -> Void
+    @State private var recents = SettingsRecentSearches.all
+
+    var body: some View {
+        if !recents.isEmpty {
+            SettingsGroup(title: "Recent") {
+                VStack(spacing: 0) {
+                    ForEach(Array(recents.enumerated()), id: \.element) { index, q in
+                        SettingsTileRow(title: q, symbol: "clock.arrow.circlepath") { pick(q) }
+                        if index < recents.count - 1 { SettingsDivider() }
+                    }
+                    Button("Clear Recent Searches") {
+                        UserDefaults.standard.removeObject(forKey: SettingsRecentSearches.key)
+                        withAnimation(.snappy) { recents = [] }
+                        HapticEngine.shared.play(.selection)
+                    }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .accessibilityIdentifier("settings.search.recent.clear")
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+            .accessibilityIdentifier("settings.search.recent")
+        }
     }
 }

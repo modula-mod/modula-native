@@ -297,14 +297,14 @@ struct HomeView: View {
                                         } label: {
                                             Label("Reels", systemImage: "play.rectangle.fill")
                                                 .font(.caption2.weight(.bold))
-                                                .foregroundStyle(.white)
+                                                .foregroundStyle(Color.modulaOnPrimary)
                                                 .padding(.horizontal, 10)
                                                 .frame(height: 26)
-                                                .background(app.appearance.liveAccent.gradient, in: Capsule())
+                                                .background(Color.modulaPrimaryFill, in: Capsule())
                                                 .contentShape(Capsule())
                                         }
-                                        .buttonStyle(.plain)
-                                        .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 5, y: 2)
+                                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                                        .shadow(color: .black.opacity(0.18), radius: 5, y: 2)
                                         // 44pt hit area without shifting the pill off the content edge.
                                         .padding(.vertical, 9)
                                         .contentShape(Rectangle())
@@ -365,6 +365,11 @@ struct HomeView: View {
         case .moliboo:
             // Moliboo is the floating companion overlay; this slot only controls visibility.
             EmptyView()
+        case .board, .pinnedModules, .connect, .favourites, .recentChats, .reels, .quote:
+            HomeExtraSection(section: section)
+                .padding(.leading, leading)
+                .padding(.trailing, trailing)
+                .modulaAppear()
         }
     }
 
@@ -419,6 +424,7 @@ struct HomeView: View {
                         .accessibilityIdentifier("home.greeting.streak")
                 }
                 HomeGlanceChips()
+                HomeBriefingCard()
                 Button {
                     app.navigation.open(.settings(.whatsNew(.root)))
                     HapticEngine.shared.play(.navigation)
@@ -1122,6 +1128,11 @@ extension HomeView {
     fileprivate func prefetchAhead(after post: SocialPost, in items: [SocialPost]) {
         guard let index = items.firstIndex(where: { $0.id == post.id }) else { return }
         for next in items.dropFirst(index + 1).prefix(4) {
+            // Speed: author avatars too (160 px matches ModulaAvatar's minimum decode), so the
+            // header of the next card is ready before it scrolls in.
+            if let url = next.author?.avatarURL {
+                ModulaImagePrefetcher.prefetch(url: url, cacheKey: "avatar:\(url.path)", maximumPixelSize: 160, client: app.client)
+            }
             for media in next.media.prefix(2) {
                 let attachment = ModulaPostMapper.attachment(media)
                 guard attachment.kind == .image else { continue }
@@ -1882,7 +1893,43 @@ private struct HomeModulesBanner: View {
 
 enum HomeSection: String, CaseIterable, Identifiable {
     case stories, greeting, quickActions, composer, modules, today, moliboo
+    // t240u: richer Home. New sections arrive hidden (except Board) so upgrades don't reshuffle Home.
+    case board, pinnedModules, connect, favourites, recentChats, reels, quote
     var id: String { rawValue }
+
+    var isDefaultVisible: Bool {
+        switch self {
+        case .pinnedModules, .connect, .favourites, .recentChats, .reels, .quote: false
+        default: true
+        }
+    }
+
+    /// Sections with per-section density / style options in Edit Home.
+    var hasOptions: Bool {
+        switch self {
+        case .pinnedModules, .favourites, .recentChats, .reels, .quote: true
+        default: false
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .stories: "Story rings and Reels"
+        case .greeting: "Scene, name and streak"
+        case .quickActions: "Write, Create, Vault…"
+        case .composer: "Start a post"
+        case .modules: "Installed modules"
+        case .today: "Your day at a glance"
+        case .moliboo: "Floating companion"
+        case .board: "Widgets from your Board"
+        case .pinnedModules: "Modules pinned in the dock"
+        case .connect: "Your Modula Number"
+        case .favourites: "One-tap calls"
+        case .recentChats: "Latest conversations"
+        case .reels: "Jump into Reels"
+        case .quote: "Quote and on this day"
+        }
+    }
 
     var title: String {
         switch self {
@@ -1893,6 +1940,13 @@ enum HomeSection: String, CaseIterable, Identifiable {
         case .modules: "Recently opened modules"
         case .today: "Today"
         case .moliboo: "Moliboo"
+        case .board: "Board widgets"
+        case .pinnedModules: "Pinned modules"
+        case .connect: "Modula Connect"
+        case .favourites: "Calls favourites"
+        case .recentChats: "Recent chats"
+        case .reels: "Reels"
+        case .quote: "Quote · On this day"
         }
     }
 
@@ -1905,6 +1959,13 @@ enum HomeSection: String, CaseIterable, Identifiable {
         case .modules: "shippingbox"
         case .today: "calendar"
         case .moliboo: "sparkles"
+        case .board: "square.grid.2x2.fill"
+        case .pinnedModules: "pin"
+        case .connect: "antenna.radiowaves.left.and.right"
+        case .favourites: "star"
+        case .recentChats: "bubble.left.and.bubble.right"
+        case .reels: "play.rectangle"
+        case .quote: "quote.opening"
         }
     }
 }
@@ -1913,7 +1974,7 @@ enum HomeSection: String, CaseIterable, Identifiable {
 /// Unknown ids are dropped; sections added in later versions append visible.
 enum HomeSectionLayout {
     static let storageKey = "home.sections.v1"
-    static let defaultRaw = HomeSection.allCases.map(\.rawValue).joined(separator: ",")
+    static let defaultRaw = HomeSection.allCases.map { ($0.isDefaultVisible ? "" : "-") + $0.rawValue }.joined(separator: ",")
 
     struct Entry: Identifiable, Equatable {
         let section: HomeSection
@@ -1931,7 +1992,7 @@ enum HomeSectionLayout {
             entries.append(Entry(section: section, visible: !hidden))
         }
         for section in HomeSection.allCases where !seen.contains(section) {
-            entries.append(Entry(section: section, visible: true))
+            entries.append(Entry(section: section, visible: section.isDefaultVisible))
         }
         return entries
     }
@@ -1949,47 +2010,517 @@ enum HomeSectionLayout {
     }
 }
 
-/// Edit Home: show / hide and drag to reorder. Persists immediately; Reset restores defaults.
+/// Per-section display options (Edit Home). Stored as "section=density.style" pairs.
+enum HomeSectionOptions {
+    static let storageKey = "home.sections.options.v1"
+
+    enum Density: String, CaseIterable, Identifiable { case compact, regular, large; var id: Self { self }
+        var title: String { switch self { case .compact: "Compact"; case .regular: "Regular"; case .large: "Large" } }
+    }
+    enum Style: String, CaseIterable, Identifiable { case card, plain; var id: Self { self }
+        var title: String { switch self { case .card: "Glass card"; case .plain: "Plain" } }
+    }
+    struct Value: Equatable { var density: Density = .regular; var style: Style = .card }
+
+    static func decode(_ raw: String) -> [HomeSection: Value] {
+        var out: [HomeSection: Value] = [:]
+        for pair in raw.split(separator: ";") {
+            let kv = pair.split(separator: "=", maxSplits: 1)
+            guard kv.count == 2, let section = HomeSection(rawValue: String(kv[0])) else { continue }
+            let parts = kv[1].split(separator: ".")
+            var v = Value()
+            if let d = parts.first.flatMap({ Density(rawValue: String($0)) }) { v.density = d }
+            if parts.count > 1, let st = Style(rawValue: String(parts[1])) { v.style = st }
+            out[section] = v
+        }
+        return out
+    }
+
+    static func encode(_ map: [HomeSection: Value]) -> String {
+        map.filter { $0.value != Value() }
+            .sorted { $0.key.rawValue < $1.key.rawValue }
+            .map { "\($0.key.rawValue)=\($0.value.density.rawValue).\($0.value.style.rawValue)" }
+            .joined(separator: ";")
+    }
+
+    static func value(_ section: HomeSection, in raw: String) -> Value { decode(raw)[section] ?? Value() }
+}
+
+/// One-tap Home layouts.
+enum HomePreset: String, CaseIterable, Identifiable {
+    case classic, minimal, social, console, everything
+    var id: Self { self }
+    var title: String {
+        switch self {
+        case .classic: "Classic"
+        case .minimal: "Minimal"
+        case .social: "Social"
+        case .console: "Console"
+        case .everything: "Everything"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .classic: "house"
+        case .minimal: "circle.dotted"
+        case .social: "person.2"
+        case .console: "square.grid.2x2"
+        case .everything: "sparkles"
+        }
+    }
+    var sections: [HomeSection] {
+        switch self {
+        case .classic: [.greeting, .quickActions, .stories, .composer, .modules, .today, .moliboo, .board]
+        case .minimal: [.stories, .composer]
+        case .social: [.stories, .recentChats, .favourites, .composer, .reels, .moliboo]
+        case .console: [.greeting, .board, .pinnedModules, .connect, .today, .quote]
+        case .everything: HomeSection.allCases
+        }
+    }
+    var raw: String {
+        let visible = sections
+        let rest = HomeSection.allCases.filter { !visible.contains($0) }
+        return (visible.map(\.rawValue) + rest.map { "-" + $0.rawValue }).joined(separator: ",")
+    }
+}
+
+/// Edit Home: presets, a live miniature preview, show / hide, drag to reorder (with haptics),
+/// and per-section density / style. Persists immediately; Reset restores defaults.
 struct HomeSectionEditor: View {
     @Binding var raw: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage(HomeSectionOptions.storageKey) private var optionsRaw = ""
     @State private var entries: [HomeSectionLayout.Entry] = []
+    @State private var expanded: HomeSection?
+
+    private var visibleSections: [HomeSection] { entries.filter(\.visible).map(\.section) }
+    private var activePreset: HomePreset? { HomePreset.allCases.first { HomeSectionLayout.encode(entries) == $0.raw } }
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
+                    preview
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                }
+                Section("Presets") {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(HomePreset.allCases) { preset in
+                                let on = activePreset == preset
+                                Button {
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        entries = HomeSectionLayout.decode(preset.raw)
+                                    }
+                                    HapticEngine.shared.play(.success)
+                                } label: {
+                                    Label(preset.title, systemImage: preset.symbol)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(on ? Color.modulaOnPrimary : .primary)
+                                        .padding(.horizontal, 14).frame(height: 36)
+                                        .background { if on { Capsule().fill(Color.modulaPrimaryFill) } }
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                                .modulaGlass(in: Capsule(), interactive: true)
+                                .accessibilityAddTraits(on ? .isSelected : [])
+                                .accessibilityIdentifier("home.edit.preset.\(preset.rawValue)")
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .scrollIndicators(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                }
+                Section {
                     ForEach($entries) { $entry in
-                        Toggle(isOn: $entry.visible) {
-                            Label(entry.section.title, systemImage: entry.section.symbol)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                Image(systemName: entry.section.symbol)
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 28)
+                                    .symbolEffect(.bounce, value: entry.visible)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(entry.section.title).font(.body)
+                                    Text(entry.section.blurb).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 8)
+                                if entry.section.hasOptions && entry.visible {
+                                    Button {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                            expanded = expanded == entry.section ? nil : entry.section
+                                        }
+                                        HapticEngine.shared.play(.selection)
+                                    } label: {
+                                        Image(systemName: "slider.horizontal.3")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(expanded == entry.section ? Color.modulaOnPrimary : .primary)
+                                            .frame(width: 32, height: 32)
+                                            .background(Circle().fill(expanded == entry.section ? Color.modulaPrimaryFill : Color.primary.opacity(0.08)))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("\(entry.section.title) options")
+                                }
+                                Toggle(entry.section.title, isOn: $entry.visible)
+                                    .labelsHidden()
+                            }
+                            if expanded == entry.section && entry.visible {
+                                options(for: entry.section)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                         .accessibilityIdentifier("home.edit.\(entry.section.rawValue)")
                     }
-                    .onMove { from, to in entries.move(fromOffsets: from, toOffset: to) }
+                    .onMove { from, to in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { entries.move(fromOffsets: from, toOffset: to) }
+                        HapticEngine.shared.play(.success)
+                    }
+                } header: {
+                    Text("Sections")
                 } footer: {
-                    Text("Drag to reorder. Your feed always stays at the bottom.")
+                    Text("Drag to reorder. Your feed always stays at the bottom. Weather arrives when the server offers it.")
                 }
             }
+            .toggleStyle(SettingsHapticToggleStyle())
             .environment(\.editMode, .constant(.active))
             .navigationTitle("Edit Home")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Reset") { entries = HomeSectionLayout.decode(HomeSectionLayout.defaultRaw) }
+                    Button("Reset") {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            entries = HomeSectionLayout.decode(HomeSectionLayout.defaultRaw)
+                        }
+                        optionsRaw = ""
+                        HapticEngine.shared.play(.warning)
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    MessagesDoneButton { dismiss() }
                 }
             }
             .onAppear { entries = HomeSectionLayout.decode(raw) }
             .onChange(of: entries) { _, value in
                 raw = HomeSectionLayout.encode(value)
-                HapticEngine.shared.play(.selection)
             }
         }
         .presentationDetents([.medium, .large])
         .modulaSheetStyle()
         .accessibilityIdentifier("home.edit.sheet")
+    }
+
+    /// Miniature Home: a bar per visible section in order, springing as you edit.
+    private var preview: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 4) {
+                Capsule().fill(Color.primary.opacity(0.25)).frame(width: 28, height: 4).padding(.bottom, 4)
+                ForEach(visibleSections.prefix(9)) { section in
+                    let opt = HomeSectionOptions.value(section, in: optionsRaw)
+                    HStack(spacing: 4) {
+                        Image(systemName: section.symbol).font(.system(size: 7, weight: .bold))
+                        RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.35)).frame(height: 3)
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(height: previewHeight(section, opt))
+                    .frame(maxWidth: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(opt.style == .card ? 0.12 : 0.04)))
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                }
+                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.06)).frame(height: 26)
+                    .overlay(Text("Feed").font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary))
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .frame(width: 96, height: 190, alignment: .top)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.25), lineWidth: 1.5))
+            .clipped()
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Live preview").font(.headline)
+                Text("\(visibleSections.count) of \(HomeSection.allCases.count) sections on")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+                if let activePreset {
+                    Label(activePreset.title, systemImage: activePreset.symbol)
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(Color.primary.opacity(0.1)))
+                        .transition(.scale.combined(with: .opacity))
+                } else {
+                    Text("Custom").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: entries)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: optionsRaw)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Preview: \(visibleSections.map(\.title).joined(separator: ", "))")
+    }
+
+    private func previewHeight(_ section: HomeSection, _ opt: HomeSectionOptions.Value) -> CGFloat {
+        let base: CGFloat = switch section {
+        case .greeting: 30
+        case .board, .reels: 22
+        case .stories, .favourites, .recentChats: 16
+        default: 12
+        }
+        return base * (opt.density == .compact ? 0.75 : opt.density == .large ? 1.3 : 1)
+    }
+
+    @ViewBuilder
+    private func options(for section: HomeSection) -> some View {
+        let binding = Binding<HomeSectionOptions.Value>(
+            get: { HomeSectionOptions.value(section, in: optionsRaw) },
+            set: { value in
+                var map = HomeSectionOptions.decode(optionsRaw)
+                map[section] = value
+                optionsRaw = HomeSectionOptions.encode(map)
+                HapticEngine.shared.play(.selection)
+            }
+        )
+        VStack(alignment: .leading, spacing: 8) {
+            ModulaSegmentedControl(segments: HomeSectionOptions.Density.allCases.map { .init(id: $0, title: $0.title) },
+                                   selection: binding.density, accessibilityLabel: "Density",
+                                   identifier: { "home.edit.\(section.rawValue).density.\($0.rawValue)" })
+            ModulaSegmentedControl(segments: HomeSectionOptions.Style.allCases.map { .init(id: $0, title: $0.title) },
+                                   selection: binding.style, accessibilityLabel: "Style",
+                                   identifier: { "home.edit.\(section.rawValue).style.\($0.rawValue)" })
+        }
+        .padding(.leading, 40)
+    }
+}
+
+// MARK: - New Home sections (t240u)
+
+struct HomeExtraSection: View {
+    let section: HomeSection
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage(HomeSectionOptions.storageKey) private var optionsRaw = ""
+    @AppStorage(ModulesDockPrefs.pinnedKey) private var pinnedRaw = ""
+
+    private var opt: HomeSectionOptions.Value { HomeSectionOptions.value(section, in: optionsRaw) }
+    private var scale: CGFloat { opt.density == .compact ? 0.8 : opt.density == .large ? 1.2 : 1 }
+
+    var body: some View {
+        Group {
+            switch section {
+            case .board: HomeBoardRail()
+            case .pinnedModules: pinnedModules
+            case .connect: ConnectPromoCard()
+            case .favourites: favourites
+            case .recentChats: recentChats
+            case .reels: reels
+            case .quote: HomeQuoteCard(compact: opt.density == .compact)
+            default: EmptyView()
+            }
+        }
+        .padding(opt.style == .card && section != .connect && section != .board ? 14 : 0)
+        .background {
+            if opt.style == .card && section != .connect && section != .board {
+                Color.clear.modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            }
+        }
+    }
+
+    private func header(_ title: String, action: String, route: AppRoute) -> some View {
+        HStack {
+            Text(title).font(.headline)
+            Spacer()
+            Button(action) {
+                app.navigation.push(route)
+                HapticEngine.shared.play(.navigation)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+        }
+    }
+
+    private var pinnedModules: some View {
+        let installed = app.catalogue.installedIDs
+        let pinned = ModulesDockPrefs.decode(pinnedRaw)
+        let ids = pinned.isEmpty ? Array(installed).sorted() : pinned
+        let products = ids.compactMap { id in app.catalogue.products.first { $0.moduleId == id } }
+        return VStack(alignment: .leading, spacing: 10) {
+            header(pinned.isEmpty ? "Your modules" : "Pinned modules", action: "All", route: .productHub(.collection(.installed)))
+            if products.isEmpty {
+                Text("Pin modules from the Modules dock to keep them here.").font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 14) {
+                        ForEach(products) { product in
+                            Button {
+                                app.navigation.open(.module(product.moduleId, localPath: nil))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                VStack(spacing: 6) {
+                                    ProductArtwork(product: product, size: 52 * scale)
+                                    Text(product.name).font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                                        .lineLimit(2).multilineTextAlignment(.center)
+                                        .frame(width: 72 * scale)
+                                }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                            .modulaCarouselReveal()
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .modulaHorizontalRail()
+            }
+        }
+    }
+
+    private var favourites: some View {
+        let favs = app.calls.favourites.compactMap { CallsDirectory.contact(forConversation: $0, app: app) }
+        return VStack(alignment: .leading, spacing: 10) {
+            header("Favourites", action: "Calls", route: .messages(.calls))
+            if favs.isEmpty {
+                Text("Star people in Calls to call them from Home.").font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 14) {
+                        ForEach(favs) { c in
+                            Button {
+                                if let id = c.conversationID { CallsActions.call(id, kind: .audio, app: app) }
+                            } label: {
+                                VStack(spacing: 6) {
+                                    ModulaAvatar(initials: c.initials, url: c.avatarURL, size: 52 * scale, name: c.name)
+                                        .overlay(alignment: .bottomTrailing) {
+                                            Image(systemName: "phone.fill").font(.system(size: 9, weight: .bold))
+                                                .foregroundStyle(.white).frame(width: 20, height: 20)
+                                                .background(Circle().fill(Color.green))
+                                        }
+                                    Text(c.name).font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                                        .lineLimit(2).multilineTextAlignment(.center).frame(width: 70 * scale)
+                                }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: .selection))
+                            .accessibilityLabel("Call \(c.name)")
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .modulaHorizontalRail()
+            }
+        }
+    }
+
+    private var recentChats: some View {
+        let count = opt.density == .compact ? 3 : opt.density == .large ? 6 : 4
+        let recent = Array(app.messaging.visibleConversations.prefix(count))
+        return VStack(alignment: .leading, spacing: 10) {
+            header("Recent chats", action: "Messages", route: .messages(.inbox))
+            if recent.isEmpty {
+                Text("Your latest conversations show up here.").font(.footnote).foregroundStyle(.secondary)
+            }
+            ForEach(recent) { c in
+                Button {
+                    app.navigation.push(.messages(.conversation(c.id)))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    HStack(spacing: 12) {
+                        let p = c.participants.first
+                        ModulaAvatar(initials: p?.initials ?? "?", url: p?.avatarURL, size: 36 * scale, name: c.title)
+                        Text(c.title).font(.subheadline.weight(c.isUnread ? .bold : .regular)).foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        if c.isUnread { Circle().fill(Color.primary).frame(width: 8, height: 8).transition(.scale) }
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+            }
+        }
+    }
+
+    private var reels: some View {
+        Button {
+            app.navigation.push(.reels(.feed))
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 10) {
+                ForEach(0..<3, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LinearGradient(colors: [Color.primary.opacity(0.22 - Double(i) * 0.05), Color.primary.opacity(0.06)],
+                                             startPoint: .top, endPoint: .bottom))
+                        .frame(width: 64 * scale, height: 100 * scale)
+                        .overlay(Image(systemName: "play.fill").font(.title3).foregroundStyle(.primary.opacity(0.6)))
+                        .rotationEffect(.degrees(Double(i - 1) * 4))
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Reels").font(.headline).foregroundStyle(.primary)
+                    Text("Short videos from people you follow").font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Label("Watch", systemImage: "play.fill").font(.caption.weight(.bold))
+                        .foregroundStyle(Color.modulaOnPrimary)
+                        .padding(.horizontal, 12).frame(height: 28)
+                        .background(Capsule().fill(Color.modulaPrimaryFill))
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+        .accessibilityLabel("Watch Reels")
+        .accessibilityIdentifier("home.section.reels")
+    }
+}
+
+/// On-device quote of the day plus a date fact; changes at midnight.
+struct HomeQuoteCard: View {
+    var compact = false
+    static let quotes: [(String, String)] = [
+        ("Simplicity is the ultimate sophistication.", "Leonardo da Vinci"),
+        ("Make it work, make it right, make it fast.", "Kent Beck"),
+        ("The best way to predict the future is to invent it.", "Alan Kay"),
+        ("Stay hungry, stay foolish.", "Whole Earth Catalog"),
+        ("Small steps every day.", "Unknown"),
+        ("Done is better than perfect.", "Sheryl Sandberg"),
+        ("What we think, we become.", "Buddha"),
+        ("Creativity is intelligence having fun.", "Albert Einstein"),
+        ("Well begun is half done.", "Aristotle"),
+        ("Do one thing every day that scares you.", "Eleanor Roosevelt"),
+        ("The details are not the details. They make the design.", "Charles Eames"),
+        ("Be so good they can't ignore you.", "Steve Martin")
+    ]
+
+    var body: some View {
+        let now = Date()
+        let cal = Calendar.current
+        let day = cal.ordinality(of: .day, in: .year, for: now) ?? 1
+        let total = cal.range(of: .day, in: .year, for: now)?.count ?? 365
+        let q = Self.quotes[day % Self.quotes.count]
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "quote.opening").font(.title3.weight(.bold)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(q.0).font(compact ? .subheadline.weight(.semibold) : .title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(q.1).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if !compact {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("On this day", systemImage: "calendar").font(.caption.weight(.bold))
+                        Spacer()
+                        Text("Day \(day) · \(total - day) to go").font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                    ProgressView(value: Double(day), total: Double(total)).tint(.primary)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.section.quote")
     }
 }
 
@@ -1999,4 +2530,117 @@ struct HomeFeedRowKey: Equatable, Sendable {
     let post: SocialPost
     let mode: HomeMode
     let ownID: String?
+}
+
+
+// MARK: - Briefing (local data only)
+
+/// "Morning / Afternoon / Evening briefing" in the greeting card: nearest Board countdown, today's habits and
+/// water, and whether you've checked in with your Moliboo. Everything is read from this phone; collapsed by
+/// default to one summary line, expands in place.
+struct HomeBriefingCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("home.briefing.expanded") private var expanded = false
+    @AppStorage("board.habit.v1") private var habitRaw = ""
+    @AppStorage("board.water.v1") private var waterRaw = ""
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+
+    private struct Item: Identifiable { let id: String; let symbol: String; let text: String; var action: (() -> Void)? = nil }
+
+    private static func dayKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    private func items(now: Date) -> [Item] {
+        let widgets = BoardStore.shared.layout.pages.flatMap(\.widgets)
+        let cal = Calendar.current
+        let today = Self.dayKey(now)
+        var out: [Item] = []
+        // Nearest upcoming countdown.
+        let countdowns = widgets.filter { $0.kinds.contains(.countdown) }.compactMap { w -> (String, Int)? in
+            guard let d = BoardISO.date(w.setting("date", "")) else { return nil }
+            let days = cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cal.startOfDay(for: d)).day ?? -1
+            return days >= 0 ? (w.setting("title", "Countdown"), days) : nil
+        }.sorted { $0.1 < $1.1 }
+        if let c = countdowns.first {
+            out.append(Item(id: "countdown", symbol: "calendar.badge.clock",
+                            text: c.1 == 0 ? "\(c.0) is today" : "\(c.1) day\(c.1 == 1 ? "" : "s") until \(c.0)"))
+        }
+        // Habits ticked today.
+        let habits = widgets.filter { $0.kinds.contains(.habit) }
+        if !habits.isEmpty {
+            let done = habits.filter { h in
+                habitRaw.split(separator: ";").contains { $0.hasPrefix("\(h.id)|") && $0.split(separator: "|").last?.split(separator: ",").contains(Substring(today)) == true }
+            }.count
+            out.append(Item(id: "habits", symbol: "checkmark.seal",
+                            text: done == habits.count ? "All \(habits.count) habit\(habits.count == 1 ? "" : "s") done" : "\(done) of \(habits.count) habit\(habits.count == 1 ? "" : "s") done today"))
+        }
+        // Water.
+        if let w = widgets.first(where: { $0.kinds.contains(.water) }) {
+            let goal = Int(w.setting("goal", "8")) ?? 8
+            let n = waterRaw.split(separator: ";").compactMap { e -> Int? in
+                let p = e.split(separator: "|"); return p.count == 3 && p[0] == w.id && p[1] == today ? Int(p[2]) : nil
+            }.first ?? 0
+            out.append(Item(id: "water", symbol: "drop", text: n >= goal ? "Water goal met (\(n))" : "\(n) of \(goal) glasses of water"))
+        }
+        // Moliboo check-in.
+        let name = MolibooRegistry.descriptor(for: kindRaw)?.displayName ?? "Moliboo"
+        let life = MolibooCareStore.shared.life(for: kindRaw)
+        let streak = life.currentStreak(at: now)
+        out.append(Item(id: "moliboo", symbol: life.checkedIn(on: now) ? "flame.fill" : "flame",
+                        text: life.checkedIn(on: now) ? "Checked in with \(name) · \(streak)-day streak" : (streak > 0 ? "Check in with \(name) to keep your \(streak)-day streak" : "Say hi to \(name) today"),
+                        action: { app.navigation.push(.settings(.moliboo)) }))
+        return out
+    }
+
+    private func title(_ now: Date) -> String {
+        let h = Calendar.current.component(.hour, from: now)
+        return h < 12 ? "Morning briefing" : (h < 18 ? "Afternoon briefing" : "Evening briefing")
+    }
+
+    var body: some View {
+        let now = Date()
+        let list = items(now: now)
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82)) { expanded.toggle() }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.horizon.fill").symbolRenderingMode(.multicolor)
+                    Text(title(now)).font(.caption.weight(.bold))
+                    if !expanded, let first = list.first {
+                        Text("· \(first.text)").font(.caption).lineLimit(1).opacity(0.9)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                .foregroundStyle(.white)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title(now))
+            .accessibilityValue(expanded ? "Expanded" : (list.first?.text ?? ""))
+            if expanded {
+                ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
+                    Button { item.action?() } label: {
+                        Label(item.text, systemImage: item.symbol)
+                            .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(item.action == nil)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -6)))
+                    .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82).delay(Double(index) * 0.04), value: expanded)
+                }
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.briefing")
+    }
 }

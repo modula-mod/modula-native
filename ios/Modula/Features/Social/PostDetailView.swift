@@ -91,7 +91,9 @@ struct PostDetailView: View {
                         header: AnyView(
                             VStack(alignment: .leading, spacing: 14) {
                                 detailChrome(resolved)
+                                    .modulaAppear()
                                 engagementSummary(resolved)
+                                    .modulaAppear(delay: 0.08)
                                 Divider().opacity(0.45)
                             }
                         ),
@@ -99,6 +101,8 @@ struct PostDetailView: View {
                     )
                 }
         }
+        // Skeleton → post crossfades instead of snapping.
+        .animation(.smooth(duration: 0.3), value: post == nil)
         .modulaSoftScrollEdge()
         .navigationTitle(navigationTitle)
         .toolbar { toolbarContent }

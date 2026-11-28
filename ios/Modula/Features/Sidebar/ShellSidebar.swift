@@ -633,6 +633,10 @@ struct ShellSidebarView: View {
         var items: [ShellSidebarItem] = [
             .init(id: "vault", title: "Vault Notes", symbol: "lock.doc",
                   route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "vault notes"),
+            .init(id: "board", title: "Board", symbol: "square.grid.2x2",
+                  route: .board, requiresSignIn: false, keywords: "widgets console clock dashboard"),
+            .init(id: "connect", title: "Modula Connect", symbol: "antenna.radiowaves.left.and.right",
+                  route: .module(ConnectPreview.moduleID, localPath: nil), requiresSignIn: true, keywords: "connect phone number sim uk"),
         ]
         return items
     }
@@ -848,7 +852,12 @@ struct ShellSidebarView: View {
             }
             rows()
         }
+        // Sections slide in top to bottom when the sidebar opens (Reduce Motion: shown at once).
+        .modulaAppear(delay: Double(Self.sectionOrder.firstIndex(of: title ?? "") ?? 0) * 0.04,
+                      replayWhen: app.navigation.sidebarPresented)
     }
+
+    private static let sectionOrder = ["", "Library", "Tools", "Recent modules", "Recent", "Pinned", "Recents"]
 
     private func rowLabel(symbol: String, title: String, badge: Int = 0, selected: Bool = false) -> some View {
         HStack(spacing: ModulaSpacing.sm) {

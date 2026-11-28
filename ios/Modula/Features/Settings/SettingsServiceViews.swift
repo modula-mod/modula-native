@@ -493,7 +493,6 @@ struct SupportCaseComposer: View {
             }
             Section {
                 Toggle("Attach diagnostics", isOn: $draft.attachDiagnostics.animation())
-                    .tint(.primary)
                 if draft.attachDiagnostics {
                     DisclosureGroup("Review what’s sent (\(diagnostics.count))") {
                         ForEach(diagnostics) { item in

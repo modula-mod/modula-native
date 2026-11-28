@@ -16,6 +16,7 @@ struct ReelsRouteView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .modifier(ModulaKeepAwake(key: ModulaKeepAwake.reelsKey))
         .task {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--uitest-reels-fixture") {
@@ -251,7 +252,15 @@ struct ReelFeedView: View {
 
     /// Warm the cache for the previous/next two reels so paging never lands on a spinner.
     private func prefetchNeighbours(of id: ReelID?) {
-        guard let id, let index = app.reels.index(of: id), ModulaPreferences.prefetchesVideo() else { return }
+        guard let id, let index = app.reels.index(of: id) else { return }
+        // Speed: creator avatars for the next reels are tiny; warm them even when video
+        // prefetch is off, so the rail never pops its avatar in after a swipe.
+        for offset in [1, 2, -1] {
+            let i = index + offset
+            guard app.reels.items.indices.contains(i), let url = app.reels.items[i].creator.avatarURL else { continue }
+            ModulaImagePrefetcher.prefetch(url: url, cacheKey: "avatar:\(url.path)", maximumPixelSize: 160, client: app.client)
+        }
+        guard ModulaPreferences.prefetchesVideo() else { return }
         let manager = app.attachmentDownloads
         for offset in [1, -1, 2] {
             let i = index + offset
@@ -433,6 +442,7 @@ struct ReelPageView: View {
             }
             if showsQuickMenu {
                 Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { showsQuickMenu = false }
+                    .transition(.opacity)
                 ReelQuickMenu(
                     rate: playback.rate,
                     captionsOn: captionsOn,
@@ -466,11 +476,40 @@ struct ReelPageView: View {
                     onPictureInPicture: (playback.player == nil || !ModulaPiP.isSupported) ? nil : {
                         ModulaPiP.shared.start(playback.player)
                     },
+                    onCopyCaption: (reel.caption?.isEmpty ?? true) ? nil : {
+                        UIPasteboard.general.string = reel.caption
+                        HapticEngine.shared.play(.success)
+                        app.navigation.flash("Caption copied", symbol: "text.quote")
+                    },
+                    onShareCard: {
+                        guard let image = ReelShareCard.render(reel) else { return }
+                        HapticEngine.shared.play(.success)
+                        var items: [Any] = [image]
+                        if reel.postID != nil { items.append(ModulaShareLink.post(resolved.id)) }
+                        PostSharing.presentSystemSheet(items: items)
+                    },
+                    onRemix: {
+                        HapticEngine.shared.play(.warning)
+                        app.navigation.flash("Remix and Duet aren't available yet", symbol: "rectangle.split.2x1")
+                    },
+                    onSleepTimer: { minutes in
+                        ReelSleepTimer.shared.set(minutes: minutes)
+                        app.navigation.flash(minutes == 0 ? "Sleep timer off" : "Reels pause in \(minutes) min", symbol: "moon.zzz")
+                    },
+                    sleepMinutesLeft: ReelSleepTimer.shared.minutesLeft,
                     onDismiss: { showsQuickMenu = false }
                 )
+                // Grows out of the press point area instead of popping in.
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.85).combined(with: .opacity))
             }
         }
         .animation(.easeOut(duration: 0.18), value: holdPaused)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82), value: showsQuickMenu)
+        .onReceive(NotificationCenter.default.publisher(for: .modulaReelSleep)) { _ in
+            guard isActive else { return }
+            playback.pause()
+            app.navigation.flash("Sleep timer: reels paused", symbol: "moon.zzz")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .modulaReelKey)) { note in
             guard isActive, reel.attachment != nil else { return }
             switch note.object as? String {
@@ -1046,4 +1085,67 @@ struct ReelProgressBar: View {
 extension Notification.Name {
     /// Hardware-keyboard command for the active reel page ("space" / "m").
     static let modulaReelKey = Notification.Name("modula.reels.key")
+    /// Reels sleep timer fired: the active page pauses.
+    static let modulaReelSleep = Notification.Name("modula.reels.sleep")
+}
+
+/// Quick menu › Sleep timer: pauses Reels after N minutes (this session only).
+@MainActor @Observable
+final class ReelSleepTimer {
+    static let shared = ReelSleepTimer()
+    private(set) var endsAt: Date?
+    @ObservationIgnored private var task: Task<Void, Never>?
+
+    var minutesLeft: Int? {
+        guard let endsAt else { return nil }
+        return max(1, Int((endsAt.timeIntervalSinceNow / 60).rounded(.up)))
+    }
+
+    func set(minutes: Int) {
+        task?.cancel()
+        guard minutes > 0 else { endsAt = nil; return }
+        let end = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        endsAt = end
+        task = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(end.timeIntervalSinceNow))
+            guard !Task.isCancelled, let self, self.endsAt == end else { return }
+            self.endsAt = nil
+            NotificationCenter.default.post(name: .modulaReelSleep, object: nil)
+            HapticEngine.shared.play(.warning)
+        }
+    }
+}
+
+
+/// Settings › Gestures › Keep screen on: stops auto-lock while a screen that opts in is visible and the app is
+/// active. Reference-counted so overlapping screens don't re-enable auto-lock early.
+struct ModulaKeepAwake: ViewModifier {
+    static let reelsKey = "display.keepAwake.reels"
+    static let readerKey = "display.keepAwake.reader"
+    let key: String
+    @AppStorage private var enabled: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var holding = false
+    @MainActor private static var holds = 0
+
+    init(key: String) {
+        self.key = key
+        _enabled = AppStorage(wrappedValue: false, key)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { update(visible: true) }
+            .onDisappear { update(visible: false) }
+            .onChange(of: enabled) { _, _ in update(visible: true) }
+            .onChange(of: scenePhase) { _, _ in update(visible: true) }
+    }
+
+    @MainActor private func update(visible: Bool) {
+        let want = visible && enabled && scenePhase == .active
+        guard want != holding else { return }
+        holding = want
+        Self.holds = max(0, Self.holds + (want ? 1 : -1))
+        UIApplication.shared.isIdleTimerDisabled = Self.holds > 0
+    }
 }

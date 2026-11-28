@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import AudioToolbox
 import Contacts
+import Photos
 @preconcurrency import WebRTC
 
 // MARK: - Host
@@ -490,10 +491,14 @@ struct CallsHomeView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Keypad is full-screen like Phone: no section picker, no title (back stays in the bar).
-            if tab != .keypad {
+            // Keypad and Contacts are full-height like Phone: no section bar (back stays in the bar).
+            if tab == .favourites || tab == .recents {
                 MessagesScopePicker(selection: .calls)
                 if !app.calls.capabilities.canCall {
                     CallsComingSoonCard().padding(.horizontal, ModulaLayout.contentInset).padding(.bottom, 6)
+                    if tab == .favourites {
+                        ConnectPromoCard().padding(.horizontal, ModulaLayout.contentInset).padding(.bottom, 6)
+                    }
                 }
             }
             Group {
@@ -505,11 +510,15 @@ struct CallsHomeView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Lists run to the bottom edge and scroll under the floating switcher; this keeps
+            // the last rows reachable above it.
+            .contentMargins(.bottom, Self.barClearance, for: .scrollContent)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
-        .modulaSoftScrollEdge()
+        // t232u: the glass pill floats straight over content: no band, no blur behind it.
+        .overlay(alignment: .bottom) { tabBar }
+        .modifier(CallsScrollEdges())
         .navigationTitle(tab == .keypad ? "" : tab.title)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(tab == .contacts ? .large : .inline)
         .animation(.snappy(duration: 0.22), value: tab)
         .task {
             await app.messaging.probeCapabilities()
@@ -518,6 +527,9 @@ struct CallsHomeView: View {
         }
         .accessibilityIdentifier("calls.home")
     }
+
+    /// Room the floating switcher takes above the home indicator (pill + its bottom padding).
+    static let barClearance: CGFloat = 76
 
     /// Apple Phone-style bottom switcher, in glass.
     private var tabBar: some View {
@@ -608,7 +620,34 @@ enum CallsDirectory {
         _ = await (following, followers)
     }
 
+    /// Speed: `all` merged chats + following + followers and ran a localized sort on every call; the keypad
+    /// alone called it 3–4 times per keystroke. The merged list is now cached behind a cheap signature of its
+    /// inputs (ids, names, avatars, hidden set), so repeat calls are a hash pass instead of a rebuild + sort.
+    nonisolated(unsafe) private static var cache: (signature: Int, contacts: [CallsContact])?
+
     static func all(_ app: AppEnvironment) -> [CallsContact] {
+        let session = app.profile.session(for: .me, handleHint: app.auth.account?.primaryHandle)
+        var hasher = Hasher()
+        for chat in app.messaging.conversations where chat.kind == .direct && chat.participants.count == 1 {
+            let p = chat.participants[0]
+            hasher.combine(chat.id); hasher.combine(p.id); hasher.combine(p.handle); hasher.combine(p.displayName); hasher.combine(p.avatarURL)
+        }
+        hasher.combine(-1)
+        for profile in session.following.items { hasher.combine(profile.id); hasher.combine(profile.displayName); hasher.combine(profile.avatarURL) }
+        hasher.combine(-2)
+        for profile in session.followers.items { hasher.combine(profile.id); hasher.combine(profile.displayName); hasher.combine(profile.avatarURL) }
+        hasher.combine(CallsLocalStore.shared.hiddenContacts)
+        let signature = hasher.finalize()
+        if let cache, cache.signature == signature {
+            ModulaSignpost.event("CallsDirectoryCacheHit")
+            return cache.contacts
+        }
+        let contacts = ModulaSignpost.measure("CallsDirectoryBuild") { build(app, session: session) }
+        cache = (signature, contacts)
+        return contacts
+    }
+
+    private static func build(_ app: AppEnvironment, session: ProfileSessionState) -> [CallsContact] {
         var byKey: [String: CallsContact] = [:]
         for chat in app.messaging.conversations where chat.kind == .direct && chat.participants.count == 1 {
             let p = chat.participants[0]
@@ -616,7 +655,6 @@ enum CallsDirectory {
             byKey[k] = CallsContact(id: k, personID: p.id, handle: p.handle, name: p.displayName.isEmpty ? "@\(p.handle)" : p.displayName,
                                     avatarURL: p.avatarURL, conversationID: chat.id)
         }
-        let session = app.profile.session(for: .me, handleHint: app.auth.account?.primaryHandle)
         let lists: [([ModulaProfile], Bool)] = [(session.following.items, true), (session.followers.items, false)]
         for (profiles, isFollowing) in lists {
             for profile in profiles {
@@ -734,11 +772,13 @@ private struct CallRowButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: kind == .video ? "video.fill" : "phone.fill")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.primary)
-                .frame(width: 36, height: 36)
+            Image(systemName: kind == .video ? "video" : "phone")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.85))
+                .frame(width: 32, height: 32)
                 .modulaGlass(in: Circle(), interactive: true)
+                .frame(width: 40, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(CallPressStyle())
         .accessibilityLabel(kind == .video ? "Video call" : "Voice call")
@@ -749,8 +789,9 @@ private struct CallRowButton: View {
 
 /// Consecutive calls with the same person, kind and outcome (same day) collapse into one row "(3)".
 struct CallsRecentGroup: Identifiable, Hashable {
+    /// Always non-empty: built only by `CallsRecentGrouping`, which starts each group with one record.
     var records: [CallRecord]
-    var id: String { records[0].id }
+    var id: String { records.first?.id ?? "empty" }
     var latest: CallRecord { records[0] }
 }
 
@@ -774,18 +815,40 @@ enum CallsRecentGrouping {
 struct CallsRecentsList: View {
     @Environment(AppEnvironment.self) private var app
     @State private var missedOnly = false
+    /// Voice / video filter (nil = both), remembered across launches.
+    @AppStorage("calls.recents.kind") private var kindFilterRaw = ""
     @State private var editing = false
     @State private var confirmClear = false
     @State private var detail: CallsContact?
+    @State private var noteFor: CallRecord?
+    @State private var noteText = ""
+    private var notes: CallNotesStore { CallNotesStore.shared }
 
     var body: some View {
-        let items = app.calls.recents.filter { !missedOnly || CallCopy.isMissed($0) }
+        let kindFilter = CallMediaKind(rawValue: kindFilterRaw)
+        let items = app.calls.recents.filter { (!missedOnly || CallCopy.isMissed($0)) && (kindFilter == nil || $0.mediaKind == kindFilter) }
         let groups = CallsRecentGrouping.groups(items)
         VStack(spacing: 6) {
             HStack(spacing: 10) {
                 ModulaSegmentedControl("Recents filter", selection: $missedOnly,
                                        segments: [(false, "All"), (true, "Missed")], identifier: { $0 ? "calls.recents.missed" : "calls.recents.all" })
                 if !app.calls.recents.isEmpty {
+                    Menu {
+                        Picker("Call type", selection: Binding(get: { kindFilterRaw }, set: { v in withAnimation(.snappy) { kindFilterRaw = v } })) {
+                            Label("Voice and video", systemImage: "phone.and.waveform").tag("")
+                            Label("Voice", systemImage: "phone.fill").tag(CallMediaKind.audio.rawValue)
+                            Label("Video", systemImage: "video.fill").tag(CallMediaKind.video.rawValue)
+                        }
+                    } label: {
+                        Image(systemName: kindFilter == .video ? "video.fill" : (kindFilter == .audio ? "phone.fill" : "line.3.horizontal.decrease"))
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                            .contentTransition(.symbolEffect(.replace))
+                            .frame(width: 36, height: 36)
+                    }
+                    .modulaGlass(in: Circle(), interactive: true)
+                    .accessibilityLabel("Call type filter")
+                    .accessibilityValue(kindFilter == .video ? "Video" : (kindFilter == .audio ? "Voice" : "Voice and video"))
+                    .accessibilityIdentifier("calls.recents.kind")
                     Button(editing ? "Done" : "Edit") { withAnimation(.snappy) { editing.toggle() } }
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
@@ -804,9 +867,14 @@ struct CallsRecentsList: View {
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .transition(.opacity)
             }
+            if !editing, !app.calls.recents.isEmpty {
+                CallsStatsCard(records: app.calls.recents)
+                    .padding(.horizontal, ModulaLayout.contentInset)
+                    .modulaAppear()
+            }
             if groups.isEmpty {
                 ModulaEmptyState(
-                    title: app.calls.recentsLoading ? "Loading…" : (missedOnly ? "No missed calls" : "No recent calls"),
+                    title: app.calls.recentsLoading ? "Loading…" : (missedOnly ? "No missed calls" : (kindFilter == .video ? "No video calls" : (kindFilter == .audio ? "No voice calls" : "No recent calls"))),
                     message: app.calls.capabilities.enabled ? "Your voice and video calls show up here." : "Calls you make and receive will show up here once calling is on.",
                     symbol: "clock"
                 )
@@ -817,6 +885,17 @@ struct CallsRecentsList: View {
                         row(group)
                             .listRowBackground(Color.clear)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button("Delete", systemImage: "trash", role: .destructive) { hide(group) }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button("Note", systemImage: "note.text") { editNote(group.latest) }
+                                    .tint(.gray)
+                            }
+                            .contextMenu {
+                                Button(notes.note(for: group.latest.id) == nil ? "Add Note" : "Edit Note", systemImage: "note.text") { editNote(group.latest) }
+                                Button("Voice Call", systemImage: "phone") { CallsActions.call(group.latest.conversationID, kind: .audio, app: app) }
+                                Button("Video Call", systemImage: "video") { CallsActions.call(group.latest.conversationID, kind: .video, app: app) }
+                                Button("Message", systemImage: "message") { app.navigation.push(.messages(.conversation(group.latest.conversationID))) }
                                 Button("Delete", systemImage: "trash", role: .destructive) { hide(group) }
                             }
                     }
@@ -836,6 +915,24 @@ struct CallsRecentsList: View {
             }
         }
         .sheet(item: $detail) { contact in CallsContactCard(contact: contact) }
+        .alert("Call Note", isPresented: Binding(get: { noteFor != nil }, set: { if !$0 { noteFor = nil } }), presenting: noteFor) { record in
+            TextField("What was it about?", text: $noteText, axis: .vertical)
+            Button("Save") {
+                withAnimation(.snappy) { notes.set(noteText, for: record.id) }
+                HapticEngine.shared.play(.success)
+            }
+            if notes.note(for: record.id) != nil {
+                Button("Remove Note", role: .destructive) { notes.set("", for: record.id) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { record in
+            Text("Only you can see notes. Saved on this iPhone for your call with \(record.other.name).")
+        }
+    }
+
+    private func editNote(_ record: CallRecord) {
+        noteText = notes.note(for: record.id) ?? ""
+        noteFor = record
     }
 
     private func hide(_ group: CallsRecentGroup) {
@@ -859,6 +956,14 @@ struct CallsRecentsList: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        if let note = notes.note(for: record.id) {
+                            Label(note, systemImage: "note.text")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityLabel("Note: \(note)")
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
                     }
                     Spacer(minLength: 8)
                     Text(timeLabel(record.createdAt))
@@ -1065,6 +1170,9 @@ struct CallsPersonRow: View {
                 if !contact.handle.isEmpty {
                     Text("@\(contact.handle)").font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
+                if let detail = extraLine {
+                    Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 8)
             CallRowButton(kind: .audio) { CallsActions.call(contact, kind: .audio, app: app) }
@@ -1073,6 +1181,17 @@ struct CallsPersonRow: View {
         .contentShape(Rectangle())
         .contextMenu { CallsContactMenu(contact: contact) }
         .accessibilityElement(children: .contain)
+    }
+
+    private var extraLine: String? {
+        let store = CallsPersonalStore.shared
+        var parts: [String] = []
+        if let days = store.upcomingBirthday(contact.id) {
+            parts.append(days == 0 ? "Birthday today" : (days == 1 ? "Birthday tomorrow" : "Birthday in \(days) days"))
+        }
+        let labels = store.extras(contact.id).labels
+        if !labels.isEmpty { parts.append(labels.joined(separator: ", ")) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 
@@ -1118,7 +1237,8 @@ struct CallsContactsList: View {
 
     @Environment(AppEnvironment.self) private var app
     @State private var query = ""
-    @State private var filter: Filter = .all
+    /// Filter id: a `Filter` raw value or "label:<name>" for a contact label.
+    @State private var filterID = Filter.all.rawValue
     @State private var detail: CallsContact?
     @State private var importing = false
 
@@ -1131,7 +1251,10 @@ struct CallsContactsList: View {
     }
 
     private func passes(_ c: CallsContact) -> Bool {
-        switch filter {
+        if filterID.hasPrefix("label:") {
+            return CallsPersonalStore.shared.extras(c.id).labels.contains(String(filterID.dropFirst(6)))
+        }
+        switch Filter(rawValue: filterID) ?? .all {
         case .all: return true
         case .following: return c.following
         case .followers: return c.follower
@@ -1153,34 +1276,50 @@ struct CallsContactsList: View {
         let contacts = CallsDirectory.all(app).filter { passes($0) && matches($0, needle) }
         let sections = Dictionary(grouping: contacts, by: \.sectionLetter)
         let letters = sections.keys.sorted(by: Self.letterOrder)
-        VStack(spacing: 6) {
-            MessagesGlassSearchField(text: $query, prompt: "Search name or @handle")
-                .padding(.horizontal, ModulaLayout.contentInset)
-            ModulaSegmentedControl("Contacts filter", selection: $filter, options: Filter.allCases) { $0.title }
-                .modulaEdgeToEdgeRail()
-            ScrollViewReader { proxy in
-                List {
-                    if needle.isEmpty { header }
-                    if contacts.isEmpty {
-                        Text(needle.isEmpty ? "People you chat with or follow appear here." : "No one matches “\(query)”.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                            .listRowBackground(Color.clear)
+        let showsIndex = letters.count > 3 && needle.isEmpty
+        let recent = needle.isEmpty && filterID == "all" ? CallsRecentlyCalledRow.people(app) : []
+        ScrollViewReader { proxy in
+            List {
+                filterRail
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                if !recent.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        sectionTitle("Recently called").padding(.horizontal, ModulaLayout.contentInset)
+                        CallsRecentlyCalledRow(contacts: recent)
                     }
-                    ForEach(letters, id: \.self) { letter in
-                        Section {
-                            ForEach(sections[letter] ?? []) { contact in contactRow(contact) }
-                        } header: {
-                            Text(letter).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
-                        }
-                        .id("section-\(letter)")
-                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .overlay(alignment: .trailing) {
-                    if letters.count > 3 {
-                        CallsSectionIndex(letters: letters) { letter in proxy.scrollTo("section-\(letter)", anchor: .top) }
+                if needle.isEmpty { header }
+                if contacts.isEmpty {
+                    Text(needle.isEmpty ? "People you chat with or follow appear here." : "No one matches “\(query)”.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                ForEach(letters, id: \.self) { letter in
+                    Section {
+                        ForEach(sections[letter] ?? []) { contact in
+                            contactRow(contact)
+                                .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6,
+                                                          trailing: showsIndex ? 34 : ModulaLayout.contentInset))
+                        }
+                    } header: {
+                        sectionTitle(letter)
                     }
+                    .id("section-\(letter)")
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .listSectionSpacing(4)
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search name or @handle")
+            .overlay(alignment: .trailing) {
+                if showsIndex {
+                    CallsSectionIndex(letters: letters) { letter in proxy.scrollTo("section-\(letter)", anchor: .top) }
                 }
             }
         }
@@ -1188,15 +1327,47 @@ struct CallsContactsList: View {
         .sheet(isPresented: $importing) { CallsDeviceContactsSheet() }
     }
 
-    @ViewBuilder private var header: some View {
-        CallsMyCard().listRowBackground(Color.clear).listRowSeparator(.hidden)
-        Button { importing = true } label: {
-            Label("Find friends from your iPhone Contacts", systemImage: "person.crop.circle.badge.plus")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(.primary)
+            .textCase(nil)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Shared full-width swipeable segmented rail (edge fades), plus your contact labels.
+    private var filterRail: some View {
+        var segments: [ModulaSegmentedControl<String>.Segment] = Filter.allCases.map { .init(id: $0.rawValue, title: $0.title) }
+        for label in CallsPersonalStore.shared.usedLabels {
+            segments.append(.init(id: "label:" + label, title: label))
         }
+        return ModulaSegmentedControl(segments: segments, selection: $filterID, forceScroll: true,
+                                      accessibilityLabel: "Contacts filter", identifier: { "calls.contacts.filter.\($0)" })
+            .scrollInset(ModulaLayout.contentInset)
+    }
+
+    @ViewBuilder private var header: some View {
+        CallsMyCard()
+            .listRowInsets(EdgeInsets(top: 4, leading: ModulaLayout.contentInset, bottom: 4, trailing: ModulaLayout.contentInset))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        Button { importing = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "person.crop.circle.badge.plus").font(.subheadline).foregroundStyle(.secondary)
+                Text("Find friends from iPhone Contacts").font(.footnote.weight(.medium)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 40)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: Capsule(), interactive: true)
+        .listRowInsets(EdgeInsets(top: 2, leading: ModulaLayout.contentInset, bottom: 8, trailing: ModulaLayout.contentInset))
         .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         .accessibilityIdentifier("calls.contacts.import")
     }
 
@@ -1206,7 +1377,7 @@ struct CallsContactsList: View {
             .buttonStyle(.plain)
             .listRowBackground(Color.clear)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button { CallsActions.call(contact, kind: .audio, app: app) } label: { Label("Call", systemImage: "phone.fill") }
+                Button { CallsActions.call(contact, kind: CallsPersonalStore.shared.preferredKind(contact.id), app: app) } label: { Label("Call", systemImage: "phone.fill") }
                     .tint(Self.green)
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -1253,42 +1424,48 @@ struct CallsSectionIndex: View {
 struct CallsMyCard: View {
     @Environment(AppEnvironment.self) private var app
     @State private var showsQR = false
-    @State private var claiming = false
+    @State private var showsNumber = false
 
     private var handle: String { app.auth.account?.primaryHandle ?? "" }
     private var name: String { app.profile.ownProfile?.displayName ?? app.auth.account?.displayName ?? "@\(handle)" }
     private var link: URL? { handle.isEmpty ? nil : URL(string: "https://modula.digital/@\(handle)") }
-    private var callIDText: String {
-        guard app.calls.capabilities.callIDs else { return "Call IDs coming soon" }
-        return app.calls.myCallID.map { "Call ID \(CallsKeypadFormat.format($0))" } ?? "Claim a call ID"
+    private var numberText: String {
+        let store = ModulaNumberStore.shared
+        guard store.enabled else { return "Modula Number off" }
+        return "Modula Number " + ModulaNumberStore.grouped(store.number)
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            ModulaAvatar(initials: String(name.prefix(1)).uppercased(), url: app.profile.ownProfile?.avatarURL, size: 56, name: name)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name).font(.headline).fixedSize(horizontal: false, vertical: true)
-                Text("My card · @\(handle)").font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Button { claiming = true } label: {
-                    Text(callIDText).font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+        HStack(spacing: 12) {
+            Button { showsNumber = true } label: {
+                HStack(spacing: 12) {
+                    ModulaAvatar(initials: String(name.prefix(1)).uppercased(), url: app.profile.ownProfile?.avatarURL, size: 44, name: name)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                        Text(numberText).font(.caption.monospacedDigit()).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 8)
+            .buttonStyle(.plain)
+            .accessibilityLabel("My card, \(name). \(numberText)")
+            .accessibilityHint("Opens your Modula Number")
             Button { showsQR = true } label: {
-                Image(systemName: "qrcode").font(.title3.weight(.semibold)).foregroundStyle(.primary)
-                    .frame(width: 44, height: 44).modulaGlass(in: Circle(), interactive: true)
+                Image(systemName: "qrcode").font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    .frame(width: 36, height: 36).modulaGlass(in: Circle(), interactive: true)
             }
             .buttonStyle(.plain)
             .disabled(link == nil)
             .accessibilityLabel("Share my card")
         }
-        .padding(14)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
         .sheet(isPresented: $showsQR) {
             if let link { CallsMyCardQRSheet(name: name, handle: handle, callID: app.calls.myCallID, link: link) }
         }
-        .sheet(isPresented: $claiming) { CallIDClaimSheet() }
+        .sheet(isPresented: $showsNumber) { ModulaNumberSheet() }
         .task { await app.calls.loadMyCallID() }
         .accessibilityIdentifier("calls.contacts.myCard")
     }
@@ -1299,37 +1476,90 @@ struct CallsMyCardQRSheet: View {
     let handle: String
     let callID: String?
     let link: URL
+    @Environment(AppEnvironment.self) private var app
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 18) {
-                if let matrix = ModulaQRMatrix.make(link.absoluteString) {
-                    ModulaBrandedQRCode(matrix: matrix, style: .mono, accent: .black) {
-                        Image(systemName: "phone.fill").font(.title2.weight(.bold)).foregroundStyle(.black)
+            ScrollView {
+                VStack(spacing: 18) {
+                    qrCard
+                    VStack(spacing: 4) {
+                        Text(name).font(.title2.bold()).multilineTextAlignment(.center)
+                        Text("@\(handle)").foregroundStyle(.secondary)
+                        if let callID { Text("Call ID \(CallsKeypadFormat.format(callID))").font(.subheadline.weight(.semibold)) }
                     }
-                    .frame(width: 220, height: 220)
-                    .padding(20)
-                    .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(.white))
-                    .accessibilityLabel("QR code for @\(handle)")
+                    ShareLink(item: link, subject: Text(name), message: Text("Call me on Modula: @\(handle)")) {
+                        Label("Share My Card", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.modulaPrimary)
+                    HStack(spacing: 10) {
+                        glassAction("Copy Handle", "doc.on.doc") {
+                            UIPasteboard.general.string = "@\(handle)"
+                            app.navigation.flash("Handle copied", symbol: "doc.on.doc")
+                        }
+                        glassAction("Save Image", "square.and.arrow.down") { saveImage() }
+                    }
                 }
-                VStack(spacing: 4) {
-                    Text(name).font(.title2.bold()).multilineTextAlignment(.center)
-                    Text("@\(handle)").foregroundStyle(.secondary)
-                    if let callID { Text("Call ID \(CallsKeypadFormat.format(callID))").font(.subheadline.weight(.semibold)) }
-                }
-                ShareLink(item: link, subject: Text(name), message: Text("Call me on Modula: @\(handle)")) {
-                    Label("Share My Card", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.modulaPrimary)
                 .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
             }
-            .padding(.top, 12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button { dismiss() } label: {
+                        Text("Done").font(.body.weight(.semibold)).foregroundStyle(.primary)
+                            .padding(.horizontal, 14).frame(minHeight: 34)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
         .presentationDetents([.large])
         .modulaSheetStyle()
+    }
+
+    @ViewBuilder private var qrCard: some View {
+        if let matrix = ModulaQRMatrix.make(link.absoluteString) {
+            ModulaBrandedQRCode(matrix: matrix, style: .mono, accent: .black) {
+                Image(systemName: "phone.fill").font(.title2.weight(.bold)).foregroundStyle(.black)
+            }
+            .frame(width: 220, height: 220)
+            .padding(20)
+            .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(.white))
+            .accessibilityLabel("QR code for @\(handle)")
+        }
+    }
+
+    private func glassAction(_ title: String, _ symbol: String, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: Capsule(), interactive: true)
+    }
+
+    @MainActor private func saveImage() {
+        let card = VStack(spacing: 14) {
+            qrCard
+            Text(name).font(.title3.bold()).foregroundStyle(.black)
+            Text("@\(handle) on Modula").font(.subheadline).foregroundStyle(.black.opacity(0.6))
+        }
+        .padding(28)
+        .background(Color.white)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 3
+        guard let image = renderer.uiImage else { return }
+        Task {
+            let ok = (try? await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }) != nil
+            app.navigation.flash(ok ? "Saved to Photos" : "Couldn't save. Check Photos access in Settings.", symbol: ok ? "checkmark.circle" : "exclamationmark.triangle")
+        }
     }
 }
 
@@ -1355,6 +1585,7 @@ struct CallsContactCard: View {
                     actions
                     if !recents.isEmpty { recentCalls }
                     if !groups.isEmpty { sharedGroups }
+                    CallsContactExtrasSection(contact: contact)
                     manage
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
@@ -1632,7 +1863,7 @@ struct CallsKeypadKey: View {
             onTap()
         } label: {
             VStack(spacing: -2) {
-                Text(digit).font(.system(size: digit == "*" ? 44 : 38, weight: .regular))
+                glyph
                 Text(letters.isEmpty ? " " : letters)
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.8)
@@ -1648,6 +1879,18 @@ struct CallsKeypadKey: View {
         .accessibilityLabel(letters.isEmpty ? digit : "\(digit), \(letters)")
         .accessibilityHint(digit == "0" ? "Hold for plus" : (digit == "*" ? "Hold to type a handle" : ""))
         .accessibilityIdentifier("calls.key.\(digit)")
+    }
+
+    /// Optically matched glyphs: Phone draws * and # larger than a plain text asterisk.
+    @ViewBuilder private var glyph: some View {
+        switch digit {
+        case "*":
+            Image(systemName: "asterisk").font(.system(size: 28, weight: .regular)).frame(height: 45)
+        case "#":
+            Image(systemName: "number").font(.system(size: 29, weight: .regular)).frame(height: 45)
+        default:
+            Text(digit).font(.system(size: 38, weight: .regular)).frame(height: 45)
+        }
     }
 
     /// System DTMF sounds (1200–1211); system sounds stay quiet when the ringer is on silent.
@@ -1695,12 +1938,15 @@ struct CallsGreenCallButton: View {
 struct CallsKeypad: View {
     @Environment(AppEnvironment.self) private var app
     @AppStorage("calls.keypad.tones") private var tones = true
+    @Environment(\.accessibilityReduceMotion) private var keypadReduceMotion
     @State private var entry = ""
     @State private var handleMode = false
     @State private var working = false
     @State private var note: String?
     @State private var showsAllMatches = false
     @State private var remote: [DiscoverPerson] = []
+    @State private var speedDialDigit: CallsPreferencesSheet.SpeedDigit?
+    @State private var showsPreferences = false
     @FocusState private var fieldFocused: Bool
 
     private static let keys: [(String, String)] = [
@@ -1720,12 +1966,12 @@ struct CallsKeypad: View {
     }
     private var matchedContact: CallsContact? {
         if handleMode { return handleContacts.first { $0.handle.lowercased() == handleQuery } }
-        return t9.count == 1 ? t9.first : nil
+        let matches = t9
+        return matches.count == 1 ? matches.first : nil
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            topBar
             if handleMode {
                 handlePanel
             } else {
@@ -1734,46 +1980,43 @@ struct CallsKeypad: View {
                 suggestionRow
                 Spacer(minLength: 10)
                 grid
-                callRow.padding(.top, 18)
             }
         }
         .padding(.horizontal, ModulaLayout.contentInset)
-        .padding(.bottom, 10)
+        .padding(.bottom, handleMode ? 0 : CallsHomeView.barClearance + 8)
+        // ⋯ and Add-to-Favourites sit in the navigation bar, level with Back.
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) { topBarItems }
+        }
+        .sheet(item: $speedDialDigit) { CallsSpeedDialPicker(digit: $0.id) }
+        .sheet(isPresented: $showsPreferences) { CallsPreferencesSheet() }
         .animation(.snappy(duration: 0.2), value: handleMode)
         .animation(.snappy(duration: 0.15), value: entry.isEmpty)
         .accessibilityIdentifier("calls.keypad")
     }
 
-    // Options (left) · add to favourites (right, once a known person is typed).
-    private var topBar: some View {
-        HStack {
-            Menu {
-                Toggle(isOn: $tones) { Label("Key Tones", systemImage: "speaker.wave.2") }
-                if !local.recentDials.isEmpty {
-                    Button("Clear Recent Dials", systemImage: "clock.arrow.circlepath") { local.clearDials() }
-                }
+    // Add to favourites (once a known person is typed) · options.
+    @ViewBuilder private var topBarItems: some View {
+        if let id = matchedContact?.conversationID {
+            let on = app.calls.isFavourite(id)
+            Button {
+                app.calls.toggleFavourite(id)
+                app.navigation.flash(on ? "Removed from Favourites" : "Added to Favourites", symbol: "star")
             } label: {
-                Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(.primary)
-                    .frame(width: 40, height: 40).modulaGlass(in: Circle(), interactive: true)
+                Image(systemName: on ? "star.fill" : "star")
             }
-            .accessibilityLabel("Keypad options")
-            Spacer()
-            if let id = matchedContact?.conversationID {
-                let on = app.calls.isFavourite(id)
-                Button {
-                    app.calls.toggleFavourite(id)
-                    app.navigation.flash(on ? "Removed from Favourites" : "Added to Favourites", symbol: "star")
-                } label: {
-                    Image(systemName: on ? "star.fill" : "person.crop.circle.badge.plus")
-                        .font(.body.weight(.semibold)).foregroundStyle(.primary)
-                        .frame(width: 40, height: 40).modulaGlass(in: Circle(), interactive: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(on ? "Remove from Favourites" : "Add to Favourites")
-                .transition(.scale.combined(with: .opacity))
-            }
+            .accessibilityLabel(on ? "Remove from Favourites" : "Add to Favourites")
         }
-        .frame(minHeight: 44)
+        Menu {
+            Toggle(isOn: $tones) { Label("Key Tones", systemImage: "speaker.wave.2") }
+            Button("Speed Dial & Call Settings", systemImage: "slider.horizontal.3") { showsPreferences = true }
+            if !local.recentDials.isEmpty {
+                Button("Clear Recent Dials", systemImage: "clock.arrow.circlepath") { local.clearDials() }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel("Keypad options")
     }
 
     private var display: some View {
@@ -1781,6 +2024,9 @@ struct CallsKeypad: View {
             Text(entry.isEmpty ? " " : CallsKeypadFormat.format(entry))
                 .font(.system(size: 40, weight: .regular).monospacedDigit())
                 .foregroundStyle(.primary)
+                // Digits roll in/out as they're typed or deleted (instant under Reduce Motion).
+                .contentTransition(keypadReduceMotion ? .identity : .numericText(countsDown: false))
+                .animation(keypadReduceMotion ? nil : .snappy(duration: 0.18), value: entry)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
@@ -1857,6 +2103,7 @@ struct CallsKeypad: View {
             }
             .padding(.vertical, 6)
         }
+        .modulaHorizontalRail()
         .frame(minHeight: 44)
     }
 
@@ -1894,11 +2141,16 @@ struct CallsKeypad: View {
                     }
                 }
             }
+            // @ · call · delete share the digit columns, so all three line up under * 0 #.
+            GridRow {
+                handleKey
+                CallsGreenCallButton(working: working) { place($0) }
+                deleteKey
+            }
         }
     }
 
-    private var callRow: some View {
-        HStack {
+    private var handleKey: some View {
             Button { switchToHandle() } label: {
                 Text("@").font(.system(size: 30, weight: .regular)).foregroundStyle(.primary)
                     .frame(width: 80, height: 80)
@@ -1907,9 +2159,9 @@ struct CallsKeypad: View {
             .buttonStyle(CallPressStyle())
             .accessibilityLabel("Type a handle")
             .accessibilityIdentifier("calls.keypad.handle")
-            Spacer()
-            CallsGreenCallButton(working: working) { place($0) }
-            Spacer()
+    }
+
+    private var deleteKey: some View {
             Button {
                 if !entry.isEmpty { entry.removeLast() }
                 note = nil
@@ -1927,8 +2179,6 @@ struct CallsKeypad: View {
             .accessibilityLabel("Delete")
             .accessibilityHint("Hold to clear")
             .accessibilityHidden(entry.isEmpty)
-        }
-        .padding(.horizontal, 2)
     }
 
     // Handle mode: system keyboard, live search (your chats/follows first, then Modula people search).
@@ -1967,7 +2217,7 @@ struct CallsKeypad: View {
                 .accessibilityLabel("Back to keypad")
             }
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: 0) {
                     ForEach(locals) { contact in suggestion(contact) }
                     ForEach(others) { person in
                         suggestion(CallsContact(id: person.handle.lowercased(), personID: person.id, handle: person.handle,
@@ -1979,8 +2229,16 @@ struct CallsKeypad: View {
                     }
                 }
             }
+            .contentMargins(.bottom, CallsHomeView.barClearance + 104, for: .scrollContent)
             .scrollDismissesKeyboard(.interactively)
-            CallsGreenCallButton(working: working) { place($0) }
+            .frame(maxHeight: .infinity)
+            .overlay(alignment: .bottom) {
+                // Floats on its own shadow, no backdrop band; the list scrolls underneath.
+                CallsGreenCallButton(working: working) { place($0) }
+                    .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
+                    .padding(.bottom, CallsHomeView.barClearance + 12)
+                    .frame(maxWidth: .infinity)
+            }
         }
         .padding(.top, 8)
         .onAppear { fieldFocused = true }
@@ -1997,10 +2255,12 @@ struct CallsKeypad: View {
     }
 
     private func suggestion(_ contact: CallsContact) -> some View {
-        Button { select(contact) } label: { CallsPersonRow(contact: contact) }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+        VStack(spacing: 0) {
+            Button { select(contact) } label: { CallsPersonRow(contact: contact) }
+                .buttonStyle(.plain)
+                .padding(.vertical, 8)
+            Divider().padding(.leading, 52)
+        }
     }
 
     private func select(_ contact: CallsContact) {
@@ -2021,6 +2281,14 @@ struct CallsKeypad: View {
             HapticEngine.shared.play(.selection)
         } else if key == "*" {
             switchToHandle()
+        } else if let n = Int(key), (1...9).contains(n), entry.isEmpty {
+            // Speed dial: hold 1–9 on an empty keypad.
+            if let slot = CallsPersonalStore.shared.speedDial(key),
+               let contact = CallsDirectory.all(app).first(where: { $0.id == slot.id }) {
+                CallsActions.call(contact, kind: CallsPersonalStore.shared.preferredKind(contact.id), app: app)
+            } else {
+                speedDialDigit = CallsPreferencesSheet.SpeedDigit(id: key)
+            }
         }
     }
 
@@ -2198,7 +2466,7 @@ struct ConnectPhoneNumbersRow: View {
     var body: some View {
         Button { app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil)) } label: {
             HStack(spacing: 12) {
-                Image(systemName: "simcard").font(.body.weight(.semibold)).frame(width: 28)
+                ModulaConnectMark(size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Phone Numbers").font(.headline)
                     Text("Modula Connect · Preview").font(.footnote).foregroundStyle(.secondary)
@@ -2222,10 +2490,7 @@ struct ConnectDockTile: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                Image(systemName: "phone.connection.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .modulaGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                ModulaConnectMark(size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Modula Connect").font(.subheadline.weight(.semibold))
                     Text("Get your Modula Number · Preview").font(.caption).foregroundStyle(.secondary)
@@ -2239,5 +2504,1613 @@ struct ConnectDockTile: View {
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
         .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityIdentifier("accessory.module.connect")
+    }
+}
+
+// MARK: - Modula Connect brand (t237u)
+
+/// The Modula Connect mark: a black/white squircle with a signal dot and two arcs.
+/// Arcs pulse outward once on appear (static under Reduce Motion).
+struct ModulaConnectMark: View {
+    var size: CGFloat = 44
+    var animated = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lit = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+        ZStack {
+            shape.fill(Color.modulaPrimaryFill)
+            ModulaConnectGlyph(progress: lit || reduceMotion || !animated ? 1 : 0.0)
+                .stroke(Color.modulaOnPrimary, style: StrokeStyle(lineWidth: max(1.6, size * 0.075), lineCap: .round))
+                .frame(width: size * 0.58, height: size * 0.58)
+            Circle().fill(Color.modulaOnPrimary)
+                .frame(width: size * 0.16, height: size * 0.16)
+                .offset(x: -size * 0.12, y: size * 0.12)
+        }
+        .frame(width: size, height: size)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5))
+        .onAppear {
+            guard animated, !reduceMotion else { return }
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) { lit = true }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Two quarter arcs from the bottom-left corner; `progress` draws them in.
+struct ModulaConnectGlyph: Shape {
+    var progress: Double
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let origin = CGPoint(x: rect.minX + rect.width * 0.29, y: rect.maxY - rect.height * 0.29)
+        for (i, r) in [0.42, 0.72].enumerated() {
+            let radius = rect.width * r
+            let sweep = 90.0 * max(0, min(1, progress * 1.4 - Double(i) * 0.4))
+            guard sweep > 0 else { continue }
+            p.move(to: CGPoint(x: origin.x, y: origin.y - radius))
+            p.addRelativeArc(center: origin, radius: radius, startAngle: .degrees(-90), delta: .degrees(sweep))
+        }
+        return p
+    }
+}
+
+/// Mark + "Modula Connect" wordmark, optionally with the hero line.
+struct ModulaConnectLogo: View {
+    var markSize: CGFloat = 32
+    var showsTagline = false
+    var animated = true
+
+    var body: some View {
+        HStack(spacing: markSize * 0.32) {
+            ModulaConnectMark(size: markSize, animated: animated)
+            VStack(alignment: .leading, spacing: 1) {
+                (Text("Modula ").font(.system(size: markSize * 0.5, weight: .regular))
+                 + Text("Connect").font(.system(size: markSize * 0.5, weight: .heavy)))
+                    .foregroundStyle(.primary)
+                    .fixedSize()
+                if showsTagline {
+                    Text("Your number. Your way.")
+                        .font(.system(size: max(11, markSize * 0.32), weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(showsTagline ? "Modula Connect. Your number. Your way." : "Modula Connect")
+    }
+}
+
+/// Branded opening splash for the Connect module (instead of the generic "Opening…" card).
+struct ConnectOpeningSplash: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var breathe = false
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ModulaConnectMark(size: 76)
+                .scaleEffect(breathe ? 1.04 : 1)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: breathe)
+            VStack(spacing: 4) {
+                (Text("Modula ").font(.title2) + Text("Connect").font(.title2.weight(.heavy)))
+                Text("Your number. Your way.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.regularMaterial)
+        .onAppear { breathe = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Opening Modula Connect")
+        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier("module.host.loading")
+    }
+}
+
+/// "Want a real phone number?" promo into Connect (Modula Number sheet, Calls).
+struct ConnectPromoCard: View {
+    @Environment(AppEnvironment.self) private var app
+    var onOpen: (() -> Void)? = nil
+
+    var body: some View {
+        Button {
+            HapticEngine.shared.play(.selection)
+            onOpen?()
+            app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
+        } label: {
+            HStack(spacing: 14) {
+                ModulaConnectMark(size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Want a real phone number?").font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    Text("Modula Connect gives you a UK number inside Modula. Preview.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        .modulaAppear(delay: 0.08)
+        .accessibilityIdentifier("connect.promo")
+    }
+}
+
+// MARK: - Calls personal (local) data: labels, birthday, notes, preferred kind, speed dial,
+// blocked callers, quiet hours, ringtone. Everything here stays on this iPhone.
+
+struct CallsContactExtras: Codable, Equatable {
+    var labels: [String] = []
+    var birthday: Date?
+    var notes = ""
+    var prefersVideo = false
+}
+
+@MainActor @Observable
+final class CallsPersonalStore {
+    static let shared = CallsPersonalStore()
+    static let builtInLabels = ["Family", "Friends", "Work", "Close friends"]
+    private static let key = "calls.personal.v1"
+
+    struct Ringtone: Identifiable, Hashable {
+        let id: String
+        let title: String
+        let soundID: UInt32?
+    }
+    static let ringtones: [Ringtone] = [
+        Ringtone(id: "default", title: "iPhone ringtone", soundID: nil),
+        Ringtone(id: "anticipate", title: "Anticipate", soundID: 1020),
+        Ringtone(id: "bloom", title: "Bloom", soundID: 1021),
+        Ringtone(id: "calypso", title: "Calypso", soundID: 1022),
+        Ringtone(id: "descent", title: "Descent", soundID: 1024),
+        Ringtone(id: "fanfare", title: "Fanfare", soundID: 1025),
+        Ringtone(id: "ladder", title: "Ladder", soundID: 1026),
+        Ringtone(id: "minuet", title: "Minuet", soundID: 1027),
+        Ringtone(id: "noir", title: "Noir", soundID: 1029),
+        Ringtone(id: "spell", title: "Spell", soundID: 1031),
+        Ringtone(id: "telegraph", title: "Telegraph", soundID: 1033),
+        Ringtone(id: "tiptoes", title: "Tiptoes", soundID: 1034),
+    ]
+
+    private struct Snapshot: Codable {
+        var extras: [String: CallsContactExtras] = [:]
+        var customLabels: [String] = []
+        var speedDial: [String: String] = [:]
+        var speedDialNames: [String: String] = [:]
+        var blocked: [String: String] = [:]
+        var quietEnabled = false
+        var quietStart = 22 * 60
+        var quietEnd = 7 * 60
+        var quietAllowFavourites = true
+        var ringtone = "default"
+        var defaultVideo = false
+    }
+
+    private var state: Snapshot { didSet { save() } }
+
+    private init() {
+        if let data = UserDefaults.standard.data(forKey: Self.key),
+           let saved = try? JSONDecoder().decode(Snapshot.self, from: data) {
+            state = saved
+        } else {
+            state = Snapshot()
+        }
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(state) { UserDefaults.standard.set(data, forKey: Self.key) }
+    }
+
+    // Per-contact extras
+    func extras(_ contactID: String) -> CallsContactExtras { state.extras[contactID] ?? CallsContactExtras() }
+    func setExtras(_ value: CallsContactExtras, for contactID: String) {
+        state.extras[contactID] = value == CallsContactExtras() ? nil : value
+    }
+    var allLabels: [String] { Self.builtInLabels + state.customLabels.filter { !Self.builtInLabels.contains($0) } }
+    /// Labels someone actually uses (for the Contacts filter rail).
+    var usedLabels: [String] {
+        let used = Set(state.extras.values.flatMap(\.labels))
+        return allLabels.filter { used.contains($0) }
+    }
+    func addLabel(_ name: String) {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, !allLabels.contains(clean) else { return }
+        state.customLabels.append(clean)
+    }
+    func preferredKind(_ contactID: String) -> CallMediaKind {
+        if let e = state.extras[contactID] { return e.prefersVideo ? .video : .audio }
+        return state.defaultVideo ? .video : .audio
+    }
+    /// Birthdays within the next `days` days (month/day match, any year).
+    func upcomingBirthday(_ contactID: String, within days: Int = 7) -> Int? {
+        guard let date = state.extras[contactID]?.birthday else { return nil }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        var parts = cal.dateComponents([.month, .day], from: date)
+        parts.year = cal.component(.year, from: today)
+        guard var next = cal.date(from: parts) else { return nil }
+        if next < today, let bumped = cal.date(byAdding: .year, value: 1, to: next) { next = bumped }
+        let delta = cal.dateComponents([.day], from: today, to: next).day ?? 999
+        return delta <= days ? delta : nil
+    }
+
+    // Default call type
+    var defaultVideo: Bool { get { state.defaultVideo } set { state.defaultVideo = newValue } }
+
+    // Speed dial (keypad 1–9)
+    func speedDial(_ digit: String) -> (id: String, name: String)? {
+        guard let id = state.speedDial[digit] else { return nil }
+        return (id, state.speedDialNames[digit] ?? id)
+    }
+    func setSpeedDial(_ digit: String, contact: CallsContact?) {
+        state.speedDial[digit] = contact?.id
+        state.speedDialNames[digit] = contact?.name
+    }
+    var speedDialDigits: [String] { (1...9).map(String.init).filter { state.speedDial[$0] != nil } }
+
+    // Blocked callers (local: their calls never ring this iPhone)
+    struct BlockedCaller: Identifiable, Hashable { let id: String; let name: String }
+    var blocked: [BlockedCaller] {
+        state.blocked.map { BlockedCaller(id: $0.key, name: $0.value) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+    func isBlocked(handle: String, id: String) -> Bool {
+        state.blocked[CallsDirectory.key(handle: handle, id: id)] != nil
+    }
+    func setBlocked(_ blocked: Bool, contact: CallsContact) {
+        state.blocked[contact.id] = blocked ? contact.name : nil
+    }
+    func unblock(_ key: String) { state.blocked[key] = nil }
+
+    // Quiet hours (Do Not Disturb for calls)
+    var quietEnabled: Bool { get { state.quietEnabled } set { state.quietEnabled = newValue } }
+    var quietAllowFavourites: Bool { get { state.quietAllowFavourites } set { state.quietAllowFavourites = newValue } }
+    var quietStart: Date {
+        get { Self.date(minutes: state.quietStart) }
+        set { state.quietStart = Self.minutes(newValue) }
+    }
+    var quietEnd: Date {
+        get { Self.date(minutes: state.quietEnd) }
+        set { state.quietEnd = Self.minutes(newValue) }
+    }
+    private static func date(minutes: Int) -> Date {
+        Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
+    }
+    private static func minutes(_ date: Date) -> Int {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    }
+    func inQuietHours(_ now: Date = Date()) -> Bool {
+        guard state.quietEnabled else { return false }
+        let m = Self.minutes(now)
+        let s = state.quietStart, e = state.quietEnd
+        if s == e { return true }
+        return s < e ? (m >= s && m < e) : (m >= s || m < e)
+    }
+
+    /// Incoming call screening (blocked callers, quiet hours with optional favourites through).
+    func silences(handle: String, id: String, conversationID: String, isFavourite: Bool) -> Bool {
+        if isBlocked(handle: handle, id: id) { return true }
+        if inQuietHours() { return !(state.quietAllowFavourites && isFavourite) }
+        return false
+    }
+
+    // Ringtone (preview + choice; CallKit uses the iPhone ringtone until Modula ships sound files)
+    var ringtone: String { get { state.ringtone } set { state.ringtone = newValue } }
+    static func preview(_ tone: Ringtone) {
+        if let id = tone.soundID { AudioServicesPlaySystemSound(id) } else { AudioServicesPlaySystemSound(1007) }
+    }
+}
+
+/// Calls screens: soft top edge only. No bottom scroll-edge effect, so nothing draws a band
+/// behind the floating switcher (t232u).
+private struct CallsScrollEdges: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .scrollEdgeEffectStyle(.soft, for: .top)
+                .scrollEdgeEffectHidden(true, for: .bottom)
+        } else {
+            content
+        }
+    }
+}
+
+/// Recents › stats: calls this week, talk time, missed, most called (from history on this iPhone).
+struct CallsStatsCard: View {
+    let records: [CallRecord]
+
+    var body: some View {
+        let weekAgo = Date().addingTimeInterval(-7 * 86_400)
+        let week = records.filter { $0.createdAt >= weekAgo }
+        let talkMs = week.compactMap(\.durationMs).reduce(0, +)
+        let missed = week.filter { CallCopy.isMissed($0) }.count
+        let top = Dictionary(grouping: week, by: { $0.other.name }).max { $0.value.count < $1.value.count }
+        HStack(spacing: 0) {
+            stat("\(week.count)", week.count == 1 ? "call this week" : "calls this week")
+            divider
+            stat(Self.talk(talkMs), "talk time")
+            divider
+            stat("\(missed)", "missed")
+            if let top, top.value.count > 1 {
+                divider
+                stat(top.key, "most called")
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 6)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("calls.recents.stats")
+    }
+
+    private var divider: some View { Rectangle().fill(Color.primary.opacity(0.1)).frame(width: 1, height: 30) }
+
+    private func stat(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(.headline).foregroundStyle(.primary).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(label).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    static func talk(_ ms: Int) -> String {
+        let minutes = ms / 60_000
+        if minutes < 1 { return ms > 0 ? "<1m" : "0m" }
+        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
+    }
+}
+
+/// Contacts › "Recently called": avatars of the last people you called, one tap to call again.
+struct CallsRecentlyCalledRow: View {
+    let contacts: [CallsContact]
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(contacts) { contact in
+                    Button {
+                        CallsActions.call(contact, kind: CallsPersonalStore.shared.preferredKind(contact.id), app: app)
+                    } label: {
+                        VStack(spacing: 6) {
+                            ModulaAvatar(initials: contact.initials, url: contact.avatarURL, size: 52, name: contact.name)
+                            Text(contact.name.split(separator: " ").first.map(String.init) ?? contact.name)
+                                .font(.caption2.weight(.medium)).foregroundStyle(.primary)
+                                .fixedSize()
+                        }
+                        .frame(minWidth: 60)
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                    .contextMenu { CallsContactMenu(contact: contact) }
+                    .accessibilityLabel("Call \(contact.name)")
+                }
+            }
+            .padding(.horizontal, ModulaLayout.contentInset)
+            .padding(.vertical, 4)
+        }
+        .modulaHorizontalRail()
+        .accessibilityIdentifier("calls.contacts.recent")
+    }
+
+    /// Unique people from recents, newest first, matched to contacts.
+    @MainActor static func people(_ app: AppEnvironment, limit: Int = 10) -> [CallsContact] {
+        let all = CallsDirectory.all(app)
+        var seen = Set<String>()
+        var out: [CallsContact] = []
+        for record in app.calls.recents where out.count < limit {
+            guard let c = all.first(where: { $0.conversationID == record.conversationID || $0.personID == record.other.id }),
+                  !seen.contains(c.id) else { continue }
+            seen.insert(c.id)
+            out.append(c)
+        }
+        return out
+    }
+}
+
+/// Contact card › local details: labels, birthday, notes, preferred call type, block calls.
+struct CallsContactExtrasSection: View {
+    let contact: CallsContact
+    @State private var extras = CallsContactExtras()
+    @State private var newLabel = ""
+    @State private var addingLabel = false
+    @State private var hasBirthday = false
+
+    private var store: CallsPersonalStore { .shared }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("On this iPhone").font(.footnote.weight(.semibold)).foregroundStyle(.secondary).padding(.leading, 4)
+            VStack(alignment: .leading, spacing: 12) {
+                labelsRow
+                Divider()
+                HStack {
+                    Text("Default call")
+                    Spacer()
+                    ModulaSegmentedControl("Default call", selection: $extras.prefersVideo,
+                                           segments: [(false, "Voice"), (true, "Video")], compact: true)
+                        .fixedSize()
+                }
+                Divider()
+                Toggle("Birthday", isOn: $hasBirthday)
+                if hasBirthday {
+                    DatePicker("Date", selection: Binding(get: { extras.birthday ?? Date() }, set: { extras.birthday = $0 }),
+                               displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .tint(.primary)
+                }
+                Divider()
+                TextField("Notes", text: $extras.notes, axis: .vertical)
+                    .lineLimit(2...6)
+                Divider()
+                Toggle("Block calls from \(contact.name)", isOn: Binding(
+                    get: { store.isBlocked(handle: contact.handle, id: contact.personID) },
+                    set: { store.setBlocked($0, contact: contact) }
+                ))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+            Text("Labels, birthday, notes and call blocking stay on this iPhone.")
+                .font(.caption).foregroundStyle(.secondary).padding(.leading, 4)
+        }
+        .onAppear {
+            extras = store.extras(contact.id)
+            if extras.labels.isEmpty, extras == CallsContactExtras() { extras.prefersVideo = store.defaultVideo }
+            hasBirthday = extras.birthday != nil
+        }
+        .onChange(of: extras) { _, value in store.setExtras(value, for: contact.id) }
+        .onChange(of: hasBirthday) { _, on in
+            if !on { extras.birthday = nil } else if extras.birthday == nil { extras.birthday = Date() }
+        }
+        .alert("New label", isPresented: $addingLabel) {
+            TextField("Label", text: $newLabel)
+            Button("Add") {
+                store.addLabel(newLabel)
+                let clean = newLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !clean.isEmpty, !extras.labels.contains(clean) { extras.labels.append(clean) }
+                newLabel = ""
+            }
+            Button("Cancel", role: .cancel) { newLabel = "" }
+        }
+        .accessibilityIdentifier("calls.contact.extras")
+    }
+
+    private var labelsRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Labels")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(store.allLabels, id: \.self) { label in
+                        let on = extras.labels.contains(label)
+                        Button {
+                            HapticEngine.shared.play(.selection)
+                            if on { extras.labels.removeAll { $0 == label } } else { extras.labels.append(label) }
+                        } label: {
+                            Text(label).font(.subheadline.weight(.semibold))
+                                .foregroundStyle(on ? Color.modulaOnPrimary : Color.primary)
+                                .padding(.horizontal, 12).frame(minHeight: 32)
+                                .background { if on { Capsule().fill(Color.modulaPrimaryFill) } }
+                                .fixedSize()
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                    Button { addingLabel = true } label: {
+                        Image(systemName: "plus").font(.subheadline.weight(.bold)).foregroundStyle(.primary)
+                            .frame(width: 32, height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Circle(), interactive: true)
+                    .accessibilityLabel("New label")
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+}
+
+/// Keypad › hold 1–9 on an empty key: choose who that number calls.
+struct CallsSpeedDialPicker: View {
+    let digit: String
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    var body: some View {
+        let needle = query.lowercased()
+        let people = CallsDirectory.all(app).filter { needle.isEmpty || $0.name.lowercased().contains(needle) || $0.handle.lowercased().hasPrefix(needle) }
+        NavigationStack {
+            List {
+                if CallsPersonalStore.shared.speedDial(digit) != nil {
+                    Button("Clear speed dial \(digit)", systemImage: "xmark.circle") {
+                        CallsPersonalStore.shared.setSpeedDial(digit, contact: nil)
+                        dismiss()
+                    }
+                    .foregroundStyle(.primary)
+                    .listRowBackground(Color.clear)
+                }
+                ForEach(people) { contact in
+                    Button {
+                        CallsPersonalStore.shared.setSpeedDial(digit, contact: contact)
+                        app.navigation.flash("Hold \(digit) to call \(contact.name)", symbol: "star")
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 12) {
+                            ModulaAvatar(initials: contact.initials, url: contact.avatarURL, size: 36, name: contact.name)
+                            Text(contact.name).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .searchable(text: $query, prompt: "Search name or @handle")
+            .navigationTitle("Speed dial \(digit)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
+    }
+}
+
+/// Settings › Appearance › Calls preferences row.
+struct CallsPreferencesRow: View {
+    @State private var open = false
+
+    var body: some View {
+        Button { open = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "phone.badge.checkmark").font(.body.weight(.semibold)).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Calls").font(.body.weight(.semibold))
+                    Text("Default call, quiet hours, blocked callers, ringtone, speed dial")
+                        .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(.primary)
+            .padding(14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        .sheet(isPresented: $open) { CallsPreferencesSheet() }
+        .accessibilityIdentifier("settings.calls.preferences")
+    }
+}
+
+struct CallsPreferencesSheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var pickingBlock = false
+    @State private var speedDigit: SpeedDigit?
+
+    struct SpeedDigit: Identifiable { let id: String }
+
+    var body: some View {
+        @Bindable var store = CallsPersonalStore.shared
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        Text("Default call")
+                        Spacer()
+                        ModulaSegmentedControl("Default call", selection: $store.defaultVideo,
+                                               segments: [(false, "Voice"), (true, "Video")], compact: true)
+                            .fixedSize()
+                    }
+                    .listRowBackground(CallsRowGlass())
+                } footer: {
+                    Text("Used by swipe-to-call, Recently called and speed dial. Each contact can override it.")
+                }
+
+                Section {
+                    Toggle("Quiet hours", isOn: $store.quietEnabled)
+                        .listRowBackground(CallsRowGlass())
+                    if store.quietEnabled {
+                        DatePicker("From", selection: $store.quietStart, displayedComponents: .hourAndMinute).tint(.primary)
+                            .listRowBackground(CallsRowGlass())
+                        DatePicker("Until", selection: $store.quietEnd, displayedComponents: .hourAndMinute).tint(.primary)
+                            .listRowBackground(CallsRowGlass())
+                        Toggle("Allow Favourites", isOn: $store.quietAllowFavourites)
+                            .listRowBackground(CallsRowGlass())
+                    }
+                } header: {
+                    Text("Do Not Disturb")
+                } footer: {
+                    Text(store.inQuietHours() ? "Quiet now: incoming Modula calls won't ring." : "Incoming Modula calls won't ring during these hours; they show in Recents as missed.")
+                }
+
+                Section {
+                    ForEach(store.blocked) { entry in
+                        HStack {
+                            Text(entry.name).fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Button("Unblock") { store.unblock(entry.id) }
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                                .buttonStyle(.borderless)
+                        }
+                        .listRowBackground(CallsRowGlass())
+                    }
+                    Button { pickingBlock = true } label: { Label("Block a caller…", systemImage: "hand.raised") }
+                        .foregroundStyle(.primary)
+                        .listRowBackground(CallsRowGlass())
+                } header: {
+                    Text("Blocked callers")
+                } footer: {
+                    Text("Their Modula calls never ring this iPhone. They can still message you; block them in Chats to stop that too.")
+                }
+
+                Section {
+                    ForEach(CallsPersonalStore.ringtones) { tone in
+                        Button {
+                            store.ringtone = tone.id
+                            CallsPersonalStore.preview(tone)
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack {
+                                Text(tone.title).foregroundStyle(.primary)
+                                Spacer()
+                                if store.ringtone == tone.id { Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.primary) }
+                            }
+                        }
+                        .listRowBackground(CallsRowGlass())
+                    }
+                } header: {
+                    Text("Ringtone")
+                } footer: {
+                    Text("Tap to preview. Calls that arrive while Modula is closed use your iPhone ringtone for now.")
+                }
+
+                Section {
+                    ForEach((1...9).map(String.init), id: \.self) { digit in
+                        Button { speedDigit = SpeedDigit(id: digit) } label: {
+                            HStack {
+                                Text(digit).font(.body.weight(.semibold).monospacedDigit()).frame(width: 24)
+                                Text(store.speedDial(digit)?.name ?? "Not set")
+                                    .foregroundStyle(store.speedDial(digit) == nil ? Color.secondary : Color.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                        .listRowBackground(CallsRowGlass())
+                    }
+                } header: {
+                    Text("Speed dial")
+                } footer: {
+                    Text("On the keypad, touch and hold a number to call that person.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Calls")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
+            .sheet(isPresented: $pickingBlock) { CallsBlockPicker() }
+            .sheet(item: $speedDigit) { CallsSpeedDialPicker(digit: $0.id) }
+        }
+        .presentationDetents([.large])
+        .modulaSheetStyle()
+        .accessibilityIdentifier("calls.preferences")
+    }
+}
+
+private struct CallsBlockPicker: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    var body: some View {
+        let needle = query.lowercased()
+        let store = CallsPersonalStore.shared
+        let people = CallsDirectory.all(app).filter {
+            !store.isBlocked(handle: $0.handle, id: $0.personID) && (needle.isEmpty || $0.name.lowercased().contains(needle) || $0.handle.lowercased().hasPrefix(needle))
+        }
+        NavigationStack {
+            List(people) { contact in
+                Button {
+                    store.setBlocked(true, contact: contact)
+                    app.navigation.flash("Calls from \(contact.name) blocked", symbol: "hand.raised")
+                    dismiss()
+                } label: {
+                    HStack(spacing: 12) {
+                        ModulaAvatar(initials: contact.initials, url: contact.avatarURL, size: 36, name: contact.name)
+                        Text(contact.name).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .listRowBackground(Color.clear)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .searchable(text: $query, prompt: "Search name or @handle")
+            .navigationTitle("Block a caller")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
+    }
+}
+
+/// Glass list-row background for Calls lists and sheets.
+struct CallsRowGlass: View {
+    var body: some View { Color.clear.modulaGlass(in: Rectangle(), interactive: false) }
+}
+
+// MARK: - Modula Number (in-app number people can use to reach you; not a phone number)
+
+@MainActor @Observable
+final class ModulaNumberStore {
+    static let shared = ModulaNumberStore()
+    private static let key = "modula.number.v1"
+
+    enum Reach: String, Codable, CaseIterable, Identifiable {
+        case everyone, withSecret, followers, contacts, nobody
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .everyone: "Everyone with my number"
+            case .withSecret: "Only with number + secret"
+            case .followers: "People who follow me"
+            case .contacts: "My contacts only"
+            case .nobody: "Nobody"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .everyone: "globe"
+            case .withSecret: "key"
+            case .followers: "person.2"
+            case .contacts: "person.crop.circle"
+            case .nobody: "nosign"
+            }
+        }
+    }
+
+    enum SecretKind: String, Codable, CaseIterable, Identifiable {
+        case phrase, code
+        var id: Self { self }
+        var title: String { self == .phrase ? "Phrase" : "Code" }
+    }
+
+    struct Temporary: Codable, Identifiable, Hashable {
+        var id = UUID().uuidString
+        var number: String
+        var label: String
+        var created = Date()
+        var expires: Date?
+        var usesLeft: Int?
+        var maxUses: Int?
+        /// 0…1 left (time for expiring numbers, uses for counted ones) for the countdown ring.
+        func remaining(at now: Date = Date()) -> Double {
+            if let expires {
+                let total = expires.timeIntervalSince(created)
+                return total > 0 ? max(0, min(1, expires.timeIntervalSince(now) / total)) : 0
+            }
+            if let usesLeft, let maxUses, maxUses > 0 { return max(0, min(1, Double(usesLeft) / Double(maxUses))) }
+            return 1
+        }
+        var isActive: Bool {
+            if let expires, expires < Date() { return false }
+            if let usesLeft, usesLeft <= 0 { return false }
+            return true
+        }
+        var status: String {
+            if !isActive { return "Expired" }
+            if let usesLeft { return usesLeft == 1 ? "1 use left" : "\(usesLeft) uses left" }
+            if let expires { return "Expires " + expires.formatted(.relative(presentation: .named)) }
+            return "Active"
+        }
+    }
+
+    struct Visit: Codable, Identifiable, Hashable {
+        var id = UUID().uuidString
+        var name: String
+        var handle: String
+        var kind: String
+        var date = Date()
+    }
+
+    private struct Snapshot: Codable {
+        var number = ModulaNumberStore.generate()
+        var enabled = true
+        var hidden = false
+        var reach: Reach = .everyone
+        var secretKind: SecretKind = .phrase
+        var secret = ""
+        var allowChat = true
+        var allowVoice = true
+        var allowVideo = true
+        var numberOnlyToRequests = true
+        var temporaries: [Temporary] = []
+        var visits: [Visit] = []
+    }
+
+    private var state: Snapshot { didSet { save() } }
+
+    private init() {
+        if let data = UserDefaults.standard.data(forKey: Self.key),
+           let saved = try? JSONDecoder().decode(Snapshot.self, from: data) {
+            state = saved
+        } else {
+            state = Snapshot()
+        }
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(state) { UserDefaults.standard.set(data, forKey: Self.key) }
+    }
+
+    nonisolated static func generate() -> String {
+        var digits = String(Int.random(in: 1...9))
+        for _ in 0..<7 { digits += String(Int.random(in: 0...9)) }
+        return digits
+    }
+
+    nonisolated static func grouped(_ number: String) -> String {
+        guard number.count == 8 else { return CallsKeypadFormat.format(number) }
+        return String(number.prefix(4)) + " " + String(number.suffix(4))
+    }
+
+    var number: String { state.number }
+    var enabled: Bool { get { state.enabled } set { state.enabled = newValue } }
+    var hidden: Bool { get { state.hidden } set { state.hidden = newValue } }
+    var reach: Reach { get { state.reach } set { state.reach = newValue } }
+    var secretKind: SecretKind { get { state.secretKind } set { state.secretKind = newValue } }
+    var secret: String { get { state.secret } set { state.secret = newValue } }
+    var allowChat: Bool { get { state.allowChat } set { state.allowChat = newValue } }
+    var allowVoice: Bool { get { state.allowVoice } set { state.allowVoice = newValue } }
+    var allowVideo: Bool { get { state.allowVideo } set { state.allowVideo = newValue } }
+    var numberOnlyToRequests: Bool { get { state.numberOnlyToRequests } set { state.numberOnlyToRequests = newValue } }
+    var temporaries: [Temporary] { state.temporaries }
+    var visits: [Visit] { state.visits }
+
+    var secretIsValid: Bool {
+        switch state.secretKind {
+        case .phrase: return state.secret.trimmingCharacters(in: .whitespaces).count >= 3
+        case .code: return (4...6).contains(state.secret.count) && state.secret.allSatisfy(\.isNumber)
+        }
+    }
+
+    var shareLink: URL { URL(string: "https://modula.digital/n/\(state.number)")! }
+
+    func regenerate() {
+        adopt(Self.generate())
+    }
+
+    /// Switch to a specific new number (the Refresh sheet previews it first).
+    func adopt(_ number: String) {
+        state.number = number
+        state.visits = []
+    }
+
+    func addTemporary(label: String, expires: TimeInterval?, uses: Int?) {
+        let temp = Temporary(number: Self.generate(), label: label,
+                             expires: expires.map { Date().addingTimeInterval($0) }, usesLeft: uses, maxUses: uses)
+        state.temporaries.insert(temp, at: 0)
+    }
+
+    func removeTemporary(_ id: String) { state.temporaries.removeAll { $0.id == id } }
+    func clearExpired() { state.temporaries.removeAll { !$0.isActive } }
+}
+
+/// Settings › Appearance › Modula Number row.
+struct ModulaNumberSettingsRow: View {
+    @State private var open = false
+
+    var body: some View {
+        let store = ModulaNumberStore.shared
+        Button { open = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "circle.grid.3x3").font(.body.weight(.semibold)).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Modula Number").font(.body.weight(.semibold))
+                    Text(store.enabled ? ModulaNumberStore.grouped(store.number) + " · " + store.reach.title : "Off")
+                        .font(.footnote.monospacedDigit()).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(.primary)
+            .padding(14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        .sheet(isPresented: $open) { ModulaNumberSheet() }
+        .accessibilityIdentifier("settings.modulaNumber")
+    }
+}
+
+/// "Modula Number" sheet (Calls › My card, Settings, inbox menu). One self-contained layout:
+/// a ScrollView of glass cards, so it never inherits the presenter's List style (from Calls it
+/// was presented inside a `.plain` List and its own List rendered edge to edge). Local preview
+/// until the server declares number support (`calls.callIDs`); see CALLS-BACKEND.md.
+struct ModulaNumberSheet: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var heroScheme
+    private var heroScrim: Color { heroScheme == .dark ? Color(hex: "#05040C") : Color(hex: "#F6F5FB") }
+    @State private var refreshing = false
+    @State private var confirmBlockRefresh = false
+    @State private var showsQR = false
+    @State private var copied = false
+    @State private var shareBounce = 0
+    @State private var qrBounce = 0
+    @State private var revealSecret = false
+    @State private var glow = false
+
+    static let margin: CGFloat = 20
+    private var isPreview: Bool { !app.calls.capabilities.callIDs }
+    private var store: ModulaNumberStore { .shared }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    hero
+                    actionRow
+                    ModulaNumberCard(footer: "Hidden: your number isn't shown on your profile or in calls. People who already have it can still reach you by your rules below.") {
+                        toggleRow("Enabled", isOn: Binding(get: { store.enabled }, set: { v in animate { store.enabled = v } }))
+                        ModulaNumberDivider()
+                        toggleRow("Hide number from others", isOn: Binding(get: { store.hidden }, set: { v in animate { store.hidden = v } }))
+                    }
+                    if store.enabled {
+                        Group {
+                            reachSection
+                            allowSection
+                            temporarySection
+                            safetySection
+                            activitySection
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    ConnectPromoCard { dismiss() }
+                }
+                .padding(.horizontal, Self.margin)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Modula Number")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button { dismiss() } label: {
+                        Text("Done").font(.body.weight(.semibold)).foregroundStyle(.primary)
+                            .padding(.horizontal, 14).frame(minHeight: 34)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .sheet(isPresented: $refreshing) {
+                ModulaNumberRefreshSheet(old: store.number) { new in
+                    refreshing = false
+                    adopt(new)
+                }
+            }
+            .confirmationDialog("Block everyone who used your number and get a new one?", isPresented: $confirmBlockRefresh, titleVisibility: .visible) {
+                Button("Block & Get New Number", role: .destructive) {
+                    adopt(ModulaNumberStore.generate())
+                    app.navigation.flash("Old number retired", symbol: "hand.raised")
+                }
+            } message: { Text("Anyone who only had your old number can't reach you any more.") }
+            .sheet(isPresented: $showsQR) { qrSheet }
+        }
+        // Self-contained: never pick up a List/Form style or tint from whoever presented it.
+        .listStyle(.insetGrouped)
+        .presentationDetents([.large])
+        .modulaSheetStyle()
+        .accessibilityIdentifier("modulaNumber.sheet")
+    }
+
+    private func animate(_ change: () -> Void) {
+        if reduceMotion { change() } else { withAnimation(.snappy(duration: 0.3)) { change() } }
+    }
+
+    private func adopt(_ number: String) {
+        animate { store.adopt(number) }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(reduceMotion ? 50 : 650))
+            HapticEngine.shared.play(.success)
+            withAnimation(.easeOut(duration: 0.25)) { glow = true }
+            try? await Task.sleep(for: .milliseconds(700))
+            withAnimation(.easeOut(duration: 0.6)) { glow = false }
+        }
+        app.navigation.flash("New number: \(ModulaNumberStore.grouped(number))", symbol: "arrow.clockwise")
+    }
+
+    // MARK: Hero
+
+    private var hero: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return VStack(spacing: 14) {
+            HStack(spacing: 6) {
+                statusPill(store.enabled ? "Enabled" : "Off", store.enabled ? "checkmark.circle.fill" : "pause.circle")
+                if store.hidden { statusPill("Hidden", "eye.slash").transition(.scale.combined(with: .opacity)) }
+                if isPreview { statusPill("Preview", "sparkles") }
+            }
+            ModulaNumberDigits(number: store.number, hidden: store.hidden, dimmed: !store.enabled, glow: glow)
+            Text("Share it instead of your handle. It's a Modula number for chats and calls, not a phone number.")
+                .font(.footnote).foregroundStyle(.primary.opacity(0.78)).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity)
+        .background {
+            ZStack {
+                SpectralRibbonsView(accent: app.appearance.liveAccent, intensity: 0.75)
+                // Legibility band behind the digits and caption (soft, no hard edge).
+                LinearGradient(stops: [.init(color: .clear, location: 0),
+                                       .init(color: heroScrim.opacity(0.55), location: 0.32),
+                                       .init(color: heroScrim.opacity(0.6), location: 0.78),
+                                       .init(color: .clear, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            }
+            .clipShape(shape)
+            .accessibilityHidden(true)
+        }
+        .modulaGlass(in: shape, interactive: false)
+        .clipShape(shape)
+    }
+
+    private func statusPill(_ title: String, _ symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.bold))
+            .labelStyle(.titleAndIcon)
+            .padding(.horizontal, 10).frame(minHeight: 26)
+            .fixedSize()
+            .modulaGlass(in: Capsule(), interactive: false)
+    }
+
+    // MARK: Actions (4 equal glass buttons)
+
+    private var actionRow: some View {
+        HStack(spacing: 10) {
+            actionButton(copied ? "Copied" : "Copy", copied ? "checkmark" : "doc.on.doc", bounce: 0) {
+                UIPasteboard.general.string = store.number
+                app.navigation.flash("Number copied", symbol: "doc.on.doc")
+                withAnimation(.snappy) { copied = true }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.6))
+                    withAnimation(.snappy) { copied = false }
+                }
+            }
+            ShareLink(item: store.shareLink, subject: Text("My Modula Number"),
+                      message: Text("Reach me on Modula: \(ModulaNumberStore.grouped(store.number))")) {
+                actionLabel("Share", "square.and.arrow.up", bounce: shareBounce)
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+            .simultaneousGesture(TapGesture().onEnded { shareBounce += 1 })
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            actionButton("QR", "qrcode", bounce: qrBounce) {
+                qrBounce += 1
+                showsQR = true
+            }
+            actionButton("Refresh", "arrow.clockwise", bounce: 0) { refreshing = true }
+        }
+        .disabled(!store.enabled)
+        .opacity(store.enabled ? 1 : 0.45)
+    }
+
+    private func actionLabel(_ title: String, _ symbol: String, bounce: Int) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: bounce)
+                .frame(height: 22)
+            Text(title).font(.caption.weight(.semibold)).fixedSize()
+                .contentTransition(.opacity)
+        }
+        .foregroundStyle(.primary)
+        .frame(maxWidth: .infinity, minHeight: 66)
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func actionButton(_ title: String, _ symbol: String, bounce: Int, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) { actionLabel(title, symbol, bounce: bounce) }
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            .accessibilityLabel(title)
+    }
+
+    private func toggleRow(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+    }
+
+    // MARK: Sections
+
+    private var reachSection: some View {
+        ModulaNumberCard(header: "Who can reach me", footer: reachFooter) {
+            ForEach(Array(ModulaNumberStore.Reach.allCases.enumerated()), id: \.element) { index, option in
+                if index > 0 { ModulaNumberDivider() }
+                let on = store.reach == option
+                Button {
+                    HapticEngine.shared.play(.selection)
+                    animate { store.reach = option }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: option.symbol).font(.body).frame(width: 24)
+                        Text(option.title).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        if on {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(app.appearance.liveAccent)
+                                .transition(.scale(scale: 0.4).combined(with: .opacity))
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 50)
+                    .background { if on { Color.primary.opacity(0.06) } }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+            if store.reach == .withSecret {
+                ModulaNumberDivider()
+                secretEditor
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var reachFooter: String {
+        guard store.reach == .withSecret else { return "Applies to anyone who finds you by number." }
+        return "People need your number and this secret to start a chat or call."
+    }
+
+    @ViewBuilder private var secretEditor: some View {
+        @Bindable var model = ModulaNumberStore.shared
+        VStack(alignment: .leading, spacing: 10) {
+            ModulaSegmentedControl("Secret type", selection: Binding(get: { model.secretKind }, set: { v in animate { model.secretKind = v; model.secret = "" } }),
+                                   segments: ModulaNumberStore.SecretKind.allCases.map { ($0, $0.title) })
+            HStack(spacing: 10) {
+                Group {
+                    if revealSecret {
+                        TextField(model.secretKind == .phrase ? "Secret phrase" : "4–6 digit code", text: $model.secret)
+                    } else {
+                        SecureField(model.secretKind == .phrase ? "Secret phrase" : "4–6 digit code", text: $model.secret)
+                    }
+                }
+                .keyboardType(model.secretKind == .code ? .numberPad : .default)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                Button { withAnimation(.snappy) { revealSecret.toggle() } } label: {
+                    Image(systemName: revealSecret ? "eye.slash" : "eye")
+                        .contentTransition(.symbolEffect(.replace))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(revealSecret ? "Hide secret" : "Show secret")
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
+            let hint = ModulaNumberSecretStrength.evaluate(model.secret, kind: model.secretKind)
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { i in
+                    Capsule().fill(i < hint.level ? Color.primary : Color.primary.opacity(0.15))
+                        .frame(height: 4)
+                }
+            }
+            .animation(.snappy, value: hint.level)
+            Text(hint.text).font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+        }
+        .padding(16)
+    }
+
+    private var allowSection: some View {
+        ModulaNumberCard(header: "By number, allow", footer: "Messages from people who only have your number wait in Requests until you accept.") {
+            toggleRow("Chats", isOn: Binding(get: { store.allowChat }, set: { store.allowChat = $0 }))
+            ModulaNumberDivider()
+            toggleRow("Voice calls", isOn: Binding(get: { store.allowVoice }, set: { store.allowVoice = $0 }))
+            ModulaNumberDivider()
+            toggleRow("Video calls", isOn: Binding(get: { store.allowVideo }, set: { store.allowVideo = $0 }))
+            ModulaNumberDivider()
+            toggleRow("New people go to Requests", isOn: Binding(get: { store.numberOnlyToRequests }, set: { store.numberOnlyToRequests = $0 }))
+        }
+    }
+
+    private var temporarySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ModulaNumberSectionHeader(title: "Temporary numbers")
+            ForEach(store.temporaries) { temp in
+                ModulaTemporaryNumberCard(temp: temp) {
+                    UIPasteboard.general.string = temp.number
+                    app.navigation.flash("Temporary number copied", symbol: "doc.on.doc")
+                } onDelete: {
+                    animate { store.removeTemporary(temp.id) }
+                }
+                .transition(.asymmetric(insertion: .scale(scale: 0.92).combined(with: .opacity), removal: .opacity))
+            }
+            Menu {
+                Button("Expires in 24 hours", systemImage: "clock") { addTemp("24 hours", 86_400, nil) }
+                Button("Expires in 7 days", systemImage: "calendar") { addTemp("7 days", 7 * 86_400, nil) }
+                Button("Works once", systemImage: "1.circle") { addTemp("One use", nil, 1) }
+                Button("Works 5 times", systemImage: "5.circle") { addTemp("5 uses", nil, 5) }
+            } label: {
+                Label("New temporary number", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+            if store.temporaries.contains(where: { !$0.isActive }) {
+                Button("Clear expired") { animate { store.clearExpired() } }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+                    .padding(.leading, 16)
+            }
+            ModulaNumberSectionFooter(text: "For strangers, sellers or one-off meetups. They stop working on their own, and your main number stays private.")
+        }
+    }
+
+    private func addTemp(_ label: String, _ expires: TimeInterval?, _ uses: Int?) {
+        HapticEngine.shared.play(.selection)
+        animate { store.addTemporary(label: label, expires: expires, uses: uses) }
+    }
+
+    private var safetySection: some View {
+        ModulaNumberCard(footer: "One tap if your number gets passed around.") {
+            Button { confirmBlockRefresh = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "hand.raised").frame(width: 24)
+                    Text("Block & get a new number")
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 50)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var activitySection: some View {
+        ModulaNumberCard(header: "Reached you by number") {
+            if store.visits.isEmpty {
+                Text(isPreview ? "Shows here once Modula Numbers are live." : "No one has used your number yet.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ForEach(Array(store.visits.enumerated()), id: \.element.id) { index, visit in
+                    if index > 0 { ModulaNumberDivider() }
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(visit.name).fixedSize(horizontal: false, vertical: true)
+                            Text("@\(visit.handle) · \(visit.kind)").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Text(visit.date.formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 54)
+                }
+            }
+        }
+    }
+
+    private var qrSheet: some View {
+        NavigationStack {
+            VStack(spacing: 18) {
+                if let matrix = ModulaQRMatrix.make(store.shareLink.absoluteString) {
+                    ModulaBrandedQRCode(matrix: matrix, style: .mono, accent: .black) {
+                        Image(systemName: "circle.grid.3x3.fill").font(.title2.weight(.bold)).foregroundStyle(.black)
+                    }
+                    .frame(width: 220, height: 220)
+                    .padding(20)
+                    .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(.white))
+                    .transition(.scale.combined(with: .opacity))
+                }
+                Text(ModulaNumberStore.grouped(store.number)).font(.system(.title, design: .monospaced).weight(.semibold))
+            }
+            .padding(.top, 20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button { showsQR = false } label: {
+                        Text("Done").font(.body.weight(.semibold)).foregroundStyle(.primary)
+                            .padding(.horizontal, 14).frame(minHeight: 34)
+                            .modulaGlass(in: Capsule(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .modulaSheetStyle()
+    }
+}
+
+// MARK: Modula Number building blocks
+
+/// Inset grouped glass card with an optional header/footer aligned to the card's 16pt content inset.
+struct ModulaNumberCard<Content: View>: View {
+    var header: String? = nil
+    var footer: String? = nil
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let header { ModulaNumberSectionHeader(title: header) }
+            VStack(spacing: 0) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            if let footer { ModulaNumberSectionFooter(text: footer) }
+        }
+    }
+}
+
+struct ModulaNumberSectionHeader: View {
+    let title: String
+    var body: some View {
+        Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+            .padding(.leading, 16)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+struct ModulaNumberSectionFooter: View {
+    let text: String
+    var body: some View {
+        Text(text).font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+    }
+}
+
+struct ModulaNumberDivider: View {
+    var body: some View { Divider().padding(.leading, 16) }
+}
+
+/// Monospaced grouped digits that roll like an odometer (staggered per digit) when the number
+/// changes, count in from zeros on appear, and blur to dots when hidden. Reduce Motion: cross-fade.
+struct ModulaNumberDigits: View {
+    let number: String
+    let hidden: Bool
+    var dimmed = false
+    var glow = false
+    var size: CGFloat = 46
+    /// Roll from this number on appear (the Refresh sheet: old → new). nil = from zeros.
+    var startFrom: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown: String?
+
+    var body: some View {
+        let chars = Array(ModulaNumberStore.grouped(shown ?? number))
+        HStack(spacing: 0) {
+            ForEach(Array(chars.enumerated()), id: \.offset) { index, char in
+                if char == " " {
+                    Text(" ")
+                } else {
+                    Text(hidden ? "•" : String(char))
+                        .contentTransition(reduceMotion || hidden ? .opacity : .numericText(value: Double(char.wholeNumberValue ?? 0)))
+                        .animation(reduceMotion ? .easeInOut(duration: 0.2)
+                                   : .spring(response: 0.55, dampingFraction: 0.78).delay(Double(index) * 0.045), value: shown)
+                        .animation(.easeInOut(duration: 0.25), value: hidden)
+                }
+            }
+        }
+        .font(.system(size: size, weight: .semibold, design: .monospaced))
+        .foregroundStyle(dimmed ? Color.secondary : Color.primary)
+        .blur(radius: hidden && !reduceMotion ? 0.6 : 0)
+        .shadow(color: Color.primary.opacity(glow ? 0.55 : 0), radius: glow ? 18 : 0)
+        .minimumScaleFactor(0.6)
+        .lineLimit(1)
+        .onAppear {
+            guard shown == nil else { return }
+            if reduceMotion { shown = number; return }
+            shown = startFrom ?? String(repeating: "0", count: number.count)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                shown = number
+            }
+        }
+        .onChange(of: number) { _, value in shown = value }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(hidden ? "Number hidden" : "Modula Number " + number.map(String.init).joined(separator: " "))
+    }
+}
+
+enum ModulaNumberSecretStrength {
+    struct Hint { let level: Int; let text: String }
+
+    static func evaluate(_ value: String, kind: ModulaNumberStore.SecretKind) -> Hint {
+        switch kind {
+        case .code:
+            guard !value.isEmpty else { return Hint(level: 0, text: "Use 4 to 6 digits.") }
+            guard value.allSatisfy(\.isNumber), (4...6).contains(value.count) else { return Hint(level: 1, text: "Use 4 to 6 digits.") }
+            let digits = value.compactMap(\.wholeNumberValue)
+            let same = Set(digits).count == 1
+            let steps = zip(digits, digits.dropFirst()).map { $1 - $0 }
+            let sequential = Set(steps).count == 1 && (steps.first == 1 || steps.first == -1)
+            if same || sequential { return Hint(level: 1, text: "Easy to guess. Avoid repeats and runs like 1234.") }
+            return Hint(level: value.count >= 6 ? 3 : 2, text: value.count >= 6 ? "Strong code." : "Good. Six digits is stronger.")
+        case .phrase:
+            let trimmed = value.trimmingCharacters(in: .whitespaces)
+            guard trimmed.count >= 3 else { return Hint(level: trimmed.isEmpty ? 0 : 1, text: "Use at least 3 characters.") }
+            let words = trimmed.split(separator: " ").count
+            if trimmed.count >= 12 || words >= 3 { return Hint(level: 3, text: "Strong phrase.") }
+            if trimmed.count >= 7 { return Hint(level: 2, text: "Good. A few words make it stronger.") }
+            return Hint(level: 1, text: "Short phrases are easy to guess.")
+        }
+    }
+}
+
+/// Temporary number as a glass card with a countdown ring (time or uses left).
+struct ModulaTemporaryNumberCard: View {
+    let temp: ModulaNumberStore.Temporary
+    let onCopy: () -> Void
+    let onDelete: () -> Void
+    @State private var copied = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let left = temp.remaining(at: context.date)
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().stroke(Color.primary.opacity(0.12), lineWidth: 4)
+                    Circle().trim(from: 0, to: left)
+                        .stroke(Color.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeInOut(duration: 0.6), value: left)
+                    Image(systemName: temp.expires != nil ? "clock" : "number")
+                        .font(.caption.weight(.semibold))
+                }
+                .frame(width: 38, height: 38)
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ModulaNumberStore.grouped(temp.number))
+                        .font(.body.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(temp.isActive ? Color.primary : Color.secondary)
+                    Text("\(temp.label) · \(temp.status)").font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if temp.isActive {
+                    Button {
+                        onCopy()
+                        withAnimation(.snappy) { copied = true }
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(1.4))
+                            withAnimation(.snappy) { copied = false }
+                        }
+                    } label: {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                            .contentTransition(.symbolEffect(.replace))
+                            .font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+                            .frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Circle(), interactive: true)
+                    .accessibilityLabel("Copy temporary number")
+                }
+                Menu {
+                    Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                } label: {
+                    Image(systemName: "ellipsis").font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+                        .frame(width: 34, height: 34)
+                }
+                .modulaGlass(in: Circle(), interactive: true)
+                .accessibilityLabel("More for this number")
+            }
+            .padding(14)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+            .opacity(temp.isActive ? 1 : 0.6)
+        }
+    }
+}
+
+/// Glass confirmation for Refresh: old number → new one rolling in. Shuffle for another.
+struct ModulaNumberRefreshSheet: View {
+    let old: String
+    let onConfirm: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var candidate = ModulaNumberStore.generate()
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Text("Get a new number?").font(.title3.bold())
+            VStack(spacing: 6) {
+                Text("Current").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(ModulaNumberStore.grouped(old))
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .strikethrough(true, color: .secondary)
+                Image(systemName: "arrow.down").font(.footnote.weight(.bold)).foregroundStyle(.secondary).padding(.vertical, 2)
+                Text("New").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                ModulaNumberDigits(number: candidate, hidden: false, size: 40, startFrom: old)
+            }
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
+            Text("Your old number stops working straight away. Temporary numbers keep working.")
+                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { onConfirm(candidate) } label: {
+                Text("Use New Number").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.modulaPrimary)
+            HStack(spacing: 10) {
+                glass("Shuffle", "shuffle") {
+                    HapticEngine.shared.play(.selection)
+                    candidate = ModulaNumberStore.generate()
+                }
+                glass("Cancel", "xmark") { dismiss() }
+            }
+        }
+        .padding(20)
+        .presentationDetents([.medium])
+        .modulaSheetStyle()
+        .accessibilityIdentifier("modulaNumber.refresh")
+    }
+
+    private func glass(_ title: String, _ symbol: String, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: Capsule(), interactive: true)
+    }
+}
+
+
+// MARK: - Call notes (local, t235u)
+
+@MainActor @Observable
+final class CallNotesStore {
+    static let shared = CallNotesStore()
+    private static let key = "calls.notes.v1"
+    private var notes: [String: String]
+
+    private init() {
+        notes = UserDefaults.standard.dictionary(forKey: Self.key) as? [String: String] ?? [:]
+    }
+
+    func note(for callID: String) -> String? {
+        guard let text = notes[callID], !text.isEmpty else { return nil }
+        return text
+    }
+
+    func set(_ text: String, for callID: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        notes[callID] = trimmed.isEmpty ? nil : String(trimmed.prefix(500))
+        UserDefaults.standard.set(notes, forKey: Self.key)
     }
 }

@@ -277,12 +277,7 @@ struct ModulaRemoteImage<Content: View>: View {
                 try await client.mediaData(from: url)
             }
             try Task.checkCancellation()
-            let maximumPixelSize = maximumPixelSize
-            guard let image = await Task.detached(priority: .userInitiated, operation: {
-                ModulaSignpost.measure("ImageDecode", "\(Int(maximumPixelSize))px") {
-                    ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
-                }
-            }).value else {
+            guard let image = await ModulaImageDecodeGate.shared.decode(key: cacheKey, data: data, maximumPixelSize: maximumPixelSize, priority: .userInitiated) else {
                 phase = .failure("The image could not be decoded.")
                 return
             }
@@ -313,11 +308,33 @@ enum ModulaImagePrefetcher {
         if requested.count > 600 { requested.removeAll(keepingCapacity: true) }
         Task(priority: .utility) { @MainActor in
             guard let data = try? await ModulaRemoteImagePipeline.shared.data(for: cacheKey, fetch: { try await client.mediaData(from: url) }) else { return }
-            guard let image = await Task.detached(priority: .utility, operation: {
-                ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
-            }).value else { return }
+            guard let image = await ModulaImageDecodeGate.shared.decode(key: cacheKey, data: data, maximumPixelSize: maximumPixelSize, priority: .utility) else { return }
             ModulaRemoteImageCache.shared.insert(image, for: cacheKey, requestedPixelSize: maximumPixelSize)
         }
+    }
+}
+
+/// Speed: one decode per key+size at a time. A prefetch and the on-screen cell (or two cells
+/// showing the same avatar) used to decode the same bytes in parallel during fast scrolls.
+private actor ModulaImageDecodeGate {
+    static let shared = ModulaImageDecodeGate()
+    private var inFlight: [String: Task<UIImage?, Never>] = [:]
+
+    func decode(key: String, data: Data, maximumPixelSize: CGFloat, priority: TaskPriority) async -> UIImage? {
+        let slot = "\(key)|\(Int(maximumPixelSize))"
+        if let existing = inFlight[slot] {
+            ModulaSignpost.event("ImageDecodeCoalesced", slot)
+            return await existing.value
+        }
+        let task = Task.detached(priority: priority) { () -> UIImage? in
+            ModulaSignpost.measure("ImageDecode", "\(Int(maximumPixelSize))px") {
+                ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: maximumPixelSize)
+            }
+        }
+        inFlight[slot] = task
+        let image = await task.value
+        inFlight[slot] = nil
+        return image
     }
 }
 
@@ -406,14 +423,21 @@ enum ModulaFeedImage {
 /// cache key, so relaunches and re-visits don't re-download. Trimmed to ~250 MB
 /// after launch, cleared from Settings → Storage and on sign-out.
 enum ModulaImageDiskCache {
+    nonisolated private static let hexDigits: [UInt8] = Array("0123456789abcdef".utf8)
+
     nonisolated static var root: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("modula-images", isDirectory: true)
     }
 
     nonisolated private static func file(for key: String) -> URL {
-        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
-        return root.appendingPathComponent(String(digest.prefix(40)))
+        // Speed: table hex instead of 32 `String(format:)` calls per lookup (runs for every image load).
+        let digest = SHA256.hash(data: Data(key.utf8))
+        var chars = [UInt8](); chars.reserveCapacity(40)
+        for byte in digest.prefix(20) {
+            chars.append(hexDigits[Int(byte >> 4)]); chars.append(hexDigits[Int(byte & 0x0F)])
+        }
+        return root.appendingPathComponent(String(decoding: chars, as: UTF8.self))
     }
 
     nonisolated static func read(_ key: String) -> Data? {

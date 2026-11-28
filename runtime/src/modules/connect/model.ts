@@ -29,7 +29,9 @@ export type LifecycleState =
   | 'verificationRejected' | 'numberUnavailable' | 'paymentFailed' | 'provisioningFailed' | 'suspended' | 'cancellationPending';
 export type OwnedNumber = {
   id: string; number: AvailableNumber; planID: string; state: LifecycleState;
-  settings: {smsNotifications: boolean; callNotifications: boolean; voicemail: boolean; forwarding: boolean};
+  settings: {smsNotifications: boolean; callNotifications: boolean; voicemail: boolean; forwarding: boolean;
+    spamFilter: boolean; quietHours: boolean; businessHours: boolean; nickname: string;
+    forwardMode?: ForwardMode; forwardTo?: string; voicemailGreeting?: 'default' | 'custom'; voicemailText?: string};
 };
 
 export const LIFECYCLE_ORDER: LifecycleState[] = ['available', 'verificationPending', 'readyToProvision', 'provisioning', 'active'];
@@ -129,13 +131,88 @@ export function isMockTaken(numberID: string): boolean {
 
 export type Step =
   | 'welcome' | 'connection' | 'country' | 'find' | 'details' | 'plan' | 'verify' | 'status'
-  | 'review' | 'progress' | 'activated' | 'dashboard' | 'settings';
+  | 'review' | 'progress' | 'activated' | 'dashboard' | 'settings'
+  | 'transfer' | 'transferStatus' | 'forwarding' | 'voicemail' | 'compare';
 
 export const STEP_TITLES: Record<Step, string> = {
   welcome: 'Modula Connect', connection: 'Choose connection', country: 'Choose country', find: 'Find your number',
   details: 'Number details', plan: 'Your number plan', verify: 'Verify identity', status: 'Verification status',
   review: 'Review & activate', progress: 'Activating', activated: 'Number ready', dashboard: 'My numbers', settings: 'Number settings',
+  transfer: 'Transfer a number', transferStatus: 'Transfer status', forwarding: 'Call forwarding', voicemail: 'Voicemail',
+  compare: 'Compare plans',
 };
+
+// MARK: Preview extras (5:00 round) — all mock, nothing contacts a carrier.
+
+export type ForwardMode = 'off' | 'always' | 'busy' | 'noAnswer';
+
+export function forwardModeLabel(mode: ForwardMode): string {
+  return mode === 'off' ? 'Off' : mode === 'always' ? 'Always' : mode === 'busy' ? 'When busy' : 'No answer';
+}
+
+/** UK mobile or landline for forwarding: 07… / 01… / 02… or +44 equivalent, 10–11 digits. */
+export function validateForwardTarget(raw: string): string | null {
+  const compact = raw.replace(/[\s()-]/g, '');
+  const national = compact.startsWith('+44') ? `0${compact.slice(3)}` : compact;
+  if (!/^0[127]\d{8,9}$/.test(national)) return 'Enter a UK number starting 07, 01 or 02.';
+  if (/^0(9|8)/.test(national)) return 'Premium and special-rate numbers can’t be used.';
+  return null;
+}
+
+/** UK switching codes: PAC (3 letters + 6 digits) keeps the number; STAC (6 digits + 3 letters) doesn’t. */
+export function classifySwitchCode(raw: string): 'pac' | 'stac' | null {
+  const code = raw.replace(/\s/g, '').toUpperCase();
+  if (/^[A-Z]{3}\d{6}$/.test(code)) return 'pac';
+  if (/^\d{6}[A-Z]{3}$/.test(code)) return 'stac';
+  return null;
+}
+
+export type TransferForm = {number: string; provider: string; code: string; accountHolder: string};
+
+export function validateTransfer(form: TransferForm): string[] {
+  const errors: string[] = [];
+  const digits = form.number.replace(/\D/g, '');
+  if (!/^(07\d{9}|447\d{9})$/.test(digits)) errors.push('Enter the UK mobile number you want to move.');
+  if (!form.provider.trim()) errors.push('Choose your current provider.');
+  const kind = classifySwitchCode(form.code);
+  if (kind === null) errors.push('Enter a PAC code like ABC123456 (text PAC to 65075 to get one).');
+  if (kind === 'stac') errors.push('That’s a STAC — it cancels without keeping the number. Text PAC to 65075 instead.');
+  if (!form.accountHolder.trim()) errors.push('Enter the account holder’s name.');
+  return errors;
+}
+
+export const TRANSFER_STEPS = ['Request received', 'Code checked with your provider', 'Switch day booked', 'Number moves to Modula'] as const;
+
+/** Next working day after `from` (UK switches complete within one working day of a valid PAC). */
+export function nextWorkingDay(from: Date): Date {
+  const d = new Date(from.getTime());
+  do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6);
+  return d;
+}
+
+export type MockVoicemail = {id: string; from: string; ago: string; seconds: number; transcript: string; illustrative: true};
+
+export function mockVoicemails(numberID: string): MockVoicemail[] {
+  const base = numberID.length;
+  return [
+    {id: `${numberID}-vm1`, from: '07700 900461', ago: '12 min ago', seconds: 18 + (base % 5), illustrative: true,
+      transcript: 'Hi, it’s Sam — just checking you got the parcel. Call me back when you can.'},
+    {id: `${numberID}-vm2`, from: '07700 900118', ago: 'Yesterday', seconds: 9, illustrative: true,
+      transcript: 'Your table for two at 7 is confirmed. See you then.'},
+    {id: `${numberID}-vm3`, from: 'Unknown', ago: 'Mon', seconds: 31, illustrative: true,
+      transcript: 'This is a reminder about your appointment on Thursday at 10:30.'},
+  ];
+}
+
+/** Rows for the plan comparison grid (value per plan id; true/false render as ✓/–). */
+export const PLAN_COMPARISON: {label: string; values: Record<string, string | boolean>}[] = [
+  {label: 'Public UK number', values: {core: false, personal: true, plus: true, business: true}},
+  {label: 'Modula-to-Modula calls', values: {core: true, personal: true, plus: true, business: true}},
+  {label: 'SMS and calls', values: {core: false, personal: 'Allowance', plus: 'Bigger', business: 'Custom'}},
+  {label: 'Voicemail', values: {core: false, personal: 'Later', plus: 'Later', business: 'Later'}},
+  {label: 'Call forwarding', values: {core: false, personal: false, plus: 'Later', business: 'Later'}},
+  {label: 'Team routing', values: {core: false, personal: false, plus: false, business: 'Later'}},
+];
 
 export function capabilityLabel(capability: Capability): string {
   return capability === 'sms' ? 'SMS' : capability === 'mms' ? 'MMS' : 'Voice';
@@ -209,7 +286,7 @@ export function createMockConnectApi(latencyMs = 450): ConnectApi {
       if (options?.simulateFailure) throw new Error('provisioningFailed');
       const number = mockNumbers(0).concat(mockNumbers(1), mockNumbers(2)).find(n => n.id === numberID) ?? mockNumbers(0)[0];
       const record: OwnedNumber = {id: `owned-${numberID}`, number, planID, state: 'active',
-        settings: {smsNotifications: true, callNotifications: true, voicemail: false, forwarding: false}};
+        settings: {...DEFAULT_NUMBER_SETTINGS}};
       owned.push(record);
       return record;
     },
@@ -229,4 +306,50 @@ export function createMockConnectApi(latencyMs = 450): ConnectApi {
       return owned[index];
     },
   };
+}
+
+
+// MARK: t237u — more Connect features (mock/local only)
+
+export const DEFAULT_NUMBER_SETTINGS: OwnedNumber['settings'] = {
+  smsNotifications: true, callNotifications: true, voicemail: false, forwarding: false,
+  spamFilter: true, quietHours: false, businessHours: false, nickname: '',
+};
+
+/** A number is "memorable" when its last six digits repeat a digit 3+ times or form a run. */
+export function isMemorable(display: string): boolean {
+  const digits = display.replace(/\D/g, '').slice(-6);
+  if (digits.length < 6) return false;
+  const counts = new Map<string, number>();
+  for (const d of digits) counts.set(d, (counts.get(d) ?? 0) + 1);
+  if ([...counts.values()].some(c => c >= 3)) return true;
+  let run = 1;
+  for (let i = 1; i < digits.length; i++) {
+    const step = Number(digits[i]) - Number(digits[i - 1]);
+    run = step === 1 ? run + 1 : 1;
+    if (run >= 4) return true;
+  }
+  return /(\d\d)\1/.test(digits);
+}
+
+export type UsageSnapshot = {texts: number; textsAllowance: number | null; minutes: number; minutesAllowance: number | null; illustrative: true};
+
+/** Deterministic, clearly illustrative usage for the dashboard meter (no real traffic exists). */
+export function mockUsage(numberID: string, plan?: Plan | null): UsageSnapshot {
+  let h = 0;
+  for (const c of numberID) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const textsAllowance = plan?.id === 'business' ? null : plan?.id === 'plus' ? 1000 : 250;
+  const minutesAllowance = plan?.id === 'business' ? null : plan?.id === 'plus' ? 500 : 100;
+  return {texts: h % 120, textsAllowance, minutes: (h >> 8) % 60, minutesAllowance, illustrative: true};
+}
+
+export function usageFraction(used: number, allowance: number | null): number {
+  if (allowance === null || allowance <= 0) return 0;
+  return Math.max(0, Math.min(1, used / allowance));
+}
+
+/** Progress through the activation lifecycle, for the settings timeline. */
+export function lifecycleProgress(state: LifecycleState): number {
+  const i = LIFECYCLE_ORDER.indexOf(state);
+  return i < 0 ? -1 : i;
 }

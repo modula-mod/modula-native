@@ -526,8 +526,8 @@ struct ImmersivePostCard: View {
                 .lineLimit(1)
                 .layoutPriority(-1)
                 // Pointer hover (iPad) and VoiceOver get the exact date.
-                .help(post.createdAt.formatted(date: .complete, time: .shortened))
-                .accessibilityLabel("Posted \(post.createdAt.formatted(date: .long, time: .shortened))")
+                .help(ModulaPostDateText.complete(post.createdAt))
+                .accessibilityLabel(ModulaPostDateText.posted(post.createdAt))
         }
     }
 

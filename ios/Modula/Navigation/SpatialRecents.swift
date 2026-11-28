@@ -39,6 +39,7 @@ enum SpatialRecents {
         case .saved: Label(title: "Saved", symbol: "bookmark")
         case .collections(.root): Label(title: "Collections", symbol: "rectangle.stack")
         case .drafts: Label(title: "Drafts", symbol: "doc.text")
+        case .board: Label(title: "Board", symbol: "square.grid.2x2")
         case .messages(.inbox): Label(title: "Messages", symbol: "bubble.left.and.bubble.right")
         case .messages(.requests): Label(title: "Message requests", symbol: "tray")
         case .developer(.studio): Label(title: "Builder", symbol: "hammer")

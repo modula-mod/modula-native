@@ -97,24 +97,40 @@ extension HapticSemantic {
     static let shared = HapticEngine()
     var intensityProvider: () -> AppearanceStore.HapticIntensity = { .standard }
 
+    // Reused, pre-warmed generators: allocating one per tap spun the Taptic Engine up cold
+    // every time (visible latency on fast selection haptics such as scrubbing or jiggle swaps).
+    private let selection = UISelectionFeedbackGenerator()
+    private let light = UIImpactFeedbackGenerator(style: .light)
+    private let medium = UIImpactFeedbackGenerator(style: .medium)
+    private let heavy = UIImpactFeedbackGenerator(style: .heavy)
+    private let soft = UIImpactFeedbackGenerator(style: .soft)
+    private let notification = UINotificationFeedbackGenerator()
+
     func play(_ semantic: HapticSemantic) {
         let intensity = intensityProvider()
         guard intensity != .off else { return }
         switch semantic {
         case .selection, .reactionSelect:
-            UISelectionFeedbackGenerator().selectionChanged()
+            selection.selectionChanged()
+            selection.prepare()
         case .navigation, .contextOpen, .lightImpact:
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            light.impactOccurred()
+            light.prepare()
         case .mediumImpact, .impact, .dragThreshold:
-            UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .light ? .light : .medium).impactOccurred()
+            let g = intensity == .strong ? heavy : intensity == .light ? light : medium
+            g.impactOccurred()
+            g.prepare()
         case .drop:
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            soft.impactOccurred()
+            soft.prepare()
         case .saveComplete:
             ModulaHapticTexture.play(.save)
         case .confirmation, .success, .followComplete:
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            notification.notificationOccurred(.success)
+            notification.prepare()
         case .warning:
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            notification.notificationOccurred(.warning)
+            notification.prepare()
         case .failure:
             ModulaHapticTexture.play(.error)
         }
@@ -1153,3 +1169,64 @@ struct ModulaSectionHeader: View {
     }
 }
 
+
+
+// MARK: - Appear motion (t237u)
+
+/// Fades and lifts content in once when it first appears, optionally staggered. Static under
+/// Reduce Motion. Cheap: one opacity + offset animation, no layout change.
+struct ModulaAppearModifier: ViewModifier {
+    var delay: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 10)
+            .onAppear {
+                guard !shown else { return }
+                if reduceMotion { shown = true } else {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(delay)) { shown = true }
+                }
+            }
+    }
+}
+
+extension View {
+    func modulaAppear(delay: Double = 0) -> some View { modifier(ModulaAppearModifier(delay: delay)) }
+    /// Same entrance, replayed every time `active` turns true (e.g. each time a drawer opens).
+    func modulaAppear(delay: Double = 0, replayWhen active: Bool) -> some View {
+        modifier(ModulaReplayAppearModifier(delay: delay, active: active))
+    }
+}
+
+struct ModulaReplayAppearModifier: ViewModifier {
+    var delay: Double = 0
+    var active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    /// Set once `active` went false while still mounted (closed but kept alive).
+    @State private var needsReplay = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 10)
+            // Always plays on mount (also when opened by a drag, before `active` flips).
+            .onAppear { play() }
+            .onChange(of: active) { _, now in
+                if !now { needsReplay = true; return }
+                guard needsReplay else { return }
+                needsReplay = false
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { shown = false }
+                play()
+            }
+    }
+
+    private func play() {
+        if reduceMotion { shown = true; return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(delay)) { shown = true }
+    }
+}

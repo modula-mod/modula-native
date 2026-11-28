@@ -405,7 +405,7 @@ struct MascotStudioView: View {
         HStack(spacing: 8) {
             ModulaGlassGroup(spacing: 8) {
                 HStack(spacing: 8) {
-                    ForEach(Emote.allCases) { e in
+                    ForEach(Emote.primary) { e in
                         Button {
                             play(e)
                         } label: {
@@ -418,6 +418,18 @@ struct MascotStudioView: View {
                         .modulaGlass(in: Capsule(), interactive: true)
                         .accessibilityLabel(e.title)
                     }
+                    Menu {
+                        ForEach(Emote.more) { e in
+                            Button(e.title, systemImage: e.symbol) { play(e) }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 40, height: 36)
+                    }
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityLabel("More emotes")
                 }
             }
             Spacer()
@@ -444,6 +456,9 @@ struct MascotStudioView: View {
 
     private enum Emote: String, CaseIterable, Identifiable {
         case wave, dance, sit, celebrate
+        case love, laugh, surprise, shy, curious, hype, sleepy, sulk
+        static let primary: [Emote] = [.wave, .dance, .sit, .celebrate]
+        static var more: [Emote] { allCases.filter { !primary.contains($0) } }
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
         var symbol: String {
@@ -452,6 +467,14 @@ struct MascotStudioView: View {
             case .dance: "music.note"
             case .sit: "chair.lounge.fill"
             case .celebrate: "party.popper.fill"
+            case .love: "heart.fill"
+            case .laugh: "face.smiling.inverse"
+            case .surprise: "exclamationmark.2"
+            case .shy: "hand.raised.fingers.spread.fill"
+            case .curious: "questionmark.circle.fill"
+            case .hype: "bolt.fill"
+            case .sleepy: "moon.zzz.fill"
+            case .sulk: "cloud.rain.fill"
             }
         }
     }
@@ -462,6 +485,14 @@ struct MascotStudioView: View {
         case .dance: brain.dance()
         case .sit: brain.sit()
         case .celebrate: brain.celebrate()
+        case .love: brain.react(.happy)
+        case .laugh: brain.react(.laughing)
+        case .surprise: brain.react(.surprised)
+        case .shy: brain.react(.shy)
+        case .curious: brain.react(.curious)
+        case .hype: brain.react(.excited)
+        case .sleepy: brain.react(.sleepy)
+        case .sulk: brain.react(.sad)
         }
         MascotSound.shared.play(.pick)
         HapticEngine.shared.play(.selection)

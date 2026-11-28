@@ -657,17 +657,23 @@ struct ShellAccessoryHost: View {
         return ModulaSegmentedControl("Feeds", selection: Binding<ShellQuickTab?>(get: { current }, set: { $0?.open(in: app.navigation) }),
                                       options: ShellQuickTab.allCases.map { Optional($0) }, compact: true,
                                       identifier: { "accessory.quick.\($0?.rawValue ?? "none")" }) { $0?.title ?? "" }
+            // Keep the rail inside the accessory: it used to scroll out under the page dots
+            // and past the platter edge ("Modules" overlapping the dots).
+            .frame(maxWidth: .infinity)
+            .clipShape(Capsule())
     }
 
     private var pageDots: some View {
         HStack(spacing: 4) {
             ForEach(0..<Self.pageTitles.count, id: \.self) { i in
-                Circle()
-                    .fill(i == page ? app.appearance.liveAccent : Color.secondary.opacity(0.35))
-                    .frame(width: 5, height: 5)
+                Capsule()
+                    .fill(i == page ? Color.primary : Color.secondary.opacity(0.35))
+                    .frame(width: i == page ? 12 : 5, height: 5)
             }
         }
         .padding(.trailing, 4)
+        .fixedSize()
+        .layoutPriority(1)
         .accessibilityHidden(true)
     }
 

@@ -521,7 +521,7 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: false
             )
-        case .saved, .collections, .drafts, .community:
+        case .saved, .collections, .drafts, .community, .board:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: false,

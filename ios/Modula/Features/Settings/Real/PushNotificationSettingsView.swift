@@ -161,7 +161,7 @@ struct PushNotificationSettingsView: View {
                 ForEach(readiness.rows, id: \.label) { row in
                     HStack(alignment: .firstTextBaseline, spacing: ModulaSpacing.sm) {
                         Image(systemName: row.ok ? "checkmark.circle.fill" : "circle.dashed")
-                            .foregroundStyle(row.ok ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                            .foregroundStyle(row.ok ? AnyShapeStyle(Color(uiColor: .systemGreen)) : AnyShapeStyle(.secondary))
                             .accessibilityHidden(true)
                         Text(row.label).font(.subheadline)
                         Spacer(minLength: 12)

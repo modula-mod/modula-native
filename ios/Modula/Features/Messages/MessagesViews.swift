@@ -72,6 +72,9 @@ struct MessagesRootView: View {
 }
 
 struct ConversationListView: View {
+    @AppStorage(InboxSwipeAction.storageKey) private var leadingSwipeRaw = InboxSwipeAction.readToggle.rawValue
+    /// "" = the standard Pin · Archive · Mute set; otherwise that action leads (and full-swipes).
+    @AppStorage(InboxSwipeAction.trailingKey) private var trailingSwipeRaw = ""
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Remembered across launches, so "Unread" stays on if that's how you triage.
@@ -96,6 +99,10 @@ struct ConversationListView: View {
     @State private var serverFolderID: String?
     @State private var managingFolders = false
     @State private var titleCollapsed = false
+    /// Inbox › title menu › "Show filter chips" (off: the ▾ title menu is the filter).
+    @AppStorage("messages.inbox.showChips") private var showFilterChips = false
+    @State private var showsQuickReactions = false
+    @State private var showsModulaNumber = false
 
     private enum InboxDestination: Hashable, Identifiable {
         case archived, hidden, folder(String)
@@ -118,7 +125,7 @@ struct ConversationListView: View {
     }
 
     enum InboxFilter: String, CaseIterable, Identifiable {
-        case all, unread, needsReply, groups, favourites, drafts
+        case all, unread, needsReply, groups, favourites, drafts, direct, muted
         /// Four short choices (Hick's law). "Needs reply" stays reachable from code paths only.
         static var allCases: [InboxFilter] { [.all, .unread, .favourites, .groups] }
         var id: Self { self }
@@ -130,6 +137,20 @@ struct ConversationListView: View {
             case .groups: "Groups"
             case .favourites: "Favourites"
             case .drafts: "Drafts"
+            case .direct: "Direct"
+            case .muted: "Muted"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .all: "bubble.left.and.bubble.right"
+            case .unread: "message.badge"
+            case .needsReply: "arrowshape.turn.up.left"
+            case .groups: "person.2"
+            case .favourites: "star"
+            case .drafts: "pencil.line"
+            case .direct: "person"
+            case .muted: "bell.slash"
             }
         }
         /// "Needs reply": the last message came from someone else (Zeigarnik effect: open loops are easy to
@@ -143,6 +164,8 @@ struct ConversationListView: View {
             case .groups: c.kind == .group || c.participants.count > 1
             case .favourites: pinned.contains(c.id)
             case .drafts: drafts.contains(c.id)
+            case .direct: c.kind == .direct && c.participants.count == 1
+            case .muted: c.isMuted
             }
         }
     }
@@ -366,13 +389,9 @@ struct ConversationListView: View {
     /// collapses normally instead of starting half-faded under a tall pinned bar.
     private func header(matches: Int) -> some View {
         VStack(spacing: 8) {
-            Text("Messages")
-                .font(.largeTitle.weight(.bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            inboxTitleMenu
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, ModulaLayout.contentInset)
-                .accessibilityAddTraits(.isHeader)
             if circleOpen && !circle.isEmpty && app.messaging.conversationQuery.isEmpty {
                 circleRow
                     .transition(.opacity)
@@ -381,7 +400,7 @@ struct ConversationListView: View {
             MessagesGlassSearchField(text: Bindable(app.messaging).conversationQuery, prompt: "Find a conversation")
                 .padding(.horizontal, ModulaLayout.contentInset)
             searchScopeCaption(matches: matches)
-            filterRow
+            if showFilterChips || serverFolderID != nil { filterRow }
             if !app.messaging.conversationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 searchKindRow
             }
@@ -390,6 +409,85 @@ struct ConversationListView: View {
             }
         }
         .padding(.bottom, 6)
+    }
+
+    /// Big "Chats" title + glass ▾ menu (filters, places, tools), like X's but fuller. The current
+    /// filter shows beside the title, so the chip row can stay off.
+    private var inboxTitleMenu: some View {
+        let folderName = serverFolderID.flatMap { id in app.messaging.serverFolders.first { $0.id == id }?.name }
+        let current = folderName ?? filter.title
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("Chats")
+                .font(.largeTitle.weight(.bold))
+                .fixedSize()
+                .accessibilityAddTraits(.isHeader)
+            Menu {
+                ControlGroup {
+                    titleFilterButton(.all)
+                    titleFilterButton(.unread)
+                    if app.messaging.capabilities.groups || filter == .groups { titleFilterButton(.groups) }
+                }
+                .controlGroupStyle(.compactMenu)
+                Section {
+                    titleFilterButton(.direct)
+                    Button("Requests", systemImage: "tray.and.arrow.down") { app.navigation.replaceTop(with: .messages(.requests)) }
+                    titleFilterButton(.favourites)
+                    if app.messaging.capabilities.mute { titleFilterButton(.muted) }
+                    Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
+                    titleFilterButton(.drafts)
+                }
+                Section {
+                    Button("Modula Number", systemImage: "circle.grid.3x3") { showsModulaNumber = true }
+                    Button("Calls", systemImage: "phone") { app.navigation.replaceTop(with: .messages(.calls)) }
+                    Button("Chat Settings", systemImage: "gearshape") { app.navigation.push(.settings(.chats(.root))) }
+                    Button("Quick Reactions", systemImage: "face.smiling") { showsQuickReactions = true }
+                    Toggle(isOn: $showFilterChips) { Label("Show Filter Chips", systemImage: "line.3.horizontal.decrease") }
+                }
+                Section {
+                    if app.messaging.capabilities.markRead {
+                        Button("Mark All as Read", systemImage: "checkmark.message") {
+                            Task { await app.messaging.markAllVisibleRead() }
+                        }
+                    }
+                    Button("Select Chats", systemImage: "checkmark.circle") { selecting = true }
+                    if app.messaging.capabilities.groups {
+                        Button("New Group", systemImage: "person.2.badge.plus") { showNewGroup = true }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Text(current).font(.subheadline.weight(.semibold)).fixedSize()
+                    Image(systemName: "chevron.down").font(.caption.weight(.bold))
+                }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 32)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .contentShape(Capsule())
+            }
+            .accessibilityLabel("Chats filter: \(current)")
+            .accessibilityHint("Opens filters, places and inbox tools")
+            .accessibilityIdentifier("messages.inbox.titleMenu")
+            Spacer(minLength: 0)
+        }
+        .sheet(isPresented: $showsModulaNumber) { ModulaNumberSheet() }
+        .sheet(isPresented: $showsQuickReactions) { QuickReactionsEditor() }
+    }
+
+    private func titleFilterButton(_ item: InboxFilter) -> some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) {
+                serverFolderID = nil
+                filter = item
+            }
+            HapticEngine.shared.play(.selection)
+        } label: {
+            if filter == item && serverFolderID == nil {
+                Label(item.title, systemImage: "checkmark")
+            } else {
+                Label(item.title, systemImage: item.symbol)
+            }
+        }
     }
 
     private var searchKindRow: some View {
@@ -649,6 +747,7 @@ struct ConversationListView: View {
                             if selecting {
                                 Image(systemName: selectedIDs.contains(conversation.id) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
+                                    .contentTransition(.symbolEffect(.replace))
                                     .foregroundStyle(selectedIDs.contains(conversation.id) ? Color.primary : Color.secondary)
                                     .accessibilityHidden(true)
                             }
@@ -669,55 +768,8 @@ struct ConversationListView: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: ModulaLayout.contentInset, bottom: 4, trailing: ModulaLayout.contentInset))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        if conversation.isUnread, app.messaging.capabilities.markRead {
-                            Button {
-                                MessagingExtras.shared.clearUnreadMark(conversation.id)
-                                Task { await app.messaging.markConversationRead(conversation.id) }
-                            } label: { Label("Read", systemImage: "checkmark.message.fill") }
-                            .tint(app.appearance.liveAccent)
-                        } else if MessagingExtras.shared.isMarkedUnread(conversation.id) {
-                            Button {
-                                MessagingExtras.shared.clearUnreadMark(conversation.id)
-                                HapticEngine.shared.play(.selection)
-                            } label: { Label("Read", systemImage: "checkmark.message.fill") }
-                            .tint(app.appearance.liveAccent)
-                        } else {
-                            Button {
-                                MessagingExtras.shared.markUnread(conversation.id)
-                                HapticEngine.shared.play(.selection)
-                            } label: { Label("Unread", systemImage: "message.badge.fill") }
-                            .tint(app.appearance.liveAccent)
-                        }
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            togglePin(conversation)
-                        } label: {
-                            Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
-                                  systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
-                        }
-                        .tint(.primary)
-                        if app.messaging.capabilities.archive {
-                            Button {
-                                Task { await app.messaging.archive(conversation.id) }
-                            } label: { Label("Archive", systemImage: "archivebox.fill") }
-                            .tint(.indigo)
-                        }
-                        if app.messaging.capabilities.mute {
-                            Button {
-                                Task { await app.messaging.toggleMute(conversation.id) }
-                            } label: {
-                                Label(conversation.isMuted ? "Unmute" : "Mute", systemImage: conversation.isMuted ? "bell.fill" : "bell.slash.fill")
-                            }
-                            .tint(.gray)
-                        } else if let person = conversation.participants.first {
-                            Button {
-                                app.navigation.push(.profile(person.id, .overview))
-                            } label: { Label("Profile", systemImage: "person.crop.circle") }
-                            .tint(.gray)
-                        }
-                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(conversation) }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: InboxSwipeAction(rawValue: trailingSwipeRaw) != nil) { trailingSwipe(conversation) }
                     .contextMenu { contextMenu(conversation) }
                     .onAppear {
                         if conversation.id == lastID {
@@ -875,6 +927,12 @@ struct ConversationListView: View {
             UIPasteboard.general.string = conversation.title
             HapticEngine.shared.play(.confirmation)
         }
+        if conversation.participants.count == 1, let handle = conversation.participants.first?.handle, !handle.isEmpty {
+            Button("Copy @\(handle.hasPrefix("@") ? String(handle.dropFirst()) : handle)", systemImage: "at") {
+                UIPasteboard.general.string = handle.hasPrefix("@") ? handle : "@\(handle)"
+                HapticEngine.shared.play(.confirmation)
+            }
+        }
         if let body = conversation.lastMessage?.body, !body.isEmpty {
             Button("Copy Last Message", systemImage: "text.bubble") {
                 UIPasteboard.general.string = body
@@ -939,6 +997,80 @@ struct ConversationListView: View {
         .listRowSeparator(.hidden)
         .accessibilityLabel("Message requests, \(count) waiting")
         .accessibilityIdentifier("messages.requestsEntry")
+    }
+
+    /// Settings › Gestures › "Swipe left on a chat": the standard set, or one action first (full swipe) then the rest.
+    @ViewBuilder
+    private func trailingSwipe(_ conversation: Conversation) -> some View {
+        if let first = InboxSwipeAction(rawValue: trailingSwipeRaw) {
+            swipeButton(first, conversation)
+            ForEach([InboxSwipeAction.pin, .archive, .mute].filter { $0 != first }) { swipeButton($0, conversation) }
+        } else {
+                        Button {
+                            togglePin(conversation)
+                        } label: {
+                            Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
+                                  systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
+                        }
+                        .tint(.primary)
+                        if app.messaging.capabilities.archive {
+                            Button {
+                                Task { await app.messaging.archive(conversation.id) }
+                            } label: { Label("Archive", systemImage: "archivebox.fill") }
+                            .tint(.indigo)
+                        }
+                        if app.messaging.capabilities.mute {
+                            Button {
+                                Task { await app.messaging.toggleMute(conversation.id) }
+                            } label: {
+                                Label(conversation.isMuted ? "Unmute" : "Mute", systemImage: conversation.isMuted ? "bell.fill" : "bell.slash.fill")
+                            }
+                            .tint(.gray)
+                        } else if let person = conversation.participants.first {
+                            Button {
+                                app.navigation.push(.profile(person.id, .overview))
+                            } label: { Label("Profile", systemImage: "person.crop.circle") }
+                            .tint(.gray)
+                        }
+                            }
+    }
+
+    /// Settings › Gestures › "Swipe right on a chat": Read/Unread (default), Pin, Mute or Archive.
+    private func leadingSwipe(_ conversation: Conversation) -> some View {
+        swipeButton(InboxSwipeAction(rawValue: leadingSwipeRaw) ?? .readToggle, conversation)
+    }
+
+    @ViewBuilder
+    private func swipeButton(_ action: InboxSwipeAction, _ conversation: Conversation) -> some View {
+        switch action {
+        case .pin:
+            Button { togglePin(conversation) } label: {
+                Label(app.messaging.isPinned(conversation.id) ? "Unpin" : "Pin",
+                      systemImage: app.messaging.isPinned(conversation.id) ? "pin.slash.fill" : "pin.fill")
+            }
+            .tint(.primary)
+        case .mute where app.messaging.capabilities.mute:
+            Button { Task { await app.messaging.toggleMute(conversation.id) } } label: {
+                Label(conversation.isMuted ? "Unmute" : "Mute", systemImage: conversation.isMuted ? "bell.fill" : "bell.slash.fill")
+            }
+            .tint(.gray)
+        case .archive where app.messaging.capabilities.archive:
+            Button { Task { await app.messaging.archive(conversation.id) } } label: { Label("Archive", systemImage: "archivebox.fill") }
+                .tint(.indigo)
+        default:
+                    if conversation.isUnread, app.messaging.capabilities.markRead {
+                        Button {
+                            Task { await app.messaging.markConversationRead(conversation.id) }
+                        } label: { Label("Read", systemImage: "checkmark.message.fill") }
+                        .tint(.primary)
+                    } else if !conversation.isUnread, app.messaging.capabilities.markUnread {
+                        Button {
+                            Task { await app.messaging.markConversationUnread(conversation.id) }
+                        } label: { Label("Unread", systemImage: "message.badge.filled.fill") }
+                        .tint(.blue)
+                    }
+                
+        }
     }
 
     private func togglePin(_ conversation: Conversation) {
@@ -1179,6 +1311,7 @@ struct ConversationRow: View {
     var draft: String? = nil
     @Environment(AppEnvironment.self) private var app
     @Environment(\.routeTransitionNamespace) private var routeTransitions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isGroup: Bool { conversation.kind == .group || conversation.participants.count > 1 }
@@ -1232,12 +1365,26 @@ struct ConversationRow: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if unread {
-                        Circle().fill(accent)
-                            .frame(width: 10, height: 10)
-                            .padding(.trailing, 4)
-                            .accessibilityHidden(true)
+                        // Count badge (2+) in the chat's theme colour; a dot for one / marked-unread.
+                        let tint = ChatThemePalette.accent(app.messaging.theme(for: conversation.id)) ?? accent
+                        Group {
+                            if conversation.unreadCount > 1 {
+                                Text(conversation.unreadCount > 99 ? "99+" : "\(conversation.unreadCount)")
+                                    .font(.caption2.weight(.bold)).monospacedDigit()
+                                    .foregroundStyle(tint == accent ? Color.modulaOnPrimary : .white)
+                                    .padding(.horizontal, 6).frame(minWidth: 20, minHeight: 20)
+                                    .background(Capsule().fill(tint))
+                                    .contentTransition(.numericText())
+                            } else {
+                                Circle().fill(tint).frame(width: 10, height: 10).padding(.trailing, 4)
+                            }
+                        }
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
+                        .accessibilityHidden(true)
                     }
                 }
+                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: conversation.unreadCount)
+                .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: unread)
             }
         }
         .padding(.vertical, 2)
@@ -1253,15 +1400,22 @@ struct ConversationRow: View {
             return Text("Draft · ").fontWeight(.semibold).foregroundStyle(.secondary) + Text(MessagePreviewText.plain(draft))
         }
         if conversation.lastMessage?.kind == .voice {
-            let raw = "Voice note"
-            let body = Text(raw)
+            let body = Text(Image(systemName: "waveform")) + Text(" Voice note")
             if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
             return body
         }
         let raw = MessagePreviewText.plain(conversation.lastMessage?.body ?? "")
         if raw.isEmpty { return Text("No messages yet").italic() }
         // Roadmap #07: matched words are highlighted while searching.
-        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: Color.primary))
+        var body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: Color.primary))
+        // Content glyph: a photo link reads "📷 Photo", other links get a link glyph.
+        if let url = MessageInlineContent.firstURL(in: raw) {
+            if case .image = MessageInlineContent.classify(url), raw.trimmingCharacters(in: .whitespacesAndNewlines) == url.absoluteString {
+                body = Text(Image(systemName: "photo")) + Text(" Photo")
+            } else {
+                body = Text(Image(systemName: "link")) + Text(" ") + body
+            }
+        }
         if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
         if isGroup, let senderID = conversation.lastMessage?.senderID,
            let sender = conversation.participants.first(where: { $0.id == senderID }) {
@@ -1395,6 +1549,8 @@ struct ConversationView: View {
     @State private var reactionGridFor: Message?
     @State private var reactorsFor: Message?
     @State private var receiptsFor: Message?
+    @State private var remindFor: Message?
+    private var chatLock: ChatLockStore { ChatLockStore.shared }
     @AppStorage("messages.gestureTip.dismissed") private var gestureTipDismissed = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var searching = false
@@ -1435,7 +1591,7 @@ struct ConversationView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .overlay(alignment: .bottomTrailing) { flyOverlay }
+            .overlay(alignment: .bottomTrailing) { flyOverlayWithEffects }
             .background { keyboardShortcuts }
             .confirmationDialog(
                 "Unsend this message?",
@@ -1513,6 +1669,26 @@ struct ConversationView: View {
                         )
                     }
                 }
+            }
+            .overlay {
+                if chatLock.needsUnlock(conversationID) {
+                    ChatLockOverlay(conversationID: conversationID, title: conversation?.title ?? "Chat")
+                        .transition(.opacity)
+                }
+            }
+            .animation(.smooth(duration: 0.25), value: chatLock.needsUnlock(conversationID))
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { chatLock.relockAll() }
+            }
+            .confirmationDialog("Remind me", isPresented: Binding(get: { remindFor != nil }, set: { if !$0 { remindFor = nil } }),
+                                titleVisibility: .visible, presenting: remindFor) { message in
+                ForEach(MessageReminders.When.allCases) { when in
+                    Button(when.title) {
+                        MessageReminders.schedule(message, chatTitle: conversation?.title ?? "Chat", when: when, app: app)
+                    }
+                }
+            } message: { _ in
+                Text("You'll get a notification that opens this chat.")
             }
             .sheet(item: $forwarding) { message in
                 Group {
@@ -1796,6 +1972,8 @@ struct ConversationView: View {
                         let replyCounts = MessageReplyGrouping.counts(in: items)
                         let lastOwnID = items.last(where: \.isOwn)?.id
                         let calls = callSlots
+                        // Speed: one Set for search highlighting instead of a linear scan per bubble.
+                        let matchIDs: Set<MessageID> = searching ? Set(searchMatches.map(\.id)) : []
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, message in
                             let position = MessageGroupPosition.resolve(index: index, in: items)
                             ForEach(calls.before[message.id] ?? []) { record in callRow(record) }
@@ -1810,12 +1988,17 @@ struct ConversationView: View {
                                     .padding(.bottom, 6)
                             }
                             let replyCount = replyCounts[message.id] ?? 0
+                            let isSelected = selectedMessageIDs.contains(message.id)
+                            // Speed: a bubble whose inputs didn't change skips its body when the thread
+                            // re-renders (typing dots, a new message, a draft save). Closures read live state.
+                            ModulaEquatableRow(key: BubbleRowKey(message: message, position: position, showsStatus: message.id == lastOwnID,
+                                                                 selecting: selectingMessages, isSelected: isSelected, replyCount: replyCount)) {
                             MessageBubble(
                                 message: message,
                                 position: position,
                                 showsStatus: message.id == lastOwnID,
                                 selecting: selectingMessages,
-                                isSelected: selectedMessageIDs.contains(message.id),
+                                isSelected: isSelected,
                                 onToggleSelect: {
                                     if selectedMessageIDs.contains(message.id) { selectedMessageIDs.remove(message.id) }
                                     else { selectedMessageIDs.insert(message.id) }
@@ -1828,6 +2011,8 @@ struct ConversationView: View {
                             ) { action in
                                 handle(action, message: message)
                             }
+                            }
+                            .equatable()
                             // Links in this bubble: the browser shows who shared it.
                             .modifier(ModulaChatLinkSenderModifier(sender: message.isOwn ? "you" : message.sender.displayName))
                             .environment(\.modulaChatLinkContext, ModulaChatLinkContext(
@@ -1837,7 +2022,7 @@ struct ConversationView: View {
                             // The held bubble is lifted into the overlay; leave its slot empty meanwhile.
                             .opacity(focusRequest?.id == message.id ? 0 : 1)
                             .overlay {
-                                if searching, searchMatches.contains(where: { $0.id == message.id }) {
+                                if searching, matchIDs.contains(message.id) {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                                         .stroke(Color.primary.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
                                         .padding(-3)
@@ -1856,10 +2041,14 @@ struct ConversationView: View {
                             // Tight spacing inside a run of messages, roomier between senders.
                             .padding(.top, index == 0 ? 0 : (position.startsGroup ? 8 : 2))
                             .id(message.id)
-                            // New bubbles rise in from the composer; plain fade under Reduce Motion.
+                            // New bubbles pop up from their side with a spring; plain fade under Reduce Motion.
                             .transition(reduceMotion
                                 ? .opacity
-                                : .move(edge: .bottom).combined(with: .opacity))
+                                : .asymmetric(
+                                    insertion: .scale(scale: 0.82, anchor: message.isOwn ? .bottomTrailing : .bottomLeading)
+                                        .combined(with: .offset(y: 14))
+                                        .combined(with: .opacity),
+                                    removal: .opacity.combined(with: .scale(scale: 0.9))))
                         }
                         ForEach(calls.trailing) { record in callRow(record) }
                         ForEach(app.messaging.systemNotes[conversationID] ?? []) { note in
@@ -1877,6 +2066,8 @@ struct ConversationView: View {
                     // 16 pt side margins (bubbles keep their own max width, so nothing clips).
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    // Send/receive spring: only when the newest message changes (older pages don't animate).
+                    .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.78), value: items.last?.id)
                     .scrollTargetLayout()
                 }
                 // Only pin to the newest message while the reader is already there.
@@ -2254,6 +2445,17 @@ struct ConversationView: View {
     }
 
     @ViewBuilder
+    /// Fly-in text plus the keyword screen effects, as one overlay (keeps `body` cheap to type-check).
+    private var flyOverlayWithEffects: some View {
+        ZStack(alignment: .bottomTrailing) {
+            ChatScreenEffectOverlay()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
+            flyOverlay
+        }
+    }
+
+    @ViewBuilder
     private var flyOverlay: some View {
         if let flyText {
             Text(flyText)
@@ -2341,6 +2543,8 @@ struct ConversationView: View {
             Task { await app.messaging.retry(message: message, viewer: viewer) }
         case "forward":
             forwarding = message
+        case "remind":
+            remindFor = message
         case "reactors":
             reactorsFor = message
         case "receipts":
@@ -2819,8 +3023,11 @@ struct ConversationComposerDock: View {
     }
 
     private func flushAndSend() {
+        let sent = text
         flushDraft()
         onSend()
+        // Keyword screen effects (🎉, happy birthday, ❤️…): played on this screen only.
+        if app.messaging.capabilities.send, let kind = ChatScreenEffect.match(sent) { ChatScreenEffectCenter.shared.play(kind) }
     }
 
     private var dockViewer: ConversationParticipant {
@@ -2914,8 +3121,9 @@ struct MessageBubble: View {
                 }
                 if !message.isDeleted, message.kind == .voice, let attachment = message.voiceAttachment {
                     MessageVoicePlayer(attachment: attachment,
-                                       accent: message.isOwn ? ownInk : Color.primary,
-                                       glyph: message.isOwn ? (themeAccent ?? Color.modulaPrimaryFill) : Color.modulaOnPrimary)
+                                       // Incoming voice notes pick up the chat theme's accent for the play circle + waveform.
+                                       accent: message.isOwn ? ownInk : (themeAccent ?? Color.primary),
+                                       glyph: message.isOwn ? (themeAccent ?? Color.modulaPrimaryFill) : (themeAccent == nil ? Color.modulaOnPrimary : .white))
                         .padding(6)
                         .background { bubbleBackground }
                 }
@@ -4526,6 +4734,19 @@ struct ChatInfoSheet: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    if MessagePrivacyAuth.isAvailable {
+                        infoGroup("Privacy", footer: "Locked chats ask for \(ChatLockStore.biometryTitle) each time you open the app. Only this iPhone is affected.") {
+                            HStack(spacing: 12) {
+                                rowIcon("lock")
+                                Toggle("Lock with \(ChatLockStore.biometryTitle)", isOn: Binding(
+                                    get: { ChatLockStore.shared.isLocked(conversationID) },
+                                    set: { on in Task { _ = await ChatLockStore.shared.setLocked(on, conversationID) } }
+                                ))
+                            }
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("messages.chatInfo.lock")
+                        }
+                    }
                     infoGroup("Customise", footer: "Only you see your nickname and wallpaper.") {
                         // Labelled Nickname row (the bare field used to read as a stray "Hello" row).
                         HStack(spacing: 12) {
@@ -5049,6 +5270,7 @@ struct MessageReactionsRow: View {
     var onTap: (String) -> Void
     var onInspect: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -5066,10 +5288,20 @@ struct MessageReactionsRow: View {
                     .frame(minHeight: 26)
                     .modulaGlass(in: Capsule(), interactive: true)
                     .overlay { if reaction.mine { Capsule().strokeBorder(Color.primary, lineWidth: 1.2) } }
+                    .contentTransition(.numericText(value: Double(reaction.count)))
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                // A new reaction pops in; a changed count bounces.
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.3).combined(with: .opacity))
+                .keyframeAnimator(initialValue: 1.0, trigger: reduceMotion ? 0 : reaction.count) { view, scale in
+                    view.scaleEffect(scale)
+                } keyframes: { _ in
+                    SpringKeyframe(1.22, duration: 0.14)
+                    SpringKeyframe(1.0, duration: 0.3, spring: .bouncy)
+                }
             }
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.6), value: reactions.map(\.emoji))
         .padding(.top, -10)
     }
 }
@@ -5130,9 +5362,28 @@ struct MessagesTypingBubble: View {
 enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
     /// `accent` (coral glow) was retired; stored values of it read as no wallpaper.
     case none, graphite, dusk, ocean, meadow, sand, ember, spectral, photo
+    /// Nature scenes (t237u), drawn procedurally with gentle motion.
+    case aurora, waves, forest, rain, snow, starry, sunset, fireflies, sakura
+    /// Changes through the day: sunrise/sunset, waves by day, aurora or stars at night.
+    case timeOfDay
 
     static let defaultKey = "__default"
     static let stills: [MessagesWallpaperTheme] = [.none, .graphite, .dusk, .ocean, .meadow, .sand, .ember]
+    static let natureScenes: [MessagesWallpaperTheme] = [.aurora, .waves, .forest, .rain, .snow, .starry, .sunset, .fireflies, .sakura]
+
+    /// The nature scene this theme draws (time of day resolves to the scene for the current hour).
+    func natureKind(at date: Date = Date()) -> NatureWallpaperView.Kind? {
+        if self == .timeOfDay {
+            let hour = Calendar.current.component(.hour, from: date)
+            switch hour {
+            case 6..<8, 18..<21: return .sunset
+            case 8..<18: return .waves
+            case 21..<24: return .aurora
+            default: return .starry
+            }
+        }
+        return NatureWallpaperView.Kind(rawValue: rawValue)
+    }
 
     init?(stored: String?) {
         guard let stored, let value = MessagesWallpaperTheme(rawValue: stored) else { return nil }
@@ -5152,10 +5403,33 @@ enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
         case .ember: "Ember"
         case .spectral: "Spectral Drape"
         case .photo: "Photo"
+        case .aurora: "Aurora"
+        case .waves: "Ocean Waves"
+        case .forest: "Forest"
+        case .rain: "Rain"
+        case .snow: "Snow"
+        case .starry: "Starry Night"
+        case .sunset: "Sunset"
+        case .fireflies: "Fireflies"
+        case .sakura: "Sakura"
+        case .timeOfDay: "Time of Day"
         }
     }
 
     /// 3×3 mesh palettes, muted, with separate light and dark variants so bubbles stay legible.
+    /// Highlight hue for the sheen on still wallpapers.
+    var sheen: Color {
+        switch self {
+        case .graphite: Color(hex: "#9AA3B2")
+        case .dusk: Color(hex: "#A77BFF")
+        case .ocean: Color(hex: "#4FB3E8")
+        case .meadow: Color(hex: "#5FCF8A")
+        case .sand: Color(hex: "#E8C38A")
+        case .ember: Color(hex: "#FF8A5C")
+        default: Color.white
+        }
+    }
+
     func mesh(dark: Bool) -> [Color] {
         func h(_ hex: String) -> Color { Color(hex: hex) }
         switch (self, dark) {
@@ -5226,21 +5500,28 @@ struct MessagesWallpaperSurface: View {
             case .none:
                 Color.clear
             case .spectral:
-                if animated {
-                    ModulaAuthBackdrop(calm: true)
-                } else {
-                    LinearGradient(colors: dark ? [Color(hex: "#05090D"), Color(hex: "#1B2A3A"), Color(hex: "#2A1838")]
-                                                : [Color(hex: "#EEF1F8"), Color(hex: "#D9E4F5"), Color(hex: "#EBDDF3")],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                }
+                // Fills the thread, preview and tile edge to edge; tiles draw one still frame.
+                SpectralRibbonsView(intensity: 0.8, animated: animated)
+                // A light veil so bubbles and timestamps stay easy to read.
+                (dark ? Color.black : Color.white).opacity(dark ? 0.18 : 0.22)
             case .photo:
                 ChatWallpaperPhoto(key: photoKey, revision: revision)
                     .blur(radius: blur, opaque: true)
                 Color.black.opacity(max(0.1, dim))
+            case _ where theme.natureKind() != nil:
+                if let kind = theme.natureKind() {
+                    NatureWallpaperView(kind: kind, animated: animated)
+                }
             default:
                 MeshGradient(width: 3, height: 3,
                              points: [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.55, 0.45], [1, 0.5], [0, 1], [0.5, 1], [1, 1]],
                              colors: theme.mesh(dark: dark))
+                // Depth instead of a flat wash: a soft sheen top-left and a gentle edge falloff,
+                // both proportional to the box so tiles, preview and thread match.
+                EllipticalGradient(colors: [theme.sheen.opacity(dark ? 0.22 : 0.30), .clear],
+                                   center: UnitPoint(x: 0.22, y: 0.18), startRadiusFraction: 0, endRadiusFraction: 0.75)
+                EllipticalGradient(colors: [.clear, .clear, Color.black.opacity(dark ? 0.35 : 0.06)],
+                                   center: .center, startRadiusFraction: 0, endRadiusFraction: 0.8)
             }
             // Reduce Transparency: a flat veil so text never sits on busy art.
             if reduceTransparency, theme != .none {
@@ -5288,13 +5569,19 @@ struct MessagesWallpaper: View {
     var body: some View {
         let store = app.messaging
         let theme = conversationID.map { store.wallpaper(for: $0) } ?? store.defaultWallpaper
-        if theme != .none {
-            let key = store.wallpaperKey(for: conversationID)
-            let style = store.wallpaperStyle(key: key)
-            MessagesWallpaperSurface(theme: theme, photoKey: key, dim: style.dim, blur: style.blur, revision: store.wallpaperRevision)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+        ZStack {
+            if theme != .none {
+                let key = store.wallpaperKey(for: conversationID)
+                let style = store.wallpaperStyle(key: key)
+                MessagesWallpaperSurface(theme: theme, photoKey: key, dim: style.dim, blur: style.blur, revision: store.wallpaperRevision)
+                    .id(theme)
+                    .transition(.opacity)
+            }
         }
+        // Crossfade when you switch wallpapers (a dissolve, which suits Reduce Motion too).
+        .animation(.easeInOut(duration: 0.35), value: theme)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 
@@ -5351,14 +5638,20 @@ struct ChatWallpaperPickerSheet: View {
                         .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
                         .accessibilityAddTraits(followsDefault ? .isSelected : [])
                     }
-                    section("Wallpapers") {
+                    section("Stills") {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
                             ForEach(MessagesWallpaperTheme.stills) { theme in tile(theme) }
+                        }
+                    }
+                    section("Nature") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            ForEach(MessagesWallpaperTheme.natureScenes) { theme in tile(theme) }
                         }
                     }
                     section("Animated") {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
                             tile(.spectral)
+                            tile(.timeOfDay)
                         }
                         Text("Pauses with Reduce Motion, Low Power Mode and when the chat isn't on screen.")
                             .font(.caption).foregroundStyle(.secondary)
@@ -5468,6 +5761,8 @@ struct ChatWallpaperPickerSheet: View {
                         Image(systemName: "circle.slash").font(.title3).foregroundStyle(.secondary)
                     } else if theme == .spectral {
                         Image(systemName: "sparkles").font(.title3).foregroundStyle(.primary.opacity(0.8))
+                    } else if theme == .timeOfDay {
+                        Image(systemName: "clock.arrow.2.circlepath").font(.title3).foregroundStyle(.primary.opacity(0.85))
                     }
                 }
                 .frame(height: 120)
@@ -5480,6 +5775,8 @@ struct ChatWallpaperPickerSheet: View {
                     .minimumScaleFactor(0.8)
             }
             .contentShape(Rectangle())
+            .scaleEffect(on ? 1 : 0.97)
+            .animation(.spring(response: 0.32, dampingFraction: 0.7), value: on)
         }
         .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
         .accessibilityLabel(theme.title)
@@ -6462,5 +6759,419 @@ extension View {
                 ToolbarItem(placement: .principal) { content() }
             }
         }
+    }
+}
+
+// MARK: - Nature wallpapers (procedural, t237u)
+
+/// Procedural nature scenes for chat wallpapers. Canvas-drawn at 15 fps, a still frame for
+/// Reduce Motion, Low Power, background, off-screen and picker tiles. Each has light and dark
+/// palettes and a soft readability veil so bubbles stay legible.
+struct NatureWallpaperView: View {
+    enum Kind: String, CaseIterable, Sendable {
+        case aurora, waves, forest, rain, snow, starry, sunset, fireflies, sakura
+    }
+
+    let kind: Kind
+    var animated = true
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var phase
+    @State private var visible = false
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    private var running: Bool { animated && !reduceMotion && !lowPower && phase == .active && visible }
+
+    var body: some View {
+        let dark = scheme == .dark
+        ZStack {
+            LinearGradient(colors: Self.base(kind, dark: dark), startPoint: .top, endPoint: .bottom)
+            if animated {
+                TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: !running)) { context in
+                    scene(time: running ? context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3600) : 30, dark: dark)
+                }
+            } else {
+                scene(time: 30, dark: dark)
+            }
+            // Readability veil + soft edge falloff.
+            EllipticalGradient(colors: [.clear, (dark ? Color.black : Color.white).opacity(dark ? 0.35 : 0.25)],
+                               center: .center, startRadiusFraction: 0.2, endRadiusFraction: 0.85)
+        }
+        .clipped()
+        .onAppear { visible = true }
+        .onDisappear { visible = false }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+            lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func scene(time t: Double, dark: Bool) -> some View {
+        Canvas(rendersAsynchronously: true) { ctx, size in
+            guard size.width > 1, size.height > 1 else { return }
+            switch kind {
+            case .aurora: Self.aurora(&ctx, size, t, dark)
+            case .waves: Self.waves(&ctx, size, t, dark)
+            case .forest: Self.forest(&ctx, size, t, dark)
+            case .rain: Self.rain(&ctx, size, t, dark)
+            case .snow: Self.snow(&ctx, size, t, dark)
+            case .starry: Self.starry(&ctx, size, t, dark)
+            case .sunset: Self.sunset(&ctx, size, t, dark)
+            case .fireflies: Self.fireflies(&ctx, size, t, dark)
+            case .sakura: Self.sakura(&ctx, size, t, dark)
+            }
+        }
+    }
+
+    // MARK: Palettes
+
+    static func base(_ kind: Kind, dark: Bool) -> [Color] {
+        func h(_ s: String) -> Color { Color(hex: s) }
+        switch (kind, dark) {
+        case (.aurora, true): return [h("#020814"), h("#04182A"), h("#061F2A")]
+        case (.aurora, false): return [h("#DDEBF5"), h("#E8F3F1"), h("#F2F6F4")]
+        case (.waves, true): return [h("#04121F"), h("#072B45"), h("#0A3A5C")]
+        case (.waves, false): return [h("#EAF5FB"), h("#CFE8F5"), h("#B6DDF0")]
+        case (.forest, true): return [h("#07110C"), h("#0D2016"), h("#08140E")]
+        case (.forest, false): return [h("#EEF4EC"), h("#DCE9D8"), h("#C9DEC4")]
+        case (.rain, true): return [h("#0A0F16"), h("#121A24"), h("#0D131B")]
+        case (.rain, false): return [h("#E6EBF0"), h("#D9E0E8"), h("#E3E8ED")]
+        case (.snow, true): return [h("#0B1220"), h("#16223A"), h("#1E2C45")]
+        case (.snow, false): return [h("#F3F6FA"), h("#E6EDF5"), h("#DCE5EF")]
+        case (.starry, true): return [h("#01030A"), h("#060B1E"), h("#0C1230")]
+        case (.starry, false): return [h("#DCE2F5"), h("#E8E6F5"), h("#F3EEF5")]
+        case (.sunset, true): return [h("#1A0E2A"), h("#4A1F3A"), h("#8A3B2E")]
+        case (.sunset, false): return [h("#FCE3D3"), h("#F9CBB8"), h("#F2B5B8")]
+        case (.fireflies, true): return [h("#030805"), h("#08140D"), h("#0B1A10")]
+        case (.fireflies, false): return [h("#E9F1E6"), h("#D8E6D2"), h("#CBDDC3")]
+        case (.sakura, true): return [h("#1A0F17"), h("#2A1624"), h("#1E1220")]
+        case (.sakura, false): return [h("#FDF0F4"), h("#FAE3EB"), h("#F6D8E3")]
+        }
+    }
+
+    /// Stable pseudo-random in 0…1.
+    private static func rnd(_ i: Int, _ salt: Double = 0) -> Double {
+        let v = sin(Double(i) * 12.9898 + salt * 78.233) * 43758.5453
+        return v - v.rounded(.down)
+    }
+
+    // MARK: Scenes
+
+    private static func aurora(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        if dark { ctx.blendMode = .plusLighter }
+        let bands: [(Color, Double, Double)] = [(Color(hex: "#3DFFB0"), 0.28, 0), (Color(hex: "#7B5CFF"), 0.36, 2.1), (Color(hex: "#2FD3FF"), 0.22, 4.0)]
+        for (color, yBase, phase) in bands {
+            let cols = 70
+            let w = s.width / Double(cols)
+            for c in 0..<cols {
+                let u = Double(c) / Double(cols)
+                let y = s.height * (yBase + 0.06 * sin(u * 5 + t * 0.25 + phase) + 0.03 * sin(u * 13 - t * 0.4))
+                let height = s.height * (0.18 + 0.10 * (0.5 + 0.5 * sin(u * 9 + t * 0.3 + phase)))
+                let rect = CGRect(x: Double(c) * w, y: y, width: w + 0.6, height: height)
+                let op = (0.25 + 0.35 * (0.5 + 0.5 * sin(u * 7 + t * 0.5 + phase))) * (dark ? 1 : 0.55)
+                ctx.fill(Path(rect), with: .linearGradient(
+                    Gradient(colors: [color.opacity(0), color.opacity(op), color.opacity(0)]),
+                    startPoint: CGPoint(x: rect.midX, y: rect.minY), endPoint: CGPoint(x: rect.midX, y: rect.maxY)))
+            }
+        }
+        stars(&ctx, s, t, count: dark ? 50 : 0, maxY: 0.5)
+    }
+
+    private static func waves(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let layers = 5
+        for l in 0..<layers {
+            let f = Double(l) / Double(layers - 1)
+            let baseY = s.height * (0.45 + 0.12 * f)
+            var p = Path()
+            p.move(to: CGPoint(x: 0, y: s.height))
+            let steps = 40
+            for i in 0...steps {
+                let u = Double(i) / Double(steps)
+                let y = baseY + s.height * 0.025 * sin(u * (6 + f * 3) + t * (0.6 + f * 0.4) + Double(l))
+                    + s.height * 0.012 * sin(u * 17 - t * 0.9)
+                p.addLine(to: CGPoint(x: u * s.width, y: y))
+            }
+            p.addLine(to: CGPoint(x: s.width, y: s.height))
+            p.closeSubpath()
+            let c = dark ? Color(hex: "#2E9BD6") : Color(hex: "#1E7FB8")
+            ctx.fill(p, with: .color(c.opacity(dark ? 0.10 + 0.06 * f : 0.07 + 0.05 * f)))
+            // Foam crest.
+            ctx.stroke(p, with: .color(Color.white.opacity(dark ? 0.10 : 0.35)), lineWidth: 0.8)
+        }
+    }
+
+    private static func forest(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let ranks: [(Double, Double, Int)] = [(0.62, 0.22, 9), (0.72, 0.26, 7), (0.84, 0.30, 6)]
+        for (r, rank) in ranks.enumerated() {
+            let shade = dark ? Color(hex: ["#12301F", "#0E2618", "#091A10"][r]) : Color(hex: ["#A9C9A0", "#8DB585", "#6E9C68"][r])
+            for i in 0..<rank.2 {
+                let x = s.width * (Double(i) + rnd(i, Double(r))) / Double(rank.2 - 1) - s.width * 0.05
+                let h = s.height * rank.1 * (0.7 + 0.5 * rnd(i, Double(r) + 3))
+                let w = h * 0.42
+                let baseY = s.height * rank.0 + s.height * 0.2
+                var tree = Path()
+                tree.move(to: CGPoint(x: x, y: baseY - h))
+                tree.addLine(to: CGPoint(x: x - w / 2, y: baseY))
+                tree.addLine(to: CGPoint(x: x + w / 2, y: baseY))
+                tree.closeSubpath()
+                ctx.fill(tree, with: .color(shade.opacity(0.9)))
+            }
+            ctx.fill(Path(CGRect(x: 0, y: s.height * rank.0 + s.height * 0.2, width: s.width, height: s.height)), with: .color(shade))
+        }
+        // Drifting fog band.
+        let fogY = s.height * (0.58 + 0.02 * sin(t * 0.2))
+        ctx.fill(Path(CGRect(x: 0, y: fogY - s.height * 0.08, width: s.width, height: s.height * 0.16)),
+                 with: .linearGradient(Gradient(colors: [.clear, Color.white.opacity(dark ? 0.06 : 0.35), .clear]),
+                                       startPoint: CGPoint(x: 0, y: fogY - s.height * 0.08), endPoint: CGPoint(x: 0, y: fogY + s.height * 0.08)))
+        // A few falling leaves.
+        for i in 0..<10 {
+            let speed = 0.02 + 0.02 * rnd(i, 5)
+            let y = ((rnd(i, 6) + t * speed).truncatingRemainder(dividingBy: 1.1) - 0.05) * s.height
+            let x = rnd(i, 7) * s.width + 18 * sin(t * 0.8 + Double(i))
+            var leaf = ctx
+            leaf.translateBy(x: x, y: y)
+            leaf.rotate(by: .radians(t * 0.9 + Double(i)))
+            leaf.fill(Path(ellipseIn: CGRect(x: -4, y: -2, width: 8, height: 4)),
+                      with: .color((dark ? Color(hex: "#C98B3A") : Color(hex: "#B8742A")).opacity(0.7)))
+        }
+    }
+
+    private static func rain(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let c = dark ? Color(hex: "#9FB7D4") : Color(hex: "#5B7593")
+        for i in 0..<90 {
+            let speed = 0.5 + 0.4 * rnd(i, 1)
+            let y = ((rnd(i, 2) + t * speed).truncatingRemainder(dividingBy: 1.2) - 0.1) * s.height
+            let x = rnd(i, 3) * s.width * 1.1 - y * 0.12
+            let len = 10 + 14 * rnd(i, 4)
+            var p = Path()
+            p.move(to: CGPoint(x: x, y: y))
+            p.addLine(to: CGPoint(x: x - len * 0.18, y: y + len))
+            ctx.stroke(p, with: .color(c.opacity(0.18 + 0.25 * rnd(i, 5))), lineWidth: 0.9)
+        }
+    }
+
+    private static func snow(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let c = dark ? Color.white : Color(hex: "#9DB2CC")
+        for i in 0..<80 {
+            let size = 1.5 + 3.5 * rnd(i, 1)
+            let speed = 0.015 + 0.03 * rnd(i, 2) * (size / 5)
+            let y = ((rnd(i, 3) + t * speed).truncatingRemainder(dividingBy: 1.05) - 0.02) * s.height
+            let x = rnd(i, 4) * s.width + 14 * sin(t * (0.3 + rnd(i, 5) * 0.5) + Double(i))
+            ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: size, height: size)),
+                     with: .color(c.opacity(0.35 + 0.45 * rnd(i, 6))))
+        }
+    }
+
+    private static func stars(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, count: Int, maxY: Double) {
+        for i in 0..<count {
+            let x = rnd(i, 11) * s.width
+            let y = rnd(i, 12) * s.height * maxY
+            let r = 0.6 + 1.4 * rnd(i, 13)
+            let tw = 0.35 + 0.65 * (0.5 + 0.5 * sin(t * (0.6 + rnd(i, 14) * 1.4) + Double(i)))
+            ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)), with: .color(Color.white.opacity(0.8 * tw)))
+        }
+    }
+
+    private static func starry(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        // Milky Way haze.
+        var haze = Path()
+        haze.move(to: CGPoint(x: -s.width * 0.1, y: s.height * 0.75))
+        haze.addQuadCurve(to: CGPoint(x: s.width * 1.1, y: s.height * 0.1), control: CGPoint(x: s.width * 0.4, y: s.height * 0.35))
+        ctx.stroke(haze, with: .color((dark ? Color(hex: "#9C8CFF") : Color(hex: "#7E75C9")).opacity(dark ? 0.10 : 0.16)), lineWidth: s.width * 0.22)
+        ctx.stroke(haze, with: .color(Color.white.opacity(dark ? 0.05 : 0.2)), lineWidth: s.width * 0.08)
+        if dark {
+            stars(&ctx, s, t, count: 160, maxY: 1)
+        } else {
+            for i in 0..<70 {
+                let x = rnd(i, 11) * s.width, y = rnd(i, 12) * s.height
+                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 1.4, height: 1.4)), with: .color(Color(hex: "#5A5FA8").opacity(0.35)))
+            }
+        }
+    }
+
+    private static func sunset(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let sun = CGPoint(x: s.width * 0.5, y: s.height * 0.62)
+        let r = min(s.width, s.height) * 0.16
+        ctx.fill(Path(ellipseIn: CGRect(x: sun.x - r * 3, y: sun.y - r * 3, width: r * 6, height: r * 6)),
+                 with: .radialGradient(Gradient(colors: [Color(hex: "#FFB36B").opacity(dark ? 0.35 : 0.45), .clear]), center: sun, startRadius: 0, endRadius: r * 3))
+        ctx.fill(Path(ellipseIn: CGRect(x: sun.x - r, y: sun.y - r, width: r * 2, height: r * 2)),
+                 with: .color(Color(hex: dark ? "#FF9A5A" : "#FFB47A").opacity(0.85)))
+        for i in 0..<7 {
+            let speed = 0.004 + 0.006 * rnd(i, 1)
+            let x = ((rnd(i, 2) + t * speed).truncatingRemainder(dividingBy: 1.4) - 0.2) * s.width
+            let y = s.height * (0.15 + 0.5 * rnd(i, 3))
+            let w = s.width * (0.3 + 0.3 * rnd(i, 4)), h = w * 0.18
+            ctx.fill(Path(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerRadius: h / 2),
+                     with: .color((dark ? Color(hex: "#3A1E3A") : Color.white).opacity(dark ? 0.55 : 0.45)))
+        }
+    }
+
+    private static func fireflies(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        if dark { ctx.blendMode = .plusLighter }
+        let glow = dark ? Color(hex: "#E8FF7A") : Color(hex: "#9BB82A")
+        for i in 0..<34 {
+            let x = s.width * (rnd(i, 1) + 0.06 * sin(t * (0.2 + 0.3 * rnd(i, 2)) + Double(i)))
+            let y = s.height * (0.25 + 0.7 * rnd(i, 3) + 0.05 * cos(t * (0.25 + 0.2 * rnd(i, 4)) + Double(i) * 1.7))
+            let pulse = 0.25 + 0.75 * max(0, sin(t * (0.8 + rnd(i, 5)) + Double(i) * 2.3))
+            let r = 10.0 * (0.6 + 0.6 * rnd(i, 6))
+            ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
+                     with: .radialGradient(Gradient(colors: [glow.opacity(0.55 * pulse), .clear]), center: CGPoint(x: x, y: y), startRadius: 0, endRadius: r))
+            ctx.fill(Path(ellipseIn: CGRect(x: x - 1.2, y: y - 1.2, width: 2.4, height: 2.4)), with: .color(glow.opacity(0.9 * pulse)))
+        }
+    }
+
+    private static func sakura(_ ctx: inout GraphicsContext, _ s: CGSize, _ t: Double, _ dark: Bool) {
+        let petal = dark ? Color(hex: "#F3A6C4") : Color(hex: "#E889AE")
+        for i in 0..<40 {
+            let speed = 0.02 + 0.025 * rnd(i, 1)
+            let y = ((rnd(i, 2) + t * speed).truncatingRemainder(dividingBy: 1.1) - 0.05) * s.height
+            let x = (rnd(i, 3) * 1.2 - 0.1) * s.width + 26 * sin(t * 0.5 + Double(i)) + y * 0.15
+            let size = 5 + 5 * rnd(i, 4)
+            var p = ctx
+            p.translateBy(x: x, y: y)
+            p.rotate(by: .radians(t * (0.5 + rnd(i, 5)) + Double(i)))
+            p.scaleBy(x: 1, y: 0.55 + 0.45 * abs(sin(t * 1.3 + Double(i))))
+            p.fill(Path(ellipseIn: CGRect(x: -size / 2, y: -size / 3, width: size, height: size * 0.66)),
+                   with: .color(petal.opacity(0.55 + 0.3 * rnd(i, 6))))
+        }
+    }
+}
+
+
+// MARK: - Chat screen effects (keyword-triggered, 2D, local only)
+
+enum ChatScreenEffect: String, CaseIterable, Sendable {
+    case confetti, hearts, balloons, sparkles
+
+    /// Words and emoji that trigger each effect (checked on send).
+    static func match(_ text: String) -> ChatScreenEffect? {
+        guard ModulaPreferencesChatEffects.enabled else { return nil }
+        let t = text.lowercased()
+        if t.contains("happy birthday") || t.contains("🎂") || t.contains("🎈") { return .balloons }
+        if t.contains("congrat") || t.contains("well done") || t.contains("🎉") || t.contains("🥳") { return .confetti }
+        if t.contains("love you") || t.contains("❤️") || t.contains("😍") || t.contains("🥰") { return .hearts }
+        if t.contains("happy new year") || t.contains("✨") || t.contains("🎆") { return .sparkles }
+        return nil
+    }
+}
+
+enum ModulaPreferencesChatEffects {
+    static var enabled: Bool { UserDefaults.standard.object(forKey: "chat.screenEffects") as? Bool ?? true }
+}
+
+@MainActor @Observable
+final class ChatScreenEffectCenter {
+    static let shared = ChatScreenEffectCenter()
+    private(set) var current: ChatScreenEffect?
+    private(set) var startedAt = Date.distantPast
+    func play(_ effect: ChatScreenEffect) {
+        current = effect
+        startedAt = Date()
+        HapticEngine.shared.play(.success)
+        let started = startedAt
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(ChatScreenEffectOverlay.duration + 0.1))
+            if self.startedAt == started { self.current = nil }
+        }
+    }
+}
+
+struct ChatScreenEffectOverlay: View {
+    static let duration: Double = 2.6
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var center: ChatScreenEffectCenter { ChatScreenEffectCenter.shared }
+
+    var body: some View {
+        if let effect = center.current, !reduceMotion {
+            let start = center.startedAt
+            TimelineView(.animation) { ctx in
+                let t = ctx.date.timeIntervalSince(start)
+                Canvas { gc, size in
+                    draw(effect, t: t, in: &gc, size: size)
+                }
+            }
+            .ignoresSafeArea()
+            .transition(.opacity)
+            .id(start)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private struct Seed: Sendable { let x, speed, phase, size, spin: Double; let hue: Int }
+    private static let seeds: [Seed] = {
+        var rng = SystemRandomNumberGenerator()
+        return (0..<70).map { _ in
+            Seed(x: .random(in: 0...1, using: &rng), speed: .random(in: 0.6...1.3, using: &rng),
+                 phase: .random(in: 0...(2 * .pi), using: &rng), size: .random(in: 0.7...1.3, using: &rng),
+                 spin: .random(in: -3...3, using: &rng), hue: .random(in: 0..<6, using: &rng))
+        }
+    }()
+    private static let palette: [Color] = [.yellow, .pink, .blue, .green, .orange, .purple]
+
+    private func draw(_ effect: ChatScreenEffect, t: Double, in gc: inout GraphicsContext, size: CGSize) {
+        let fade = t > Self.duration - 0.5 ? max(0, (Self.duration - t) / 0.5) : 1
+        gc.opacity = fade
+        switch effect {
+        case .confetti:
+            for s in Self.seeds {
+                let y = -20 + (t * s.speed * 0.55) * size.height * 1.1
+                let x = s.x * size.width + sin(t * 3 + s.phase) * 18
+                var g = gc
+                g.translateBy(x: x, y: y)
+                g.rotate(by: .radians(t * s.spin + s.phase))
+                let w = 7 * s.size, h = 12 * s.size * abs(cos(t * 4 + s.phase))
+                g.fill(Path(CGRect(x: -w / 2, y: -h / 2, width: w, height: max(2, h))), with: .color(Self.palette[s.hue]))
+            }
+        case .hearts, .balloons:
+            let glyph = gc.resolve(Text(effect == .hearts ? "❤️" : "🎈").font(.system(size: 34)))
+            for s in Self.seeds.prefix(effect == .hearts ? 26 : 18) {
+                let y = size.height + 40 - (t * s.speed * 0.5) * size.height * 1.2
+                let x = s.x * size.width + sin(t * 2 + s.phase) * 24
+                var g = gc
+                g.translateBy(x: x, y: y)
+                g.scaleBy(x: s.size, y: s.size)
+                g.draw(glyph, at: .zero)
+            }
+        case .sparkles:
+            let glyph = gc.resolve(Text("✨").font(.system(size: 26)))
+            for (i, s) in Self.seeds.prefix(30).enumerated() {
+                let delay = Double(i % 10) * 0.12
+                let local = t - delay
+                guard local > 0 else { continue }
+                let pulse = sin(min(1, local / 0.9) * .pi)
+                var g = gc
+                g.opacity = fade * pulse
+                g.translateBy(x: s.x * size.width, y: (0.15 + 0.6 * ((s.phase / (2 * .pi)))) * size.height)
+                g.scaleBy(x: 0.6 + pulse * s.size, y: 0.6 + pulse * s.size)
+                g.draw(glyph, at: .zero)
+            }
+        }
+    }
+}
+
+
+/// Everything a chat bubble renders from (see `ModulaEquatableRow`).
+struct BubbleRowKey: Equatable, Sendable {
+    let message: Message
+    let position: MessageGroupPosition
+    let showsStatus: Bool
+    let selecting: Bool
+    let isSelected: Bool
+    let replyCount: Int
+}
+
+
+/// The chat-list swipe-right action (Settings › Gestures).
+enum InboxSwipeAction: String, CaseIterable, Identifiable {
+    case readToggle, pin, mute, archive
+    static let storageKey = "messages.swipe.leading"
+    static let trailingKey = "messages.swipe.trailing"
+    var id: String { rawValue }
+    var title: String {
+        switch self { case .readToggle: "Read / Unread"; case .pin: "Pin"; case .mute: "Mute"; case .archive: "Archive" }
+    }
+    var symbol: String {
+        switch self { case .readToggle: "checkmark.message"; case .pin: "pin"; case .mute: "bell.slash"; case .archive: "archivebox" }
     }
 }

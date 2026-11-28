@@ -8,6 +8,7 @@ struct SearchScreen: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var dismissedError: String?
     @State private var allCounts: [ChromeScope: Int] = [:]
+    @AppStorage("search.saved.v1") private var savedRaw = ""
     @Namespace private var scopeNS
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -59,12 +60,15 @@ struct SearchScreen: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 scopeChips
-                if !typeahead.isEmpty {
-                    typeaheadRow
+                // Computed once per pass (it reads recents from disk); was evaluated twice.
+                let suggestions = typeahead
+                if !suggestions.isEmpty {
+                    typeaheadRow(suggestions)
                 }
                 if chromeScope == .moliboos {
                     molibooResults(limit: nil)
                 } else if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chromeScope != .topics {
+                    if !savedSearches.isEmpty { savedRow }
                     DiscoverSearchIdle(onPickRecent: { query = $0 }, onPickSuggestion: { query = $0 })
                 } else {
                     if chromeScope == .all, !molibooMatches.isEmpty {
@@ -88,6 +92,23 @@ struct SearchScreen: View {
             HapticEngine.shared.play(.selection)
         }
         .modulaMinimizedSearchToolbar()
+        .toolbar {
+            if hasQuery {
+                ToolbarItem(placement: .topBarTrailing) {
+                    let saved = isSaved(query)
+                    Button {
+                        toggleSaved(query)
+                    } label: {
+                        Image(systemName: saved ? "bookmark.fill" : "bookmark")
+                            .contentTransition(.symbolEffect(.replace))
+                            .symbolEffect(.bounce, value: saved)
+                    }
+                    .tint(.primary)
+                    .accessibilityLabel(saved ? "Remove saved search" : "Save search")
+                    .accessibilityIdentifier("search.save")
+                }
+            }
+        }
         .onChange(of: query) { _, _ in scheduleSearch() }
         .onChange(of: chromeScope) { _, _ in
             // Scope is local state: replacing the route here re-created (popped + pushed) the
@@ -117,6 +138,8 @@ struct SearchScreen: View {
 
     @ViewBuilder private var results: some View {
         let state = app.discover.search
+        // One filter/order pass per render (it used to run for the empty check and again for the list).
+        let visible = visibleResults
         switch state.loadState {
         case .loading where state.results.isEmpty:
             ProgressView("Searching…").frame(maxWidth: .infinity, minHeight: 180)
@@ -124,7 +147,7 @@ struct SearchScreen: View {
             ModulaErrorState(message: message) {
                 Task { await app.discover.performSearch(query: query, section: chromeScope.section) }
             }
-        case _ where visibleResults.isEmpty:
+        case _ where visible.isEmpty:
             VStack(spacing: 14) {
                 ModulaEmptyState(title: "No results for “\(query)”", message: "Check the spelling or try a broader search.", symbol: "magnifyingglass")
                     .frame(minHeight: 200)
@@ -138,8 +161,11 @@ struct SearchScreen: View {
             }
         default:
             LazyVStack(alignment: .leading, spacing: 12) {
-                ForEach(visibleResults) { hit in
+                resultCount(visible.count, more: state.nextCursor != nil)
+                ForEach(Array(visible.enumerated()), id: \.element.id) { index, hit in
                     searchRow(hit)
+                        // Light stagger for the first screenful; Reduce Motion shows them at once.
+                        .modulaAppear(delay: Double(min(index, 8)) * 0.035)
                 }
                 if state.nextCursor != nil {
                     Button("Load more") {
@@ -150,6 +176,22 @@ struct SearchScreen: View {
                 }
             }
         }
+    }
+
+    private func resultCount(_ count: Int, more: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text("\(count)\(more ? "+" : "")")
+                .monospacedDigit()
+                .contentTransition(.numericText(value: Double(count)))
+            Text(count == 1 && !more ? "result" : "results")
+            if chromeScope != .all { Text("in \(chromeScope.title)").foregroundStyle(.tertiary) }
+            Spacer(minLength: 0)
+        }
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .animation(reduceMotion ? nil : .snappy, value: count)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("search.count")
     }
 
     private var visibleResults: [SearchHit] {
@@ -330,10 +372,76 @@ struct SearchScreen: View {
             .map { $0 }
     }
 
-    private var typeaheadRow: some View {
+    // MARK: Saved searches (on this iPhone, t235u)
+
+    private var savedSearches: [String] {
+        savedRaw.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+
+    private func isSaved(_ term: String) -> Bool {
+        let t = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        return savedSearches.contains { $0.caseInsensitiveCompare(t) == .orderedSame }
+    }
+
+    private func toggleSaved(_ term: String) {
+        let t = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        var list = savedSearches.filter { $0.caseInsensitiveCompare(t) != .orderedSame }
+        let adding = list.count == savedSearches.count
+        if adding { list.insert(t, at: 0) }
+        withAnimation(.snappy) { savedRaw = list.prefix(20).joined(separator: "\n") }
+        HapticEngine.shared.play(adding ? .success : .selection)
+        app.navigation.flash(adding ? "Search saved" : "Removed from saved", symbol: adding ? "bookmark.fill" : "bookmark.slash")
+    }
+
+    private var savedRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Saved searches").font(.headline)
+                Spacer(minLength: 8)
+                Menu {
+                    Button("Clear All Saved Searches", systemImage: "trash", role: .destructive) {
+                        withAnimation(reduceMotion ? nil : .snappy) { savedRaw = "" }
+                        HapticEngine.shared.play(.warning)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        .frame(width: 44, height: 32).contentShape(Rectangle())
+                }
+                .accessibilityLabel("Saved search options")
+                .accessibilityIdentifier("search.saved.menu")
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(savedSearches, id: \.self) { term in
+                        Button {
+                            query = term
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Label(term, systemImage: "bookmark.fill")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 12).frame(height: 32)
+                                .modulaGlass(in: Capsule(), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Remove", systemImage: "bookmark.slash", role: .destructive) { toggleSaved(term) }
+                        }
+                    }
+                }
+            }
+            .modulaHorizontalRail()
+            .scrollClipDisabled()
+        }
+        .modulaAppear()
+        .accessibilityIdentifier("search.saved")
+    }
+
+    private func typeaheadRow(_ items: [String]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(typeahead, id: \.self) { item in
+                ForEach(items, id: \.self) { item in
                     Button {
                         query = item
                         DiscoverSearchRecents.record(item)

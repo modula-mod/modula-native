@@ -120,7 +120,13 @@ struct ActivityScreen: View {
                         ActivityClusterFeed(
                             events: shown, mode: mode, newIDs: newIDs, onOpen: open,
                             onMarkRead: { events in Task { await app.activity.markRead(events, mode: mode) } },
-                            onMarkAllRead: { Task { await app.activity.markAllRead(mode: mode) } },
+                            onMarkAllRead: {
+                                Task {
+                                    await app.activity.markAllRead(mode: mode)
+                                    HapticEngine.shared.play(.success)
+                                    app.navigation.flash("All caught up", symbol: "checkmark.circle.fill")
+                                }
+                            },
                             onDelete: { events in
                                 withAnimation(calm ? nil : .snappy(duration: 0.3)) { app.activity.dismiss(events, mode: mode) }
                                 app.navigation.flash(events.count > 1 ? "\(events.count) notifications removed" : "Notification removed", symbol: "trash")

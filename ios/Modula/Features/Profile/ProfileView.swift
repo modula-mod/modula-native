@@ -590,6 +590,12 @@ struct ProfileView: View {
                     .modulaPageEntrance(delay: 0.14)
                 }
 
+                let pinned = session.posts.items.filter(\.isPinned)
+                if !pinned.isEmpty {
+                    ProfilePinnedRail(posts: Array(pinned.prefix(6)))
+                        .modulaPageEntrance(delay: 0.15)
+                }
+
                 linksPreviewSection(profile)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
@@ -721,7 +727,7 @@ struct ProfileView: View {
         // A lone "+ New" isn't a highlights row; show it only beside real stories.
         Group {
             if items.contains(where: { $0.id != "new" }) {
-                ProfileHighlightsRow(items: items, tint: heroTint)
+                ProfileHighlightsRow(items: items, tint: heroTint, reorderable: isOwnProfile, orderKey: profile.handle)
             }
         }
         .task(id: profile.handle) { await app.stories.loadHighlights(handle: profile.handle) }
@@ -1063,8 +1069,18 @@ struct ProfileView: View {
                 Text(" \(label)").font(.subheadline.weight(.medium)).foregroundStyle(Color.primary.opacity(0.72))
             }
             .monospacedDigit()
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+        // Long-press: the exact number behind "1.2K", with copy.
+        .contextMenu {
+            let exact = value.formatted(.number)
+            Text("\(exact) \(label)")
+            Button("Copy Number", systemImage: "doc.on.doc") {
+                UIPasteboard.general.string = exact
+                HapticEngine.shared.play(.confirmation)
+            }
+        }
         .accessibilityLabel("\(value) \(label)")
     }
 
@@ -2065,5 +2081,64 @@ struct ProfileMoreMenuLayout {
         case "mute": "Mute"
         default: action.title
         }
+    }
+}
+
+
+/// Pinned posts as a compact horizontal rail on the profile overview (tap opens the post).
+struct ProfilePinnedRail: View {
+    let posts: [SocialPost]
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Pinned", systemImage: "pin.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(posts) { post in
+                        Button {
+                            app.postActions.ingest(post)
+                            app.navigation.open(.post(post.id, .root))
+                            HapticEngine.shared.play(.navigation)
+                        } label: { card(post) }
+                        .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
+                        .accessibilityLabel("Pinned post: \(post.text ?? "media")")
+                    }
+                }
+            }
+            .modulaHorizontalRail()
+            .scrollClipDisabled()
+        }
+        .accessibilityIdentifier("profile.pinned")
+    }
+
+    private func card(_ post: SocialPost) -> some View {
+        let image = post.media.first.map { ModulaPostMapper.attachment($0) }.flatMap { $0.kind == .image ? $0 : nil }
+        return VStack(alignment: .leading, spacing: 6) {
+            if let image {
+                ModulaRemoteImage(url: image.bestPreviewURL ?? image.playableURL,
+                                  cacheKey: "attachment:\(image.id):feed-image",
+                                  maximumPixelSize: ModulaFeedImage.maxPixels) { phase in
+                    switch phase {
+                    case .success(let ui): Image(uiImage: ui).resizable().scaledToFill()
+                    default: Color.primary.opacity(0.08)
+                    }
+                }
+                .frame(width: 176, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            Text(post.text?.isEmpty == false ? post.text! : "Photo or video")
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.primary)
+                .lineLimit(image == nil ? 5 : 2)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(width: 196, height: image == nil ? 120 : 170, alignment: .topLeading)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
     }
 }

@@ -6,6 +6,8 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     case messages, search, reels, saved, drafts, communities, teams
     /// More bar destinations (t226u): Phone (calls), In-Mail, Moliboo world, Modula Connect.
     case phone, inMail = "in-mail", moliboo, connect
+    /// Widget console (t240u).
+    case board
     var id: Self { self }
     var title: String {
         switch self {
@@ -33,6 +35,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .inMail: "Longer messages"
         case .moliboo: "Your Moliboo world"
         case .connect: "Modula Connect (preview)"
+        case .board: "Widgets console"
         }
     }
     var icon: String {
@@ -53,6 +56,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .inMail: "envelope"
         case .moliboo: "pawprint"
         case .connect: "antenna.radiowaves.left.and.right"
+        case .board: "square.grid.2x2"
         }
     }
     var selectedIcon: String {
@@ -73,6 +77,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .inMail: "envelope.fill"
         case .moliboo: "pawprint.fill"
         case .connect: "antenna.radiowaves.left.and.right"
+        case .board: "square.grid.2x2.fill"
         }
     }
     var defaultRoute: AppRoute {
@@ -93,6 +98,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .inMail: .messages(.inMail(.inbox))
         case .moliboo: .settings(.moliboo)
         case .connect: .module(ConnectPreview.moduleID, localPath: nil)
+        case .board: .board
         }
     }
 
@@ -100,7 +106,7 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     /// the sidebar, or the VoiceOver "Open Profile" action.
     static let defaultBar: [AppTab] = [.home, .discover, .modules, .activity]
     /// Everything the user can put in the bar, in picker order (Home always first).
-    static let barCandidates: [AppTab] = [.home, .discover, .modules, .activity, .messages, .search, .reels, .saved, .drafts, .communities, .teams, .phone, .inMail, .moliboo, .connect]
+    static let barCandidates: [AppTab] = [.home, .discover, .modules, .activity, .messages, .search, .reels, .saved, .drafts, .communities, .teams, .phone, .inMail, .moliboo, .connect, .board]
     static let minBarCount = 2
     static let maxBarCount = 5
 
@@ -122,6 +128,8 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
             true
         case (.connect, .module(let id, _)):
             id == ConnectPreview.moduleID
+        case (.board, .board):
+            true
         case (.messages, .messages(.calls)), (.messages, .messages(.inMail)):
             false
         case (.messages, .messages), (.search, .search), (.reels, .reels), (.saved, .saved),
@@ -303,7 +311,7 @@ enum StoriesRoute: Hashable { case root, create, story(String) }
 enum ReelsRoute: Hashable { case feed, reel(String) }
 enum TeamsRoute: Hashable { case root, create, team(String, TeamSection) }
 enum TeamSection: String, CaseIterable, Codable, Hashable { case overview, members, roles, modules, settings }
-enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics, studio }
+enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics, studio, callScreens = "call-screens" }
 enum SearchRoute: Hashable { case root(String?), section(SearchSection, String?) }
 enum SavedRoute: Hashable { case root, posts, modules, links }
 enum CollectionsRoute: Hashable { case root, collection(String) }
@@ -336,6 +344,8 @@ enum AppRoute: Hashable {
     case drafts(DraftsRoute)
     /// Community surfaces. Kept outside the five root tabs and opened from product navigation.
     case community(CommunityRoute)
+    /// Board: the widget console (t240u).
+    case board
 
     var tab: AppTab? {
         switch self {
@@ -431,6 +441,8 @@ enum RouteParser {
         case "command":
             guard p.count == 1 else { return nil }
             return .command
+        case "board":
+            return p.count == 1 ? .board : nil
         case "saved":
             guard p.count <= 2 else { return nil }
             if p.count == 1 { return .saved(.root) }
@@ -677,6 +689,7 @@ enum RouteSerializer {
             case .root: "/collections"
             case .collection(let id): "/collections/\(id)"
             }
+        case .board: "/board"
         case .drafts(let route):
             switch route {
             case .root: "/drafts"

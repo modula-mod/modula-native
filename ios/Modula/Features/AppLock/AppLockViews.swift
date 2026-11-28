@@ -154,6 +154,9 @@ struct AppLockView: View {
             // "grid" (the retired purple Perspective Grid) falls back to the drape.
             if lockBackdrop == "drape" || lockBackdrop == "grid" {
                 SpectralDrapeView(interactive: false).ignoresSafeArea()
+            } else if lockBackdrop.hasPrefix("nature."),
+                      let kind = NatureWallpaperView.Kind(rawValue: String(lockBackdrop.dropFirst("nature.".count))) {
+                NatureWallpaperView(kind: kind, animated: effects).ignoresSafeArea()
             } else {
                 LockShaderAurora(animated: effects).ignoresSafeArea()
             }
