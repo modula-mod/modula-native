@@ -166,3 +166,106 @@ enum NodusSensitiveMemoryClassifier {
     }
 }
 
+
+// MARK: - Automatic memory extraction (feature 3)
+//
+// Deterministic, high-precision extraction of memory candidates from a user
+// turn. Only the user's own words are mined; the assistant's reply is never
+// a source. Candidates are proposed through `suggest()` — which silently
+// drops anything classified above `.normal` — and are never saved without
+// the user's approval in the suggestion queue. At most two candidates per
+// turn, and only from clear statement patterns ("my birthday is…",
+// "I like…", "remember that…") so questions and small talk never become
+// memories. No model call, no new dependency: pure string matching.
+
+enum NodusMemoryExtractor {
+    struct Candidate: Sendable, Equatable {
+        let text: String
+        let kind: NodusMemoryKind
+        let scope: NodusMemoryScope
+    }
+
+    static func candidates(question: String) -> [Candidate] {
+        let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= 12 else { return [] }
+        var found: [Candidate] = []
+        var seen = Set<String>()
+        func add(_ sentence: String, kind: NodusMemoryKind, scope: NodusMemoryScope) {
+            let clean = normalized(sentence)
+            guard clean.count >= 8, clean.count <= 200 else { return }
+            let key = clean.lowercased()
+            guard seen.insert(key).inserted else { return }
+            found.append(Candidate(text: clean, kind: kind, scope: scope))
+        }
+        // 1. Birthdays — a fact about a person.
+        if let s = sentence(containing: "birthday is", in: text) { add(s, kind: .personReference, scope: .global) }
+        // 2. What the user is working on.
+        if let s = sentence(containing: "i'm working on", in: text) ?? sentence(containing: "i am working on", in: text) { add(s, kind: .project, scope: .conversation) }
+        if let s = sentence(containing: "my project is", in: text) { add(s, kind: .project, scope: .conversation) }
+        // 3. Likes and preferences.
+        if let s = sentence(containing: "i like ", in: text) ?? sentence(containing: "i love ", in: text) ?? sentence(containing: "i prefer ", in: text) { add(s, kind: .preference, scope: .global) }
+        if let s = sentence(containing: "i don't like ", in: text) ?? sentence(containing: "i dislike ", in: text) { add(s, kind: .preference, scope: .global) }
+        // 4. Explicit "remember that".
+        if let clause = clause(after: "remember that ", in: text) ?? clause(after: "remember my ", in: text) {
+            add(clause, kind: .generalFact, scope: .global)
+        }
+        // 5. Standing instructions ("always…", "never…").
+        if let s = sentence(startingWith: "always ", in: text) ?? sentence(startingWith: "never ", in: text) { add(s, kind: .instruction, scope: .conversation) }
+        // 6. Facts about a person ("my sister is a doctor").
+        if let s = sentence(startingWith: "my ", containing: " is ", in: text) { add(s, kind: .personReference, scope: .global) }
+        return Array(found.prefix(2))
+    }
+
+    /// The sentence containing `marker` (case-insensitive), or nil.
+    private static func sentence(containing marker: String, in text: String) -> String? {
+        for part in splitSentences(text) {
+            if part.lowercased().contains(marker) { return part }
+        }
+        return nil
+    }
+
+    /// The first sentence starting with `prefix` (case-insensitive), or nil.
+    private static func sentence(startingWith prefix: String, in text: String) -> String? {
+        for part in splitSentences(text) {
+            if part.lowercased().hasPrefix(prefix) { return part }
+        }
+        return nil
+    }
+
+    /// The first sentence starting with `prefix` and containing `marker`, or nil.
+    private static func sentence(startingWith prefix: String, containing marker: String, in text: String) -> String? {
+        for part in splitSentences(text) {
+            let lower = part.lowercased()
+            if lower.hasPrefix(prefix) && lower.contains(marker) { return part }
+        }
+        return nil
+    }
+
+    /// The text after `marker` in the sentence that contains it (for "remember that …").
+    private static func clause(after marker: String, in text: String) -> String? {
+        for part in splitSentences(text) {
+            let lower = part.lowercased()
+            guard let range = lower.range(of: marker) else { continue }
+            let rest = String(part[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rest.isEmpty else { continue }
+            return rest
+        }
+        return nil
+    }
+
+    private static func splitSentences(_ text: String) -> [String] {
+        text.components(separatedBy: CharacterSet(charactersIn: ".!?\n"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// Capitalise, collapse whitespace, cap at 200 characters, end with a full stop.
+    private static func normalized(_ s: String) -> String {
+        var t = s.components(separatedBy: .whitespaces).filter { !$0.isEmpty }.joined(separator: " ")
+        if t.count > 200 { t = String(t.prefix(200)).trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard !t.isEmpty else { return t }
+        t = String(t.prefix(1)).uppercased() + String(t.dropFirst())
+        if !t.hasSuffix(".") { t += "." }
+        return t
+    }
+}

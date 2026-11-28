@@ -483,6 +483,16 @@ final class NodusChatViewModel {
                     }
                 )
                 setActive(result.conversation)
+                // Automatic memory capture: propose what the user just told
+                // Nodus as suggestions (never saved without approval). Runs
+                // after the reply is stored so it never blocks generation,
+                // and is skipped entirely when memory is off for this
+                // conversation. Failures are swallowed: memory capture must
+                // never break the chat.
+                if conversation.memoryEnabled {
+                    do { await Self.proposeMemories(from: question, conversationID: conversation.id, using: app) }
+                    catch { /* memory capture never fails the chat */ }
+                }
                 if !imageData.isEmpty,
                    let userID = result.conversation.messages.last(where: { $0.role == .user && $0.text == question })?.id {
                     store(imageData, for: userID)
@@ -647,6 +657,35 @@ final class NodusChatViewModel {
             evaluationStatus = "Remembered after confirmation"
         } catch {
             evaluationStatus = error.localizedDescription
+        }
+    }
+
+    /// Proposes memory candidates from the user's just-sent turn. Candidates
+    /// go through `suggest()` (which drops anything above `.normal`
+    /// sensitivity) and are never persisted without the user's approval in
+    /// the suggestion queue. Skips anything already stored or already
+    /// pending, so the same fact is never proposed twice.
+    private static func proposeMemories(from question: String, conversationID: UUID, using app: AppEnvironment) async {
+        let candidates = NodusMemoryExtractor.candidates(question: question)
+        guard !candidates.isEmpty else { return }
+        let store = app.nodusMemoryStore
+        let existing = await store.items().map { $0.text.lowercased() }
+        let pending = await store.snapshot().suggestions.map { $0.text.lowercased() }
+        var proposed = 0
+        for candidate in candidates {
+            guard proposed < 2 else { break }
+            let key = candidate.text.lowercased()
+            let duplicate = existing.contains(where: { $0.contains(key) || key.contains($0) })
+                || pending.contains(where: { $0.contains(key) || key.contains($0) })
+            guard !duplicate else { continue }
+            do {
+                if try await store.suggest(
+                    text: candidate.text, kind: candidate.kind, scope: candidate.scope,
+                    conversationID: candidate.scope == .conversation ? conversationID : nil
+                ) != nil {
+                    proposed += 1
+                }
+            } catch { continue }
         }
     }
 

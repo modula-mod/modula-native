@@ -36,6 +36,13 @@ struct HomeView: View {
     @State private var topChromeBottom: CGFloat = 0
     /// Bottom safe-area inset the system reserves for the scroll view (tab bar etc.).
     @State private var scrollBottomSafeArea: CGFloat = 0
+    /// Clock tick for the hero (refreshed once a minute by the .task on
+    /// greetingHero) so the greeting, the Moliboo's mood and the briefing
+    /// follow the day instead of freezing at first render.
+    @State private var heroTick = Date()
+    /// The equipped Moliboo's kind (same UserDefaults key the Home companion
+    /// reads). Nil when the mascot is off or the value is unknown.
+    @AppStorage(ModulaMascotSettings.kindKey) private var mascotKindRaw = ModulaMascotKind.pip.rawValue
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -63,6 +70,12 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                         .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                         .accessibilityIdentifier("home.edit")
+
+                        if MolibooSaysFlags.isEnabled {
+                            MolibooSaysCard()
+                                .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                                .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                        }
 
                         feedFilterChips
                             .padding(.bottom, ModulaSpacing.xxs)
@@ -376,13 +389,19 @@ struct HomeView: View {
     /// Greeting hero (reference: scenic card, name in display type, glass quick actions inside the card).
     /// Name comes from the signed-in profile, the scene/greeting from the device clock.
     private var greetingHero: some View {
-        let now = Date()
+        // heroTick refreshes once a minute (see the .task at the end of this
+        // view) so the greeting, the Moliboo's mood and the briefing follow
+        // the day instead of freezing at first render.
+        let now = heroTick
         let name = HomeGreeting.name(
             displayName: app.profile.ownProfile?.displayName,
             handle: app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
         )
         let hour = Calendar.current.component(.hour, from: now)
         let scene = (hour >= 20 || hour < 6) ? "SceneMoonLake" : "SceneMountainLake"
+        let kind = ModulaMascotKind(rawValue: mascotKindRaw)
+        let dayMood = MolibooDayMood.resolve(now: now, kind: kind, streak: MascotProgressStore.shared.streak)
+        let briefing = MolibooBriefing.snapshot(app: app, kind: kind, now: now)
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .center) {
@@ -411,9 +430,16 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-                Text(HomeMolibooGreeting.mood(hour: hour, streak: MascotProgressStore.shared.streak))
+                Text(dayMood.line)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
+                    .accessibilityIdentifier("home.greeting.molibooMood")
+                if let briefingLine = MolibooBriefing.line(for: briefing, kind: kind) {
+                    Text(briefingLine)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .accessibilityIdentifier("home.greeting.briefing")
+                }
                 if MascotProgressStore.shared.streak > 1 {
                     Label("\(MascotProgressStore.shared.streak)-day streak", systemImage: "flame.fill")
                         .font(.caption.weight(.bold))
@@ -480,6 +506,16 @@ struct HomeView: View {
         .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.greeting")
+        .task {
+            // One-minute tick so the greeting, the Moliboo's mood and the
+            // briefing follow the day. The task is tied to the hero's
+            // lifetime; it restarts if the hero leaves and re-enters the
+            // hierarchy, and it never touches scroll or feed state.
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(60)) } catch { break }
+                heroTick = Date()
+            }
+        }
     }
 
     private var greetingActions: some View {
@@ -2642,5 +2678,239 @@ struct HomeBriefingCard: View {
         .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.briefing")
+    }
+}
+
+// MARK: - Moliboo day mood (feature 4)
+//
+// The Moliboo reacts to the user's actual day, built only on the persisted
+// care state, the streak and the clock — no new state store. Gentle, never
+// nagging: a late-night nudge to rest, a celebration on a streak milestone, a
+// quiet "I missed you" after a missed day, and a named care request when the
+// stats say so. When no Moliboo is equipped it falls back to the legacy
+// mood line, so the hero never reads differently for lack of a character.
+
+struct MolibooDayMood {
+    enum Tone: Equatable { case celebrate, sleepy, missedYou, needsCare, happy, calm }
+    let tone: Tone
+    /// One short line in the Moliboo's voice, for the hero and the "Moliboo says" card.
+    let line: String
+    /// The care emotion this mood is grounded in (drives the figure's expression).
+    let emotion: MolibooEmotion
+    /// The 2D figure mood to render alongside the line.
+    var mascotMood: MascotMood {
+        switch tone {
+        case .celebrate: .celebrate
+        case .sleepy: .sleepy
+        case .missedYou: .pleased
+        case .needsCare: emotion == .sad ? .sad : .sleepy
+        case .happy: .happy
+        case .calm: .idle
+        }
+    }
+
+    @MainActor
+    static func resolve(now: Date, kind: ModulaMascotKind?, streak: Int, calendar: Calendar = .current) -> MolibooDayMood {
+        let hour = calendar.component(.hour, from: now)
+        guard let kind else {
+            return MolibooDayMood(tone: .calm, line: HomeMolibooGreeting.mood(hour: hour, streak: streak), emotion: .calm)
+        }
+        let name = kind.name
+        let care = MolibooCareStore.shared.state(for: kind.rawValue)
+        let life = MolibooCareStore.shared.life(for: kind.rawValue)
+        if care.asleep {
+            return MolibooDayMood(tone: .sleepy, line: "Zzz…", emotion: .sleepy)
+        }
+        // Late at night and still here: a gentle nudge to rest, not a lecture.
+        if hour >= 23 || hour < 5 {
+            return MolibooDayMood(tone: .sleepy, line: "\(name) is getting sleepy — it's late. Shall we rest soon?", emotion: .sleepy)
+        }
+        // The Moliboo needs something: name the need, don't just say "sad".
+        if care.emotion == .sad || care.emotion == .tired {
+            let line: String
+            if care.hunger > 80 { line = "\(name) is a bit peckish…" }
+            else if care.energy < 25 { line = "\(name) is running low on energy…" }
+            else if care.cleanliness < 25 { line = "\(name) could use a bath…" }
+            else { line = "\(name) could use a little company." }
+            return MolibooDayMood(tone: .needsCare, line: line, emotion: care.emotion)
+        }
+        // A missed day: the streak broke. Warm, not guilty.
+        if life.lastCheckIn != nil && life.currentStreak(at: now, calendar: calendar) == 0 {
+            return MolibooDayMood(tone: .missedYou, line: "\(name) missed you — glad you're back.", emotion: .calm)
+        }
+        if streak >= 7 {
+            return MolibooDayMood(tone: .celebrate, line: "A whole week together. Your Moliboo is glowing.", emotion: .happy)
+        }
+        if streak >= 3 {
+            return MolibooDayMood(tone: .happy, line: "\(streak) days in a row. Keep it going.", emotion: .happy)
+        }
+        return MolibooDayMood(tone: .calm, line: HomeMolibooGreeting.mood(hour: hour, streak: streak), emotion: care.emotion)
+    }
+}
+
+// MARK: - Moliboo briefing (feature 1)
+//
+// A real briefing the Moliboo composes from what's already on the device:
+// what you missed (unread chats, alerts, unseen stories) and the one thing
+// worth focusing on (the Moliboo's care need, a streak milestone, or the
+// unread queue). Deterministic text in the Moliboo's voice — it never invents
+// facts. Calendar events are NOT included: the app has no EventKit access
+// (see the manifest for the follow-up).
+
+struct MolibooBriefing {
+    var unreadChats: Int = 0
+    var unreadAlerts: Int = 0
+    var unseenStories: Int = 0
+    var streak: Int = 0
+    var careEmotion: MolibooEmotion = .calm
+    var careNeedsAttention: Bool = false
+    var timeOfDay: MolibooTimeOfDay = .morning
+
+    var missedCount: Int { unreadChats + unreadAlerts + unseenStories }
+
+    @MainActor
+    static func snapshot(app: AppEnvironment, kind: ModulaMascotKind?, now: Date = Date()) -> MolibooBriefing {
+        let chats = app.messaging.accountUnreadCount ?? 0
+        let alerts = app.activity.state(for: .all).unreadCount ?? 0
+        let stories = app.stories.trayGroups.reduce(0) { $0 + ((!$1.isOwn && $1.hasStories && $1.ring == .unseen) ? 1 : 0) }
+        var careEmotion: MolibooEmotion = .calm
+        var needsCare = false
+        if let kind {
+            let care = MolibooCareStore.shared.state(for: kind.rawValue)
+            careEmotion = care.emotion
+            needsCare = care.emotion == .sad || care.emotion == .tired
+        }
+        return MolibooBriefing(
+            unreadChats: chats, unreadAlerts: alerts, unseenStories: stories,
+            streak: MascotProgressStore.shared.streak,
+            careEmotion: careEmotion, careNeedsAttention: needsCare,
+            timeOfDay: MolibooTimeOfDay.at(now)
+        )
+    }
+
+    /// One composed line, or nil when there is nothing real to report (the mood
+    /// line already covers the quiet case, so the hero stays uncluttered).
+    static func line(for briefing: MolibooBriefing, kind: ModulaMascotKind?) -> String? {
+        var missed: [String] = []
+        if briefing.unreadChats > 0 { missed.append("\(briefing.unreadChats) chat\(briefing.unreadChats == 1 ? "" : "s")") }
+        if briefing.unreadAlerts > 0 { missed.append("\(briefing.unreadAlerts) alert\(briefing.unreadAlerts == 1 ? "" : "s")") }
+        if briefing.unseenStories > 0 { missed.append("\(briefing.unseenStories) new stor\(briefing.unseenStories == 1 ? "y" : "ies")") }
+        let missedText = missed.isEmpty ? nil : "\(missed.joined(separator: " and ")) waiting."
+        let name = kind?.name
+        let focus: String?
+        if briefing.careNeedsAttention, let name {
+            focus = "\(name) could use a little care today."
+        } else if briefing.streak >= 7 {
+            focus = "A whole week — keep the streak going."
+        } else if briefing.missedCount > 0 {
+            focus = "Catch up when you're ready."
+        } else {
+            focus = nil
+        }
+        switch (missedText, focus) {
+        case (let m?, let f?): return "\(m) \(f)"
+        case (let m?, nil): return m
+        case (nil, let f?): return f
+        case (nil, nil): return nil
+        }
+    }
+}
+
+// MARK: - "Moliboo says" (feature 2)
+//
+// A daily note from the Moliboo, on Home under the Today card. One note per
+// day, picked deterministically from the day + the equipped Moliboo + what's
+// actually true (care, streak, latest moment), so it feels alive instead of
+// generic. There is no Board widget system in this tree (see the manifest),
+// so this is built as a Home card in the HomeTodayCard pattern — a
+// self-contained view that can move into the Board's widget slot unchanged
+// when the Board code lands. Tap it to open the Moliboo world.
+
+enum MolibooSaysFlags {
+    static let key = "moliboo.says.enabled"
+    /// On by default: the note is real on-device data, not a stub.
+    static var isEnabled: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+}
+
+struct MolibooSaysCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage(ModulaMascotSettings.kindKey) private var mascotKindRaw = ModulaMascotKind.pip.rawValue
+
+    var body: some View {
+        let kind = ModulaMascotKind(rawValue: mascotKindRaw)
+        let now = Date()
+        let dayMood = MolibooDayMood.resolve(now: now, kind: kind, streak: MascotProgressStore.shared.streak)
+        let note = MolibooSaysNote.today(kind: kind, dayMood: dayMood, now: now)
+        Button {
+            HapticEngine.shared.play(.navigation)
+            app.navigation.open(.settings(.moliboo))
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                if let kind {
+                    ModulaMascotFigure(kind: kind, pose: .still(dayMood.mascotMood), size: 40)
+                        .accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(kind.map { "\($0.name) says" } ?? "Your Moliboo says")
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: dayMood.emotion.symbol)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    Text(note)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true, specular: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.molibooSays")
+    }
+}
+
+enum MolibooSaysNote {
+    /// The note for today. Deterministic for the day (same note all day, a new
+    /// one tomorrow) and grounded in what's actually true right now — the
+    /// day's mood first, then the latest care moment, then the streak and
+    /// bond, then a small daily rotation of warm lines.
+    @MainActor
+    static func today(kind: ModulaMascotKind?, dayMood: MolibooDayMood, now: Date = Date()) -> String {
+        guard let kind else { return "Your Moliboo is waiting to meet you." }
+        let care = MolibooCareStore.shared.state(for: kind.rawValue)
+        let life = MolibooCareStore.shared.life(for: kind.rawValue)
+        let streak = MascotProgressStore.shared.streak
+        switch dayMood.tone {
+        case .needsCare, .sleepy, .missedYou, .celebrate: return dayMood.line
+        case .happy, .calm: break
+        }
+        if let moment = life.moments.first {
+            return moment.text
+        }
+        if streak >= 3 { return "Day \(streak) together — \(kind.name) is proud of the streak." }
+        if care.bondLevel > 1 { return "\(kind.name) is growing with you — bond level \(care.bondLevel)." }
+        let lines = [
+            "\(kind.name) is here whenever you need a hand.",
+            "A quiet day is a good day for building something small.",
+            "\(kind.name) saved you a sunny spot for later.",
+        ]
+        return lines[Self.dayIndex(for: now, kind: kind, count: lines.count)]
+    }
+
+    /// Stable day index: the same (day, Moliboo) always picks the same line.
+    private static func dayIndex(for now: Date, kind: ModulaMascotKind, count: Int) -> Int {
+        let key = Self.dayKey(now) + kind.rawValue
+        var hash = 0
+        for scalar in key.unicodeScalars { hash = (hash &* 31) &+ Int(scalar.value) }
+        return abs(hash) % max(count, 1)
+    }
+
+    private static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 }
