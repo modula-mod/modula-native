@@ -368,7 +368,7 @@ struct MessageFocusOverlay: View {
                         .font(.system(size: 28))
                         .frame(width: 42, height: 42)
                         .background {
-                            if currentReaction == emoji { Circle().fill(app.appearance.liveAccent.opacity(0.25)) }
+                            if currentReaction == emoji { Circle().fill(Color.primary.opacity(0.16)) }
                         }
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.85, haptic: .selection))

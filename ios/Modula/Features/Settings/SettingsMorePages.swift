@@ -82,6 +82,8 @@ struct GesturesSettingsHost: View {
     @AppStorage("settings.gestures.edgeBack") private var edgeBack = true
     @AppStorage("settings.gestures.doubleTapLike") private var doubleTapLike = true
     @AppStorage("settings.gestures.swipeReply") private var swipeReply = true
+    /// Double-tap a chat bubble to react with this ("" = your most recent reaction, else ❤️).
+    @AppStorage("messages.doubleTapReaction") private var doubleTapReaction = ""
     @AppStorage("settings.gestures.shakeUndo") private var shakeUndo = false
     /// Gesture Navigation (Profile side sheet, sidebar mirror, Modules Dock). Same key as the
     /// dev switch, so turning it off here is the off switch.
@@ -110,7 +112,15 @@ struct GesturesSettingsHost: View {
                     Toggle("Swipe to reply in chats", isOn: $swipeReply)
                     Toggle("Shake to undo compose", isOn: $shakeUndo)
                 }
-                SettingsAPIFootnote(text: "Double-tap likes posts with photos or video. Swipe right on a chat bubble to quote it in your reply. Shake to undo works in Modula’s text fields. Edge Picker options are in Appearance. Gesture Navigation: swipe in from the right edge on Home for your profile, from the left for the sidebar, and up on the tab bar for the Modules Dock; every swipe also has a button.")
+                SettingsToggleCard {
+                    Picker("Double-tap reaction in chats", selection: $doubleTapReaction) {
+                        Text("Last used").tag("")
+                        ForEach(["❤️", "👍", "😂", "😮", "😢", "🔥", "🙏", "👀"], id: \.self) { Text($0).tag($0) }
+                    }
+                    .tint(.primary)
+                    .accessibilityIdentifier("settings.gestures.doubleTapReaction")
+                }
+                SettingsAPIFootnote(text: "Double-tap likes posts with photos or video. Swipe right on a chat bubble to quote it in your reply, or left to see its exact time. Double-tap a bubble to react. Shake to undo works in Modula’s text fields. Edge Picker options are in Appearance. Gesture Navigation: swipe in from the right edge on Home for your profile, from the left for the sidebar, and up on the tab bar for the Modules Dock; every swipe also has a button.")
             }
             .navigationTitle("Gestures")
             .navigationBarTitleDisplayMode(.inline)

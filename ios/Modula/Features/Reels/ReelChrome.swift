@@ -8,23 +8,44 @@ struct ReelTikTokRail: View {
     var isPlaying: Bool = true
     var onComment: () -> Void
     var onShare: () -> Void
+    /// Long-press on Like: opens the shared reaction strip next to it (global frame of the heart).
+    var onReactionsRequested: ((CGRect) -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @State private var heartFrame: CGRect = .zero
+    @State private var suppressLikeTap = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var following = false
     @State private var followBusy = false
 
     var body: some View {
-        VStack(spacing: 16) {
+        // One white SF Symbol family, same size/weight/shadow, count under each (TikTok spacing).
+        // Only the like heart takes colour when active; Save fills white (no yellow).
+        VStack(spacing: 14) {
             creator
-            railButton("heart.fill", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .red) {
+            railButton("heart.fill", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .red, label: post.liked ? "Unlike" : "Like") {
+                // The release after a long-press (strip opened) must not also toggle the like.
+                if suppressLikeTap { suppressLikeTap = false; return }
                 Task { await app.postActions.toggleLike(post) }
                 HapticEngine.shared.play(.lightImpact)
             }
-            railButton("ellipsis.bubble.fill", count: post.replyCount, active: false) { onComment() }
-            railButton("bookmark.fill", count: 0, active: post.saved, tint: .yellow) {
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heartFrame = $0 }
+            // Quick taps finish long before 0.4 s, so this never delays a normal like.
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                guard let onReactionsRequested else { return }
+                suppressLikeTap = true
+                HapticEngine.shared.play(.contextOpen)
+                onReactionsRequested(heartFrame)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    suppressLikeTap = false
+                }
+            })
+            .accessibilityAction(named: "React") { onReactionsRequested?(heartFrame) }
+            railButton("bubble.right.fill", count: post.replyCount, active: false, label: "Comments", id: "ellipsis.bubble.fill") { onComment() }
+            railButton(post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, label: post.saved ? "Unsave" : "Save", id: "bookmark.fill") {
                 Task { await app.postActions.toggleSave(post) }
             }
-            railButton("arrowshape.turn.up.right.fill", count: 0, active: false) { onShare() }
+            railButton("paperplane.fill", count: 0, active: false, label: "Share", id: "arrowshape.turn.up.right.fill") { onShare() }
             soundDisc
         }
         .foregroundStyle(.white)
@@ -55,15 +76,18 @@ struct ReelTikTokRail: View {
                         if ok { HapticEngine.shared.play(.followComplete) }
                     }
                 } label: {
+                    // White badge, black glyph (never accent/coral). Hit area padded to 44 pt.
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.black)
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(app.appearance.liveAccent))
-                        .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                        .background(Circle().fill(.white))
+                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .offset(y: 10)
+                .offset(y: 21)
                 .accessibilityLabel("Follow \(reel.creator.displayName)")
                 .accessibilityIdentifier("reels.follow")
             }
@@ -88,15 +112,15 @@ struct ReelTikTokRail: View {
         .accessibilityLabel(title)
     }
 
-    private func railButton(_ symbol: String, count: Int, active: Bool, tint: Color = .white, action: @escaping () -> Void) -> some View {
+    private func railButton(_ symbol: String, count: Int, active: Bool, tint: Color = .white, label: String, id: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Image(systemName: symbol)
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(.system(size: 27, weight: .semibold))
                     .foregroundStyle(active ? tint : .white)
-                    .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
+                    .shadow(color: .black.opacity(0.4), radius: 4, y: 1)
                     .symbolEffect(.bounce, value: active)
-                    .frame(height: 34)
+                    .frame(width: 44, height: 40)
                 // Always reserve the count line so rail spacing stays even.
                 Text(count > 0 ? (ModulaCountFormat.compact(count) ?? "\(count)") : " ")
                     .font(.caption2.weight(.semibold))
@@ -104,10 +128,13 @@ struct ReelTikTokRail: View {
                     .shadow(color: .black.opacity(0.5), radius: 2)
                     .contentTransition(.numericText())
             }
-            .frame(width: 52)
+            .frame(width: 56)
+            .contentShape(Rectangle())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.88, haptic: .selection))
-        .accessibilityIdentifier("reels.rail.\(symbol)")
+        .accessibilityLabel(label)
+        .accessibilityValue(count > 0 ? "\(count)" : "")
+        .accessibilityIdentifier("reels.rail.\(id ?? symbol)")
     }
 }
 
@@ -242,71 +269,99 @@ struct ReelQuickMenu: View {
     var onPictureInPicture: (() -> Void)? = nil
     var onDismiss: () -> Void
 
+    private static let rates: [Double] = [0.5, 1.0, 1.25, 1.5, 2.0]
+
     var body: some View {
+        // Compact Notes-style menu: a row of three icon actions, then a short list with normal
+        // row heights. Speed is a picker in the first tile instead of four separate rows.
         VStack(alignment: .leading, spacing: 0) {
-            Text("Playback").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 4)
-            ForEach([0.5, 1.0, 1.5, 2.0], id: \.self) { value in
-                Button {
-                    onRate(Float(value)); onDismiss()
-                } label: {
-                    HStack {
-                        Text(value == 1 ? "Normal" : String(format: "%g×", value))  // %.1g printed 1.5 as "2×"
-                        Spacer()
-                        if abs(Double(rate) - value) < 0.05 {
-                            Image(systemName: "checkmark").foregroundStyle(Color.primary)
+            HStack(spacing: 8) {
+                Menu {
+                    Picker("Playback speed", selection: Binding(
+                        get: { Self.rates.min(by: { abs($0 - Double(rate)) < abs($1 - Double(rate)) }) ?? 1 },
+                        set: { onRate(Float($0)); onDismiss() }
+                    )) {
+                        ForEach(Self.rates, id: \.self) { value in
+                            Text(value == 1 ? "Normal" : String(format: "%g×", value)).tag(value)
                         }
                     }
-                    .padding(.horizontal, 16).frame(minHeight: 44)
+                } label: {
+                    tile(abs(rate - 1) < 0.01 ? "Speed" : String(format: "%g×", Double(rate)), symbol: "gauge.with.needle")
                 }
-                .buttonStyle(.plain)
-            }
-            Divider().padding(.vertical, 4)
-            Button { onNotInterested(); onDismiss() } label: {
-                Label("Not interested", systemImage: "eye.slash").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            if let onCopyLink {
-                Button { onCopyLink(); onDismiss() } label: {
-                    Label("Copy link", systemImage: "link").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(String(format: "%g times", Double(rate)))
+                .accessibilityIdentifier("reels.menu.speed")
+                Button { onSave(); onDismiss() } label: { tile("Save", symbol: "bookmark") }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("reels.menu.save")
+                if let onCopyLink {
+                    Button { onCopyLink(); onDismiss() } label: { tile("Copy link", symbol: "link") }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("reels.menu.copylink")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("reels.menu.copylink")
             }
-            if let onMiniPlayer {
-                Button { onMiniPlayer(); onDismiss() } label: {
-                    Label("Mini player", systemImage: "rectangle.inset.bottomright.filled").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(8)
+
+            Divider().padding(.horizontal, 12)
+
+            VStack(spacing: 0) {
+                if let onMiniPlayer {
+                    row("Mini player", symbol: "rectangle.inset.bottomright.filled", id: "reels.menu.miniplayer", action: onMiniPlayer)
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("reels.menu.miniplayer")
-            }
-            if let onPictureInPicture {
-                Button { onPictureInPicture(); onDismiss() } label: {
-                    Label("Picture in Picture", systemImage: "pip.enter").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                if let onPictureInPicture {
+                    row("Picture in Picture", symbol: "pip.enter", id: "reels.menu.pip", action: onPictureInPicture)
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("reels.menu.pip")
+                row("Captions", symbol: "captions.bubble", checked: captionsOn, id: "reels.menu.captions", action: onToggleCaptions)
+                row(clearDisplay ? "Show controls" : "Clear display", symbol: "eye", id: "reels.menu.clear", action: onToggleClear)
+                row("Auto-scroll", symbol: "arrow.down.to.line.circle", checked: autoScroll, id: "reels.menu.autoscroll", action: onToggleAutoScroll)
+                    .accessibilityHint("Moves to the next reel when a video ends")
             }
-            Button { onSave(); onDismiss() } label: {
-                Label("Save video", systemImage: "bookmark").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            Button { onToggleCaptions(); onDismiss() } label: {
-                Label(captionsOn ? "Captions on" : "Captions off", systemImage: "captions.bubble").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            Button { onToggleClear(); onDismiss() } label: {
-                Label(clearDisplay ? "Show UI" : "Clear display", systemImage: "eye").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            Button { onToggleAutoScroll(); onDismiss() } label: {
-                Label(autoScroll ? "Auto-scroll on" : "Auto-scroll off", systemImage: autoScroll ? "arrow.down.to.line.circle.fill" : "arrow.down.to.line.circle")
-                    .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Moves to the next reel when a video ends")
-            .accessibilityIdentifier("reels.menu.autoscroll")
+            .padding(.vertical, 4)
+
+            Divider().padding(.horizontal, 12)
+
+            row("Not interested", symbol: "eye.slash", id: "reels.menu.notinterested", action: onNotInterested)
+                .padding(.vertical, 4)
         }
-        .padding(.bottom, 10)
-        .frame(width: 260)
+        .frame(width: 270)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
-        .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
+        .shadow(color: .black.opacity(0.3), radius: 18, y: 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(.escape, onDismiss)
+    }
+
+    private func tile(_ title: String, symbol: String) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
+            Text(title)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(.primary)
+        .frame(maxWidth: .infinity, minHeight: 60)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.08)))
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func row(_ title: String, symbol: String, checked: Bool? = nil, id: String, action: @escaping () -> Void) -> some View {
+        Button { action(); onDismiss() } label: {
+            HStack(spacing: 12) {
+                Text(title).font(.body).lineLimit(1).minimumScaleFactor(0.85)
+                Spacer(minLength: 8)
+                if checked == true {
+                    Image(systemName: "checkmark").font(.subheadline.weight(.semibold))
+                }
+                Image(systemName: symbol).font(.body).frame(width: 22)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(checked == true ? .isSelected : [])
+        .accessibilityIdentifier(id)
     }
 }
 

@@ -31,6 +31,11 @@ struct HomeView: View {
     @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
     @AppStorage(HomeSectionLayout.storageKey) private var homeSectionsRaw = HomeSectionLayout.defaultRaw
     @State private var editingHome = false
+    /// Header bottom edge in global space: the scroll view's top + its top safe-area inset (the
+    /// nav bar with search/bell/chat). Passed to post cards so their action rail stays below it.
+    @State private var topChromeBottom: CGFloat = 0
+    /// Bottom safe-area inset the system reserves for the scroll view (tab bar etc.).
+    @State private var scrollBottomSafeArea: CGFloat = 0
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -72,6 +77,11 @@ struct HomeView: View {
             }
             .modulaSoftScrollEdge()
             .modulaFreezesScrollDuringReactions()
+            .environment(\.modulaTopChromeBottom, topChromeBottom)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                (proxy.frame(in: .global).minY + proxy.safeAreaInsets.top).rounded()
+            } action: { topChromeBottom = $0 }
+            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom.rounded() } action: { scrollBottomSafeArea = $0 }
             .onScrollGeometryChange(for: Bool.self) { [storyTrayFolded] geometry in
                 // Bool output keeps this cheap: the action only runs when the
                 // fold state flips. Hysteresis stops the toolbar swap flickering
@@ -693,9 +703,9 @@ struct HomeView: View {
                                 Task { await app.home.toggleSave(resolved, mode: mode) }
                             },
                             onShare: {
-                                // Settings → Sharing decides copy / iOS sheet / Modula sheet.
+                                // Send button: always a sheet (Settings → Sharing picks Modula or iOS).
                                 ModulaMascotEvent.post(.share)
-                                PostSharing.share(resolved, app: app)
+                                PostSharing.send(resolved, app: app)
                             },
                             onContextAction: { action in
                                 handlePostContext(action, post: resolved)
@@ -755,7 +765,10 @@ struct HomeView: View {
                         Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
-                    .padding(.vertical, 20)
+                    .padding(.top, 20)
+                    // End of feed sits fully above the tab bar + Following/For You accessory: add
+                    // whatever the bottom safe area doesn't already reserve for that chrome.
+                    .padding(.bottom, 20 + max(0, shellChromeMetrics.occupiedBottomHeight - scrollBottomSafeArea))
                 }
                 if state.loadState == .loadingMore {
                     // Enhancements-50: a post-shaped skeleton holds the slot the next page fills.
@@ -1702,6 +1715,10 @@ struct HomeCaughtUpMarker: View {
             .accessibilityIdentifier("home.caughtup.refresh")
         }
         .frame(maxWidth: .infinity)
+        // Its own glass card, so it never reads as ghost text drifting under the bottom bars.
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.caughtup")
     }

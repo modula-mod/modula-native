@@ -30,8 +30,18 @@ enum PostSharing {
         return lines.joined(separator: "\n")
     }
 
+    /// The Send (paper-plane) button: always a real share sheet (Modula chats, Copy Link,
+    /// System Share), never a silent copy. The "Link copied" toast belongs to Copy Link only.
+    static func send(_ post: SocialPost, app: AppEnvironment) {
+        share(post, app: app, method: method(copyAsLink: false))
+    }
+
     static func share(_ post: SocialPost, app: AppEnvironment) {
-        switch method() {
+        share(post, app: app, method: method())
+    }
+
+    private static func share(_ post: SocialPost, app: AppEnvironment, method: Method) {
+        switch method {
         case .copyLink:
             UIPasteboard.general.string = post.shareURL.absoluteString
             ModulaHapticTexture.play(.share)

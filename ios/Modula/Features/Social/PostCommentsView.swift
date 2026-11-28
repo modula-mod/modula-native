@@ -521,6 +521,7 @@ struct PostCommentsView: View {
     @State private var searchText = ""
     @State private var showsSearch = false
     @State private var scrollTarget: SocialCommentID?
+    @State private var listMemo = CommentListMemo()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
@@ -776,51 +777,64 @@ struct PostCommentsView: View {
 
     private var conversationHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .accessibilityHidden(true)
-                    Text("Comments").font(.headline)
-                    if displayedCount > 0 {
-                        Text("\(displayedCount)")
-                            .font(.caption.weight(.bold).monospacedDigit())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 7)
-                            .frame(minHeight: 20)
-                            .background(Capsule().fill(app.appearance.liveAccent))
-                            .contentTransition(.numericText(value: Double(displayedCount)))
-                            .accessibilityLabel("\(displayedCount) comments")
+        HStack(spacing: 8) {
+            // One horizontal title: "Comments" + a quiet glass count badge. Fixed size so it can
+            // never be squeezed into a vertical column by the buttons beside it.
+            HStack(spacing: 6) {
+                Text("Comments")
+                    .font(.headline)
+                    .lineLimit(1)
+                if displayedCount > 0 {
+                    Text("\(displayedCount)")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .frame(minHeight: 20)
+                        .background(Capsule().fill(Color.primary.opacity(0.1)))
+                        .contentTransition(.numericText(value: Double(displayedCount)))
+                        .accessibilityLabel("\(displayedCount) comments")
+                }
+            }
+            .fixedSize()
+            .layoutPriority(2)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 4)
+            // Sort is a compact glass menu picker; "Collapse all replies" lives in it too
+            // (no stray floating button in the header).
+            Menu {
+                Picker("Sort comments", selection: Binding(get: { sort }, set: { sort = $0; HapticEngine.shared.play(.selection) })) {
+                    ForEach(CommentSort.allCases) { option in
+                        Text(option.title).tag(option)
                     }
                 }
-                .padding(.horizontal, isSheet ? 12 : 0)
-                .frame(minHeight: isSheet ? 36 : 0)
-                .background {
-                    if isSheet { Color.clear.modulaGlass(in: Capsule(), interactive: false, specular: true) }
+                if let store, store.expandedReplies.count > 1 {
+                    Divider()
+                    Button("Collapse all replies", systemImage: "arrow.up.and.line.horizontal.and.arrow.down") {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.collapseAllReplies() }
+                        HapticEngine.shared.play(.selection)
+                    }
                 }
-                // Segmented sort (Hick: three visible choices beat a hidden menu) — shared control.
-                ModulaSegmentedControl("Sort comments", selection: Binding(get: { sort }, set: { sort = $0 }),
-                                       options: CommentSort.allCases, compact: true,
-                                       identifier: { "comments.sort.\($0.rawValue)" }) { $0.title }
-                    .fixedSize()
-                    .frame(minHeight: 44)
-            }
-            if let store, store.expandedReplies.count > 1 {
-                Button {
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.collapseAllReplies() }
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Image(systemName: "arrow.up.and.line.horizontal.and.arrow.down")
-                        .font(.footnote.weight(.semibold))
-                        .frame(width: 36, height: 36)
-                        .modulaGlass(in: Circle(), interactive: true)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(sort.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Collapse all replies")
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .contentShape(Capsule())
+                .modulaGlass(in: Capsule(), interactive: true)
+                .frame(minHeight: 44)
             }
-            Spacer(minLength: 8)
+            .fixedSize()
+            .accessibilityLabel("Sort comments")
+            .accessibilityValue(sort.title)
+            .accessibilityIdentifier("comments.sort.menu")
             Button {
                 withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .easeOut(duration: 0.22)) {
                     showsSearch.toggle()
@@ -1078,18 +1092,31 @@ struct PostCommentsView: View {
         Task { await store.loadMore() }
     }
 
+    /// Sorted/filtered roots and replies, recomputed only when the comments, sort or search
+    /// change — not on every body pass (typing, focus, panels used to re-sort the whole list and
+    /// re-filter every reply thread per keystroke).
     private func filteredRoots(_ store: PostCommentsStore) -> [SocialComment] {
-        let base = roots(sortedItems(store.items))
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return base }
-        return base.filter { comment in
+        let memo = listMemo
+        if memo.valid, memo.sort == sort, memo.query == q, memo.items == store.items { return memo.roots }
+        let base = roots(sortedItems(store.items))
+        var grouped: [SocialCommentID: [SocialComment]] = [:]
+        for item in store.items { if let parent = item.parentID { grouped[parent, default: []].append(item) } }
+        memo.repliesByParent = grouped.mapValues { sortedReplies($0) }
+        memo.roots = q.isEmpty ? base : base.filter { comment in
             matchesSearch(comment, query: q)
-                || store.items.contains { $0.parentID == comment.id && matchesSearch($0, query: q) }
+                || (memo.repliesByParent[comment.id] ?? []).contains { matchesSearch($0, query: q) }
         }
+        memo.items = store.items
+        memo.sort = sort
+        memo.query = q
+        memo.valid = true
+        return memo.roots
     }
 
     private func filteredReplies(_ store: PostCommentsStore, parent: SocialComment) -> [SocialComment] {
-        let base = sortedReplies(store.items.filter { $0.parentID == parent.id })
+        _ = filteredRoots(store)
+        let base = listMemo.repliesByParent[parent.id] ?? []
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return base }
         // When searching, show matching replies even if parent thread wasn't expanded visually.
@@ -1181,7 +1208,7 @@ struct PostCommentsView: View {
                     ModulaLocalStickerRow(stickers: local.stickers)
                 }
                 if !local.text.isEmpty, !Self.isBareLink(local.text) {
-                    Text(ModulaRichText.attributed(local.text, revealSpoilers: revealedSpoilers.contains(comment.id)))
+                    Text(CommentRichTextCache.attributed(local.text, reveal: revealedSpoilers.contains(comment.id)))
                         .font(.body)
                         .lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1341,6 +1368,7 @@ struct PostCommentsView: View {
         Section {
             if isOwn(comment) {
                 Button(role: .destructive) { menuComment = nil; Task { await store.delete(comment) } } label: { Label("Delete", systemImage: "trash") }
+                    .foregroundStyle(.red)
             } else {
                 Menu {
                     Button("Spam") { menuComment = nil; Task { await store.report(comment, category: "spam") } }
@@ -1531,6 +1559,16 @@ struct PostCommentsView: View {
             .background {
                 if mediaPanelActive {
                     canvas
+                } else if !(composerFocused || attachTrayOpen || mediaStage.isExpanded || store?.isSending == true) {
+                    // Idle: comments fade out under the floating pill instead of showing through it.
+                    // Clear over Moliboo's headroom, solid canvas behind the field.
+                    LinearGradient(stops: [
+                        .init(color: canvas.opacity(0), location: 0),
+                        .init(color: canvas.opacity(reduceTransparency ? 1 : 0.92), location: commentsMascotShown ? 0.45 : 0.15),
+                        .init(color: canvas.opacity(reduceTransparency ? 1 : 0.96), location: 1)
+                    ], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea(edges: .bottom)
+                    .allowsHitTesting(false)
                 } else if composerFocused || attachTrayOpen || mediaStage.isExpanded || store?.isSending == true {
                     // Docked to the keyboard. The idle state is the floating pill, with no full-bleed bar behind it.
                     // Solid canvas with a short top fade: no live blur or mask pass while the
@@ -1901,33 +1939,48 @@ private struct CommentRowSwipeModifier: ViewModifier {
     let reduceMotion: Bool
     let onReply: () -> Void
     let onDoubleTap: () -> Void
-    @State private var offset: CGFloat = 0
+    /// Resets automatically when the drag ends *or is cancelled* (e.g. the scroll view takes
+    /// over), so a row can't be left shifted with the reply arrow showing.
+    @GestureState private var drag: CGFloat = 0
+    @State private var crossed = false
     @State private var burst = 0
+    private static let trigger: CGFloat = 56
 
     func body(content: Content) -> some View {
+        let t = min(abs(drag) / Self.trigger, 1)
         content
+            // iMessage-style: only the row content slides; the neutral reply glyph is revealed in
+            // the space it leaves (the glyph itself stays put at the trailing edge).
+            .offset(x: drag)
             .background(alignment: .trailing) {
-                let t = min(abs(offset) / 64, 1)
                 Image(systemName: "arrowshape.turn.up.left.fill")
-                    .font(.title3)
-                    .foregroundStyle(accent)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
                     .opacity(Double(t))
-                    .scaleEffect(t)
-                    .padding(.trailing, 4)
+                    .scaleEffect(0.6 + 0.4 * t)
+                    .padding(.trailing, 6)
+                    .accessibilityHidden(true)
             }
-            .offset(x: offset)
+            .animation(reduceMotion ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82), value: drag == 0)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 14)
-                    .onChanged { value in
+                    .updating($drag) { value, state, _ in
                         guard abs(value.translation.width) > abs(value.translation.height) * 1.2, value.translation.width < 0 else { return }
-                        let next = max(value.translation.width * 0.6, -90)
-                        if offset > -56 && next <= -56 { HapticEngine.shared.play(.dragThreshold) }
-                        offset = next
+                        state = max(value.translation.width * 0.6, -80)
+                    }
+                    .onChanged { value in
+                        let next = value.translation.width * 0.6
+                        let over = next <= -Self.trigger && abs(value.translation.width) > abs(value.translation.height) * 1.2
+                        if over != crossed {
+                            crossed = over
+                            if over { HapticEngine.shared.play(.dragThreshold) }
+                        }
                     }
                     .onEnded { _ in
-                        let triggered = offset <= -56
-                        withAnimation(.easeOut(duration: reduceMotion ? 0.12 : 0.2)) { offset = 0 }
-                        if triggered { onReply() }
+                        if crossed { onReply() }
+                        crossed = false
                     }
             )
             .simultaneousGesture(TapGesture(count: 2).onEnded {
@@ -1938,10 +1991,27 @@ private struct CommentRowSwipeModifier: ViewModifier {
             .overlay {
                 DoubleTapHeartBurst(trigger: burst)
                     .frame(width: 72, height: 72)
+                    .allowsHitTesting(false)
             }
     }
 }
 
+
+/// Rich-text formatting is parsed once per (text, spoiler state) and reused, instead of on
+/// every body pass (typing in the composer, reactions, polling all re-render the sheet).
+@MainActor
+enum CommentRichTextCache {
+    private static var storage: [String: AttributedString] = [:]
+
+    static func attributed(_ text: String, reveal: Bool) -> AttributedString {
+        let key = (reveal ? "1|" : "0|") + text
+        if let hit = storage[key] { return hit }
+        let value = ModulaRichText.attributed(text, revealSpoilers: reveal)
+        if storage.count > 600 { storage.removeAll(keepingCapacity: true) }
+        storage[key] = value
+        return value
+    }
+}
 
 #if DEBUG
 /// DEBUG-only screenshot seed (`--debug-comments-fixture`). Never compiled into Release, never sent.
@@ -1980,3 +2050,15 @@ struct DebugCommentsSheetPresenter: ViewModifier {
     }
 }
 #endif
+
+
+/// Non-observable memo for the comments list (see `filteredRoots`).
+@MainActor
+final class CommentListMemo {
+    var valid = false
+    var items: [SocialComment] = []
+    var sort: CommentSort?
+    var query = ""
+    var roots: [SocialComment] = []
+    var repliesByParent: [SocialCommentID: [SocialComment]] = [:]
+}

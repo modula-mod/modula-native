@@ -21,6 +21,9 @@ final class ModulaVideoPlaybackController {
     /// Full-screen viewer: reopen long videos where you left off (this device; last 40 videos).
     var resumesPosition = false
     private var timeObserver: Any?
+    /// Item status (a failed load used to leave the player at 0:00 / 0:00 with no feedback).
+    private var statusObservation: NSKeyValueObservation?
+    private(set) var lastURL: URL?
 
     init() {
         if UserDefaults.standard.object(forKey: "modula.video.lastMuted") != nil {
@@ -53,7 +56,12 @@ final class ModulaVideoPlaybackController {
             ModulaToastCenter.shared.show("Resumed at \(ModulaPlaybackPositions.clock(seconds))", symbol: "play.circle")
         }
         player = next
+        lastURL = url
         state = .preparing
+        statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            guard item.status == .failed else { return }
+            Task { @MainActor in self?.state = .failed }
+        }
         timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self, weak next] time in
             guard let self, let next else { return }
             Task { @MainActor in
@@ -69,6 +77,14 @@ final class ModulaVideoPlaybackController {
                 }
             }
         }
+    }
+
+    /// Reload the last URL after a failed load (error state "Try again").
+    func retry() {
+        guard let url = lastURL else { return }
+        release()
+        attach(url: url)
+        play()
     }
 
     /// The URL actually loaded (downloaded file or stream), for handing off to the dock.
@@ -166,6 +182,8 @@ final class ModulaVideoPlaybackController {
         }
         if let timeObserver, let player { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
+        statusObservation?.invalidate()
+        statusObservation = nil
         // A player showing in Picture in Picture keeps playing after its cell scrolls away;
         // ModulaPiP recycles it once PiP stops.
         if let player {

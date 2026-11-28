@@ -1,4 +1,5 @@
 import AVFoundation
+import PhotosUI
 import SwiftUI
 import Translation
 import UIKit
@@ -37,6 +38,8 @@ struct MessagesRootView: View {
                     MessageRequestsView()
                 case .saved:
                     SavedMessagesView()
+                case .calls:
+                    CallsHomeView()
                 case .inMail(let mail):
                     InMailRouteView(route: mail)
                 case .new:
@@ -44,8 +47,9 @@ struct MessagesRootView: View {
                 case .direct(let person):
                     DirectMessageView(person: person)
                 case .conversation(let id):
+                    // Plain push (t217u #10): the zoom morph snapshotted the whole thread, which read
+                    // as a coloured flash plus a lag on open. A standard push starts drawing at once.
                     ConversationView(conversationID: id)
-                        .modulaZoomDestination(id: "conversation.\(id)", namespace: routeTransitions, reduceMotion: reduceMotion)
                 }
             }
         }
@@ -89,6 +93,7 @@ struct ConversationListView: View {
     /// Server chat folder chip (`chatFolders`); nil = no folder filter.
     @State private var serverFolderID: String?
     @State private var managingFolders = false
+    @State private var titleCollapsed = false
 
     private enum InboxDestination: Hashable, Identifiable {
         case archived, hidden, folder(String)
@@ -142,8 +147,20 @@ struct ConversationListView: View {
         content
             .modulaSoftScrollEdge()
             .navigationTitle("Messages")
-            .navigationBarTitleDisplayMode(.large)
+            // One title: the big "Messages" is the first row of the list, and the small bar title
+            // only fades in once it has scrolled away (the system large title showed both at once
+            // during scroll/back-swipe and stretched on pull-down).
+            .navigationBarTitleDisplayMode(.inline)
+            // Select mode: plain "Done" text button, no back chevron beside it.
+            .navigationBarBackButtonHidden(selecting)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Messages")
+                        .font(.headline)
+                        .opacity(titleCollapsed ? 1 : 0)
+                        .animation(.easeOut(duration: 0.15), value: titleCollapsed)
+                        .accessibilityHidden(!titleCollapsed)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     if selecting {
                         Button("Done") {
@@ -163,7 +180,11 @@ struct ConversationListView: View {
                                     circleOpen.toggle()
                                 }
                             } label: {
-                                MessagesCircleStack(people: Array(circle.prefix(3)))
+                                // A single glyph: the overlapping avatar stack read as a broken "AN P6" pill.
+                                Image(systemName: circleOpen ? "person.2.fill" : "person.2")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 36, height: 36)
+                                    .contentShape(Circle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(circleOpen ? "Hide your circle" : "Show your circle")
@@ -185,45 +206,64 @@ struct ConversationListView: View {
                         .opacity(selecting ? 0 : 1)
                         .disabled(selecting)
                         if selecting {
+                            // Notes-style: a row of three icon actions, then a short list. Outline
+                            // SF Symbols throughout (no filled/outlined mix).
                             Menu {
-                                Button("Mark as read", systemImage: "checkmark.message") {
-                                    Task { await markSelectedRead() }
-                                }
-                                Button("Pin or unpin", systemImage: "pin") {
-                                    for id in selectedIDs { app.messaging.togglePin(id) }
-                                    selectedIDs = []
-                                    selecting = false
-                                }
-                                if app.messaging.capabilities.mute {
-                                    Button("Mute…", systemImage: "bell.slash") { muteSheetIDs = Array(selectedIDs) }
-                                }
-                                if app.messaging.capabilities.archive {
-                                    Button("Archive", systemImage: "archivebox") {
-                                        Task { await archiveSelected() }
+                                ControlGroup {
+                                    Button("Read", systemImage: "checkmark.message") {
+                                        Task { await markSelectedRead() }
+                                    }
+                                    Button("Pin", systemImage: "pin") {
+                                        for id in selectedIDs { app.messaging.togglePin(id) }
+                                        selectedIDs = []
+                                        selecting = false
+                                    }
+                                    if app.messaging.capabilities.archive {
+                                        Button("Archive", systemImage: "archivebox") {
+                                            Task { await archiveSelected() }
+                                        }
+                                    } else {
+                                        Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
                                     }
                                 }
-                                Button("Move to folder…", systemImage: "folder") { folderSheetIDs = Array(selectedIDs) }
-                                Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
+                                .controlGroupStyle(.compactMenu)
+                                Section {
+                                    if app.messaging.capabilities.mute {
+                                        Button("Mute…", systemImage: "bell.slash") { muteSheetIDs = Array(selectedIDs) }
+                                    }
+                                    Button("Move to Folder…", systemImage: "folder") { folderSheetIDs = Array(selectedIDs) }
+                                    if app.messaging.capabilities.archive {
+                                        Button("Hide", systemImage: "eye.slash") { Task { await hideSelected() } }
+                                    }
+                                }
                             } label: {
-                                Image(systemName: "ellipsis.circle")
-                                    .font(.body.weight(.bold))
+                                Image(systemName: "ellipsis")
+                                    .font(.body.weight(.semibold))
                                     .frame(width: 36, height: 36)
+                                    .contentShape(Circle())
                             }
                             .disabled(selectedIDs.isEmpty)
                             .accessibilityLabel("Actions for selected chats")
                         } else {
                             Menu {
+                                ControlGroup {
+                                    Button("Select", systemImage: "checkmark.circle") { selecting = true }
+                                    Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
+                                    Button("Hidden", systemImage: "eye.slash") { Task { await openHidden() } }
+                                }
+                                .controlGroupStyle(.compactMenu)
                                 if app.messaging.capabilities.markRead {
-                                    Button("Mark all as read", systemImage: "checkmark.message") {
-                                        Task { await app.messaging.markAllVisibleRead() }
+                                    Section {
+                                        Button("Mark All as Read", systemImage: "checkmark.message") {
+                                            Task { await app.messaging.markAllVisibleRead() }
+                                        }
                                     }
                                 }
-                                Button("Archived", systemImage: "archivebox") { inboxDestination = .archived }
-                                Button("Hidden", systemImage: "eye.slash") { Task { await openHidden() } }
                             } label: {
-                                Image(systemName: "ellipsis.circle")
+                                Image(systemName: "ellipsis")
                                     .font(.body.weight(.semibold))
                                     .frame(width: 36, height: 36)
+                                    .contentShape(Circle())
                             }
                             .accessibilityLabel("Inbox options")
                             .accessibilityIdentifier("messages.inbox.menu")
@@ -321,6 +361,13 @@ struct ConversationListView: View {
     /// collapses normally instead of starting half-faded under a tall pinned bar.
     private func header(matches: Int) -> some View {
         VStack(spacing: 8) {
+            Text("Messages")
+                .font(.largeTitle.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .accessibilityAddTraits(.isHeader)
             if circleOpen && !circle.isEmpty && app.messaging.conversationQuery.isEmpty {
                 circleRow
                     .transition(.opacity)
@@ -347,11 +394,32 @@ struct ConversationListView: View {
     }
 
     private var folderRow: some View {
-        // Device-local folders (older servers): shared control, no thumb — a tap opens the folder.
-        ModulaSegmentedControl("Folders", selection: Binding(get: { "" }, set: { inboxDestination = .folder($0) }),
-                               options: app.messaging.folderNames) { $0 }
+        // Device-local folders (older servers). These used to render as a thumb-less segmented
+        // control: one folder became a full-width "Hello" bar that looked like a stray chat row.
+        // Now: small labelled glass folder chips, leading-aligned, that open the folder.
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(app.messaging.folderNames, id: \.self) { name in
+                    Button {
+                        inboxDestination = .folder(name)
+                        HapticEngine.shared.play(.navigation)
+                    } label: {
+                        Label(name, systemImage: "folder")
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 34)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityLabel("Folder \(name)")
+                }
+            }
             .padding(.horizontal, ModulaLayout.contentInset)
-            .accessibilityIdentifier("messages.inbox.folders")
+        }
+        .modulaHorizontalRail()
+        .accessibilityIdentifier("messages.inbox.folders")
     }
 
     /// Roadmap #07: say exactly what a search covered, so a partial local search is never
@@ -525,6 +593,12 @@ struct ConversationListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .modulaSoftScrollEdge()
+            // Bool output: only flips state when the title crosses the bar, not per frame.
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y + geo.contentInsets.top > 44
+            } action: { _, collapsed in
+                titleCollapsed = collapsed
+            }
             .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: filter)
         }
     }
@@ -543,7 +617,7 @@ struct ConversationListView: View {
                             if selecting {
                                 Image(systemName: selectedIDs.contains(conversation.id) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
-                                    .foregroundStyle(selectedIDs.contains(conversation.id) ? app.appearance.liveAccent : Color.secondary)
+                                    .foregroundStyle(selectedIDs.contains(conversation.id) ? Color.primary : Color.secondary)
                                     .accessibilityHidden(true)
                             }
                             // Speed: a new message in one chat re-renders that row only — the others
@@ -948,12 +1022,12 @@ struct MessageUnreadSeparator: View {
     @Environment(AppEnvironment.self) private var app
     var body: some View {
         HStack(spacing: 8) {
-            Rectangle().fill(app.appearance.liveAccent.opacity(0.5)).frame(height: 1)
+            Rectangle().fill(Color.primary.opacity(0.5)).frame(height: 1)
             Text("New messages")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(Color.primary)
                 .fixedSize()
-            Rectangle().fill(app.appearance.liveAccent.opacity(0.5)).frame(height: 1)
+            Rectangle().fill(Color.primary.opacity(0.5)).frame(height: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("New messages start here")
@@ -1031,7 +1105,7 @@ extension View {
 }
 
 enum MessagesScope: Hashable {
-    case inbox, inMail, requests
+    case inbox, inMail, requests, calls
 }
 
 struct MessagesScopePicker: View {
@@ -1040,12 +1114,14 @@ struct MessagesScopePicker: View {
 
     var body: some View {
         ModulaSegmentedControl("Message sections", selection: Binding(get: { selection }, set: navigate),
-                               segments: [(MessagesScope.inbox, "Chats"), (MessagesScope.inMail, "In-Mail"), (MessagesScope.requests, "Requests")],
+                               segments: [(MessagesScope.inbox, "Chats"), (MessagesScope.inMail, "In-Mail"),
+                                          (MessagesScope.requests, "Requests"), (MessagesScope.calls, "Calls")],
                                identifier: { scope in
                                    switch scope {
                                    case .inbox: "messages.scope.Chats"
                                    case .inMail: "messages.scope.In-Mail"
                                    case .requests: "messages.scope.Requests"
+                                   case .calls: "messages.scope.Calls"
                                    }
                                })
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -1058,6 +1134,7 @@ struct MessagesScopePicker: View {
         case .inbox: app.navigation.replaceTop(with: .messages(.inbox))
         case .inMail: app.navigation.replaceTop(with: .messages(.inMail(.inbox)))
         case .requests: app.navigation.replaceTop(with: .messages(.requests))
+        case .calls: app.navigation.replaceTop(with: .messages(.calls))
         }
     }
 }
@@ -1141,7 +1218,7 @@ struct ConversationRow: View {
 
     private var previewText: Text {
         if let draft {
-            return Text("Draft: ").fontWeight(.semibold).foregroundStyle(.primary) + Text(draft)
+            return Text("Draft · ").fontWeight(.semibold).foregroundStyle(.secondary) + Text(MessagePreviewText.plain(draft))
         }
         if conversation.lastMessage?.kind == .voice {
             let raw = "Voice note"
@@ -1152,7 +1229,7 @@ struct ConversationRow: View {
         let raw = MessagePreviewText.plain(conversation.lastMessage?.body ?? "")
         if raw.isEmpty { return Text("No messages yet").italic() }
         // Roadmap #07: matched words are highlighted while searching.
-        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: app.appearance.liveAccent))
+        let body = Text(MessageSearchHighlight.attributed(raw, query: app.messaging.conversationQuery, accent: Color.primary))
         if lastIsOwn { return Text("You: ").fontWeight(.medium) + body }
         if isGroup, let senderID = conversation.lastMessage?.senderID,
            let sender = conversation.participants.first(where: { $0.id == senderID }) {
@@ -1233,9 +1310,8 @@ struct ConversationAvatar: View {
         // Unread = an accent ring around the avatar (pre-attentive, no extra dot to parse).
         .overlay {
             if unread {
-                let accent = app.appearance.liveAccent
                 Circle()
-                    .strokeBorder(AngularGradient(colors: [accent, accent.mix(with: .white, by: 0.35), accent], center: .center), lineWidth: 2.5)
+                    .strokeBorder(Color.primary.opacity(0.85), lineWidth: 2.5)
                     .padding(-4)
                     .accessibilityHidden(true)
             }
@@ -1302,6 +1378,8 @@ struct ConversationView: View {
     @State private var showTranslate = false
     @State private var translateText = ""
     @State private var showSchedule = false
+    /// Sticker drawer open or a voice note recording: floating thread controls step aside.
+    @State private var composerBusy = false
 
     var body: some View {
         thread
@@ -1311,9 +1389,11 @@ struct ConversationView: View {
                 if let theme = app.messaging.theme(for: conversationID), !ChatThemePalette.background(theme).isEmpty {
                     ChatThemeBackground(theme: theme)
                 } else {
-                    MessagesWallpaper(theme: app.messaging.wallpaper(for: conversationID))
+                    MessagesWallpaper(conversationID: conversationID)
                 }
             }
+            .environment(\.messagesWallpaperActive, app.messaging.wallpaper(for: conversationID) != .none
+                         || !(app.messaging.theme(for: conversationID).map { ChatThemePalette.background($0).isEmpty } ?? true))
             .safeAreaInset(edge: .top, spacing: 0) {
                 if app.messaging.capabilities.features4.pinnedMessages, !searching,
                    let pins = app.messaging.pinnedMessages[conversationID], !pins.isEmpty {
@@ -1396,6 +1476,7 @@ struct ConversationView: View {
                             reply: reply,
                             onCancelReply: cancelReply,
                             focus: $composerFocused,
+                            busy: $composerBusy,
                             onSend: sendNow
                         )
                     }
@@ -1482,8 +1563,10 @@ struct ConversationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .modulaSoftScrollEdge()
             .navigationTitle(conversation?.title ?? "Conversation")
+            // t217u #21: no shared glass slab behind the avatar/name (it showed as a blank grey
+            // capsule beside the back button while the push animated).
+            .messagesPrincipalToolbar { header }
             .toolbar {
-                ToolbarItem(placement: .principal) { header }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
                         if showsCallButtons {
@@ -1590,7 +1673,8 @@ struct ConversationView: View {
     /// Calls only in an accepted 1:1 chat, and only when the server reports calls enabled.
     /// The server re-checks blocks, privacy and acceptance on every start.
     private var showsCallButtons: Bool {
-        guard app.calls.capabilities.canCall, let conversation, conversation.kind == .direct,
+        // Shown (disabled, "coming soon") even before the server enables calls.
+        guard let conversation, conversation.kind == .direct,
               !conversationID.hasPrefix("pending-direct:") else { return false }
         return !app.messaging.requests.contains { $0.conversationID == conversationID }
     }
@@ -1685,8 +1769,8 @@ struct ConversationView: View {
                             ForEach(calls.before[message.id] ?? []) { record in callRow(record) }
                             if let label = MessageTimeline.separator(at: index, in: items) {
                                 MessageTimeSeparator(label: label)
-                                    .padding(.top, index == 0 ? 0 : 14)
-                                    .padding(.bottom, 6)
+                                    .padding(.top, index == 0 ? 0 : 12)
+                                    .padding(.bottom, 8)
                             }
                             if message.id == firstUnreadID {
                                 MessageUnreadSeparator()
@@ -1723,7 +1807,7 @@ struct ConversationView: View {
                             .overlay {
                                 if searching, searchMatches.contains(where: { $0.id == message.id }) {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                        .stroke(app.appearance.liveAccent.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
+                                        .stroke(Color.primary.opacity(message.id == currentSearchID ? 1 : 0.45), lineWidth: 2)
                                         .padding(-3)
                                         .allowsHitTesting(false)
                                 }
@@ -1732,13 +1816,13 @@ struct ConversationView: View {
                             .background {
                                 if highlightedID == message.id {
                                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                        .fill(app.appearance.liveAccent.opacity(0.18))
+                                        .fill(Color.primary.opacity(0.18))
                                         .padding(-6)
                                         .transition(.opacity)
                                 }
                             }
                             // Tight spacing inside a run of messages, roomier between senders.
-                            .padding(.top, index == 0 ? 0 : (position.startsGroup ? 10 : 2))
+                            .padding(.top, index == 0 ? 0 : (position.startsGroup ? 8 : 2))
                             .id(message.id)
                             // New bubbles rise in from the composer; plain fade under Reduce Motion.
                             .transition(reduceMotion
@@ -1758,15 +1842,17 @@ struct ConversationView: View {
                                 .transition(.opacity)
                         }
                     }
-                    .padding(.horizontal, ModulaLayout.contentInset)
+                    // 16 pt side margins (bubbles keep their own max width, so nothing clips).
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .scrollTargetLayout()
                 }
                 // Only pin to the newest message while the reader is already there.
                 // Leaving this on while scrolling history yanks the thread when content size changes.
                 .modifier(BottomAnchorIfNeeded(pinned: isAtBottom))
-                // Room under the newest bubble so the perched mascot and the jump button never cover it.
-                .contentMargins(.bottom, 40, for: .scrollContent)
+                // A little room under the newest bubble; the composer's safe-area inset (which tracks
+                // the keyboard) does the rest, so no big dead gap above the composer.
+                .contentMargins(.bottom, 12, for: .scrollContent)
                 .scrollDismissesKeyboard(.interactively)
                 .modulaSoftScrollEdge()
                 // Hold-to-react: the thread must not scroll under the focused bubble / reaction bar.
@@ -1978,7 +2064,7 @@ struct ConversationView: View {
     /// Jump-to-latest button; becomes a "N new messages" pill when replies arrive off-screen.
     @ViewBuilder
     private func jumpControl(items: [Message], proxy: ScrollViewProxy) -> some View {
-        if !isAtBottom {
+        if !isAtBottom && !composerBusy {
             Button {
                 HapticEngine.shared.play(.selection)
                 unseenCount = 0
@@ -1996,10 +2082,10 @@ struct ConversationView: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-            .foregroundStyle(unseenCount > 0 ? Color.white : Color.primary)
+            .foregroundStyle(unseenCount > 0 ? Color.modulaOnPrimary : Color.primary)
             .background {
                 if unseenCount > 0 {
-                    Capsule().fill(app.appearance.liveAccent)
+                    Capsule().fill(Color.modulaPrimaryFill)
                 } else {
                     Circle().fill(.clear).modulaGlass(in: Circle(), interactive: true)
                 }
@@ -2141,10 +2227,10 @@ struct ConversationView: View {
             Text(flyText)
                 .font(.body)
                 .lineLimit(3)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(app.appearance.liveAccent))
+                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.modulaPrimaryFill))
                 .frame(maxWidth: 280, alignment: .trailing)
                 .scaleEffect(reduceMotion || flyUp ? 1 : 0.9, anchor: .bottomTrailing)
                 .offset(y: reduceMotion ? 0 : (flyUp ? -96 : 0))
@@ -2197,6 +2283,10 @@ struct ConversationView: View {
 
     private func handle(_ action: ModulaContextAction, message: Message) {
         switch action.id {
+        case "transcript":
+            if let attachment = message.voiceAttachment {
+                MessageVoiceTranscripts.shared.show(attachment, client: app.client)
+            }
         case "translate":
             // On-device Translation popover (iOS 17.4+); nothing is sent to Modula.
             let text = message.body.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2441,9 +2531,11 @@ struct ConversationComposerDock: View {
     var reply: ModulaComposerReply?
     var onCancelReply: () -> Void
     var focus: Binding<Bool>
+    var busy: Binding<Bool> = .constant(false)
     var onSend: () -> Void
     @Environment(AppEnvironment.self) private var app
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var text = ""
     @State private var showGif = false
     @State private var recent = MessageRecentTokenStore.load()
@@ -2458,13 +2550,11 @@ struct ConversationComposerDock: View {
         VStack(spacing: 0) {
             scheduledChip
             quickReplyStrip
-            smartReplies
-            MessageQuickReplySuggestions(composerText: text) { reply in
-                text = reply
-                focus.wrappedValue = true
-            }
-            MessageRecentTokensRow(tokens: recent) { token in
-                insert(token)
+            // One row attached to the composer: GIF · recent stickers · suggested replies.
+            // Stickers/recording own the dock, so the row steps away; suggestions also hide while typing.
+            if !busy.wrappedValue {
+                accessoryRow
+                    .transition(.opacity)
             }
             MessageComposer(
                 text: $text,
@@ -2475,7 +2565,6 @@ struct ConversationComposerDock: View {
                 reply: reply,
                 onCancelReply: onCancelReply,
                 focus: focus,
-                onGif: { showGif = true },
                 mentionSuggestions: app.messaging.mentionCandidates(in: conversationID, query: mentionQuery),
                 onMentionQuery: app.messaging.capabilities.mentions ? { mentionQuery = $0 } : nil,
                 onVoiceNote: app.messaging.capabilities.voiceNotes ? { note in
@@ -2483,6 +2572,9 @@ struct ConversationComposerDock: View {
                 } : nil,
                 onSchedule: f4.scheduled ? { schedulingText = text } : nil,
                 showsMascot: app.messaging.messages(for: conversationID).isEmpty,
+                onBusyChange: { value in
+                    withAnimation(.easeOut(duration: reduceMotion ? 0.1 : 0.2)) { busy.wrappedValue = value }
+                },
                 onSend: flushAndSend
             )
         }
@@ -2534,41 +2626,67 @@ struct ConversationComposerDock: View {
         }
     }
 
-    @ViewBuilder
-    private var smartReplies: some View {
-        let items = app.messaging.messages(for: conversationID)
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let last = items.last, !last.isOwn {
-            let options = MessageSmartReplies.suggestions(for: last.body.text)
-            if !options.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    ModulaGlassGroup(spacing: 8) {
-                        HStack(spacing: 8) {
-                            ForEach(options, id: \.self) { option in
-                                Button {
-                                    text = option
-                                    focus.wrappedValue = true
-                                    HapticEngine.shared.play(.selection)
-                                } label: {
-                                    Text(option)
-                                        .font(.subheadline.weight(.medium))
-                                        .padding(.horizontal, 14)
-                                        .frame(minHeight: 36)
-                                        .contentShape(Capsule())
-                                }
-                                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
-                                .modulaGlass(in: Capsule(), interactive: true)
-                                .accessibilityHint("Puts this reply in the message box")
-                            }
+    /// Suggested replies only while the field is empty and the keyboard is down.
+    private var replySuggestions: [String] {
+        guard !focus.wrappedValue, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let last = app.messaging.messages(for: conversationID).last, !last.isOwn else { return [] }
+        return MessageSmartReplies.suggestions(for: last.body.text)
+    }
+
+    private var accessoryRow: some View {
+        let suggestions = replySuggestions
+        let tokens = focus.wrappedValue ? [] : recent
+        return ScrollView(.horizontal, showsIndicators: false) {
+            ModulaGlassGroup(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button { showGif = true } label: {
+                        Text("GIF")
+                            .font(.subheadline.weight(.bold))
+                            .padding(.horizontal, 14)
+                            .frame(minWidth: 52, minHeight: 36)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityLabel("GIFs")
+                    .accessibilityIdentifier("messages.composer.gif")
+                    ForEach(tokens, id: \.self) { token in
+                        Button { insert(token) } label: {
+                            MessageRecentTokenLabel(token: token)
+                                .frame(minWidth: 36, minHeight: 36)
+                                .padding(.horizontal, 6)
+                                .contentShape(Capsule())
                         }
-                        .padding(.horizontal, ModulaLayout.contentInset)
+                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: .selection))
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityLabel("Insert \(token)")
+                    }
+                    ForEach(suggestions, id: \.self) { option in
+                        Button {
+                            text = option
+                            focus.wrappedValue = true
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Text(option)
+                                .font(.subheadline.weight(.medium))
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 36)
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .accessibilityHint("Puts this reply in the message box")
                     }
                 }
-                .modulaHorizontalRail()
-                .scrollClipDisabled()
-                .padding(.top, 6)
-                .accessibilityIdentifier("messages.smartReplies")
+                .padding(.horizontal, ModulaLayout.contentInset)
             }
         }
+        .modulaHorizontalRail()
+        .scrollClipDisabled()
+        .padding(.top, 6)
+        .padding(.bottom, -2)
+        .animation(.easeOut(duration: reduceMotion ? 0.1 : 0.2), value: suggestions)
+        .accessibilityIdentifier("messages.smartReplies")
     }
 
     /// "2 scheduled" glass chip above the composer; opens the per-chat list.
@@ -2694,6 +2812,7 @@ struct MessageBubble: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
     @Environment(\.chatThemeAccent) private var themeAccent
+    @Environment(\.messagesWallpaperActive) private var wallpaperActive
     // Plain reference box: the row's on-screen frame is only needed when a long-press
     // opens the focus menu, so writing it every scroll frame must not re-render the bubble.
     @State private var rowFrameBox = ModulaFrameBox()
@@ -2751,7 +2870,9 @@ struct MessageBubble: View {
                         .accessibilityLabel("Quoting: \(MessagePreviewText.plain(quote))")
                 }
                 if !message.isDeleted, message.kind == .voice, let attachment = message.voiceAttachment {
-                    MessageVoicePlayer(attachment: attachment, accent: message.isOwn ? Color.white : app.appearance.liveAccent)
+                    MessageVoicePlayer(attachment: attachment,
+                                       accent: message.isOwn ? ownInk : Color.primary,
+                                       glyph: message.isOwn ? (themeAccent ?? Color.modulaPrimaryFill) : Color.modulaOnPrimary)
                         .padding(6)
                         .background { bubbleBackground }
                 }
@@ -2774,11 +2895,11 @@ struct MessageBubble: View {
                             .opacity(0.85)
                         }
                     }
-                    .tint(message.isOwn ? Color.white : app.appearance.liveAccent)
+                    .tint(message.isOwn ? ownInk : Color.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background { bubbleBackground }
-                    .foregroundStyle(message.isOwn ? Color.white : Color.primary)
+                    .foregroundStyle(message.isOwn ? ownInk : Color.primary)
                 }
                 if !parsed.stickers.isEmpty {
                     ModulaLocalStickerRow(stickers: parsed.stickers)
@@ -2804,7 +2925,7 @@ struct MessageBubble: View {
                     if selecting {
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(isSelected ? app.appearance.liveAccent : Color.secondary)
+                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     }
                     if app.messaging.isStarred(message.id) {
                         Image(systemName: "star.fill").font(.caption2).foregroundStyle(.primary)
@@ -2845,7 +2966,7 @@ struct MessageBubble: View {
                         MessageDeliveryTicks.view(
                             for: message.delivery,
                             showRead: app.messaging.capabilities.readReceipts && ModulaPreferences.chatShowReadReceipts,
-                            accent: app.appearance.liveAccent
+                            accent: Color.primary
                         )
                         .onTapGesture {
                             if app.messaging.capabilities.groupReadReceipts, message.isOwn, !message.id.hasPrefix("local-") {
@@ -2854,13 +2975,34 @@ struct MessageBubble: View {
                         }
                         .accessibilityAddTraits(app.messaging.capabilities.groupReadReceipts && message.isOwn ? .isButton : [])
                         .accessibilityHint(app.messaging.capabilities.groupReadReceipts && message.isOwn ? "Shows who has read this" : "")
+                        // Read receipt avatar: the reader's tiny face under your last read message (1:1 chats).
+                        if showsStatus, message.delivery == .read,
+                           app.messaging.capabilities.readReceipts, ModulaPreferences.chatShowReadReceipts,
+                           let chat = app.messaging.conversation(id: message.conversationID),
+                           chat.kind == .direct, let reader = chat.participants.first {
+                            ModulaAvatar(initials: reader.initials, url: reader.avatarURL, size: 14, name: reader.displayName)
+                                .accessibilityLabel("Read by \(reader.displayName)")
+                                .transition(.scale.combined(with: .opacity))
+                        }
                     }
                 }
             }
             if !message.isOwn { Spacer(minLength: sideGutter) }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: message.reactions)
-        .offset(x: replyOffset)
+        .offset(x: replyOffset + timeReveal)
+        // Swipe left: the exact send time slides in at the trailing edge (iMessage-style).
+        .overlay(alignment: .trailing) {
+            if timeReveal < -8 {
+                Text(message.sentAt, format: .dateTime.hour().minute())
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                    .opacity(min(1, -timeReveal / Self.timeRevealMax))
+                    .offset(x: Self.timeRevealMax + timeReveal + 4)
+                    .accessibilityHidden(true)
+            }
+        }
         .background(alignment: .leading) {
             if replyOffset > 8 {
                 Image(systemName: "arrowshape.turn.up.left.fill")
@@ -2876,7 +3018,9 @@ struct MessageBubble: View {
             actions: actions,
             onDoubleTap: {
                 guard app.messaging.capabilities.reactions, !message.isDeleted, !message.id.hasPrefix("local-") else { return }
-                let emoji = MessageRecentTokenStore.lastReaction() ?? "❤️"
+                let chosen = UserDefaults.standard.string(forKey: "messages.doubleTapReaction") ?? ""
+                let emoji = chosen.isEmpty ? (MessageRecentTokenStore.lastReaction() ?? "❤️") : chosen
+                HapticEngine.shared.play(.reactionSelect)
                 onAction(.init(id: "react:\(emoji)", title: emoji))
             },
             onTap: {
@@ -2906,8 +3050,10 @@ struct MessageBubble: View {
     }
 
     @State private var replyOffset: CGFloat = 0
+    @State private var timeReveal: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private static let replyThreshold: CGFloat = 64
+    private static let timeRevealMax: CGFloat = 56
 
     private func requestFocus() {
         guard let onFocus, !message.isDeleted, rowFrame != .zero else { return }
@@ -2928,12 +3074,18 @@ struct MessageBubble: View {
     private var swipeToReply: some Gesture {
         DragGesture(minimumDistance: 18)
             .onChanged { value in
-                guard ModulaPreferences.swipeToReply,
-                      value.translation.width > 0,
-                      abs(value.translation.width) > abs(value.translation.height) * 1.6 else { return }
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.6 else { return }
+                if value.translation.width < 0 {
+                    timeReveal = max(value.translation.width, -Self.timeRevealMax)
+                    return
+                }
+                guard ModulaPreferences.swipeToReply else { return }
                 if !reduceMotion { replyOffset = min(value.translation.width, Self.replyThreshold * 1.3) }
             }
             .onEnded { value in
+                if timeReveal != 0 {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { timeReveal = 0 }
+                }
                 let triggered = ModulaPreferences.swipeToReply
                     && value.translation.width >= Self.replyThreshold
                     && abs(value.translation.width) > abs(value.translation.height) * 1.6
@@ -2969,16 +3121,21 @@ struct MessageBubble: View {
 
     /// Sent: a soft top-lit accent gradient (one strong colour = "mine", Gestalt similarity).
     private var ownGradient: LinearGradient {
-        let accent = themeAccent ?? app.appearance.liveAccent
-        return LinearGradient(colors: [accent.mix(with: .white, by: 0.14), accent], startPoint: .top, endPoint: .bottom)
+        // No accent/coral: black/white by appearance (t217u). A shared server chat theme
+        // still colours sent bubbles when one is set.
+        let fill = themeAccent ?? Color.modulaPrimaryFill
+        return LinearGradient(colors: [fill.mix(with: .gray, by: themeAccent == nil ? 0.04 : 0.14), fill], startPoint: .top, endPoint: .bottom)
     }
+
+    /// Text/icon colour on a sent bubble.
+    private var ownInk: Color { themeAccent == nil ? Color.modulaOnPrimary : .white }
 
     /// Received: Liquid Glass; a solid tint under Reduce Transparency.
     @ViewBuilder
     private var bubbleBackground: some View {
         if message.isOwn {
             bubbleShape.fill(ownGradient)
-        } else if reduceTransparency || !ModulaGlassSettings.shared.glassBubbles {
+        } else if reduceTransparency || (!ModulaGlassSettings.shared.glassBubbles && !wallpaperActive) {
             // Default: a flat fill + hairline. A live glass effect per received bubble
             // re-sampled the wallpaper on every scroll frame.
             bubbleShape.fill(bubbleFill)
@@ -2990,7 +3147,7 @@ struct MessageBubble: View {
 
     private var bubbleFill: Color {
         if message.isOwn {
-            return app.appearance.liveAccent
+            return themeAccent ?? Color.modulaPrimaryFill
         }
         let oled = scheme == .dark && app.appearance.darkStyle == .oled
         return oled ? Color.white.opacity(0.08) : Color.primary.opacity(0.08)
@@ -3013,6 +3170,14 @@ struct MessageBubble: View {
             items.insert(.init(id: "star", title: starred ? "Unsave" : "Save", systemImage: starred ? "bookmark.slash" : "bookmark"), at: min(1, items.count))
         } else {
             items.insert(.init(id: "star", title: starred ? "Unstar" : "Star", systemImage: starred ? "star.slash" : "star"), at: min(1, items.count))
+        }
+        if message.kind == .voice, message.voiceAttachment != nil {
+            items.removeAll { $0.id == "copy" || $0.id == "translate" || $0.id == "speak" }
+            items.insert(.init(id: "transcript", title: "View Transcript", systemImage: "text.quote"), at: 0)
+        }
+        if f4.pinnedMessages, !local {
+            let pinned = app.messaging.isMessagePinned(message)
+            items.append(.init(id: "pinMessage", title: pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin"))
         }
         if f4.editHistory, message.editedAt != nil, !local {
             items.append(.init(id: "editHistory", title: "Edit History", systemImage: "clock.arrow.circlepath"))
@@ -3119,7 +3284,12 @@ struct MessageComposer: View {
     var onSchedule: (() -> Void)? = nil
     /// Chats: the mascot only perches on an empty thread so it never covers message bubbles.
     var showsMascot = true
+    /// Sticker drawer open or recording (host hides suggestion rows and floating buttons).
+    var onBusyChange: ((Bool) -> Void)? = nil
     var onSend: () -> Void
+    @State private var recording = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("settings.chats.enterToSend") private var enterToSend = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @Environment(AppEnvironment.self) private var app
@@ -3164,21 +3334,30 @@ struct MessageComposer: View {
                 hidesMascotWhileComposing: true,
                 hidesMascot: !showsMascot,
                 onSchedule: onSchedule,
+                onRecordingChange: { recording = $0 },
                 onSend: onSend
             )
             if showStickers {
+                // Glass drawer about a keyboard's height, so swapping keyboard ⇄ stickers doesn't jump.
+                let drawer = RoundedRectangle(cornerRadius: 28, style: .continuous)
                 ModulaStickerPicker(client: app.client, initialSection: "sprout") { sticker in
                     insert(sticker)
                     showStickers = false
                 }
+                .padding(.top, 10)
                 .frame(height: 300)
+                .background { drawer.fill(Color(uiColor: .systemBackground).opacity(reduceTransparency ? 1 : 0.55)) }
+                .clipShape(drawer)
+                .modulaGlass(in: drawer, interactive: false)
                 .padding(.top, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .offset(y: 40).combined(with: .opacity))
                 .accessibilityIdentifier("messages.stickers")
             }
         }
+        .animation(.smooth(duration: reduceMotion ? 0.12 : 0.28), value: showStickers)
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.vertical, 8)
+        .onChange(of: showStickers || recording) { _, value in onBusyChange?(value) }
         .accessibilityIdentifier("messages.composer")
     }
 
@@ -3630,6 +3809,7 @@ struct MessagesFriendlyEmpty: View {
         case .inbox: ("Your chats will bloom here", "Say hi to someone — a little hello goes a long way.", "bubble.left.and.bubble.right.fill")
         case .inMail: ("Your In-Mail is clear", "Longer, thoughtful messages live here. Tap the pencil to write one.", "envelope.open.fill")
         case .requests: ("No requests right now", "When someone new wants to chat, you’ll decide here first.", "person.crop.circle.badge.checkmark")
+        case .calls: ("No calls yet", "Your voice and video calls will show up here.", "phone.fill")
         }
     }
 
@@ -3650,7 +3830,7 @@ struct MessagesFriendlyEmpty: View {
                 .font(.system(size: 40, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 92, height: 92)
-                .messagesGlass(Circle(), tint: app.appearance.liveAccent.opacity(0.18))
+                .messagesGlass(Circle(), tint: Color.primary.opacity(0.18))
                 .offset(y: float ? -4 : 4)
                 .accessibilityHidden(true)
             }
@@ -4200,7 +4380,7 @@ struct ForwardMessageSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(.primary)
+                    MessagesDoneButton { dismiss() }
                 }
             }
         }
@@ -4218,6 +4398,7 @@ struct ChatInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var nickname = ""
+    @State private var showsWallpaper = false
     @State private var confirmBlock = false
     @State private var blocked = false
     @State private var showSchedule = false
@@ -4295,23 +4476,28 @@ struct ChatInfoSheet: View {
                         }
                     }
                     infoGroup("Customise", footer: "Only you see your nickname and wallpaper.") {
+                        // Labelled Nickname row (the bare field used to read as a stray "Hello" row).
                         HStack(spacing: 12) {
                             rowIcon("character.cursor.ibeam")
-                            TextField(conversation?.title ?? "Nickname", text: $nickname)
+                            Text("Nickname").font(.body).foregroundStyle(.primary).fixedSize()
+                            Spacer(minLength: 8)
+                            TextField("Add", text: $nickname)
+                                .multilineTextAlignment(.trailing)
+                                .foregroundStyle(.secondary)
                                 .submitLabel(.done)
                                 .onSubmit { app.messaging.setNickname(nickname, for: conversationID) }
                                 .accessibilityLabel("Nickname")
+                                .accessibilityValue(nickname.isEmpty ? "None" : nickname)
                         }
                         .frame(minHeight: 50)
                         infoDivider
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 12) {
-                                rowIcon("paintpalette")
-                                Text("Wallpaper").font(.body)
-                            }
-                            wallpaperPicker
+                        Button { showsWallpaper = true } label: {
+                            infoRow("Wallpaper", symbol: "photo.artframe",
+                                    value: app.messaging.wallpaperOverride(for: conversationID) == nil
+                                        ? "Default" : app.messaging.wallpaper(for: conversationID).title)
                         }
-                        .padding(.vertical, 10)
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("messages.info.wallpaper")
                         if !app.messaging.capabilities.features4.chatThemes.isEmpty {
                             infoDivider
                             ChatThemePicker(conversationID: conversationID)
@@ -4402,13 +4588,14 @@ struct ChatInfoSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(.primary)
+                    MessagesDoneButton { dismiss() }
                 }
             }
         }
         .presentationDetents([.large])
         .modulaSheetStyle()
         .sheet(isPresented: $showSchedule) { ChatScheduleSheet(conversationID: conversationID) }
+        .sheet(isPresented: $showsWallpaper) { ChatWallpaperPickerSheet(conversationID: conversationID) }
         .onAppear { nickname = app.messaging.nicknames[conversationID] ?? "" }
         .onDisappear { app.messaging.setNickname(nickname, for: conversationID) }
         .accessibilityIdentifier("messages.info")
@@ -4428,11 +4615,23 @@ struct ChatInfoSheet: View {
     }
 
     private var quickActions: some View {
-        HStack(alignment: .top, spacing: 18) {
+        HStack(alignment: .top, spacing: 12) {
             if let person = conversation?.participants.first {
                 circleAction("Profile", symbol: "person.fill") {
                     dismiss()
                     app.navigation.push(.profile(person.handle.isEmpty ? person.id : person.handle, .overview))
+                }
+            }
+            if conversation?.kind == .direct {
+                // Calls: disabled with "coming soon" until the server enables them.
+                ForEach([CallMediaKind.audio, .video], id: \.self) { kind in
+                    let allowed = app.calls.canStartCall(kind)
+                    circleAction(kind == .video ? "Video" : "Call", symbol: kind == .video ? "video.fill" : "phone.fill") {
+                        dismiss()
+                        CallsActions.call(conversationID, kind: kind, app: app)
+                    }
+                    .opacity(allowed ? 1 : 0.4)
+                    .accessibilityHint(allowed ? "" : "Calling is coming soon")
                 }
             }
             if app.messaging.capabilities.mute {
@@ -4441,43 +4640,33 @@ struct ChatInfoSheet: View {
                     Task { await app.messaging.toggleMute(conversationID) }
                 }
             }
-            circleAction(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
-                         symbol: app.messaging.isPinned(conversationID) ? "pin.slash.fill" : "pin.fill") {
-                app.messaging.togglePin(conversationID)
+            Menu {
+                Button(app.messaging.isPinned(conversationID) ? "Unpin" : "Pin",
+                       systemImage: app.messaging.isPinned(conversationID) ? "pin.slash" : "pin") {
+                    app.messaging.togglePin(conversationID)
+                }
+                Button("Search in Chat", systemImage: "magnifyingglass") {
+                    showsSearch = true
+                    searchFocused = true
+                }
+                Button("Nudge", systemImage: "hand.wave") {
+                    HapticEngine.shared.play(.confirmation)
+                    Task { _ = await app.messaging.sendPrepared(text: "👋", conversation: conversationID) }
+                }
+            } label: {
+                VStack(spacing: 6) {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 50, height: 50)
+                        .modulaGlass(in: Circle(), interactive: true)
+                    Text("More").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(width: 58)
             }
-            circleAction("Search", symbol: "magnifyingglass") {
-                showsSearch = true
-                searchFocused = true
-            }
-            circleAction("Nudge", symbol: "hand.wave.fill") {
-                HapticEngine.shared.play(.confirmation)
-                Task { _ = await app.messaging.sendPrepared(text: "👋", conversation: conversationID) }
-            }
+            .accessibilityLabel("More actions")
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private var wallpaperPicker: some View {
-        HStack(spacing: 10) {
-            ForEach(MessagesWallpaperTheme.allCases) { theme in
-                let on = app.messaging.wallpaper(for: conversationID) == theme
-                Button {
-                    app.messaging.setWallpaper(theme, for: conversationID)
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Circle()
-                        .fill(theme.swatch(accent: app.appearance.liveAccent))
-                        .frame(width: 36, height: 36)
-                        .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
-                        .padding(2)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
-                .accessibilityLabel(theme.title)
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
-        }
-        .padding(.leading, 44)
     }
 
     private func circleAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
@@ -4531,9 +4720,10 @@ struct ChatInfoSheet: View {
     private func rowIcon(_ symbol: String, tint: Color? = nil) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(tint ?? app.appearance.liveAccent)
+            // Neutral monochrome symbol in a grey tile (destructive rows pass red).
+            .foregroundStyle(tint ?? Color.primary)
             .frame(width: 32, height: 32)
-            .background(Circle().fill((tint ?? app.appearance.liveAccent).opacity(0.14)))
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill((tint ?? Color.primary).opacity(0.1)))
             .accessibilityHidden(true)
     }
 
@@ -4751,11 +4941,17 @@ struct MessageReplyQuote: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Capsule().fill(app.appearance.liveAccent).frame(width: 3)
+            Capsule().fill(Color.primary).frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
-                Text(preview.senderName).font(.caption.weight(.semibold)).foregroundStyle(app.appearance.liveAccent)
+                Text(preview.senderName).font(.caption.weight(.semibold)).foregroundStyle(Color.primary)
                 Text(preview.deleted ? "Unsent message" : MessagePreviewText.plain(preview.body))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
+            // A quoted sticker shows the sticker itself, not its internal name.
+            if !preview.deleted, let sticker = ModulaLocalSticker.extract(MessageQuoteText.split(preview.body).body).stickers.first {
+                ModulaLocalStickerView(sticker: sticker, size: 30)
+                    .frame(width: 32, height: 32)
+                    .accessibilityHidden(true)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -4788,7 +4984,7 @@ struct MessageReactionsRow: View {
                     .padding(.horizontal, 8)
                     .frame(minHeight: 26)
                     .modulaGlass(in: Capsule(), interactive: true)
-                    .overlay { if reaction.mine { Capsule().strokeBorder(app.appearance.liveAccent, lineWidth: 1.2) } }
+                    .overlay { if reaction.mine { Capsule().strokeBorder(Color.primary, lineWidth: 1.2) } }
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
             }
@@ -4801,86 +4997,458 @@ struct MessageReactionsRow: View {
 struct MessagesTypingBubble: View {
     let people: [ConversationParticipant]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var bounce = false
+
+    /// "Ana is typing", "Ana and Ben are typing", "Ana and 3 others are typing".
+    private var caption: String {
+        let names = people.map { $0.displayName.split(separator: " ").first.map(String.init) ?? $0.displayName }
+        switch names.count {
+        case 0: return "Someone is typing"
+        case 1: return "\(names[0]) is typing"
+        case 2: return "\(names[0]) and \(names[1]) are typing"
+        default: return "\(names[0]) and \(names.count - 1) others are typing"
+        }
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            ModulaAvatar(initials: people.first?.initials ?? "?", url: people.first?.avatarURL, size: 28)
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(Color.secondary)
-                        .frame(width: 7, height: 7)
-                        .offset(y: bounce && !reduceMotion ? -3 : 0)
-                        .animation(
-                            reduceMotion ? nil : .easeInOut(duration: 0.45).repeatForever().delay(Double(index) * 0.15),
-                            value: bounce
-                        )
+            ZStack {
+                ForEach(Array(people.prefix(2).enumerated().reversed()), id: \.offset) { index, person in
+                    ModulaAvatar(initials: person.initials, url: person.avatarURL, size: 28)
+                        .offset(x: CGFloat(index) * 10, y: CGFloat(index) * -6)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
-            .modulaGlass(in: Capsule(), interactive: false)
+            .frame(width: people.count > 1 ? 38 : 28, height: 28, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                if people.count > 1 {
+                    Text(caption).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                }
+                // One phase-driven wave (cheaper than three repeatForever animations).
+                PhaseAnimator(reduceMotion ? [0] : [0, 1, 2]) { phase in
+                    HStack(spacing: 5) {
+                        ForEach(0..<3, id: \.self) { index in
+                            Circle()
+                                .fill(Color.secondary)
+                                .frame(width: 7, height: 7)
+                                .opacity(reduceMotion ? 0.7 : (phase == index ? 1 : 0.4))
+                                .offset(y: !reduceMotion && phase == index ? -3 : 0)
+                        }
+                    }
+                } animation: { _ in .easeInOut(duration: 0.3) }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+                .modulaGlass(in: Capsule(), interactive: false)
+            }
             Spacer(minLength: 48)
         }
-        .onAppear { bounce = true }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(people.first?.displayName ?? "Someone") is typing")
+        .accessibilityLabel(caption)
     }
 }
 
 /// Per-chat wallpaper (device only). Soft, low-contrast washes so bubbles always stay legible.
 enum MessagesWallpaperTheme: String, CaseIterable, Identifiable, Sendable {
-    case none, accent, dusk, ocean, meadow, ember
+    /// `accent` (coral glow) was retired; stored values of it read as no wallpaper.
+    case none, graphite, dusk, ocean, meadow, sand, ember, spectral, photo
+
+    static let defaultKey = "__default"
+    static let stills: [MessagesWallpaperTheme] = [.none, .graphite, .dusk, .ocean, .meadow, .sand, .ember]
+
+    init?(stored: String?) {
+        guard let stored, let value = MessagesWallpaperTheme(rawValue: stored) else { return nil }
+        self = value
+    }
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .none: "No wallpaper"
-        case .accent: "Accent glow"
+        case .none: "None"
+        case .graphite: "Graphite"
         case .dusk: "Dusk"
-        case .ocean: "Ocean"
+        case .ocean: "Tide"
         case .meadow: "Meadow"
+        case .sand: "Dune"
         case .ember: "Ember"
+        case .spectral: "Spectral Drape"
+        case .photo: "Photo"
         }
     }
 
-    func colors(accent: Color) -> [Color] {
-        switch self {
-        case .none: []
-        case .accent: [accent, accent.opacity(0.2)]
-        case .dusk: [.purple, .pink]
-        case .ocean: [.blue, .teal]
-        case .meadow: [.green, .mint]
-        case .ember: [.orange, .red]
+    /// 3×3 mesh palettes, muted, with separate light and dark variants so bubbles stay legible.
+    func mesh(dark: Bool) -> [Color] {
+        func h(_ hex: String) -> Color { Color(hex: hex) }
+        switch (self, dark) {
+        case (.graphite, true): return ["#101113", "#16181C", "#0D0E10", "#1A1D22", "#22262C", "#15171B", "#0B0C0E", "#14161A", "#0F1013"].map(h)
+        case (.graphite, false): return ["#F2F3F5", "#E7E9ED", "#F6F7F8", "#E2E5EA", "#D9DDE3", "#ECEEF1", "#F7F8F9", "#E9EBEF", "#F1F2F4"].map(h)
+        case (.dusk, true): return ["#120E1C", "#1E1430", "#140F22", "#251838", "#33204A", "#1B1329", "#0E0B16", "#1A1228", "#120E1D"].map(h)
+        case (.dusk, false): return ["#F3EEF8", "#EADFF4", "#F6F1FA", "#E5D6F1", "#DCC8EC", "#EEE4F6", "#F7F3FB", "#EBE1F4", "#F2EDF8"].map(h)
+        case (.ocean, true): return ["#08131A", "#0C1E28", "#071118", "#0F2733", "#143444", "#0B1C25", "#060E13", "#0B1A22", "#08121A"].map(h)
+        case (.ocean, false): return ["#ECF4F7", "#DDEDF3", "#F1F7F9", "#D5E8F0", "#C8E1EB", "#E3F0F5", "#F3F8FA", "#E0EEF3", "#EBF4F7"].map(h)
+        case (.meadow, true): return ["#0B130E", "#122016", "#0A110C", "#16291C", "#1D3524", "#111D15", "#080E0A", "#101A13", "#0B130E"].map(h)
+        case (.meadow, false): return ["#EEF5EF", "#E1EEE3", "#F3F8F3", "#D9E9DC", "#CDE2D1", "#E6F0E8", "#F5F9F5", "#E3EFE5", "#EDF4EE"].map(h)
+        case (.sand, true): return ["#15120E", "#211B14", "#13100C", "#2A2219", "#352B1F", "#1E1913", "#0F0D0A", "#1C1712", "#15120E"].map(h)
+        case (.sand, false): return ["#F8F4EE", "#F1E9DD", "#FAF7F2", "#ECE2D2", "#E5D8C4", "#F3ECE2", "#FBF8F4", "#EFE7DA", "#F7F3ED"].map(h)
+        case (.ember, true): return ["#160F0C", "#241711", "#140D0A", "#2D1C14", "#3A2418", "#21150F", "#100B09", "#1F140F", "#160F0C"].map(h)
+        case (.ember, false): return ["#F9F1EC", "#F3E3D9", "#FBF5F1", "#EFDBCE", "#E9CFBF", "#F5E8DF", "#FCF7F4", "#F1E1D6", "#F8F0EB"].map(h)
+        default: return []
         }
-    }
-
-    func swatch(accent: Color) -> AnyShapeStyle {
-        self == .none
-            ? AnyShapeStyle(Color.primary.opacity(0.08))
-            : AnyShapeStyle(LinearGradient(colors: colors(accent: accent), startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 }
 
-struct MessagesWallpaper: View {
+/// Photo wallpapers live in Application Support, one file per key (chat id or the default).
+enum ChatWallpaperPhotoStore {
+    static func url(key: String) -> URL? {
+        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        let folder = base.appendingPathComponent("ChatWallpapers", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let safe = key.replacingOccurrences(of: "/", with: "_")
+        return folder.appendingPathComponent("\(safe).jpg")
+    }
+
+    /// Downsamples to ≤ 2400 px and stores as JPEG (off the main thread).
+    static func save(_ data: Data, key: String) async -> Bool {
+        await Task.detached(priority: .userInitiated) {
+            guard let image = ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: 2400),
+                  let jpeg = image.jpegData(compressionQuality: 0.85),
+                  let url = url(key: key) else { return false }
+            return (try? jpeg.write(to: url, options: .atomic)) != nil
+        }.value
+    }
+
+    static func remove(key: String) {
+        guard let url = url(key: key) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    static func exists(key: String) -> Bool {
+        guard let url = url(key: key) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+}
+
+/// Draws one wallpaper choice (used by the thread background, the picker tiles and the preview).
+struct MessagesWallpaperSurface: View {
     let theme: MessagesWallpaperTheme
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var photoKey: String = MessagesWallpaperTheme.defaultKey
+    var dim: Double = 0.25
+    var blur: Double = 0
+    var revision = 0
+    /// Picker tiles show the drape still, so a grid of them doesn't run several shaders.
+    var animated = true
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        if theme != .none {
-            let strength = reduceTransparency ? 0.08 : (scheme == .dark ? 0.22 : 0.16)
-            LinearGradient(
-                colors: theme.colors(accent: app.appearance.liveAccent).map { $0.opacity(strength) },
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
+        let dark = scheme == .dark
+        ZStack {
+            switch theme {
+            case .none:
+                Color.clear
+            case .spectral:
+                if animated {
+                    ModulaAuthBackdrop(calm: true)
+                } else {
+                    LinearGradient(colors: dark ? [Color(hex: "#05090D"), Color(hex: "#1B2A3A"), Color(hex: "#2A1838")]
+                                                : [Color(hex: "#EEF1F8"), Color(hex: "#D9E4F5"), Color(hex: "#EBDDF3")],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            case .photo:
+                ChatWallpaperPhoto(key: photoKey, revision: revision)
+                    .blur(radius: blur, opaque: true)
+                Color.black.opacity(max(0.1, dim))
+            default:
+                MeshGradient(width: 3, height: 3,
+                             points: [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [0.55, 0.45], [1, 0.5], [0, 1], [0.5, 1], [1, 1]],
+                             colors: theme.mesh(dark: dark))
+            }
+            // Reduce Transparency: a flat veil so text never sits on busy art.
+            if reduceTransparency, theme != .none {
+                Color(uiColor: .systemBackground).opacity(0.55)
+            }
         }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Loads a stored wallpaper photo downsampled to the screen, off the main thread.
+struct ChatWallpaperPhoto: View {
+    let key: String
+    var revision = 0
+    @State private var image: UIImage?
+    @Environment(\.displayScale) private var displayScale
+
+    var body: some View {
+        GeometryReader { geo in
+            Group {
+                if let image {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Color(uiColor: .secondarySystemBackground)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+        .task(id: "\(key)#\(revision)") {
+            let pixels = 1400 * max(displayScale, 1) / 2
+            image = await Task.detached(priority: .utility) {
+                guard let url = ChatWallpaperPhotoStore.url(key: key), let data = try? Data(contentsOf: url) else { return nil }
+                return ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: pixels)
+            }.value
+        }
+    }
+}
+
+/// The thread background for a chat (or the global default when `conversationID` is nil).
+struct MessagesWallpaper: View {
+    let conversationID: ConversationID?
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let store = app.messaging
+        let theme = conversationID.map { store.wallpaper(for: $0) } ?? store.defaultWallpaper
+        if theme != .none {
+            let key = store.wallpaperKey(for: conversationID)
+            let style = store.wallpaperStyle(key: key)
+            MessagesWallpaperSurface(theme: theme, photoKey: key, dim: style.dim, blur: style.blur, revision: store.wallpaperRevision)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// True while the thread sits on a wallpaper: received bubbles switch to glass for legibility.
+    @Entry var messagesWallpaperActive = false
+}
+
+/// Wallpaper picker: stills (mesh art, light/dark), the animated Spectral Drape, or your own photo
+/// with dim/blur, previewed live behind sample bubbles. `conversationID == nil` edits the default.
+struct ChatWallpaperPickerSheet: View {
+    let conversationID: ConversationID?
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var photoItem: PhotosPickerItem?
+    @State private var importing = false
+    @State private var importFailed = false
+    @State private var dim = 0.25
+    @State private var blur = 0.0
+
+    private var store: MessagingStore { app.messaging }
+    private var followsDefault: Bool { conversationID.map { store.wallpaperOverride(for: $0) == nil } ?? false }
+    private var current: MessagesWallpaperTheme {
+        conversationID.map { store.wallpaper(for: $0) } ?? store.defaultWallpaper
+    }
+    private var key: String { store.wallpaperKey(for: conversationID) }
+    /// Where a newly picked photo is stored: the chat's own key when editing a chat.
+    private var targetKey: String { conversationID ?? MessagesWallpaperTheme.defaultKey }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    preview
+                    if let conversationID {
+                        Button {
+                            store.setWallpaper(nil, for: conversationID)
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: followsDefault ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Use default").font(.body.weight(.semibold))
+                                    Text(store.defaultWallpaper.title).font(.footnote).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(.primary)
+                            .padding(14)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: true)
+                        .accessibilityAddTraits(followsDefault ? .isSelected : [])
+                    }
+                    section("Wallpapers") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            ForEach(MessagesWallpaperTheme.stills) { theme in tile(theme) }
+                        }
+                    }
+                    section("Animated") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                            tile(.spectral)
+                        }
+                        Text("Pauses with Reduce Motion, Low Power Mode and when the chat isn't on screen.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    section("Your photo") {
+                        PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                            Label(importing ? "Importing…" : "Choose Photo", systemImage: "photo.on.rectangle")
+                                .font(.body.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.modulaSecondary)
+                        .disabled(importing)
+                        .accessibilityIdentifier("messages.wallpaper.photo")
+                        if importFailed {
+                            Text("That photo couldn't be used. Try another one.").font(.caption).foregroundStyle(.secondary)
+                        }
+                        if current == .photo {
+                            slider("Dim", value: $dim, range: 0...0.8)
+                            slider("Blur", value: $blur, range: 0...30)
+                        }
+                    }
+                    Text(conversationID == nil
+                         ? "Used in every chat that doesn't have its own wallpaper. Stored on this device only."
+                         : "Only you see this wallpaper. Stored on this device only.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.bottom, 28)
+            }
+            .navigationTitle(conversationID == nil ? "Default Wallpaper" : "Wallpaper")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
+        }
+        .presentationDetents([.large])
+        .modulaSheetStyle()
+        .onAppear {
+            let style = store.wallpaperStyle(key: key)
+            dim = style.dim
+            blur = style.blur
+        }
+        .onChange(of: dim) { _, _ in store.setWallpaperStyle(key: key, dim: dim, blur: blur) }
+        .onChange(of: blur) { _, _ in store.setWallpaperStyle(key: key, dim: dim, blur: blur) }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            importing = true
+            importFailed = false
+            Task { @MainActor in
+                defer { importing = false; photoItem = nil }
+                guard let data = try? await item.loadTransferable(type: Data.self),
+                      await ChatWallpaperPhotoStore.save(data, key: targetKey) else {
+                    importFailed = true
+                    return
+                }
+                store.setWallpaper(.photo, for: conversationID)
+                store.setWallpaperStyle(key: targetKey, dim: dim, blur: blur)
+                store.noteWallpaperPhotoChanged()
+                HapticEngine.shared.play(.success)
+            }
+        }
+        .accessibilityIdentifier("messages.wallpaper.picker")
+    }
+
+    /// Live preview behind two sample bubbles (glass received, black/white sent).
+    private var preview: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return ZStack {
+            Color(uiColor: .systemBackground)
+            MessagesWallpaperSurface(theme: current, photoKey: key, dim: dim, blur: blur, revision: store.wallpaperRevision)
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Love this wallpaper")
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                    Spacer(minLength: 40)
+                }
+                HStack {
+                    Spacer(minLength: 40)
+                    Text("Same! Still easy to read.")
+                        .foregroundStyle(Color.modulaOnPrimary)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.modulaPrimaryFill))
+                }
+            }
+            .font(.subheadline)
+            .padding(16)
+        }
+        .frame(height: 220)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Preview: \(current.title)")
+    }
+
+    private func tile(_ theme: MessagesWallpaperTheme) -> some View {
+        // While a chat follows the default, "Use default" carries the checkmark instead of a tile.
+        let on = current == theme && !followsDefault
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        return Button {
+            store.setWallpaper(theme, for: conversationID)
+            HapticEngine.shared.play(.selection)
+        } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    Color(uiColor: .secondarySystemBackground)
+                    MessagesWallpaperSurface(theme: theme, animated: false)
+                    if theme == .none {
+                        Image(systemName: "circle.slash").font(.title3).foregroundStyle(.secondary)
+                    } else if theme == .spectral {
+                        Image(systemName: "sparkles").font(.title3).foregroundStyle(.primary.opacity(0.8))
+                    }
+                }
+                .frame(height: 120)
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(on ? Color.primary : Color.primary.opacity(0.1), lineWidth: on ? 2.5 : 0.5))
+                Text(theme.title)
+                    .font(.caption.weight(on ? .semibold : .regular))
+                    .foregroundStyle(on ? .primary : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+        .accessibilityLabel(theme.title)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary).accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: 12) {
+            Text(title).font(.subheadline).frame(width: 44, alignment: .leading)
+            Slider(value: value, in: range).tint(.primary)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 48)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+    }
+}
+
+/// Settings › Appearance › Chat wallpaper (global default).
+struct ChatWallpaperSettingsRow: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var showsPicker = false
+
+    var body: some View {
+        Button { showsPicker = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "photo.artframe")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Chat wallpaper").font(.headline)
+                    Text(app.messaging.defaultWallpaper.title).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .sheet(isPresented: $showsPicker) { ChatWallpaperPickerSheet(conversationID: nil) }
+        .accessibilityHint("Default background for your chats")
+        .accessibilityIdentifier("appearance.chat-wallpaper")
     }
 }
 
@@ -4894,12 +5462,12 @@ struct MessagesComposerWave: View {
 
     var body: some View {
         MessagesLiquidEdge(amplitude: idle ? 1 : 0, phase: drift ? 1 : 0)
-            .fill(app.appearance.liveAccent.opacity(reduceTransparency ? 0.35 : 0.22))
+            .fill(Color.primary.opacity(reduceTransparency ? 0.35 : 0.22))
             .frame(width: 30)
             .padding(.vertical, 4)
             .offset(x: idle ? 14 : -6)
             .opacity(idle ? 1 : 0)
-            .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 6, y: 2)
+            .shadow(color: Color.primary.opacity(0.25), radius: 6, y: 2)
             .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.7), value: idle)
             .onAppear {
                 guard !reduceMotion else { return }
@@ -5169,7 +5737,7 @@ struct ScheduledMessagesSheet: View {
             }
             .navigationTitle("Scheduled")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
             .refreshable { await app.messaging.loadScheduled(conversationID) }
             .alert("Edit message", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
                 TextField("Message", text: $draftText)
@@ -5219,7 +5787,7 @@ struct PinnedMessagesBanner: View {
                 VStack(spacing: 2) {
                     ForEach(Array(pins.prefix(4).indices), id: \.self) { i in
                         Capsule()
-                            .fill(i == index % min(pins.count, 4) ? app.appearance.liveAccent : Color.secondary.opacity(0.3))
+                            .fill(i == index % min(pins.count, 4) ? Color.primary : Color.secondary.opacity(0.3))
                             .frame(width: 3)
                     }
                 }
@@ -5227,7 +5795,7 @@ struct PinnedMessagesBanner: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(pins.count > 1 ? "Pinned message \(index % pins.count + 1) of \(pins.count)" : "Pinned message")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(Color.primary)
                     Text(MessagePreviewText.plain(current.text).isEmpty ? "Message" : MessagePreviewText.plain(current.text))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
@@ -5313,7 +5881,7 @@ struct ChatThemePicker: View {
                             Circle()
                                 .fill(swatch(id))
                                 .frame(width: 36, height: 36)
-                                .overlay(Circle().strokeBorder(on ? app.appearance.liveAccent : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
+                                .overlay(Circle().strokeBorder(on ? Color.primary : Color.primary.opacity(0.15), lineWidth: on ? 3 : 1))
                                 .padding(2)
                                 .contentShape(Circle())
                         }
@@ -5336,7 +5904,7 @@ struct ChatThemePicker: View {
 
     private func swatch(_ id: String) -> AnyShapeStyle {
         let colors = ChatThemePalette.background(id)
-        if colors.isEmpty { return AnyShapeStyle(app.appearance.liveAccent.opacity(0.35)) }
+        if colors.isEmpty { return AnyShapeStyle(Color.primary.opacity(0.35)) }
         return AnyShapeStyle(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 }
@@ -5377,7 +5945,7 @@ struct MultiForwardSheet: View {
                         Spacer(minLength: 8)
                         Image(systemName: result?.ok == true ? "checkmark.circle.fill" : (on ? "checkmark.circle.fill" : "circle"))
                             .font(.title3)
-                            .foregroundStyle(on || result?.ok == true ? app.appearance.liveAccent : Color.secondary)
+                            .foregroundStyle(on || result?.ok == true ? Color.primary : Color.secondary)
                     }
                     .contentShape(Rectangle())
                 }
@@ -5408,7 +5976,7 @@ struct MultiForwardSheet: View {
             .navigationTitle("Forward")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) }
+                ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } }
             }
         }
         .presentationDetents([.medium, .large])
@@ -5500,7 +6068,7 @@ struct ManageChatFoldersSheet: View {
             .environment(\.editMode, .constant(.active))
             .navigationTitle("Chat Folders")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
             .alert(creating ? "New folder" : "Rename folder",
                    isPresented: Binding(get: { creating || naming != nil }, set: { if !$0 { creating = false; naming = nil } })) {
                 TextField("Name", text: $name)
@@ -5540,7 +6108,7 @@ struct FolderChatsPicker: View {
                     Text(conversation.title).lineLimit(1)
                     Spacer()
                     Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(on ? app.appearance.liveAccent : Color.secondary)
+                        .foregroundStyle(on ? Color.primary : Color.secondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -5594,7 +6162,7 @@ struct QuickRepliesManageSheet: View {
             }
             .navigationTitle("Quick Replies")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(.primary) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { MessagesDoneButton { dismiss() } } }
             .sheet(isPresented: Binding(get: { adding || editing != nil }, set: { if !$0 { adding = false; editing = nil } })) {
                 Group {
                     QuickReplyEditor(shortcut: $shortcut, text: $text, isNew: editing == nil) {
@@ -5767,6 +6335,50 @@ struct ConversationJumpToDateSheet: View {
                     }
                     .disabled(target == nil)
                 }
+            }
+        }
+    }
+}
+
+
+/// The one Done button for messaging sheets: black/white primary glass capsule (no accent).
+struct MessagesDoneButton: View {
+    var action: () -> Void
+    var body: some View {
+        Button("Done", action: action)
+            .font(.body.weight(.semibold))
+            .buttonStyle(.modulaPrimary)
+            .accessibilityIdentifier("messages.sheet.done")
+    }
+}
+
+/// A recent emoji/sticker in the composer row: the sticker artwork, never its internal name.
+struct MessageRecentTokenLabel: View {
+    let token: String
+
+    var body: some View {
+        if let sticker = ModulaLocalSticker.extract(token).stickers.first {
+            ModulaLocalStickerView(sticker: sticker, size: 26)
+                .frame(width: 28, height: 28)
+        } else {
+            Text(token).font(.title3)
+        }
+    }
+}
+
+extension View {
+    /// Principal toolbar item without iOS 26's shared glass background (older iOS: plain item).
+    /// Uses `sharedBackgroundVisibility` (iOS 26 SDK); not yet verified on device.
+    @ViewBuilder
+    func messagesPrincipalToolbar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            toolbar {
+                ToolbarItem(placement: .principal) { content() }
+                    .sharedBackgroundVisibility(.hidden)
+            }
+        } else {
+            toolbar {
+                ToolbarItem(placement: .principal) { content() }
             }
         }
     }

@@ -487,15 +487,16 @@ private struct PostMenuOverlay: View {
                         if caps.editOwnPost { row("edit-post", "Edit post", "pencil") }
                         if caps.deleteOwnPost { row("delete", "Delete post", "trash", destructive: true) }
                     } else {
-                        row("not-interested", "Not interested in this post", "eye.slash")
-                        if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
-                        row("hide", "Hide post", "rectangle.slash")
-                        row("report", "Report post", "flag", destructive: true)
-                        row("spam", "Mark as spam", "exclamationmark.circle")
+                        // Notes-style short list: no drill-in chevrons; author actions inline.
+                        row("not-interested", "Not interested", "eye.slash")
                         if let handle {
-                            Divider().overlay(.white.opacity(0.14)).padding(.horizontal, 18).padding(.vertical, 3)
-                            row("handle", "@\(handle)", nil, trailing: "chevron.right", emphasized: true)
+                            row("follow-author", "Follow @\(handle)", "person.badge.plus")
+                            if caps.muteAuthor { row("mute-author", "Mute @\(handle)", "speaker.slash") }
                         }
+                        row("hide", "Hide post", "rectangle.slash")
+                        if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
+                        if handle != nil { row("block-author", "Block", "nosign", destructive: true) }
+                        row("report", "Report post", "flag", destructive: true)
                     }
                 }
                 LinearGradient(colors: [Color.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
@@ -510,10 +511,12 @@ private struct PostMenuOverlay: View {
 
     private var quickTiles: some View {
         HStack(spacing: 6) {
+            // Three icon actions, like the profile's Notes-style menu.
             tile("share", "Share", "square.and.arrow.up")
-            tile("copy-link", "Copy link", "link")
-            tile("save", request.post.saved ? "Saved" : "Save", request.post.saved ? "bookmark.fill" : "bookmark")
-            tile("save-collection", "Collection", "rectangle.stack.badge.plus")
+            if caps.save {
+                tile("save", request.post.saved ? "Saved" : "Save", request.post.saved ? "bookmark.fill" : "bookmark")
+            }
+            tile("copy-link", "Copy Link", "link")
         }
     }
 

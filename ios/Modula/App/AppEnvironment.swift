@@ -218,6 +218,8 @@ final class AppEnvironment {
             // The diagnostic surface is a bundled developer tool, never a catalogue product.
             if id == "modula.runtime-diagnostic" { return .runnable(descriptor: nil) }
             #endif
+            // Modula Connect is a bundled PREVIEW on mock data (no catalogue product, no backend calls).
+            if id == ConnectPreview.moduleID { return .runnable(descriptor: nil) }
             if let catalogueStore { return catalogueStore.installGate(for: id) }
             if let self, let cached = self.moduleActivation.active(accountID: self.runtime.accountID ?? self.auth.account?.accountId, moduleId: id) {
                 return .runnable(descriptor: cached.descriptor)

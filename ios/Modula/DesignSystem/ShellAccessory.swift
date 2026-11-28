@@ -1321,6 +1321,12 @@ struct InstalledModulesPanel: View {
                         if app.auth.isSignedIn, installed.count > 0 { chipRow }
                     }
                     content
+                    if !isHalfDock, app.auth.isSignedIn {
+                        ConnectDockTile {
+                            closePanel()
+                            app.navigation.open(.module(ConnectPreview.moduleID, localPath: nil))
+                        }
+                    }
                     if !isHalfDock { exploreBanner }
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)

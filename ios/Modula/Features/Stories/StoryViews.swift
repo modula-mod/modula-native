@@ -823,6 +823,14 @@ struct StoryViewer: View {
                     .contentShape(Rectangle())
                     .onTapGesture { goNext() }
             }
+            // Hold-to-pause lives on the media tap zones only. On the whole viewer it also
+            // claimed presses on the close/more/reaction buttons, which then needed a long or
+            // hard press before they fired.
+            .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
+                guard !replyFocused else { return }
+                holding = pressing
+                if pressing { engine.pause() } else { engine.resume() }
+            }, perform: {})
             .padding(.bottom, 96)
             .allowsHitTesting(
                 !replyFocused
@@ -901,11 +909,6 @@ struct StoryViewer: View {
                 }
             }
         )
-        .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
-            guard !replyFocused else { return }
-            holding = pressing
-            if pressing { engine.pause() } else { engine.resume() }
-        }, perform: {})
         .background {
             // Display-linked progress instead of a free-running 20 Hz Timer:
             // the timeline is paused (no wakeups) while held, backgrounded,

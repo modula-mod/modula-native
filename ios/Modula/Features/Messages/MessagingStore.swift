@@ -828,14 +828,57 @@ final class MessagingStore {
         MessagingLocalStore.save(nicknames, "messages.nicknames.v1")
     }
 
-    func wallpaper(for id: ConversationID) -> MessagesWallpaperTheme {
-        MessagesWallpaperTheme(rawValue: wallpapers[id] ?? "") ?? .none
+    // MARK: Wallpapers (device-only: no server wallpaper capability exists, so nothing syncs)
+
+    /// Global default (Settings › Appearance › Chat wallpaper). Neutral (none) unless chosen.
+    private(set) var defaultWallpaperRaw: String? = UserDefaults.standard.string(forKey: "messages.wallpaper.default.v2")
+    /// Dim/blur for photo wallpapers, keyed like the photo files ("<chat id>" or the default key).
+    private(set) var wallpaperStyles: [String: String] = MessagingLocalStore.dictionary("messages.wallpaper.styles.v2")
+    /// Bumped when a photo file changes so views reload it.
+    private(set) var wallpaperRevision = 0
+
+    var defaultWallpaper: MessagesWallpaperTheme { MessagesWallpaperTheme(stored: defaultWallpaperRaw) ?? .none }
+
+    /// This chat's own choice, or nil when it follows the default.
+    func wallpaperOverride(for id: ConversationID) -> MessagesWallpaperTheme? {
+        MessagesWallpaperTheme(stored: wallpapers[id])
     }
 
-    func setWallpaper(_ theme: MessagesWallpaperTheme, for id: ConversationID) {
-        wallpapers[id] = theme == .none ? nil : theme.rawValue
-        MessagingLocalStore.save(wallpapers, "messages.wallpapers.v1")
+    func wallpaper(for id: ConversationID) -> MessagesWallpaperTheme {
+        wallpaperOverride(for: id) ?? defaultWallpaper
     }
+
+    /// Key for this chat's photo file and dim/blur: its own when overridden, else the default's.
+    func wallpaperKey(for id: ConversationID?) -> String {
+        guard let id, wallpaperOverride(for: id) != nil else { return MessagesWallpaperTheme.defaultKey }
+        return id
+    }
+
+    /// `id == nil` sets the global default; `theme == nil` makes the chat follow the default.
+    func setWallpaper(_ theme: MessagesWallpaperTheme?, for id: ConversationID?) {
+        if let id {
+            wallpapers[id] = theme?.rawValue
+            MessagingLocalStore.save(wallpapers, "messages.wallpapers.v1")
+            if theme != .photo { ChatWallpaperPhotoStore.remove(key: id) }
+        } else {
+            defaultWallpaperRaw = theme == nil || theme == MessagesWallpaperTheme.none ? nil : theme?.rawValue
+            UserDefaults.standard.set(defaultWallpaperRaw, forKey: "messages.wallpaper.default.v2")
+            if theme != .photo { ChatWallpaperPhotoStore.remove(key: MessagesWallpaperTheme.defaultKey) }
+        }
+        wallpaperRevision += 1
+    }
+
+    func wallpaperStyle(key: String) -> (dim: Double, blur: Double) {
+        let parts = (wallpaperStyles[key] ?? "").split(separator: ",").compactMap { Double($0) }
+        return parts.count == 2 ? (parts[0], parts[1]) : (0.25, 0)
+    }
+
+    func setWallpaperStyle(key: String, dim: Double, blur: Double) {
+        wallpaperStyles[key] = String(format: "%.3f,%.1f", dim, blur)
+        MessagingLocalStore.save(wallpaperStyles, "messages.wallpaper.styles.v2")
+    }
+
+    func noteWallpaperPhotoChanged() { wallpaperRevision += 1 }
 
     func isStarred(_ id: MessageID) -> Bool { starredIDs.contains(id) }
 

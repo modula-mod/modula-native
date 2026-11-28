@@ -18,6 +18,8 @@ actor CallRepository {
         static let voipDevices = "/v1/push/voip-devices"
         static func voipDevice(_ registrationID: String) -> String { "/v1/push/voip-devices/\(escape(registrationID))" }
         static let capabilities = "/v1/messaging/capabilities"
+        static let myCallID = "/v1/calls/ids/me"
+        static func callID(_ id: String) -> String { "/v1/calls/ids/\(escape(id))" }
 
         static func history(conversationID: String?, cursor: String?, limit: Int = 30) -> String {
             var items = [URLQueryItem(name: "limit", value: String(limit))]
@@ -101,6 +103,26 @@ actor CallRepository {
         let value: JSONValue = try await client.authenticatedJSON("POST", path: Paths.voipDevices, body: body)
         guard let id = value["registration"]?["registrationId"]?.string else { throw APIError.invalidResponse }
         return id
+    }
+
+    // MARK: Modula call IDs (only called when `capabilities.callIDs`)
+
+    func myCallID() async throws -> String? {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: Paths.myCallID)
+        return value["callId"]?.string
+    }
+
+    func claimCallID(_ id: String) async throws -> String? {
+        let value: JSONValue = try await client.authenticatedJSON(
+            "PUT", path: Paths.myCallID, body: .object(["callId": .string(id)]), idempotencyKey: CallIdempotency.key()
+        )
+        return value["callId"]?.string
+    }
+
+    func lookupCallID(_ id: String) async throws -> CallIDLookup? {
+        let value: JSONValue = try await client.authenticatedJSON("GET", path: Paths.callID(id))
+        guard let party = CallIDFormat.party(value["owner"]) else { return nil }
+        return CallIDLookup(callID: value["callId"]?.string ?? id, party: party, conversationID: value["conversationId"]?.string)
     }
 
     func deleteVoip(registrationID: String) async throws {

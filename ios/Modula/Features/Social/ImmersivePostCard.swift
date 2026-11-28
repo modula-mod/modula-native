@@ -137,6 +137,10 @@ struct ImmersivePostCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.trailingInteractionInset) private var trailingInteractionInset
+    /// Global Y of the screen's top chrome bottom edge (nav bar + safe area), measured by the feed.
+    @Environment(\.modulaTopChromeBottom) private var topChromeBottom
+    /// True while the action rail would sit under the header's search/bell/chat cluster.
+    @State private var railUnderHeader = false
     @Environment(\.openURL) private var openURL
     /// The app's real scheme. Media stages force `.dark` for legibility over photos, but the
     /// post menu must present in the app scheme so it reads like the accessory Options menu.
@@ -157,11 +161,9 @@ struct ImmersivePostCard: View {
     @State private var pinchScale: CGFloat = 1
     @State private var pinchBase: CGFloat = 1
     @State private var saveBounce = 0
-    @State private var railPressed: String?
     @State private var showsTranslation = false
     /// Finger position (card space) while the reaction picker is open — drives dock magnification.
     @State private var fingerPoint: CGPoint?
-    @State private var pickerStagger = false
     @State private var barSize: CGSize = .zero
     @State private var bursts: [ReactionBurst] = []
 
@@ -294,6 +296,16 @@ struct ImmersivePostCard: View {
                     if showsCommentAffordances { mediaCommentStrip(isVideo: isVideo) }
                 }
             rail(expandable: expandable, gallery: pages)
+                // Keep the floating rail out of the header: while its top edge is above the
+                // header's bottom edge (measured, not hard-coded) it fades out and stops taking
+                // touches, so it never overlaps the search/bell/chat cluster. Bool output: this
+                // only updates state when the answer flips, not on every scroll frame.
+                .onGeometryChange(for: Bool.self) { proxy in
+                    topChromeBottom > 0 && proxy.frame(in: .global).minY < topChromeBottom + 6
+                } action: { railUnderHeader = $0 }
+                .opacity(railUnderHeader ? 0 : 1)
+                .allowsHitTesting(!railUnderHeader)
+                .animation(calm ? nil : .easeOut(duration: 0.15), value: railUnderHeader)
         }
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay { if !isDetail { mediaCardStroke } }
@@ -675,7 +687,7 @@ struct ImmersivePostCard: View {
                 }
                 .accessibilityIdentifier("home.action.comment.\(post.id)")
             }
-            railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .yellow) {
+            railButton(post.saved ? "Unsave" : "Save", symbol: post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, tint: .white) {
                 saveBounce += 1
                 HapticEngine.shared.play(.confirmation)
                 onSave()
@@ -721,10 +733,9 @@ struct ImmersivePostCard: View {
             VStack(spacing: 1) {
                 Image(systemName: symbol)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(active ? (tint ?? app.appearance.liveAccent) : .white)
+                    .foregroundStyle(active ? (tint ?? .white) : .white)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: symbol.contains("bookmark") ? saveBounce : 0)
-                    .scaleEffect(railPressed == title ? 0.82 : 1)
                 if let text = ModulaCountFormat.compact(count) {
                     Text(text)
                         .font(.system(size: 10, weight: .semibold, design: font).monospacedDigit())
@@ -734,14 +745,11 @@ struct ImmersivePostCard: View {
             }
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
-            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in if railPressed != title { railPressed = title } }
-                .onEnded { _ in railPressed = nil }
-        )
+        // Press scale from the button style. A zero-distance DragGesture used to sit on every
+        // button: it raced the tap (taps felt like they needed a hard press), blocked scroll
+        // starts, and rewrote card state on every touch.
+        .buttonStyle(ModulaPressStyle(scale: 0.82, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityValue(count > 0 ? "\(count)" : "")
     }
@@ -841,7 +849,8 @@ struct ImmersivePostCard: View {
 
     @ViewBuilder
     private func heartCount(onMedia: Bool) -> some View {
-        if let text = ModulaCountFormat.compact(reactionCount) {
+        // The summary chip carries the total when it's visible, so the number never shows twice.
+        if !(reactionCount > 0 && !topReactionEmojis.isEmpty), let text = ModulaCountFormat.compact(reactionCount) {
             Text(text)
                 .font(.system(size: onMedia ? 10 : 12, weight: .semibold, design: font).monospacedDigit())
                 .foregroundStyle(onMedia ? .white.opacity(0.9) : .secondary)
@@ -912,26 +921,9 @@ struct ImmersivePostCard: View {
         let emojis = topReactionEmojis
         if reactionCount > 0, !emojis.isEmpty {
             Button(action: openReactors) {
-                HStack(spacing: 5) {
-                    HStack(spacing: -5) {
-                        ForEach(Array(emojis.enumerated()), id: \.element) { index, emoji in
-                            Text(emoji)
-                                .font(.system(size: 12))
-                                .frame(width: 20, height: 20)
-                                .background(Circle().fill(onMedia ? Color.black.opacity(0.45) : Color(uiColor: .secondarySystemBackground)))
-                                .overlay(Circle().strokeBorder(onMedia ? Color.white.opacity(0.18) : Color.primary.opacity(0.08), lineWidth: 0.5))
-                                .zIndex(Double(3 - index))
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                    }
-                    // The heart beside this already shows the count; the chip is just the stacked
-                    // top reactions, so the same number never appears twice.
-                }
-                .padding(.leading, 4)
-                .padding(.trailing, 4)
-                .padding(.vertical, 3)
-                .modulaGlass(in: Capsule(), interactive: true)
-                .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
+                // Stacked top emoji + total, one glass element (the heart drops its own count).
+                ModulaReactionSummaryLabel(emojis: emojis, count: reactionCount, onMedia: onMedia)
+                    .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: emojis)
             }
             .buttonStyle(.modulaPress)
             .accessibilityLabel("\(reactionCount) reactions: \(emojis.joined(separator: " "))")
@@ -993,31 +985,17 @@ struct ImmersivePostCard: View {
     }
 
     private var reactionBar: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(PostEmojiReaction.quick.enumerated()), id: \.element.id) { index, option in
-                reactionItem(id: option.emoji, index: index, title: option.title) {
-                    Text(option.emoji).font(.system(size: 27))
-                }
-                .accessibilityLabel(option.title)
-                .onTapGesture { apply(option) }
-            }
-            reactionItem(id: "+", index: PostEmojiReaction.quick.count, title: "More") {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 32, height: 32)
-                    .background(Color.primary.opacity(0.1), in: Circle())
-            }
-            .accessibilityLabel("More reactions")
-            .onTapGesture { openGrid() }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .modulaGlass(in: Capsule(), specular: true)
-        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
-        .onAppear { withAnimation { pickerStagger = true } }
-        .onDisappear { pickerStagger = false }
-        .accessibilityElement(children: .contain)
+        // Shared strip (same component as the comments sheet and Reels).
+        ModulaEmojiReactionStrip(
+            options: PostEmojiReaction.quick.map { ModulaEmojiReactionOption(id: $0.emoji, emoji: $0.emoji, title: $0.title) },
+            selectedID: reacted ? (PostEmojiReactionStore.shared.emoji(for: post.id) ?? post.viewerReaction?.emoji ?? PostEmojiReaction.heart.emoji) : nil,
+            hoveredID: hoveredReaction,
+            coordinateSpace: space,
+            onFrame: { id, frame in reactionFrames[id] = frame },
+            magnification: { magnification(for: $0) },
+            onPick: { apply(.custom($0.emoji)) },
+            onMore: { openGrid() }
+        )
         .accessibilityIdentifier("post.reaction.picker")
     }
 
@@ -1027,41 +1005,6 @@ struct ImmersivePostCard: View {
         guard let finger = fingerPoint, let frame = reactionFrames[id], reactionBand?.contains(finger) == true else { return 1 }
         let distance = abs(finger.x - frame.midX)
         return 1 + 0.75 * max(0, 1 - distance / 70)
-    }
-
-    private func reactionItem<Content: View>(id: String, index: Int, title: String, @ViewBuilder content: () -> Content) -> some View {
-        let hovered = hoveredReaction == id
-        let scale = magnification(for: id)
-        // Fixed slot is measured (not the scaled glyph) so hit-testing stays stable while magnifying.
-        return Color.clear
-            .frame(width: 42, height: 42)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(space)) } action: { reactionFrames[id] = $0 }
-            .overlay {
-                content()
-                    .scaleEffect(scale, anchor: .bottom)
-                    .offset(y: hovered && !calm ? -12 : 0)
-                    .scaleEffect(pickerStagger || calm ? 1 : 0.3)
-                    .opacity(pickerStagger || calm ? 1 : 0)
-                    .animation(calm ? nil : .spring(response: 0.34, dampingFraction: 0.62).delay(Double(index) * 0.03), value: pickerStagger)
-                    .animation(calm ? nil : .interactiveSpring(response: 0.2, dampingFraction: 0.62), value: scale)
-            }
-            .overlay(alignment: .top) {
-                if hovered {
-                    Text(title)
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .modulaGlass(in: Capsule(), interactive: false)
-                        .offset(y: calm ? -30 : -62)
-                        .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(calm ? nil : .snappy(duration: 0.18), value: hovered)
-            .zIndex(hovered ? 2 : 0)
-            .contentShape(Rectangle())
     }
 
     private func perform(_ action: ModulaContextAction) {
@@ -1315,19 +1258,13 @@ struct ImmersivePostCard: View {
                         .contentTransition(.numericText())
                 }
             }
-            .foregroundStyle(active ? app.appearance.liveAccent : .secondary)
+            // Active state never uses the accent (no coral): Repost goes green, others primary.
+            .foregroundStyle(active ? (title == "Repost" ? Color.green : Color.primary) : Color.secondary)
             .frame(minWidth: 40, minHeight: 40)
             .padding(.horizontal, 2)
             .contentShape(Rectangle())
-            .scaleEffect(railPressed == title ? 0.9 : 1)
-            .animation(calm ? nil : .spring(response: 0.22, dampingFraction: 0.55), value: railPressed == title)
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in railPressed = title }
-                .onEnded { _ in railPressed = nil }
-        )
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityValue(count > 0 ? "\(count)" : "")
     }
@@ -1964,4 +1901,11 @@ struct ModulaOutsideRoundedRect: Shape {
         path.addRoundedRect(in: rect, cornerSize: CGSize(width: radius, height: radius), style: .continuous)
         return path
     }
+}
+
+
+extension EnvironmentValues {
+    /// Global Y of the bottom edge of the current screen's top chrome (navigation bar incl. the
+    /// safe area). 0 = unknown. Set by scrolling feeds so floating card chrome can stay below it.
+    @Entry var modulaTopChromeBottom: CGFloat = 0
 }
