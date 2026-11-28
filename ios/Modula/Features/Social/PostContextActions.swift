@@ -18,7 +18,9 @@ enum PostContextActions {
                 items.append(.init(id: "save", title: saved ? "Saved" : "Save", systemImage: saved ? "bookmark.fill" : "bookmark"))
                 items.append(.init(id: "save-collection", title: "Collection", systemImage: "rectangle.stack.badge.plus"))
             }
-            items.append(.init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"))
+            if capabilities.likesList || capabilities.reactionsList || capabilities.reactionsSummary {
+                items.append(.init(id: "interactions", title: "View Post Interactions", systemImage: "chart.bar"))
+            }
             if capabilities.editOwnPost { items.append(.init(id: "edit-post", title: "Edit post", systemImage: "pencil")) }
             if capabilities.deleteOwnPost {
                 items.append(.init(id: "delete", title: "Delete post", systemImage: "trash", role: .destructive))
@@ -125,6 +127,12 @@ struct PostOptionsMenuContent: View {
             Button("Share via…", systemImage: "square.and.arrow.up") { onSelect("share") }
             Button("Copy link", systemImage: "link") { onSelect("copy-link") }
             Button("Send in message", systemImage: "paperplane") { onSelect("send-message") }
+            if let text = post.text, !text.isEmpty {
+                Button("Copy text", systemImage: "doc.on.doc") { onSelect("copy-text") }
+            }
+            if PostFirstLink.find(in: post.text) != nil {
+                Button("Open link", systemImage: "safari") { onSelect("open-link") }
+            }
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
         }
@@ -141,7 +149,9 @@ struct PostOptionsMenuContent: View {
         }
 
         if isOwn {
-            Button("Post interactions", systemImage: "chart.bar") { onSelect("interactions") }
+            if capabilities.likesList || capabilities.reactionsList || capabilities.reactionsSummary {
+                Button("Post interactions", systemImage: "chart.bar") { onSelect("interactions") }
+            }
             if capabilities.editOwnPost {
                 Button("Edit post", systemImage: "pencil") { onSelect("edit-post") }
             }
@@ -469,21 +479,27 @@ private struct PostMenuOverlay: View {
             // Soft top fade under the tile row (X progressive-blur feel).
             ZStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
+                    if let text = request.post.text, !text.isEmpty { row("copy-text", "Copy text", "doc.on.doc") }
+                    if PostFirstLink.find(in: request.post.text) != nil { row("open-link", "Open link", "safari") }
                     if request.isOwn {
-                        row("interactions", "View Post Interactions", "chart.bar")
+                        if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
                         if request.hooks.onTranslate != nil { row("translate", "Translate post", "translate") }
                         if caps.editOwnPost { row("edit-post", "Edit post", "pencil") }
                         if caps.deleteOwnPost { row("delete", "Delete post", "trash", destructive: true) }
                     } else {
-                        row("not-interested", "Not interested in this post", "eye.slash")
-                        row("interactions", "View Post Interactions", "chart.bar")
-                        row("hide", "Hide post", "rectangle.slash")
-                        row("report", "Report post", "flag", destructive: true)
-                        row("spam", "Mark as spam", "exclamationmark.circle")
+                        // Notes-style short list: no drill-in chevrons; author actions inline.
+                        row("not-interested", "Not interested", "eye.slash")
                         if let handle {
-                            Divider().overlay(.white.opacity(0.14)).padding(.horizontal, 18).padding(.vertical, 3)
-                            row("handle", "@\(handle)", nil, trailing: "chevron.right", emphasized: true)
+                            row("follow-author", "Follow @\(handle)", "person.badge.plus")
+                            if caps.muteAuthor { row("mute-author", "Mute @\(handle)", "speaker.slash") }
                         }
+                        row("hide", "Hide post", "rectangle.slash")
+                        ForEach(PostMuteCandidates.tags(in: request.post.text, muted: app.home.mutedWords), id: \.self) { tag in
+                            row("mute-word:\(tag)", "Mute \(tag)", "text.badge.minus")
+                        }
+                        if caps.likesList || caps.reactionsList || caps.reactionsSummary { row("interactions", "View Post Interactions", "chart.bar") }
+                        if handle != nil { row("block-author", "Block", "nosign", destructive: true) }
+                        row("report", "Report post", "flag", destructive: true)
                     }
                 }
                 LinearGradient(colors: [Color.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
@@ -498,10 +514,12 @@ private struct PostMenuOverlay: View {
 
     private var quickTiles: some View {
         HStack(spacing: 6) {
+            // Three icon actions, like the profile's Notes-style menu.
             tile("share", "Share", "square.and.arrow.up")
-            tile("copy-link", "Copy link", "link")
-            tile("save", request.post.saved ? "Saved" : "Save", request.post.saved ? "bookmark.fill" : "bookmark")
-            tile("save-collection", "Collection", "rectangle.stack.badge.plus")
+            if caps.save {
+                tile("save", request.post.saved ? "Saved" : "Save", request.post.saved ? "bookmark.fill" : "bookmark")
+            }
+            tile("copy-link", "Copy Link", "link")
         }
     }
 
@@ -831,6 +849,15 @@ enum PostMenuExecutor {
                 await app.postActions.setReaction(current, reaction: next)
                 app.home.syncVisibleEngagement()
             }
+        case "open-link":
+            // First web link in the post, in the Modula browser (or natively for Modula links).
+            if let url = PostFirstLink.find(in: post.text) { ModulaLinkRouter.open(url, source: nil) }
+        case "copy-text":
+            if let text = post.text, !text.isEmpty {
+                UIPasteboard.general.string = text
+                HapticEngine.shared.play(.success)
+                app.navigation.flash("Text copied", symbol: "doc.on.doc")
+            }
         case "send-message":
             // No "attach post to DM" endpoint yet: copy the link and open a new message.
             UIPasteboard.general.string = post.shareURL.absoluteString
@@ -846,9 +873,14 @@ enum PostMenuExecutor {
             app.navigation.presented = .collectionPicker(postID: post.id)
         case "translate":
             hooks.onTranslate?()
+        case let value where value.hasPrefix("mute-word:"):
+            let word = String(value.dropFirst("mute-word:".count))
+            app.home.setMutedWords(app.home.mutedWords + [word])
+            HapticEngine.shared.play(.success)
+            app.navigation.flash("Muted \(word). Undo in Settings › Muted Words", symbol: "text.badge.minus")
         case "interactions":
             let caps = app.postActions.capabilities
-            if caps.reactionsList {
+            if caps.reactionsList || caps.reactionsSummary {
                 app.navigation.push(.post(post.id, .reactions))
             } else if caps.likesList {
                 app.navigation.push(.post(post.id, .likes))
@@ -946,20 +978,24 @@ struct PostMenuButton<Label: View>: View {
     var makeRequest: (CGRect) -> PostMenuRequest
     @ViewBuilder var label: () -> Label
     @Environment(AppEnvironment.self) private var app
-    @State private var frame: CGRect = .zero
+    /// Speed: a plain reference box, not @State. Writing @State here on every scroll frame
+    /// re-rendered every visible row's menu button while scrolling.
+    @State private var frameBox = ModulaFrameBox()
 
     var body: some View {
-        let request = makeRequest(frame == .zero ? CGRect(x: 0, y: 0, width: 44, height: 44) : frame)
+        let request = makeRequest(CGRect(x: 0, y: 0, width: 44, height: 44))
         PostOptionsMenuButton(
             post: request.post,
             isOwn: request.isOwn,
             capabilities: app.postActions.capabilities,
             onSelect: { id in
-                PostMenuExecutor.run(id, request: request, app: app)
+                // Anchor from the latest frame at selection time.
+                let anchor = frameBox.frame == .zero ? CGRect(x: 0, y: 0, width: 44, height: 44) : frameBox.frame
+                PostMenuExecutor.run(id, request: makeRequest(anchor), app: app)
             },
             label: label
         )
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frameBox.frame = $0 }
     }
 }
 
@@ -1202,5 +1238,45 @@ final class ExclusiveReactionRecognizer: UILongPressGestureRecognizer {
         return name.contains("ContextMenu")
             || name.contains("PreviewInteraction")
             || name.contains("UIContextMenu")
+    }
+}
+
+
+/// First http(s) link in a post's text (NSDataDetector, cached per text).
+@MainActor
+enum PostFirstLink {
+    private static var cache: [String: URL?] = [:]
+    private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
+    static func find(in text: String?) -> URL? {
+        guard let text, !text.isEmpty, text.count < 5000 else { return nil }
+        if let hit = cache[text] { return hit }
+        let range = NSRange(text.startIndex..., in: text)
+        let url = detector?.matches(in: text, range: range)
+            .compactMap(\.url)
+            .first { ["http", "https"].contains($0.scheme?.lowercased() ?? "") }
+        if cache.count > 300 { cache.removeAll() }
+        cache[text] = url
+        return url
+    }
+}
+
+
+/// Up to two #tags from a post that you could mute from its long-press menu (t235u).
+enum PostMuteCandidates {
+    static func tags(in text: String?, muted: [String]) -> [String] {
+        guard let text, text.contains("#") else { return [] }
+        let mutedSet = Set(muted.map { $0.lowercased() })
+        var seen = Set<String>()
+        var out: [String] = []
+        guard let regex = try? Regex("#[\\p{L}\\p{N}_]{2,40}") else { return [] }
+        for match in text.matches(of: regex) {
+            let tag = String(text[match.range])
+            let key = tag.lowercased()
+            guard !mutedSet.contains(key), !mutedSet.contains(String(key.dropFirst())), seen.insert(key).inserted else { continue }
+            out.append(tag)
+            if out.count == 2 { break }
+        }
+        return out
     }
 }

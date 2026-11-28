@@ -41,78 +41,22 @@ enum ActivityChip: String, CaseIterable, Identifiable, Hashable {
 struct ActivityChipBar: View {
     @Binding var selection: ActivityChip
     var unread: [ActivityChip: Int]
-    @Environment(AppEnvironment.self) private var app
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Namespace private var chipSpace
 
+    /// Shared segmented control: 8 chips scroll, the selection auto-centres; unread counts are badges.
     var body: some View {
-        let accent = app.appearance.liveAccent
-        let calm = ModulaEffectGate.reduceMotion(systemReduceMotion)
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                ModulaGlassGroup(spacing: 6) {
-                    HStack(spacing: 6) {
-                        ForEach(ActivityChip.allCases) { chip in
-                            chipButton(chip, accent: accent, calm: calm)
-                                .id(chip)
-                        }
-                    }
-                    .padding(.horizontal, ModulaLayout.contentInset)
-                    .padding(.vertical, 6)
-                }
-            }
-            .scrollClipDisabled()
-            .onAppear { if selection != .all { proxy.scrollTo(selection, anchor: .center) } }
-            .onChange(of: selection) { _, new in
-                withAnimation(calm ? nil : .snappy(duration: 0.3)) { proxy.scrollTo(new, anchor: .center) }
-            }
-        }
+        ModulaSegmentedControl(
+            segments: ActivityChip.allCases.map { chip in
+                .init(id: chip, title: chip.title, systemImage: chip.symbol,
+                      badgeCount: chip == .all ? nil : (unread[chip].flatMap { $0 > 0 ? $0 : nil }))
+            },
+            selection: $selection,
+            accessibilityLabel: "Activity filter",
+            identifier: { "activity.chip.\($0.rawValue)" }
+        )
+        .padding(.horizontal, ModulaLayout.contentInset)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("activity.chips")
-    }
-
-    private func chipButton(_ chip: ActivityChip, accent: Color, calm: Bool) -> some View {
-        let selected = chip == selection
-        let count = unread[chip] ?? 0
-        return Button {
-            guard chip != selection else { return }
-            withAnimation(calm ? .easeOut(duration: 0.12) : .snappy(duration: 0.34, extraBounce: 0.06)) { selection = chip }
-            HapticEngine.shared.play(.selection)
-        } label: {
-            HStack(spacing: 5) {
-                if selected {
-                    Image(systemName: chip.symbol)
-                        .font(.caption.weight(.bold))
-                        .transition(.scale(scale: 0.4).combined(with: .opacity))
-                }
-                Text(chip.title).font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
-                if count > 0, chip != .all {
-                    Text(count > 99 ? "99+" : "\(count)")
-                        .font(.caption2.weight(.bold)).monospacedDigit()
-                        .foregroundStyle(selected ? Color.white.opacity(0.9) : accent)
-                        .contentTransition(.numericText(value: Double(count)))
-                        .fixedSize()
-                }
-            }
-            .fixedSize()
-            .foregroundStyle(selected ? Color.white : Color.primary)
-            .padding(.horizontal, 14)
-            .frame(height: 36)
-            .background {
-                if selected {
-                    Capsule()
-                        .fill(LinearGradient(colors: [accent, accent.opacity(0.82)], startPoint: .top, endPoint: .bottom))
-                        .matchedGeometryEffect(id: "activity.chip.selection", in: chipSpace)
-                }
-            }
-            .modulaGlass(in: Capsule(), interactive: true, tint: selected ? accent.opacity(0.35) : nil)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-        .accessibilityLabel(count > 0 ? "\(chip.title), \(count) unread" : chip.title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("activity.chip.\(chip.rawValue)")
     }
 }
 
@@ -282,7 +226,7 @@ struct ActivityFollowBackButton: View {
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
         // Disabled state of the shared CTA renders as an accent outline ("Following" / busy).
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(state != .idle)
         .accessibilityIdentifier("activity.follow-back")
     }
@@ -328,13 +272,11 @@ struct ActivityPillButton: View {
     let title: String; let symbol: String
     var prominent = false
     let action: () -> Void
-    @Environment(AppEnvironment.self) private var app
     var body: some View {
-        let accent = app.appearance.liveAccent
         Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(prominent ? Color.white : accent)
+                .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
                 .modifier(ActivityPillChrome(prominent: prominent))
@@ -353,7 +295,7 @@ struct ActivityTypeGroup: Identifiable {
 private struct ActivityPillChrome: ViewModifier {
     let prominent: Bool
     func body(content: Content) -> some View {
-        if prominent { content.modulaAccentCTA() } else { content.modulaGlass(in: Capsule(), interactive: true) }
+        if prominent { content.modulaPrimaryCTA() } else { content.modulaGlass(in: Capsule(), interactive: true) }
     }
 }
 
@@ -383,7 +325,7 @@ struct ActivityLikeBackButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: .lightImpact))
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(phase != .idle)
         .accessibilityLabel(phase == .liked ? "Liked \(actor.displayName)'s latest post" : "Like \(actor.displayName)'s latest post")
         .accessibilityIdentifier("activity.like-back")
@@ -480,8 +422,11 @@ struct ActivityClusterCard: View {
         .overlay(alignment: .topLeading) {
             if !cluster.isRead {
                 ActivityUnreadIndicator().offset(x: -12, y: 29)
+                    // Marking read (one or all) pops the dot away instead of it vanishing.
+                    .transition(.scale(scale: 0.2).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: cluster.isRead)
         .contentShape(Rectangle())
         .opacity(dimmed ? 0.5 : 1)
         .accessibilityElement(children: .contain)
@@ -630,7 +575,7 @@ struct ActivityRequestsEntry: View {
                 ZStack {
                     if actors.isEmpty {
                         Image(systemName: "person.badge.plus").font(.title3.weight(.semibold)).foregroundStyle(accent)
-                            .frame(width: 46, height: 46).modulaGlass(in: Circle(), interactive: false, tint: accent.opacity(0.18))
+                            .frame(width: 46, height: 46).modulaGlass(in: Circle(), interactive: false, tint: nil)
                     } else {
                         ActivityIdentityBlock(actors: actors, kind: .followRequest)
                     }
@@ -678,7 +623,7 @@ struct ActivityLivelyEmptyState: View {
                         .foregroundStyle(LinearGradient(colors: [accent, accent.opacity(0.65)], startPoint: .top, endPoint: .bottom))
                         .rotationEffect(.degrees(still ? 0 : 6 * sin(t * 2.4) * max(0, sin(t * 0.8))), anchor: .top)
                         .frame(width: 76, height: 76)
-                        .modulaGlass(in: Circle(), interactive: false, tint: accent.opacity(0.12), specular: true)
+                        .modulaGlass(in: Circle(), interactive: false, tint: nil, specular: true)
                 }
             }
             .frame(height: 140).scaleEffect(appeared ? 1 : 0.8).opacity(appeared ? 1 : 0)
@@ -700,7 +645,7 @@ struct ActivityLivelyEmptyState: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.94))
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
             }
         }
         .frame(maxWidth: .infinity).padding(.horizontal, 24).padding(.vertical, 12)
@@ -753,6 +698,7 @@ struct ActivityClusterFeed: View {
     var busyEventID: ActivityEventID? = nil
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var expanded: Set<String> = []
+    @State private var foldedSections: Set<ActivityTimelineSection> = []
     /// Timeline (default) or grouped by notification type. Persisted; purely a client-side view of the same feed.
     @AppStorage("activity.groupByType") private var groupByType = false
     private var calm: Bool { ModulaEffectGate.reduceMotion(systemReduceMotion) }
@@ -813,7 +759,7 @@ struct ActivityClusterFeed: View {
             HStack(spacing: 8) {
                 Image(systemName: group.chip == .all ? "ellipsis.circle.fill" : group.chip.symbol)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                 Text(group.chip == .all ? "Other" : group.chip.title).font(.headline)
                 Text("\(group.clusters.reduce(0) { $0 + $1.events.count })")
                     .font(.caption.weight(.bold)).monospacedDigit().foregroundStyle(.secondary)
@@ -835,13 +781,18 @@ struct ActivityClusterFeed: View {
     @ViewBuilder private var timelineRows: some View {
             let all = sections
             let firstSection = all.first?.section
+            ActivityDaySummary(events: events)
             ForEach(all, id: \.section) { group in
                 sectionHeader(group.section, clusters: group.clusters, isFirst: group.section == firstSection)
+                if !foldedSections.contains(group.section) {
                 ForEach(group.clusters) { cluster in
                     row(cluster)
+                        // Fold/unfold slides rows in from their header instead of popping.
+                        .transition(calm ? .opacity : .opacity.combined(with: .offset(y: -8)))
                     if cluster.expandsInline && expanded.contains(cluster.id) {
                         expandedFollowers(cluster)
                     }
+                }
                 }
             }
     }
@@ -861,12 +812,49 @@ struct ActivityClusterFeed: View {
     private func sectionHeader(_ section: ActivityTimelineSection, clusters: [ActivityCluster], isFirst: Bool) -> some View {
         let unread = clusters.reduce(0) { $0 + $1.events.filter { !$0.isRead }.count }
         return HStack(alignment: .center, spacing: 8) {
-            Label(section.title, systemImage: section.glassSymbol)
+            let folded = foldedSections.contains(section)
+            Button {
+                withAnimation(.snappy(duration: 0.28)) {
+                    if folded { foldedSections.remove(section) } else { foldedSections.insert(section) }
+                }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                HStack(spacing: 6) {
+                    Label(section.title, systemImage: section.glassSymbol)
+                        .labelStyle(.titleAndIcon)
+                    if folded {
+                        Text("\(clusters.count)").monospacedDigit().foregroundStyle(.secondary)
+                    }
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(folded ? -90 : 0))
+                        .animation(calm ? nil : .spring(response: 0.3, dampingFraction: 0.75), value: folded)
+                        .foregroundStyle(.secondary)
+                }
                 .font(.subheadline.weight(.semibold))
-                .labelStyle(.titleAndIcon)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 12)
                 .frame(minHeight: 30)
-                .modulaGlass(in: Capsule(), interactive: false)
+                .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+            // Long-press a section: read it all, or fold/unfold every section at once.
+            .contextMenu {
+                if unread > 0 {
+                    Button("Mark Section as Read", systemImage: "checkmark.circle") {
+                        onMarkRead(clusters.flatMap(\.events))
+                        HapticEngine.shared.play(.success)
+                    }
+                }
+                Button("Fold All Sections", systemImage: "rectangle.compress.vertical") {
+                    withAnimation(.snappy(duration: 0.3)) { foldedSections = Set(sections.map(\.section)) }
+                }
+                Button("Unfold All Sections", systemImage: "rectangle.expand.vertical") {
+                    withAnimation(.snappy(duration: 0.3)) { foldedSections = [] }
+                }
+            }
+            .accessibilityLabel(folded ? "\(section.title), folded. Show" : "\(section.title). Fold")
+            .accessibilityIdentifier("activity.section.\(section.rawValue)")
             if section == .new, unread > 0 {
                 Text("\(unread)")
                     .font(.caption.weight(.bold)).monospacedDigit().foregroundStyle(.white)
@@ -879,10 +867,10 @@ struct ActivityClusterFeed: View {
                 Button(action: onMarkAllRead) {
                     Label("Mark all read", systemImage: "checkmark.circle.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 30)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.12))
+                        .modulaGlass(in: Capsule(), interactive: true, tint: nil)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("activity.mark-all")
@@ -1039,7 +1027,7 @@ struct ActivitySuggestedPeople: View {
                                 .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .disabled(done)
                     }
                     .padding(.vertical, 6)
@@ -1098,6 +1086,66 @@ extension ActivityTimelineSection {
         case .today: "sun.max.fill"
         case .yesterday: "calendar"
         case .earlier: "clock.arrow.circlepath"
+        }
+    }
+}
+
+
+/// "Last 24 hours" glance strip above the timeline: likes, comments, follows and reposts counted from the
+/// notifications already loaded (no extra request). Hidden when nothing happened in the last day.
+struct ActivityDaySummary: View {
+    let events: [ActivityEvent]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Stat: Identifiable { let id: String; let symbol: String; let count: Int; let noun: String }
+
+    private var stats: [Stat] {
+        let cutoff = Date().addingTimeInterval(-86_400)
+        var likes = 0, comments = 0, follows = 0, reposts = 0
+        for e in events where e.createdAt >= cutoff {
+            let n = max(1, e.primaryActors.count)
+            switch e.kind {
+            case .like, .reaction: likes += n
+            case .comment, .mention: comments += 1
+            case .follow, .followRequest, .followAccepted: follows += n
+            case .repost, .share: reposts += n
+            default: break
+            }
+        }
+        return [
+            Stat(id: "likes", symbol: "heart.fill", count: likes, noun: likes == 1 ? "like" : "likes"),
+            Stat(id: "comments", symbol: "bubble.left.fill", count: comments, noun: comments == 1 ? "comment" : "comments"),
+            Stat(id: "follows", symbol: "person.fill.badge.plus", count: follows, noun: follows == 1 ? "follow" : "follows"),
+            Stat(id: "reposts", symbol: "arrow.2.squarepath", count: reposts, noun: reposts == 1 ? "repost" : "reposts"),
+        ].filter { $0.count > 0 }
+    }
+
+    var body: some View {
+        let items = stats
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Last 24 hours").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, s in
+                        HStack(spacing: 5) {
+                            Image(systemName: s.symbol).font(.caption.weight(.bold))
+                            Text("\(s.count)").font(.subheadline.weight(.bold)).monospacedDigit()
+                                .contentTransition(.numericText(value: Double(s.count)))
+                        }
+                        .padding(.horizontal, 12).frame(height: 34)
+                        .modulaGlass(in: Capsule(), interactive: false)
+                        .modulaAppear(delay: reduceMotion ? 0 : Double(index) * 0.05)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(s.count) \(s.noun)")
+                    }
+                    Spacer(minLength: 0)
+                }
+                .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: items.map(\.count))
+            }
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Last 24 hours")
+            .accessibilityIdentifier("activity.daySummary")
         }
     }
 }

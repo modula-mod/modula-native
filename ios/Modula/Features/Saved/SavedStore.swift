@@ -21,6 +21,16 @@ final class SavedStore {
         self.capabilities = capabilities
     }
 
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    func resetForAccountChange() {
+        posts = []
+        nextCursor = nil
+        hasMore = false
+        loaded = false
+        error = nil
+    }
+
     func load(force: Bool = false) async {
         guard capabilities.listSavedPosts else {
             loaded = true

@@ -142,13 +142,14 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         if !updates.isEmpty {
             HStack(spacing: 8) {
                 Text("Updates available").font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                Text("\(updates.count)").font(.caption.weight(.bold)).foregroundStyle(.white)
-                    .padding(.horizontal, 8).frame(height: 22).modulaAccentCTA()
+                Text("\(updates.count)").font(.caption.weight(.bold)).foregroundStyle(Color.modulaOnPrimary)
+                    .padding(.horizontal, 8).frame(height: 22).modulaPrimaryCTA()
                 Spacer()
             }
             VStack(spacing: 8) {
@@ -166,6 +167,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         let withShots = scoped.filter { !($0.presentation?.screenshots ?? []).compactMap(\.url).isEmpty }
@@ -178,6 +180,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         ForEach(ProductHubCollections.make(scoped)) { collection in
@@ -189,6 +192,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         if !installed.isEmpty {
@@ -252,12 +256,7 @@ struct ProductHubVariantView: View {
 
     @ViewBuilder private var space: some View {
         SpaceHeader()
-        Picker("Library", selection: $segment) {
-            Text("Discover").tag(ProductHubSpaceSegment.discover)
-            Text("Installed \(installed.count)").tag(ProductHubSpaceSegment.installed)
-            Text("Updates").tag(ProductHubSpaceSegment.updates)
-        }
-        .pickerStyle(.segmented)
+        ModulaSegmentedControl("Library", selection: $segment, segments: [(ProductHubSpaceSegment.discover, "Discover"), (ProductHubSpaceSegment.installed, "Installed \(installed.count)"), (ProductHubSpaceSegment.updates, "Updates")])
         .accessibilityIdentifier("product-hub.segments")
         switch segment {
         case .discover:
@@ -279,6 +278,7 @@ struct ProductHubVariantView: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 .scrollClipDisabled()
             }
         case .installed:
@@ -307,6 +307,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         ProductCategoryChips(products: products, selected: category, onOpen: onCategory)
@@ -321,6 +322,7 @@ struct ProductHubVariantView: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
         }
         if !installed.isEmpty {
@@ -598,41 +600,18 @@ struct ProductHubChipRow: View {
     let total: Int
     let selected: String?
     var onCategory: (String) -> Void
-    @Environment(AppEnvironment.self) private var app
+
+    /// "" = All. Shared segmented control; scrolls past 5 kinds and keeps the selection in view.
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                chip(title: "All", symbol: "square.grid.2x2", count: total, on: selected == nil) {
-                    if let selected { onCategory(selected) }
-                }
-                ForEach(purposes) { p in
-                    chip(title: p.title, symbol: p.symbol, count: nil, on: selected == p.kind) { onCategory(p.kind) }
-                }
-            }
-        }
-        .scrollClipDisabled()
-    }
-    private func chip(title: String, symbol: String, count: Int?, on: Bool, action: @escaping () -> Void) -> some View {
-        Button { action(); HapticEngine.shared.play(.selection) } label: {
-            HStack(spacing: 6) {
-                Image(systemName: symbol)
-                Text(title)
-                if let count {
-                    Text("\(count)").font(.caption2.weight(.bold).monospacedDigit())
-                        .padding(.horizontal, 6).frame(height: 18)
-                        .background((on ? Color.white : Color.primary).opacity(0.2), in: Capsule())
-                }
-            }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(on ? Color.white : Color.primary)
-            .padding(.horizontal, 14).frame(height: 38)
-            .background(on ? app.appearance.liveAccent : .clear, in: Capsule())
-            .modulaGlass(in: Capsule(), interactive: true)
-            .frame(minHeight: 44)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
+        ModulaSegmentedControl(
+            segments: [.init(id: "", title: "All \(total)", systemImage: "square.grid.2x2")]
+                + purposes.map { .init(id: $0.kind, title: $0.title, systemImage: $0.symbol) },
+            selection: Binding(get: { selected ?? "" }, set: { next in
+                if next.isEmpty { if let selected { onCategory(selected) } } else { onCategory(next) }
+            }),
+            accessibilityLabel: "Product kind",
+            identifier: { "producthub.kind.\($0.isEmpty ? "all" : $0)" }
+        )
     }
 }
 
@@ -661,7 +640,7 @@ struct ProductHubRecommendedCard: View {
                         Text(product.installable ? "Install" : "Soon")
                             .font(.caption.weight(.bold))
                             .frame(maxWidth: .infinity).frame(height: 30)
-                            .modulaAccentCTA()
+                            .modulaPrimaryCTA()
                             .disabled(!product.installable)
                     }
                 }
@@ -697,7 +676,7 @@ struct ProductHubInstalledRow: View {
                 Text("Open")
                     .font(.caption.weight(.bold))
                     .padding(.horizontal, 14).frame(height: 32)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
             }
             .padding(12)
             .frame(minHeight: 80)
@@ -735,7 +714,7 @@ struct ProductHubContinueCard: View {
                     Text("Resume").font(.caption).foregroundStyle(.secondary)
                 }
                 Image(systemName: "play.fill").font(.caption.weight(.bold))
-                    .frame(width: 32, height: 32).modulaAccentCTA(in: Circle())
+                    .frame(width: 32, height: 32).modulaPrimaryCTA(in: Circle())
             }
             .padding(10)
             .frame(minHeight: 64)
@@ -767,6 +746,7 @@ struct ProductHubPreviewCard: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 HStack(spacing: 8) {
                     ProductArtwork(product: product, size: 32)
                     Text(product.name).font(.subheadline.weight(.semibold)).lineLimit(1)

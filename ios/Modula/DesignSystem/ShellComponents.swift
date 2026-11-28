@@ -161,6 +161,11 @@ struct Lab30SoundToggle: View {
 }
 
 // MARK: 18) Offline UI banner / states
+extension Notification.Name {
+    /// Posted once when the device goes from offline to online.
+    static let modulaConnectivityRestored = Notification.Name("modula.connectivity.restored")
+}
+
 @MainActor @Observable
 final class Lab30Connectivity {
     static let shared = Lab30Connectivity()
@@ -210,6 +215,8 @@ struct Lab30OfflineBanner: View {
             UIAccessibility.post(notification: .announcement, argument: now ? "Back online" : "You're offline. Showing saved content")
             HapticEngine.shared.play(now ? .success : .warning)
             guard !was, now else { return }
+            // Screens that failed while offline retry on their own (no pull needed).
+            NotificationCenter.default.post(name: .modulaConnectivityRestored, object: nil)
             showBackOnline = true
             Task { try? await Task.sleep(for: .seconds(2)); showBackOnline = false }
         }
@@ -229,7 +236,7 @@ struct Lab30OfflineState: View {
                 .font(.body.weight(.semibold))
                 .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
         }
         .multilineTextAlignment(.center).padding(32)
     }
@@ -561,11 +568,14 @@ struct Lab30FocusReader: View {
             HStack {
                 Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(.plain)
                     .frame(width: 36, height: 36).modulaGlass(in: Circle())
+                    .accessibilityLabel("Close")
                 Spacer()
                 ProgressView(value: progress).frame(width: 120)
                 Spacer()
-                Button { scale = scale >= 1.6 ? 1 : scale + 0.3 } label: { Image(systemName: "text.line.spacing") }.buttonStyle(.plain)
+                Button { scale = scale >= 1.6 ? 1 : scale + 0.3; HapticEngine.shared.play(.selection) } label: { Image(systemName: "text.line.spacing") }.buttonStyle(.plain)
                     .frame(width: 36, height: 36).modulaGlass(in: Circle())
+                    .accessibilityLabel("Text size")
+                    .accessibilityValue("\(Int((scale * 100).rounded()))%")
             }
             .padding(.horizontal, 16).padding(.vertical, 6)
         }
@@ -782,7 +792,7 @@ struct Lab30CoachMarksOverlay: View {
                         Text("\(index + 1) of \(marks.count)").font(.caption).foregroundStyle(.secondary)
                         Spacer()
                         Button("Skip") { seen = true }.buttonStyle(.borderless)
-                        Button(index == marks.count - 1 ? "Done" : "Next", action: next).buttonStyle(.borderedProminent)
+                        Button(index == marks.count - 1 ? "Done" : "Next", action: next).buttonStyle(.modulaPrimary)
                     }
                 }
                 .padding(18)
@@ -831,12 +841,13 @@ struct Lab30WhatsNewSheet: View {
             }.padding(.horizontal, 24)
             Spacer(minLength: 0)
             Button { dismiss(); onTry() } label: { Text("Try them").frame(maxWidth: .infinity).padding(.vertical, 12) }
-                .buttonStyle(.plain).foregroundStyle(.white)
-                .modulaAccentCTA()
+                .buttonStyle(.plain).foregroundStyle(Color.modulaOnPrimary)
+                .modulaPrimaryCTA()
                 .padding(.horizontal, 24)
             Button("Not now") { dismiss() }.padding(.bottom, 16)
         }
         .presentationDetents([.large])
+        .modulaSheetStyle()
     }
 }
 
@@ -852,9 +863,12 @@ struct Lab30WhatsNewPresenter: ViewModifier {
                 if seenVersion != Lab30Keys.whatsNewVersion { showWhatsNew = true }
             }
             .sheet(isPresented: $showWhatsNew, onDismiss: { seenVersion = Lab30Keys.whatsNewVersion }) {
-                Lab30WhatsNewSheet { Task { try? await Task.sleep(for: .milliseconds(400)); showGallery = true } }
+                Group {
+                    Lab30WhatsNewSheet { Task { try? await Task.sleep(for: .milliseconds(400)); showGallery = true } }
+                }
+                .modulaSheetStyle()
             }
-            .sheet(isPresented: $showGallery) { NavigationStack { Lab30GalleryView() } }
+            .sheet(isPresented: $showGallery) { NavigationStack { Lab30GalleryView() }.modulaSheetStyle() }
             .onReceive(NotificationCenter.default.publisher(for: Lab30GalleryView.openNotification)) { _ in showGallery = true }
     }
 }
@@ -1176,6 +1190,7 @@ struct Lab30GlassShareSheet: View {
         }
         .frame(maxWidth: .infinity)
         .presentationDetents([.height(260)])
+        .modulaSheetStyle()
         .presentationBackground(.clear)
         .background(Color.clear.modulaGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous), interactive: false).ignoresSafeArea())
         .sensoryFeedback(.success, trigger: copied)
@@ -1347,8 +1362,8 @@ struct Lab30GalleryView: View {
         .navigationTitle("30 new ideas")
         .fullScreenCover(isPresented: $showReader) { Lab30FocusReader(title: "On Liquid Glass", author: "Modula team", text: String(repeating: "Glass that bends light and gets out of the way. ", count: 80)) }
         .fullScreenCover(isPresented: $showStory) { Lab30StoryPlayer(colors: [.purple, .orange, .teal, .pink]) }
-        .sheet(isPresented: $showShare) { Lab30GlassShareSheet(url: URL(string: "https://modula.digital")!, people: people) { _ in showShare = false } }
-        .sheet(isPresented: $showSettings) { NavigationStack { Lab30SettingsRedesignPreview() } }
+        .sheet(isPresented: $showShare) { Lab30GlassShareSheet(url: URL(string: "https://modula.digital")!, people: people) { _ in showShare = false }.modulaSheetStyle() }
+        .sheet(isPresented: $showSettings) { NavigationStack { Lab30SettingsRedesignPreview() }.modulaSheetStyle() }
         .overlay { Lab30CoachMarksOverlay(marks: Lab30CoachMarksOverlay.defaultMarks) }
     }
 }

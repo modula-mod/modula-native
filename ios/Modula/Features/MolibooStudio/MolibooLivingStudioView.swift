@@ -107,9 +107,12 @@ struct MolibooLivingStudioView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(environment.isDark ? .dark : .light, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .sheet(item: $panel) { p in panelSheet(p) }
+        .sheet(item: $panel) { p in panelSheet(p).modulaSheetStyle() }
         .sheet(item: $photo) { ph in
-            MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
+            Group {
+                MolibooPhotoPreview(photo: ph, characterName: descriptor?.displayName ?? "Moliboo") { photo = nil }
+            }
+            .modulaSheetStyle()
         }
         #if DEBUG
         .overlay(alignment: .bottomLeading) {
@@ -338,8 +341,7 @@ struct MolibooLivingStudioView: View {
                 .accessibilityIdentifier("studio.photo.close")
                 Spacer()
                 Button("Done") { photoMode = false }
-                    .buttonStyle(.borderedProminent)
-                    .tint(teal)
+                    .buttonStyle(.modulaPrimary)
                     .accessibilityIdentifier("studio.photo.done")
             }
             .padding()
@@ -406,8 +408,8 @@ struct MolibooLivingStudioView: View {
             Spacer(minLength: 0)
         }
         .presentationDetents(Self.sheetDetents)
+        .modulaSheetStyle()
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-        .presentationDragIndicator(.visible)
         .presentationBackground {
             ZStack {
                 Rectangle().fill(.regularMaterial)

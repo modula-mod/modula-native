@@ -52,7 +52,7 @@ struct PremiumDashboardView: View {
                         ForEach(Array(included.enumerated()), id: \.element.id) { index, feature in
                             HStack(spacing: 12) {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(app.appearance.liveAccent)
+                                    .foregroundStyle(.primary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(feature.title).font(.subheadline.weight(.semibold))
                                     Text(catalogueLine(feature)).font(.caption).foregroundStyle(.secondary)
@@ -70,11 +70,11 @@ struct PremiumDashboardView: View {
             Button { open(.manage) } label: {
                 Text("Manage subscription")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("premium.dashboard.manage")
             Button("Explore all features") { open(.features) }
                 .font(.body.weight(.semibold))
@@ -112,7 +112,7 @@ struct PremiumDashboardView: View {
     private func dashboardCard(_ title: String, _ detail: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: symbol).foregroundStyle(app.appearance.liveAccent)
+                Image(systemName: symbol).foregroundStyle(.primary)
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                 Text(detail).font(.caption).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
@@ -163,10 +163,7 @@ struct PremiumFeaturesView: View {
                 title: "Choose features",
                 subtitle: "What’s in \(store.selectedPlan.title). Nothing here turns a feature on by itself."
             )
-            Picker("Plan", selection: $store.selectedPlan) {
-                ForEach(PremiumPlan.allCases) { Text($0.shortTitle).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Plan", selection: $store.selectedPlan, options: PremiumPlan.allCases) { $0.shortTitle }
             .accessibilityIdentifier("premium.features.plan")
             TelegramSettingsCard {
                 ForEach(Array(PremiumFeature.allCases.enumerated()), id: \.element.id) { index, feature in
@@ -227,8 +224,10 @@ struct PremiumManageView: View {
 
             TelegramSettingsCard {
                 manageRow("Next billing date", "Coming soon", "calendar") {}
+                    .disabled(true)
                 TelegramDivider()
                 manageRow("Payment method", "Coming soon", "creditcard") {}
+                    .disabled(true)
                 TelegramDivider()
                 manageRow("Change plan", "Compare plans", "arrow.left.arrow.right") {
                     app.navigation.open(.settings(.premium(.compare)))
@@ -307,7 +306,7 @@ struct PremiumManageView: View {
     private func manageRow(_ title: String, _ subtitle: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: symbol).frame(width: 24).foregroundStyle(app.appearance.liveAccent)
+                Image(systemName: symbol).frame(width: 24).foregroundStyle(.primary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -387,11 +386,11 @@ struct PremiumStudioView: View {
             } label: {
                 Text("Contact support")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             PremiumDisclaimerText()
         }
         .navigationTitle("Studio")
@@ -492,7 +491,7 @@ struct PremiumStorageView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             SettingsAPIFootnote(text: "There is no storage-usage route, so used cloud space, file lists and backups are not shown.")
         }
         .navigationTitle("Storage & Files")
@@ -661,11 +660,11 @@ struct PremiumPossibilitiesView: View {
                         .font(.caption)
                 }
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .frame(maxWidth: .infinity, minHeight: 56)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("premium.possibilities.horizon")
             PremiumDisclaimerText()
         }

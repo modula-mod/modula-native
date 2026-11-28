@@ -73,7 +73,7 @@ actor GreenfieldCollectionRepository {
 
     func remove(collectionID: String, itemID: String) async throws {
         let _: JSONValue = try await client.authenticatedJSON(
-            "DELETE", path: "\(Self.collectionPath(collectionID))/items/\(escaped(itemID))"
+            "DELETE", path: "\(Self.collectionPath(collectionID))/items/\(Self.escaped(itemID))"
         )
     }
 

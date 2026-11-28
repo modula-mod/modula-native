@@ -2,6 +2,7 @@ import LocalAuthentication
 import Photos
 import SwiftUI
 import UIKit
+import UserNotifications
 
 // MARK: - Face ID / device passcode for hidden chats (device-local only)
 
@@ -78,13 +79,14 @@ enum MessageDeliveryTicks {
 // MARK: - Inbox search refinement (loaded chats only)
 
 enum InboxSearchKind: String, CaseIterable, Identifiable {
-    case all, links, images, starred
+    case all, links, images, voice, starred
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: "All"
         case .links: "Links"
-        case .images: "Images"
+        case .images: "Photos"
+        case .voice: "Voice"
         case .starred: "Starred"
         }
     }
@@ -104,6 +106,9 @@ enum InboxSearchKind: String, CaseIterable, Identifiable {
             }
             if let body = conversation.lastMessage?.body, hit(body) { return true }
             return messages.contains { hit($0.body.text) }
+        case .voice:
+            if conversation.lastMessage?.kind == .voice { return true }
+            return messages.contains { $0.kind == .voice && !$0.isDeleted }
         case .starred:
             return messages.contains { starredIDs.contains($0.id) }
         }
@@ -134,7 +139,7 @@ struct ArchivedChatsView: View {
                         Button {
                             Task { await app.messaging.unarchive(conversation.id) }
                         } label: { Label("Unarchive", systemImage: "arrow.uturn.backward") }
-                        .tint(app.appearance.liveAccent)
+                        .tint(.primary)
                     }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 6, leading: ModulaLayout.contentInset, bottom: 6, trailing: ModulaLayout.contentInset))
@@ -251,6 +256,7 @@ struct MoveToFolderSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.folder.sheet")
     }
 
@@ -283,6 +289,7 @@ struct TimedMuteSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.mute.sheet")
     }
 }
@@ -322,24 +329,9 @@ struct ConversationSearchBar: View {
                     .frame(width: 36, height: 36)
                     .accessibilityLabel("Close search")
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(MessageThreadSearchScope.allCases) { item in
-                        let on = item == scope
-                        Button {
-                            scope = item
-                        } label: {
-                            Text(item.title)
-                                .font(.caption.weight(on ? .semibold : .regular))
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 32)
-                                .background(on ? app.appearance.liveAccent.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                    }
-                }
-            }
+            ModulaSegmentedControl(segments: MessageThreadSearchScope.allCases.map { .init(id: $0, title: $0.title) },
+                                   selection: $scope, compact: true, accessibilityLabel: "Search in",
+                                   identifier: { "messages.thread-search.scope.\($0.title)" })
             Text("Search covers the messages loaded on this device.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -378,6 +370,7 @@ struct MessageRecentTokensRow: View {
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
             }
+            .modulaHorizontalRail()
             .padding(.bottom, 4)
             .accessibilityIdentifier("messages.recentTokens")
         }
@@ -385,11 +378,7 @@ struct MessageRecentTokensRow: View {
 
     @ViewBuilder
     private func recentLabel(_ token: String) -> some View {
-        if let sticker = ModulaLocalSticker.extract(token).stickers.first {
-            Text(sticker.label).font(.caption)
-        } else {
-            Text(token).font(.title3)
-        }
+        MessageRecentTokenLabel(token: token)
     }
 }
 
@@ -411,6 +400,7 @@ struct MessageGifPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.gif.picker")
     }
 }
@@ -461,6 +451,7 @@ struct MessageReactionPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .accessibilityIdentifier("messages.reaction.picker")
     }
 
@@ -541,5 +532,240 @@ struct MessageSelectionBar: View {
         .padding(.horizontal, ModulaLayout.contentInset)
         .frame(minHeight: 48)
         .accessibilityIdentifier("messages.selection.bar")
+    }
+}
+
+// MARK: - Chat lock (per chat, Face ID / passcode), message reminders, quick reactions (t235u)
+
+/// Chats locked on this iPhone. Unlocks last until the app goes to the background.
+@MainActor @Observable
+final class ChatLockStore {
+    static let shared = ChatLockStore()
+    private static let key = "messages.lockedChats.v1"
+    private(set) var locked: Set<ConversationID>
+    private(set) var unlocked: Set<ConversationID> = []
+
+    private init() {
+        locked = Set(UserDefaults.standard.stringArray(forKey: Self.key) ?? [])
+    }
+
+    func isLocked(_ id: ConversationID) -> Bool { locked.contains(id) }
+    func needsUnlock(_ id: ConversationID) -> Bool { locked.contains(id) && !unlocked.contains(id) }
+
+    func setLocked(_ on: Bool, _ id: ConversationID) async -> Bool {
+        if !on {
+            // Turning it off needs the owner too.
+            guard await Self.authenticate(reason: "Remove the lock from this chat") else { return false }
+        }
+        if on { locked.insert(id); unlocked.insert(id) } else { locked.remove(id) }
+        UserDefaults.standard.set(Array(locked), forKey: Self.key)
+        return true
+    }
+
+    func unlock(_ id: ConversationID) async -> Bool {
+        guard await Self.authenticate(reason: "Unlock this chat") else { return false }
+        unlocked.insert(id)
+        return true
+    }
+
+    func relockAll() { unlocked = [] }
+
+    static func authenticate(reason: String) async -> Bool {
+        await MessagePrivacyAuth.confirm(reason: reason)
+    }
+
+    static var biometryTitle: String {
+        let context = LAContext()
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+        switch context.biometryType {
+        case .faceID: return "Face ID"
+        case .touchID: return "Touch ID"
+        case .opticID: return "Optic ID"
+        default: return "Passcode"
+        }
+    }
+}
+
+/// Glass cover over a locked chat until Face ID / passcode succeeds.
+struct ChatLockOverlay: View {
+    let conversationID: ConversationID
+    let title: String
+    @State private var failed = false
+    @State private var bounce = 0
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 44, weight: .semibold))
+                .symbolEffect(.bounce, value: bounce)
+            VStack(spacing: 6) {
+                Text(title).font(.title2.bold()).multilineTextAlignment(.center)
+                Text("This chat is locked.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            Button { attempt() } label: {
+                Label("Unlock with \(ChatLockStore.biometryTitle)", systemImage: "faceid")
+                    .frame(maxWidth: 280)
+            }
+            .buttonStyle(.modulaPrimary)
+            if failed {
+                Text("Couldn't unlock. Try again.").font(.footnote).foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.ultraThinMaterial)
+        .background(Color(uiColor: .systemBackground).opacity(0.55))
+        .ignoresSafeArea()
+        .task { attempt() }
+        .accessibilityIdentifier("messages.chatLock")
+    }
+
+    private func attempt() {
+        Task {
+            let ok = await ChatLockStore.shared.unlock(conversationID)
+            withAnimation(.snappy) { failed = !ok }
+            if !ok { bounce += 1; HapticEngine.shared.play(.warning) } else { HapticEngine.shared.play(.success) }
+        }
+    }
+}
+
+/// "Remind me" on a message: a local notification that opens the chat.
+@MainActor
+enum MessageReminders {
+    enum When: String, CaseIterable, Identifiable {
+        case twentyMinutes, hour, tonight, tomorrow
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .twentyMinutes: "In 20 minutes"
+            case .hour: "In 1 hour"
+            case .tonight: "Tonight (20:00)"
+            case .tomorrow: "Tomorrow morning (09:00)"
+            }
+        }
+        func date(from now: Date = Date()) -> Date {
+            let cal = Calendar.current
+            switch self {
+            case .twentyMinutes: return now.addingTimeInterval(20 * 60)
+            case .hour: return now.addingTimeInterval(3600)
+            case .tonight:
+                let tonight = cal.date(bySettingHour: 20, minute: 0, second: 0, of: now) ?? now
+                return tonight > now ? tonight : now.addingTimeInterval(3 * 3600)
+            case .tomorrow:
+                let next = cal.date(byAdding: .day, value: 1, to: now) ?? now
+                return cal.date(bySettingHour: 9, minute: 0, second: 0, of: next) ?? next
+            }
+        }
+    }
+
+    static func schedule(_ message: Message, chatTitle: String, when: When, app: AppEnvironment) {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+            guard granted else {
+                app.navigation.flash("Allow notifications to get reminders", symbol: "bell.slash")
+                return
+            }
+            let content = UNMutableNotificationContent()
+            content.title = "Reminder: \(chatTitle)"
+            let text = message.body.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            content.body = text.isEmpty ? "A message you wanted to come back to." : String(text.prefix(160))
+            content.sound = .default
+            content.userInfo = ["modula": ["deepLink": "modula:/" + RouteSerializer.serialize(.messages(.conversation(message.conversationID))),
+                                           "conversationId": message.conversationID]]
+            let fire = when.date()
+            let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: fire)
+            let request = UNNotificationRequest(identifier: "reminder.\(message.id)",
+                                                content: content,
+                                                trigger: UNCalendarNotificationTrigger(dateMatching: parts, repeats: false))
+            do {
+                try await center.add(request)
+                app.navigation.flash("I'll remind you \(fire.formatted(date: .omitted, time: .shortened))", symbol: "alarm")
+            } catch {
+                app.navigation.flash("Couldn't set the reminder", symbol: "exclamationmark.triangle")
+            }
+        }
+    }
+}
+
+/// Your six hold-to-react emoji (Chats › title menu › Quick Reactions).
+enum QuickReactionPrefs {
+    static let key = "messages.quickReactions.v1"
+    static let defaults = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
+    static var current: [String] {
+        let saved = UserDefaults.standard.stringArray(forKey: key) ?? []
+        return saved.count == 6 ? saved : defaults
+    }
+    static func save(_ emoji: [String]) { UserDefaults.standard.set(Array(emoji.prefix(6)), forKey: key) }
+}
+
+struct QuickReactionsEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var picks = QuickReactionPrefs.current
+    @State private var slot = 0
+    private static let palette = ["❤️", "👍", "😂", "😮", "😢", "🔥", "🙏", "👏", "🎉", "💯", "😍", "🥹", "😅", "🤔", "👀", "😡",
+                                  "🤯", "🥳", "😴", "🤝", "💪", "✨", "✅", "❌", "🙌", "😎", "🫶", "💀", "🤣", "😭", "👌", "⚡️"]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    Text("Tap a slot, then pick an emoji.").font(.subheadline).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        ForEach(0..<6, id: \.self) { i in
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy) { slot = i }
+                            } label: {
+                                Text(picks[i]).font(.system(size: 30))
+                                    .scaleEffect(slot == i ? 1.12 : 1)
+                                    .frame(maxWidth: .infinity, minHeight: 56)
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .strokeBorder(Color.primary, lineWidth: slot == i ? 2 : 0)
+                                    }
+                                    .contentTransition(.opacity)
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+                            .accessibilityLabel("Slot \(i + 1), \(picks[i])")
+                            .accessibilityAddTraits(slot == i ? .isSelected : [])
+                        }
+                    }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 8), spacing: 8) {
+                        ForEach(Self.palette, id: \.self) { emoji in
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy) {
+                                    if let existing = picks.firstIndex(of: emoji) { picks.swapAt(existing, slot) } else { picks[slot] = emoji }
+                                    slot = (slot + 1) % 6
+                                }
+                            } label: {
+                                Text(emoji).font(.system(size: 26)).frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                        }
+                    }
+                    Button("Restore default") { withAnimation(.snappy) { picks = QuickReactionPrefs.defaults } }
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                        .padding(.horizontal, 16).frame(minHeight: 44)
+                        .modulaGlass(in: Capsule(), interactive: true)
+                }
+                .padding(20)
+            }
+            .navigationTitle("Quick Reactions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    MessagesDoneButton {
+                        QuickReactionPrefs.save(picks)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
     }
 }

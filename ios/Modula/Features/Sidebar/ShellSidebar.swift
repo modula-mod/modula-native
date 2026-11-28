@@ -170,10 +170,7 @@ struct ShellSidebarContainer<Content: View>: View {
             let inset = sheetStyle ? 0 : Self.cardInset
             let travel = width + inset + 24 // fully off-screen including shadow
             let shape = sheetStyle
-                ? AnyShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 0,
-                                                  bottomTrailingRadius: SpatialSheetMetrics.cornerRadius,
-                                                  topTrailingRadius: SpatialSheetMetrics.cornerRadius,
-                                                  style: .continuous))
+                ? AnyShape(RoundedRectangle(cornerRadius: SpatialSheetMetrics.cornerRadius, style: .continuous))
                 : AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             let dimBase: Double = sheetStyle
                 ? (reduceTransparency ? 0.5 : (scheme == .dark ? 0.42 : 0.26))
@@ -182,8 +179,19 @@ struct ShellSidebarContainer<Content: View>: View {
             ZStack(alignment: .topLeading) {
                 content
                     .coordinateSpace(.named(ShellChromeFreeze.cardSpace))
-                    // Sheet style: Home lightly blurred behind (opaque dim only under Reduce Transparency).
-                    .blur(radius: sheetStyle && !reduceTransparency && !reduceMotion ? 3 * progress : 0)
+                    // Sheet style: Home lightly frosted behind (opaque dim only under Reduce Transparency).
+                    // Speed: was `.blur(radius: 3 * progress)` on the whole app — SwiftUI re-rasterised
+                    // the entire Home tree into an offscreen buffer on every drag frame. A system material
+                    // backdrop whose *opacity* tracks the drag is composited by the GPU instead.
+                    .overlay {
+                        if sheetStyle, !reduceTransparency, !reduceMotion, !ModulaGlassSettings.shared.lighter, progress > 0.001 {
+                            Rectangle().fill(.ultraThinMaterial)
+                                .opacity(min(progress * 0.55, 0.55))
+                                .ignoresSafeArea()
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    }
                     .accessibilityHidden(presented)
                     .onChange(of: dragging) { _, isDragging in
                         ShellChromeFreeze.isSidebarDragging = isDragging
@@ -194,7 +202,9 @@ struct ShellSidebarContainer<Content: View>: View {
                     }
                     .overlay(alignment: .leading) {
                         // Mutually exclusive with the navigation back swipe: only on a stack root.
-                        if !presented, app.appearance.edgePicker.side != .left,
+                        // No Edge Picker side gate: the rail is removed, so its stale side setting
+                        // must not disable the left-edge open (it disabled the Profile swipe on the right).
+                        if !presented,
                            !app.navigation.selectedStackHasPushedViews, app.navigation.presented == nil {
                             Color.clear
                                 .frame(width: 22)
@@ -220,8 +230,8 @@ struct ShellSidebarContainer<Content: View>: View {
 
                     ShellSidebarView(width: width, onSelect: open, onClose: { close(haptic: true) })
                         // Content respects the safe areas; the card itself floats concentric to the display.
-                        .padding(.top, max(insets.top - inset, ModulaSpacing.sm))
-                        .padding(.bottom, max(insets.bottom - inset, ModulaSpacing.sm))
+                        .padding(.top, sheetStyle ? ModulaSpacing.sm : max(insets.top - inset, ModulaSpacing.sm))
+                        .padding(.bottom, sheetStyle ? ModulaSpacing.sm : max(insets.bottom - inset, ModulaSpacing.sm))
                         .padding(.leading, sheetStyle ? insets.leading : 0)
                         .frame(width: width)
                         .frame(maxHeight: .infinity)
@@ -239,6 +249,9 @@ struct ShellSidebarContainer<Content: View>: View {
                         }
                         .shadow(color: .black.opacity(0.18 * progress), radius: 28, x: 6, y: 0)
                         .padding(inset)
+                        // Same floating gap as the profile sheet (top/bottom only).
+                        .padding(.top, sheetStyle ? insets.top + SpatialSheetMetrics.verticalGap : 0)
+                        .padding(.bottom, sheetStyle ? insets.bottom + SpatialSheetMetrics.verticalGap : 0)
                         .ignoresSafeArea()
                         .offset(x: reduceMotion ? 0 : (progress - 1) * travel)
                         .opacity(reduceMotion ? progress : 1)
@@ -441,7 +454,7 @@ struct ShellSidebarView: View {
                         if !chats.pinned.isEmpty {
                             section("Pinned") { ForEach(chats.pinned) { chatRow($0) } }
                         }
-                        section("Workspaces") { comingSoonRow(title: "Pinned workspaces", symbol: "square.stack.3d.up") }
+                        // "Pinned workspaces" has no screen or backend yet: hidden instead of a dead row.
                         if !chats.recent.isEmpty {
                             section("Recents") { ForEach(chats.recent) { chatRow($0) } }
                         }
@@ -601,6 +614,11 @@ struct ShellSidebarView: View {
                                     // Unpublished posts/stories on this device, so drafts aren't forgotten.
                                     badge: $0 == .drafts ? app.drafts.posts.count + app.drafts.stories.count : 0,
                                     keywords: $0.subtitle ?? "") }
+        // Synced saved messages (messaging features 4); hidden until the server offers them.
+        if app.messaging.capabilities.features4.savedMessages {
+            items.append(.init(id: "messages.saved", title: "Saved messages", symbol: "bookmark.square",
+                               route: .messages(.saved), requiresSignIn: true, keywords: "saved messages bookmarks chat"))
+        }
         #if DEBUG
         items.append(.init(id: "nodus", title: "Nodus", symbol: "brain", route: .settings(.developer(.nodus)),
                            requiresSignIn: false, keywords: "intelligence ai assistant"))
@@ -615,6 +633,10 @@ struct ShellSidebarView: View {
         var items: [ShellSidebarItem] = [
             .init(id: "vault", title: "Vault Notes", symbol: "lock.doc",
                   route: .module("digital.modula.vault-notes", localPath: nil), requiresSignIn: true, keywords: "vault notes"),
+            .init(id: "board", title: "Board", symbol: "square.grid.2x2",
+                  route: .board, requiresSignIn: false, keywords: "widgets console clock dashboard"),
+            .init(id: "connect", title: "Modula Connect", symbol: "antenna.radiowaves.left.and.right",
+                  route: .module(ConnectPreview.moduleID, localPath: nil), requiresSignIn: true, keywords: "connect phone number sim uk"),
         ]
         return items
     }
@@ -669,7 +691,7 @@ struct ShellSidebarView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Color.primary.opacity(0.06), in: Capsule())
+                .modulaGlass(in: Capsule(), interactive: false)
         }
         .padding(.horizontal, rowInset)
         .frame(minHeight: rowHeight)
@@ -743,7 +765,7 @@ struct ShellSidebarView: View {
                 Button("Clear") { recentSearchesRaw = "" }
                     .font(.footnote.weight(.semibold))
                     .buttonStyle(.plain)
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .accessibilityIdentifier("shell.sidebar.recent.clear")
             }
             .padding(.horizontal, rowInset)
@@ -769,6 +791,7 @@ struct ShellSidebarView: View {
                 }
                 .padding(.horizontal, rowInset)
             }
+            .modulaHorizontalRail()
             .scrollIndicators(.hidden)
         }
     }
@@ -829,7 +852,12 @@ struct ShellSidebarView: View {
             }
             rows()
         }
+        // Sections slide in top to bottom when the sidebar opens (Reduce Motion: shown at once).
+        .modulaAppear(delay: Double(Self.sectionOrder.firstIndex(of: title ?? "") ?? 0) * 0.04,
+                      replayWhen: app.navigation.sidebarPresented)
     }
+
+    private static let sectionOrder = ["", "Library", "Tools", "Recent modules", "Recent", "Pinned", "Recents"]
 
     private func rowLabel(symbol: String, title: String, badge: Int = 0, selected: Bool = false) -> some View {
         HStack(spacing: ModulaSpacing.sm) {
@@ -974,7 +1002,9 @@ struct ShellSidebarView: View {
                         Text(profile?.displayName ?? "Profile")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
+                            // One line in the capsule; shrink before truncating.
                             .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                             .truncationMode(.tail)
                         if let handle = profile?.handle, !handle.isEmpty, !typeSize.isAccessibilitySize {
                             Text("@\(handle)")
@@ -1006,7 +1036,7 @@ struct ShellSidebarView: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, ModulaSpacing.sm)
                     .frame(minHeight: 40)
-                    .background(Color.primary.opacity(0.06), in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -1045,7 +1075,7 @@ struct ShellSidebarView: View {
         } label: {
             Label("New post", systemImage: "square.and.pencil")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, ModulaSpacing.md)
@@ -1053,7 +1083,7 @@ struct ShellSidebarView: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
         // Long-press: quick-create straight into a specific composer.
         .contextMenu {

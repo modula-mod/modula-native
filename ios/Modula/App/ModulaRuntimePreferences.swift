@@ -44,8 +44,65 @@ struct EdgeSwipeBackConfigurator: UIViewControllerRepresentable {
             apply()
         }
         func apply() {
-            navigationController?.interactivePopGestureRecognizer?.isEnabled = ModulaPreferences.edgeSwipeBack
+            guard let navigation = navigationController else { return }
+            let enabled = ModulaPreferences.edgeSwipeBack
+            navigation.interactivePopGestureRecognizer?.isEnabled = enabled
+            // Screens that hide the system back button (custom close / X bars) used to lose the
+            // edge swipe: UIKit's default delegate refuses it when the back item is hidden. Our
+            // delegate allows it whenever there's something to pop and the screen hasn't opted out.
+            navigation.interactivePopGestureRecognizer?.delegate = EdgeSwipeBackDelegate.shared
+            if #available(iOS 26.0, *) {
+                // iOS 26 full-width content swipe-back follows the same preference.
+                navigation.interactiveContentPopGestureRecognizer?.isEnabled = enabled
+            }
         }
+    }
+}
+
+/// Lets the edge swipe pop on custom-bar screens. Screens with unsaved work opt out with
+/// `.modulaBlocksSwipeBack(_:)` (their own Cancel asks first).
+final class EdgeSwipeBackDelegate: NSObject, UIGestureRecognizerDelegate {
+    @MainActor static let shared = EdgeSwipeBackDelegate()
+    @MainActor static var blockers: Set<String> = []
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        MainActor.assumeIsolated {
+            guard ModulaPreferences.edgeSwipeBack, Self.blockers.isEmpty,
+                  let navigation = Self.navigationController(for: gestureRecognizer.view) else { return false }
+            return navigation.viewControllers.count > 1 && navigation.transitionCoordinator == nil
+        }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { false }
+
+    @MainActor private static func navigationController(for view: UIView?) -> UINavigationController? {
+        var responder: UIResponder? = view
+        while let current = responder {
+            if let navigation = current as? UINavigationController { return navigation }
+            responder = current.next
+        }
+        return nil
+    }
+}
+
+private struct SwipeBackBlocker: ViewModifier {
+    let blocked: Bool
+    @State private var id = UUID().uuidString
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: blocked, initial: true) { _, value in
+                if value { EdgeSwipeBackDelegate.blockers.insert(id) } else { EdgeSwipeBackDelegate.blockers.remove(id) }
+            }
+            .onDisappear { EdgeSwipeBackDelegate.blockers.remove(id) }
+    }
+}
+
+extension View {
+    /// Blocks the edge swipe-back while `blocked` (e.g. unsaved edits).
+    func modulaBlocksSwipeBack(_ blocked: Bool) -> some View {
+        modifier(SwipeBackBlocker(blocked: blocked))
     }
 }
 

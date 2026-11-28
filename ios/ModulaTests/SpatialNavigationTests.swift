@@ -397,3 +397,48 @@ final class SpatialFeatureFlagTests: XCTestCase {
         XCTAssertTrue(navigation.spatial.isProfileOpen)
     }
 }
+
+final class QuickTabNeighbourTests: XCTestCase {
+    func testNeighboursFollowBarOrderWithoutWrapping() {
+        XCTAssertEqual(ShellQuickTab.following.neighbour(1), .forYou)
+        XCTAssertEqual(ShellQuickTab.discover.neighbour(-1), .forYou)
+        XCTAssertNil(ShellQuickTab.following.neighbour(-1))
+        XCTAssertNil(ShellQuickTab.modules.neighbour(1))
+    }
+}
+
+final class HomeSectionLayoutTests: XCTestCase {
+    func testDefaultShowsEverySectionInOrder() {
+        XCTAssertEqual(HomeSectionLayout.visible(HomeSectionLayout.defaultRaw), HomeSection.allCases)
+    }
+
+    func testHiddenAndReorderedRoundTrip() {
+        var entries = HomeSectionLayout.decode(HomeSectionLayout.defaultRaw)
+        entries.move(fromOffsets: IndexSet(integer: 0), toOffset: entries.count)
+        entries[0].visible = false
+        let raw = HomeSectionLayout.encode(entries)
+        XCTAssertEqual(HomeSectionLayout.decode(raw), entries)
+        XCTAssertFalse(HomeSectionLayout.visible(raw).contains(entries[0].section))
+        XCTAssertEqual(HomeSectionLayout.visible(raw).last, .stories)
+    }
+
+    func testUnknownAndDuplicateIdsAreDroppedAndNewSectionsAppended() {
+        let entries = HomeSectionLayout.decode("modules,bogus,modules,-stories")
+        XCTAssertEqual(entries.first?.section, .modules)
+        XCTAssertEqual(entries.count, HomeSection.allCases.count)
+        XCTAssertFalse(HomeSectionLayout.isVisible(.stories, in: "modules,bogus,modules,-stories"))
+    }
+}
+
+final class ModulesDockFolderTests: XCTestCase {
+    func testFoldersRoundTripAndBadInputIsEmpty() {
+        let folders = [ModulesDockFolder(id: "f1", name: "Work", moduleIDs: ["a", "b"])]
+        XCTAssertEqual(ModulesDockPrefs.decodeFolders(ModulesDockPrefs.encodeFolders(folders)), folders)
+        XCTAssertEqual(ModulesDockPrefs.decodeFolders(""), [])
+        XCTAssertEqual(ModulesDockPrefs.decodeFolders("not json"), [])
+    }
+
+    func testFolderFilterTitleIsTheFolderName() {
+        XCTAssertEqual(InstalledModulesFilter.folder(id: "f1", name: "Work").title, "Work")
+    }
+}

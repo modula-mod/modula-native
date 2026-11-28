@@ -1,6 +1,7 @@
 import SwiftUI
 import UserNotifications
 import UIKit
+import UniformTypeIdentifiers
 
 struct SettingsCapabilityUnavailableView: View {
     let title: String
@@ -28,6 +29,8 @@ struct SettingsDestinationHost: View {
             .modulaSoftScrollEdge()
             // Forms/Lists: keep the last row (and footers) clear of the tab bar and floating buttons.
             .contentMargins(.bottom, SettingsInsets.bottom, for: .scrollContent)
+            // Every Settings switch gives a light selection tick when flipped.
+            .toggleStyle(SettingsHapticToggleStyle())
             .onAppear { SettingsRecents.record(route) }
     }
 
@@ -45,6 +48,8 @@ struct SettingsDestinationHost: View {
             AppIconPickerView()
         case .appearance(.preview):
             AppearancePreviewScreen()
+        case .appearance(.tabBar):
+            CustomNavigationSettingsView()
         case .appearance(let focus):
             AppearanceSettingsView(focus: focus)
         case .personalisation(let nested):
@@ -317,7 +322,7 @@ struct AppLockSettingsView: View {
                             Spacer()
                             if lock.settings.interval == interval {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(app.appearance.liveAccent)
+                                    .foregroundStyle(.primary)
                             }
                         }
                     }
@@ -340,6 +345,7 @@ struct AppLockSettingsView: View {
                 Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) {
                     confirmSignOutReset = true
                 }
+                .foregroundStyle(Color(uiColor: .systemRed))
             } footer: {
                 Text("Forgot your passcode? Sign out to remove App Lock from this device, then sign back in. Drafts on this device are kept unless you discard them.")
             }
@@ -347,20 +353,26 @@ struct AppLockSettingsView: View {
         .modulaSoftScrollEdge()
         .navigationTitle("App Lock")
         .sheet(isPresented: $showsSetup) {
-            NavigationStack {
-                PasscodeSetupView(title: "App Lock") { passcode in
-                    try app.appLock.setPasscode(passcode)
-                    try app.appLock.setEnabled(true)
-                    app.refreshLaunchState()
+            Group {
+                NavigationStack {
+                    PasscodeSetupView(title: "App Lock") { passcode in
+                        try app.appLock.setPasscode(passcode)
+                        try app.appLock.setEnabled(true)
+                        app.refreshLaunchState()
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsChange) {
-            NavigationStack {
-                PasscodeSetupView(title: "Change Passcode") { passcode in
-                    try app.appLock.setPasscode(passcode)
+            Group {
+                NavigationStack {
+                    PasscodeSetupView(title: "Change Passcode") { passcode in
+                        try app.appLock.setPasscode(passcode)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Sign out and reset App Lock?", isPresented: $confirmSignOutReset, titleVisibility: .visible) {
             Button("Sign Out and Reset", role: .destructive) {
@@ -599,6 +611,7 @@ struct DataStorageHost: View {
                         }
                     }
                 }
+                DeviceSettingsBackupGroup()
                 SettingsGroup(title: "Account data") {
                     VStack(spacing: 0) {
                         SettingsNavigationRow(title: "Backup", subtitle: "Account or module backup", symbol: "arrow.clockwise.icloud") {
@@ -1096,6 +1109,9 @@ struct DeveloperSettingsHost: View {
                 CollectionDraftSyncDeveloperEntry()
                 Button("Module Studio") { app.navigation.open(.developer(.studio)) }
                     .accessibilityIdentifier("developer.settings.studio")
+                Button("Call Screens") { app.navigation.open(.developer(.callScreens)) }
+                    .accessibilityIdentifier("developer.settings.callScreens")
+                Button("Board") { app.navigation.open(.board) }
                 Button("Runtime") { app.navigation.open(.settings(.developer(.runtime))) }
                 Button("Modules") { app.navigation.open(.settings(.developer(.modules))) }
                 Button("Network") { app.navigation.open(.settings(.developer(.network))) }
@@ -1510,6 +1526,19 @@ enum SettingsRecents {
         list.removeAll { $0 == path }
         list.insert(path, at: 0)
         UserDefaults.standard.set(Array(list.prefix(3)), forKey: key)
+        var times = UserDefaults.standard.dictionary(forKey: key + ".times") as? [String: Double] ?? [:]
+        times[path] = Date().timeIntervalSince1970
+        times = times.filter { list.prefix(3).contains($0.key) }
+        UserDefaults.standard.set(times, forKey: key + ".times")
+    }
+
+    static func openedLabel(_ route: SettingsRoute) -> String? {
+        let path = RouteSerializer.serialize(.settings(route))
+        guard let times = UserDefaults.standard.dictionary(forKey: key + ".times") as? [String: Double],
+              let t = times[path] else { return nil }
+        let date = Date(timeIntervalSince1970: t)
+        if Date().timeIntervalSince(date) < 60 { return "Just now" }
+        return date.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
     }
 
     static func load() -> [SettingsDestination] {
@@ -1519,7 +1548,10 @@ enum SettingsRecents {
         }
     }
 
-    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.removeObject(forKey: key + ".times")
+    }
 }
 
 struct SettingsRecentsCard: View {
@@ -1546,7 +1578,7 @@ struct SettingsRecentsCard: View {
                     TelegramSettingsCard {
                         ForEach(Array(recents.enumerated()), id: \.element.id) { index, item in
                             if index > 0 { TelegramDivider() }
-                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent) {
+                            TelegramRow(title: item.title, symbol: item.symbol, tint: app.appearance.liveAccent, value: SettingsRecents.openedLabel(item.route)) {
                                 app.navigation.open(.settings(item.route))
                             }
                         }
@@ -1556,5 +1588,132 @@ struct SettingsRecentsCard: View {
             }
         }
         .onAppear { recents = SettingsRecents.load() }
+    }
+}
+
+
+/// System switch plus a selection haptic when the value flips (Settings pages only).
+struct SettingsHapticToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        SettingsAccentSwitch(configuration: configuration)
+    }
+}
+
+/// App-wide switch: the app accent colour (the root `.tint(.primary)` made every switch black/white)
+/// plus a selection tick on flip.
+struct SettingsAccentSwitch: View {
+    let configuration: ToggleStyleConfiguration
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
+
+    var body: some View {
+        Toggle(configuration)
+            .toggleStyle(.switch)
+            .tint(app?.appearance.liveAccent ?? .accentColor)
+            .sensoryFeedback(.selection, trigger: configuration.isOn)
+    }
+}
+
+
+// MARK: - Device settings backup (local only)
+
+/// Exports this device's own preferences (Board layout, widgets, saved folders, Moliboo care, gestures, Calls and
+/// browser choices…) as a .plist you can save to Files, and restores one. Allow-listed key prefixes only; anything
+/// that looks like a credential is never included. Nothing is uploaded.
+enum DeviceSettingsBackup {
+    static let prefixes = ["board.", "saved.", "moliboo.", "calls.", "chat.", "display.", "community.", "messages.",
+                           "browser.", "home.", "search.", "settings.", "reels.", "activity.", "composer."]
+    private static let forbidden = ["token", "secret", "password", "auth", "session", "credential", "cookie", "passcode", "pin.code"]
+
+    static func isAllowed(_ key: String) -> Bool {
+        let k = key.lowercased()
+        return prefixes.contains { k.hasPrefix($0) } && !forbidden.contains { k.contains($0) }
+    }
+
+    static func snapshot(_ defaults: UserDefaults = .standard) -> [String: Any] {
+        defaults.dictionaryRepresentation().filter { isAllowed($0.key) }
+    }
+
+    static func exportFile() throws -> (url: URL, count: Int) {
+        let values = snapshot()
+        let payload: [String: Any] = ["format": "modula.device-settings", "version": 1, "exportedAt": Date(), "values": values]
+        let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
+        let day = Date().formatted(.iso8601.year().month().day())
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Modula Settings \(day).plist")
+        try data.write(to: url, options: .atomic)
+        return (url, values.count)
+    }
+
+    /// Restores allow-listed keys from a file made by `exportFile`. Returns how many values were applied.
+    static func restore(from url: URL, into defaults: UserDefaults = .standard) throws -> Int {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let data = try Data(contentsOf: url)
+        guard let root = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              root["format"] as? String == "modula.device-settings",
+              let values = root["values"] as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }
+        var applied = 0
+        for (key, value) in values where isAllowed(key) {
+            defaults.set(value, forKey: key); applied += 1
+        }
+        return applied
+    }
+}
+
+struct DeviceSettingsBackupGroup: View {
+    @State private var importing = false
+    @State private var pendingURL: URL?
+    @State private var status: String?
+    @State private var keyCount = DeviceSettingsBackup.snapshot().count
+
+    var body: some View {
+        SettingsGroup(title: "This device", subtitle: "Your Board, widgets, folders, Moliboo care and gesture choices. Stays on your phone unless you share the file.") {
+            VStack(spacing: 0) {
+                SettingsNavigationRow(title: "Export Device Settings", subtitle: "\(keyCount) preferences · .plist file", symbol: "square.and.arrow.up.on.square") {
+                    do {
+                        let file = try DeviceSettingsBackup.exportFile()
+                        HapticEngine.shared.play(.success)
+                        PostSharing.presentSystemSheet(items: [file.url])
+                        withAnimation(.snappy) { status = "Exported \(file.count) preferences." }
+                    } catch {
+                        HapticEngine.shared.play(.failure)
+                        withAnimation(.snappy) { status = "Couldn’t create the export." }
+                    }
+                }
+                .accessibilityIdentifier("settings.deviceBackup.export")
+                SettingsDivider()
+                SettingsNavigationRow(title: "Restore Device Settings", subtitle: "From a Modula Settings file", symbol: "square.and.arrow.down.on.square") {
+                    importing = true
+                }
+                .accessibilityIdentifier("settings.deviceBackup.restore")
+                if let status {
+                    Text(status).font(.footnote).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.propertyList, .xml]) { result in
+            if case .success(let url) = result { pendingURL = url }
+        }
+        .confirmationDialog("Restore device settings?", isPresented: Binding(get: { pendingURL != nil }, set: { if !$0 { pendingURL = nil } }),
+                            titleVisibility: .visible) {
+            Button("Restore") {
+                guard let url = pendingURL else { return }
+                do {
+                    let n = try DeviceSettingsBackup.restore(from: url)
+                    HapticEngine.shared.play(.success)
+                    withAnimation(.snappy) { status = "Restored \(n) preferences. Some changes show after reopening Modula." }
+                    keyCount = DeviceSettingsBackup.snapshot().count
+                } catch {
+                    HapticEngine.shared.play(.failure)
+                    withAnimation(.snappy) { status = "That file isn’t a Modula Settings export." }
+                }
+                pendingURL = nil
+            }
+            Button("Cancel", role: .cancel) { pendingURL = nil }
+        } message: {
+            Text("Matching preferences on this phone are replaced. Your account, messages and posts aren’t affected.")
+        }
     }
 }

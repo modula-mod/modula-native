@@ -63,7 +63,7 @@ struct MolibooMarketplaceEntry: View {
         .buttonStyle(.plain)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
         .accessibilityIdentifier("moliboo.marketplace.entry")
-        .sheet(isPresented: $shown) { MolibooMarketplaceView() }
+        .sheet(isPresented: $shown) { MolibooMarketplaceView().modulaSheetStyle() }
     }
 }
 
@@ -106,7 +106,7 @@ struct MolibooMarketplaceView: View {
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { detail = nil } } }
                 }
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
             }
         }
         .overlay(alignment: .bottom) {
@@ -153,30 +153,20 @@ struct MolibooMarketplaceView: View {
                     }
                 }
                 .padding(.vertical, 12)
+                .id(tab)
+                .transition(.opacity.combined(with: .offset(y: 8)))
             }
             .scrollDismissesKeyboard(.immediately)
+            .animation(.smooth(duration: 0.25), value: tab)
+            .sensoryFeedback(.selection, trigger: tab)
         }
         .transaction { if reduceMotion { $0.disablesAnimations = true } }
     }
 
     private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(MolibooMarketplaceTab.allCases) { item in
-                        Button { tab = item } label: {
-                            Label(item.title, systemImage: item.symbol).font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14).padding(.vertical, 8)
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: tab == item ? Color.accentColor.opacity(0.35) : nil)
-                        .accessibilityAddTraits(tab == item ? .isSelected : [])
-                        .accessibilityIdentifier("moliboo.marketplace.tab.\(item.rawValue)")
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
+        ModulaSegmentedControl("Marketplace", selection: $tab, options: MolibooMarketplaceTab.allCases, symbol: { $0.symbol },
+                               identifier: { "moliboo.marketplace.tab.\($0.rawValue)" }) { $0.title }
+            .padding(.horizontal, 16)
         .padding(.vertical, 8)
     }
 
@@ -197,13 +187,14 @@ struct MolibooMarketplaceView: View {
                     ForEach(families) { fam in
                         let members = drafts.filter { $0.familyId == fam.id }
                         Button { path.append(fam.id) } label: { familyTile(fam, members: members) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(MolibooSpringPressStyle())
                             .accessibilityIdentifier("moliboo.marketplace.family.\(fam.id)")
                     }
                 }
                 .padding(.horizontal, 16)
             }
-            sectionHeader("New arrivals", trailing: "Signed content")
+            .modulaHorizontalRail()
+            sectionHeader("New arrivals", trailing: "Preview only")
             grid(Array(drafts.prefix(8)), families: families)
         }
     }
@@ -235,10 +226,10 @@ struct MolibooMarketplaceView: View {
                 let members = registry.characters(in: fam.id)
                 Button { path.append(fam.id) } label: {
                     MolibooHeroBanner(eyebrow: "\(fam.label.uppercased()) · \(rangeLabel(fam))", title: fam.name,
-                                      subtitle: fam.artDirection ?? "\(members.count) characters",
+                                      subtitle: fam.artDirection ?? (members.count == 1 ? "1 character" : "\(members.count) characters"),
                                       colors: MolibooFamilyStyle.gradient(fam), kind: members.first?.kind, action: nil, compact: true)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MolibooSpringPressStyle())
                 .accessibilityIdentifier("moliboo.marketplace.familybanner.\(fam.id)")
             }
         }
@@ -264,13 +255,22 @@ struct MolibooMarketplaceView: View {
             .padding(.horizontal, 16)
             familyChips(families, onPick: nil)
             HStack {
-                Text("\(shown.count) Moliboos").font(.subheadline.weight(.semibold))
+                Text("\(shown.count) \(shown.count == 1 ? "Moliboo" : "Moliboos")").font(.subheadline.weight(.semibold))
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: shown.count)
                 Spacer()
                 Label("Ownership verified", systemImage: "checkmark.shield").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             if shown.isEmpty {
-                ContentUnavailableView.search(text: search)
+                ContentUnavailableView {
+                    Label(search.isEmpty ? "No Moliboos here yet" : "No matches for “\(search)”", systemImage: "magnifyingglass")
+                } description: {
+                    Text("Try another name or family.")
+                } actions: {
+                    Button("Show all Moliboos") { search = ""; family = nil }
+                        .buttonStyle(.modulaSecondary)
+                }
             } else {
                 grid(shown, families: families)
             }
@@ -285,7 +285,8 @@ struct MolibooMarketplaceView: View {
                 Button { detail = character } label: {
                     MolibooMarketCard(character: character, family: families.first { $0.id == character.familyId })
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MolibooSpringPressStyle())
+                .sensoryFeedback(.selection, trigger: detail?.id == character.id)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(character.name), number \(character.number), signed content pack")
                 .accessibilityIdentifier("moliboo.marketplace.\(character.key)")
@@ -297,13 +298,14 @@ struct MolibooMarketplaceView: View {
     private func familyChips(_ families: [MolibooRegistryFamily], onPick: (() -> Void)?) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chip("All", color: .pink, selected: family == nil) { family = nil; onPick?() }
+                chip("All", color: .primary, selected: family == nil) { family = nil; onPick?() }
                 ForEach(families) { item in
                     chip(item.label, color: MolibooFamilyStyle.color(item), selected: family == item.id) { family = item.id; onPick?() }
                 }
             }
             .padding(.horizontal, 16)
         }
+        .modulaHorizontalRail()
     }
 
     private func chip(_ title: String, color: Color, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -313,10 +315,14 @@ struct MolibooMarketplaceView: View {
                 Text(title).font(.subheadline.weight(.semibold))
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(color.opacity(selected ? 0.3 : 0.1), in: Capsule())
-            .overlay(Capsule().stroke(color.opacity(selected ? 0.9 : 0.3), lineWidth: selected ? 1.5 : 1))
+            // Selected = solid black/white (unified with the segmented control); others tinted by family.
+            .foregroundStyle(selected ? Color(uiColor: .systemBackground) : Color.primary)
+            .background(selected ? AnyShapeStyle(Color.primary) : AnyShapeStyle(color.opacity(0.12)), in: Capsule())
+            .overlay(Capsule().stroke(selected ? Color.clear : color.opacity(0.35), lineWidth: 1))
+            .animation(.snappy(duration: 0.2), value: selected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MolibooSpringPressStyle())
+        .sensoryFeedback(.selection, trigger: selected)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -324,7 +330,7 @@ struct MolibooMarketplaceView: View {
         HStack(alignment: .firstTextBaseline) {
             Text(title).font(.title3.weight(.bold))
             Spacer()
-            Text(trailing).font(.caption.weight(.semibold)).foregroundStyle(.pink)
+            Text(trailing).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
     }
@@ -374,6 +380,7 @@ struct MolibooHeroBanner: View {
                 Text(eyebrow).font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.85))
                 Text(title).font(compact ? .title2.weight(.bold) : .largeTitle.weight(.bold)).foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
+                    .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
                 Text(subtitle).font(.subheadline).foregroundStyle(.white.opacity(0.9)).lineLimit(3)
                 if let action {
                     Button(action: action.1) {
@@ -394,8 +401,14 @@ struct MolibooHeroBanner: View {
         }
         .padding(compact ? 16 : 20)
         .frame(minHeight: compact ? 130 : 190)
-        .background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background {
+            // Light family gradients + white text: a soft bottom-leading scrim keeps it readable.
+            ZStack {
+                LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [.black.opacity(0.22), .clear], startPoint: .bottomLeading, endPoint: .center)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        }
         .overlay(alignment: .topTrailing) {
             ZStack {
                 Circle().fill(.white.opacity(0.18)).frame(width: 14).offset(x: -40, y: 24)
@@ -438,6 +451,7 @@ struct MolibooMarketCard: View {
         }
         .padding(10)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
     }
 
@@ -470,7 +484,7 @@ struct MolibooFamilyCollection: View {
                 HStack {
                     Text("Meet \(family.name)").font(.title3.weight(.bold))
                     Spacer()
-                    Text("\(characters.count) characters").font(.caption.weight(.semibold)).foregroundStyle(.pink)
+                    Text("\(characters.count) \(characters.count == 1 ? "character" : "characters")").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(characters) { m in
@@ -484,7 +498,7 @@ struct MolibooFamilyCollection: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("#\(m.catalogueNumber)").font(.caption2).foregroundStyle(.secondary)
                                     Text(m.name).font(.subheadline.weight(.bold)).lineLimit(1)
-                                    Label("View", systemImage: "arrow.up.right").font(.caption2.weight(.semibold)).foregroundStyle(.pink)
+                                    Label("View", systemImage: "arrow.up.right").font(.caption2.weight(.semibold)).foregroundStyle(.primary)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -510,6 +524,8 @@ struct MolibooMarketplaceDetail: View {
     @Environment(AppEnvironment.self) private var app
     @State private var mood: MolibooStickerExpression = MolibooStickerExpression.all[0]
     @State private var copied: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var manager = MolibooPackageManager.shared
     @State private var operationInFlight = false
     @State private var operationMessage: String?
@@ -525,10 +541,20 @@ struct MolibooMarketplaceDetail: View {
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .fill(LinearGradient(colors: [c.opacity(0.35), c.opacity(0.1)], startPoint: .top, endPoint: .bottom))
                     if let kind = character.kind {
-                        TimelineView(.animation(minimumInterval: 1 / 30)) { ctx in
-                            ModulaMascotFigure(kind: kind, pose: MascotPose(t: ctx.date.timeIntervalSinceReferenceDate, mood: mood.mood, amp: 1), size: 120)
+                        // Paused under Reduce Motion / in the background (saves battery); tap to cycle expressions.
+                        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || scenePhase != .active)) { ctx in
+                            ModulaMascotFigure(kind: kind, pose: MascotPose(t: ctx.date.timeIntervalSinceReferenceDate, mood: mood.mood, amp: reduceMotion ? 0 : 1), size: 120)
                         }
                         .frame(maxWidth: .infinity).frame(height: 240)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            let all = MolibooStickerExpression.all
+                            if let i = all.firstIndex(of: mood) { mood = all[(i + 1) % all.count] }
+                            HapticEngine.shared.play(.lightImpact)
+                        }
+                        .accessibilityLabel("\(character.name), \(mood.label)")
+                        .accessibilityHint("Double-tap for the next expression")
+                        .accessibilityAddTraits(.isButton)
                     } else {
                         MolibooMarketplaceArtwork(character: character, tint: c).frame(height: 240).padding(12)
                     }
@@ -548,7 +574,7 @@ struct MolibooMarketplaceDetail: View {
                             ForEach(Array(character.traits.prefix(4).enumerated()), id: \.offset) { _, trait in
                                 Text(trait).font(.caption.weight(.semibold))
                                     .padding(.horizontal, 12).padding(.vertical, 6)
-                                    .background(Color.primary.opacity(0.06), in: Capsule())
+                                    .modulaGlass(in: Capsule(), interactive: false)
                             }
                         }
                         .padding(.top, 6)
@@ -566,23 +592,26 @@ struct MolibooMarketplaceDetail: View {
                         HStack {
                             Text("Expressions").font(.title3.weight(.bold))
                             Spacer()
-                            Text("Tap to preview").font(.caption.weight(.semibold)).foregroundStyle(.pink)
+                            Text("Tap to preview").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(MolibooStickerExpression.all) { e in
-                                    Button { mood = e } label: {
+                                    Button { mood = e; HapticEngine.shared.play(.selection) } label: {
                                         VStack(spacing: 2) {
                                             ModulaMascotFigure(kind: kind, pose: e.pose, size: 26).frame(width: 56, height: 50)
                                             Text(e.label).font(.caption2)
                                         }
                                         .padding(6)
                                         .background((mood == e ? c.opacity(0.25) : Color.primary.opacity(0.05)), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.primary.opacity(mood == e ? 0.5 : 0), lineWidth: 1.5))
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(MolibooSpringPressStyle())
+                                    .accessibilityAddTraits(mood == e ? .isSelected : [])
                                 }
                             }
                         }
+                        .modulaHorizontalRail()
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Stickers").font(.title3.weight(.bold))
@@ -590,14 +619,25 @@ struct MolibooMarketplaceDetail: View {
                             HStack(spacing: 10) {
                                 ForEach(MolibooStickerExpression.all.prefix(6)) { e in
                                     Button {
-                                        copied = MolibooStickerExpression.copy(kind: kind, e) ? "\(e.label) sticker copied" : "Couldn't make that sticker"
+                                        let ok = MolibooStickerExpression.copy(kind: kind, e)
+                                        HapticEngine.shared.play(ok ? .success : .failure)
+                                        let text = ok ? "\(e.label) sticker copied" : "Couldn't make that sticker"
+                                        withAnimation(.snappy) { copied = text }
+                                        Task { @MainActor in
+                                            try? await Task.sleep(for: .seconds(2))
+                                            if copied == text { withAnimation(.snappy) { copied = nil } }
+                                        }
                                     } label: { MolibooStickerArt(kind: kind, expression: e, size: 84) }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(MolibooSpringPressStyle())
                                     .accessibilityLabel("\(character.name) \(e.label) sticker")
                                 }
                             }
                         }
-                        if let copied { Text(copied).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
+                        .modulaHorizontalRail()
+                        if let copied {
+                            Label(copied, systemImage: "checkmark.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .transition(.opacity.combined(with: .offset(y: 4)))
+                        }
                     }
                 }
                 if let family {

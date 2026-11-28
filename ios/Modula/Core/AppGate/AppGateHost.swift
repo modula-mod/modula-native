@@ -15,6 +15,7 @@ struct AppGateHost: View {
         .task {
             await app.bootstrapLaunch()
             ModulaPerf.mark("bootstrapDone")
+            ModulaSignpost.end("Bootstrap")
         }
         .onOpenURL { url in
             app.handleIncomingURL(url)
@@ -42,8 +43,11 @@ struct AppGateHost: View {
             get: { app.push.prePromptPresented && app.gate.state == .ready },
             set: { presented in if !presented, app.push.prePromptPresented { app.push.dismissPrePrompt() } }
         )) {
-            PushPrePromptSheet()
-                .environment(app)
+            Group {
+                PushPrePromptSheet()
+                    .environment(app)
+            }
+            .modulaSheetStyle()
         }
     }
 
@@ -78,7 +82,7 @@ struct AppGateHost: View {
         } else if let payload = DebugSettingsHarness.sharePayload {
             // `--debug-share profile|post|link`: the share sheet over a plain canvas, for screenshots.
             Color(uiColor: .systemBackground).ignoresSafeArea()
-                .sheet(isPresented: .constant(true)) { ModulaShareSheet(payload: payload) }
+                .sheet(isPresented: .constant(true)) { ModulaShareSheet(payload: payload).modulaSheetStyle() }
         } else if let (sheet, context) = DebugSettingsHarness.sheetPresentation {
             // `--debug-sheet …`: a shell option sheet over a plain canvas, for screenshots.
             DebugSheetHarnessView(presentation: sheet, context: context)

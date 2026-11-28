@@ -240,3 +240,125 @@ extension View {
         }
     }
 }
+
+// MARK: - Scroll hygiene (rails, reaction lock)
+
+extension View {
+    /// Apply to every horizontal `ScrollView` rail. The tab shell sets
+    /// `contentMargins(.bottom, accessoryClearance)` and a soft top/bottom scroll-edge effect
+    /// for the whole NavigationStack; both leaked into horizontal rails, adding an empty
+    /// band under the cards with a grey soft-edge blur (the "clipping box" look).
+    func modulaHorizontalRail() -> some View {
+        modifier(ModulaHorizontalRailModifier(edgeToEdge: false, inset: 0))
+    }
+
+    /// A horizontal rail inside page content padded by `inset`: scrolls edge to edge (cards no
+    /// longer clip at the page margins), the first/last card still align with the content inset,
+    /// and glass/shadows aren't clipped vertically.
+    func modulaEdgeToEdgeRail(inset: CGFloat = ModulaLayout.contentInset) -> some View {
+        modifier(ModulaHorizontalRailModifier(edgeToEdge: true, inset: inset))
+    }
+
+    /// Apply to a vertical feed `ScrollView`: while any descendant reports
+    /// `postReactionPickerPresented(true)` (hold-to-react picker / emoji scrub), the scroll
+    /// view stops scrolling so the scrub drag can't also move the feed.
+    func modulaFreezesScrollDuringReactions() -> some View {
+        modifier(ModulaReactionScrollLock())
+    }
+}
+
+private struct ModulaHorizontalRailModifier: ViewModifier {
+    let edgeToEdge: Bool
+    let inset: CGFloat
+
+    func body(content: Content) -> some View {
+        // Vertical only: the parents' margins (shell accessory clearance, Profile's
+        // full-bleed top/bottom margins, chat's bottom margin) are meant for the page scroll.
+        // Horizontal margins a rail sets itself are left alone unless it opts into edge-to-edge.
+        content
+            .contentMargins(.vertical, 0, for: .scrollContent)
+            .modifier(HorizontalRailEdgeEffect())
+            .modifier(EdgeToEdgeRail(enabled: edgeToEdge, inset: inset))
+    }
+}
+
+private struct EdgeToEdgeRail: ViewModifier {
+    let enabled: Bool
+    let inset: CGFloat
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .contentMargins(.horizontal, inset, for: .scrollContent)
+                .scrollClipDisabled()
+                .padding(.horizontal, -inset)
+        } else {
+            content
+        }
+    }
+}
+
+private struct HorizontalRailEdgeEffect: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .all)
+        } else {
+            content
+        }
+    }
+}
+
+private struct ModulaReactionScrollLock: ViewModifier {
+    @State private var pickerPresented = false
+
+    func body(content: Content) -> some View {
+        content
+            .scrollDisabled(pickerPresented)
+            .onPreferenceChange(PostReactionPickerPresentedKey.self) { presented in
+                if pickerPresented != presented { pickerPresented = presented }
+            }
+    }
+}
+
+/// Shared top progressive blur (Profile, Discover…) (replaces the old clipped header fade, the progress-driven nav
+/// background and the separate pinned-tabs backing, which stacked into a hard, uneven edge).
+/// Stacked materials, each masked to end lower down, so blur is strongest at the very top and
+/// ramps smoothly to fully clear; no slab edge at any height.
+struct ModulaTopProgressiveBlur: View {
+    /// Fade below the 44pt bar while the tabs are not pinned.
+    static let restingFade: CGFloat = 34
+    /// Pinned tabs (8 + 38 + 8) plus a fade below them.
+    static let pinnedShelfExtent: CGFloat = 54 + 30
+
+    /// nil = fill the space it's given (e.g. as a header background).
+    var height: CGFloat?
+    let tint: Color
+    let reduceTransparency: Bool
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                tint.mask(ramp(solidUntil: 0.6, end: 1))
+            } else {
+                ZStack {
+                    Rectangle().fill(.ultraThinMaterial).mask(ramp(solidUntil: 0.5, end: 1.0))
+                    Rectangle().fill(.thinMaterial).mask(ramp(solidUntil: 0.3, end: 0.72))
+                    Rectangle().fill(.regularMaterial).mask(ramp(solidUntil: 0.12, end: 0.45))
+                    tint.opacity(0.42).mask(ramp(solidUntil: 0.25, end: 0.85))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: height == nil ? .infinity : nil)
+        .frame(height: height)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func ramp(solidUntil: CGFloat, end: CGFloat) -> LinearGradient {
+        LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black, location: solidUntil),
+            .init(color: .black.opacity(0.5), location: solidUntil + (end - solidUntil) * 0.45),
+            .init(color: .black.opacity(0), location: end)
+        ], startPoint: .top, endPoint: .bottom)
+    }
+}

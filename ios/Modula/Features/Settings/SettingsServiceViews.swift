@@ -251,16 +251,22 @@ struct HelpContactView: View {
         .task { await load() }
         .refreshable { await load() }
         .sheet(isPresented: $composing) {
-            SupportCaseComposer(contact: contact) { opened in
-                lastOpened = opened
-                cases.insert(opened, at: 0)
+            Group {
+                SupportCaseComposer(contact: contact) { opened in
+                    lastOpened = opened
+                    cases.insert(opened, at: 0)
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $mailing) {
-            if let email = contact?.supportEmail {
-                SupportMailComposer(recipient: email, subject: "Modula support", body: "")
-                    .ignoresSafeArea()
+            Group {
+                if let email = contact?.supportEmail {
+                    SupportMailComposer(recipient: email, subject: "Modula support", body: "")
+                        .ignoresSafeArea()
+                }
             }
+            .modulaSheetStyle()
         }
         .navigationTitle("Contact")
         .navigationBarTitleDisplayMode(.inline)
@@ -379,7 +385,7 @@ struct HelpContactView: View {
                             Text(item.state.capitalized)
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Color.primary.opacity(0.06), in: Capsule())
+                                .modulaGlass(in: Capsule(), interactive: false)
                         }
                         .frame(minHeight: 52)
                         .accessibilityElement(children: .combine)
@@ -487,7 +493,6 @@ struct SupportCaseComposer: View {
             }
             Section {
                 Toggle("Attach diagnostics", isOn: $draft.attachDiagnostics.animation())
-                    .tint(app.appearance.liveAccent)
                 if draft.attachDiagnostics {
                     DisclosureGroup("Review what’s sent (\(diagnostics.count))") {
                         ForEach(diagnostics) { item in
@@ -520,7 +525,7 @@ struct SupportCaseComposer: View {
             Spacer(minLength: 20)
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 64, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .symbolEffect(.bounce, value: opened.reference)
                 .modulaHeroSheen(intensity: 0.8)
             Text("We’ve got it")
@@ -685,7 +690,7 @@ struct AccountDataExportView: View {
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 52)
                         }
-                        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.liveAccent))
+                        .buttonStyle(ModulaPrimaryButtonStyle(fullWidth: true))
                         Button("Prepare Again") { model.reset() }
                             .font(.subheadline)
                     case .failed(let message):

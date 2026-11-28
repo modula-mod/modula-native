@@ -346,59 +346,6 @@ struct ModulaCountUpText: View {
     }
 }
 
-// MARK: Segmented tabs with matched-geometry indicator
-
-struct ModulaEffectTabs<Tab: Hashable & Identifiable>: View {
-    let tabs: [Tab]
-    @Binding var selection: Tab
-    var title: (Tab) -> String
-    var symbol: (Tab) -> String
-    var tint: Color
-    @Namespace private var indicator
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var bounce = 0
-
-    var body: some View {
-        let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
-        HStack(spacing: 4) {
-            ForEach(tabs) { tab in
-                let selected = tab == selection
-                Button {
-                    guard tab != selection else { return }
-                    withAnimation(reduce ? nil : .spring(response: 0.36, dampingFraction: 0.78)) { selection = tab }
-                    bounce += 1
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Label(title(tab), systemImage: symbol(tab))
-                        .font(.subheadline.weight(selected ? .semibold : .medium))
-                        .symbolEffect(.bounce, value: selected && !reduce ? bounce : 0)
-                        .foregroundStyle(selected ? Color.white : Color.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background {
-                            if selected {
-                                Capsule()
-                                    .fill(tint.gradient)
-                                    .shadow(color: reduceTransparency ? .clear : tint.opacity(0.45), radius: 10, y: 4)
-                                    .matchedGeometryEffect(id: "modula.tab.indicator", in: indicator)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        .background {
-            Capsule().fill(reduceTransparency ? AnyShapeStyle(Color(uiColor: .secondarySystemBackground)) : AnyShapeStyle(.ultraThinMaterial))
-        }
-        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06)))
-    }
-}
-
 // MARK: Empty state with a living symbol
 
 struct ModulaEffectSymbol: View {
@@ -471,5 +418,37 @@ extension View {
     /// One-time fade + rise when a page or section first appears.
     func modulaPageEntrance(delay: Double = 0) -> some View {
         modifier(ModulaPageEntranceModifier(delay: delay))
+    }
+}
+
+// MARK: Media placeholder
+
+/// Shared stand-in for media without a thumbnail yet (reels, mosaic tiles): a muted, glassy
+/// tint of the media's colour with a soft highlight and a faint symbol, instead of a flat slab.
+/// Static (no per-tile animation) so long rails stay cheap.
+struct ModulaMediaPlaceholder: View {
+    var hex: String?
+    var symbol: String = "play.rectangle.fill"
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let base = Color(hex: hex ?? "#2A2F36")
+        ZStack {
+            Color(white: scheme == .dark ? 0.09 : 0.9)
+            LinearGradient(
+                colors: [base.opacity(scheme == .dark ? 0.55 : 0.45), base.opacity(scheme == .dark ? 0.18 : 0.2)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(colors: [Color.white.opacity(scheme == .dark ? 0.14 : 0.35), .clear],
+                           center: .topLeading, startRadius: 2, endRadius: 220)
+            LinearGradient(colors: [Color.white.opacity(0.16), .clear, Color.black.opacity(0.12)],
+                           startPoint: .top, endPoint: .bottom)
+            Image(systemName: symbol)
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(.white.opacity(scheme == .dark ? 0.22 : 0.5))
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
     }
 }

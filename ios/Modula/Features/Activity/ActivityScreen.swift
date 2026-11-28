@@ -77,7 +77,7 @@ struct ActivityScreen: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("activity.sign-in")
         }
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -120,7 +120,13 @@ struct ActivityScreen: View {
                         ActivityClusterFeed(
                             events: shown, mode: mode, newIDs: newIDs, onOpen: open,
                             onMarkRead: { events in Task { await app.activity.markRead(events, mode: mode) } },
-                            onMarkAllRead: { Task { await app.activity.markAllRead(mode: mode) } },
+                            onMarkAllRead: {
+                                Task {
+                                    await app.activity.markAllRead(mode: mode)
+                                    HapticEngine.shared.play(.success)
+                                    app.navigation.flash("All caught up", symbol: "checkmark.circle.fill")
+                                }
+                            },
                             onDelete: { events in
                                 withAnimation(calm ? nil : .snappy(duration: 0.3)) { app.activity.dismiss(events, mode: mode) }
                                 app.navigation.flash(events.count > 1 ? "\(events.count) notifications removed" : "Notification removed", symbol: "trash")
@@ -304,6 +310,7 @@ struct ActivitySummarySheet: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("Activity Summary")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close") { dismiss() }
@@ -394,7 +401,7 @@ struct ActivityFilterSheet: View {
                     ProgressView().controlSize(.small)
                 } else if selected {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                 }
             }
             .frame(minHeight: ModulaLayout.minimumTouch)

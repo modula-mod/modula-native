@@ -8,7 +8,9 @@ enum MessageContextActions {
     ) -> [ModulaContextAction] {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc"),
                      ModulaContextAction(id: "forward", title: "Forward", systemImage: "arrowshape.turn.up.right"),
-                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2")]
+                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2"),
+                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate"),
+                     ModulaContextAction(id: "remind", title: "Remind Me", systemImage: "alarm")]
         if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
@@ -27,7 +29,9 @@ enum MessageContextActions {
     static func other(capabilities: MessagingBackendCapabilities) -> [ModulaContextAction] {
         var items = [ModulaContextAction(id: "copy", title: "Copy", systemImage: "doc.on.doc"),
                      ModulaContextAction(id: "forward", title: "Forward", systemImage: "arrowshape.turn.up.right"),
-                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2")]
+                     ModulaContextAction(id: "speak", title: "Read Aloud", systemImage: "speaker.wave.2"),
+                     ModulaContextAction(id: "translate", title: "Translate", systemImage: "translate"),
+                     ModulaContextAction(id: "remind", title: "Remind Me", systemImage: "alarm")]
         if capabilities.reply || capabilities.quoteReply {
             items.append(.init(id: "reply", title: "Reply", systemImage: "arrowshape.turn.up.left"))
         }
@@ -222,7 +226,7 @@ enum MessagingDebugFixture {
         let lines = ["Morning!", "Did the build go out?", "Yes, TestFlight is processing.", "Nice — the glass sidebar looks great.",
                      "Can you check the reels scrubber?", "On it.", "Buffered bar shows now.", "Love it"]
         var history: [Message] = []
-        for day in stride(from: 5, through: 2, by: -1) {
+        for day in stride(from: 14, through: 2, by: -1) {
             for (i, text) in lines.enumerated() {
                 history.append(m("h\(day)-\(i)", i.isMultiple(of: 2) ? sophia : me, text, minutes: Double(day * 1440 - i * 7), .read))
             }
@@ -293,7 +297,7 @@ struct MessageFocusOverlay: View {
     var onMoreReactions: () -> Void
     var onDismiss: () -> Void
 
-    static let quickReactions = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
+    static var quickReactions: [String] { QuickReactionPrefs.current }
 
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -366,7 +370,7 @@ struct MessageFocusOverlay: View {
                         .font(.system(size: 28))
                         .frame(width: 42, height: 42)
                         .background {
-                            if currentReaction == emoji { Circle().fill(app.appearance.liveAccent.opacity(0.25)) }
+                            if currentReaction == emoji { Circle().fill(Color.primary.opacity(0.16)) }
                         }
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.85, haptic: .selection))

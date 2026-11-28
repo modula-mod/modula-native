@@ -385,6 +385,7 @@ struct ModulaCustomPackEditor: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .onAppear {
             title = pack?.title ?? ""
             emojiText = pack?.emoji.joined() ?? ""

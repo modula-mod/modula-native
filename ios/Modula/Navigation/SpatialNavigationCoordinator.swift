@@ -103,6 +103,8 @@ final class SpatialNavigationCoordinator {
     private(set) var activeSheet: SpatialSheet? {
         didSet {
             guard oldValue != activeSheet else { return }
+            // Instruments: one event per layer change (sidebar / profile / dock) to line up with hitches.
+            ModulaSignpost.event("SpatialSheet", "\(String(describing: oldValue)) → \(String(describing: activeSheet))")
             lastTransition = SpatialTransition(from: oldValue, to: activeSheet)
             sheetPath = []
             onTransition?(oldValue, activeSheet)
@@ -284,13 +286,18 @@ final class SpatialNavigationCoordinator {
 enum SpatialSheetMetrics {
     static let gutter: CGFloat = 10
     static let cornerRadius: CGFloat = 32
-    static let edgeActivationWidth: CGFloat = 20
+    /// Small float gap below the status bar / island and above the home indicator (Andy t194u).
+    static let verticalGap: CGFloat = 9
+    /// Wide enough to catch a casual thumb swipe from the right bezel (20 pt missed often).
+    static let edgeActivationWidth: CGFloat = 28
     static let travelPadding: CGFloat = 36
 
     nonisolated static func sheetWidth(for total: CGFloat) -> CGFloat {
-        max(total - gutter, 0)
+        // Profile sheet and sidebar both cover 95% of the screen width.
+        max(total * 0.95, 0)
     }
 
-    static var settleSpring: Animation { .interactiveSpring(response: 0.36, dampingFraction: 0.86, blendDuration: 0.12) }
+    /// Quick and crisp, no bounce at rest; same curve as the sidebar so both sheets feel alike.
+    static var settleSpring: Animation { .spring(duration: 0.3, bounce: 0) }
     static var reduceMotionFade: Animation { .easeInOut(duration: 0.2) }
 }

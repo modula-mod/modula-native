@@ -806,7 +806,7 @@ struct ProductUINode: View {
         } else if isSecondaryNavigation {
             button.buttonStyle(.bordered).frame(minHeight: 44)
         } else {
-            button.buttonStyle(.borderedProminent)
+            button.buttonStyle(.modulaPrimary)
         }
     }
 
@@ -1156,7 +1156,7 @@ struct ProductUIEditorToolbar: View {
         HStack(spacing: 8) {
             ForEach(["bold", "italic", "heading", "list", "link"], id: \.self) { command in
                 Button(command.capitalized) { onCommand("ui.richText.commands@1.\(command)") }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
             }
         }
         .accessibilityIdentifier("product-ui.editor-toolbar")

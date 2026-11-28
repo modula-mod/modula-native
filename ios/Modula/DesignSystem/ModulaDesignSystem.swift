@@ -97,24 +97,40 @@ extension HapticSemantic {
     static let shared = HapticEngine()
     var intensityProvider: () -> AppearanceStore.HapticIntensity = { .standard }
 
+    // Reused, pre-warmed generators: allocating one per tap spun the Taptic Engine up cold
+    // every time (visible latency on fast selection haptics such as scrubbing or jiggle swaps).
+    private let selection = UISelectionFeedbackGenerator()
+    private let light = UIImpactFeedbackGenerator(style: .light)
+    private let medium = UIImpactFeedbackGenerator(style: .medium)
+    private let heavy = UIImpactFeedbackGenerator(style: .heavy)
+    private let soft = UIImpactFeedbackGenerator(style: .soft)
+    private let notification = UINotificationFeedbackGenerator()
+
     func play(_ semantic: HapticSemantic) {
         let intensity = intensityProvider()
         guard intensity != .off else { return }
         switch semantic {
         case .selection, .reactionSelect:
-            UISelectionFeedbackGenerator().selectionChanged()
+            selection.selectionChanged()
+            selection.prepare()
         case .navigation, .contextOpen, .lightImpact:
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            light.impactOccurred()
+            light.prepare()
         case .mediumImpact, .impact, .dragThreshold:
-            UIImpactFeedbackGenerator(style: intensity == .strong ? .heavy : intensity == .light ? .light : .medium).impactOccurred()
+            let g = intensity == .strong ? heavy : intensity == .light ? light : medium
+            g.impactOccurred()
+            g.prepare()
         case .drop:
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            soft.impactOccurred()
+            soft.prepare()
         case .saveComplete:
             ModulaHapticTexture.play(.save)
         case .confirmation, .success, .followComplete:
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            notification.notificationOccurred(.success)
+            notification.prepare()
         case .warning:
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            notification.notificationOccurred(.warning)
+            notification.prepare()
         case .failure:
             ModulaHapticTexture.play(.error)
         }
@@ -296,7 +312,7 @@ struct ModulaButton: View {
         Button(action: action) {
             HStack(spacing: ModulaSpacing.xs) {
                 if isLoading {
-                    ProgressView().tint(.white).controlSize(.regular)
+                    ProgressView().controlSize(.regular)
                     Text(loadingTitle ?? title)
                 } else if let symbol {
                     Label(title, systemImage: symbol)
@@ -311,12 +327,14 @@ struct ModulaButton: View {
             .frame(minHeight: max(ModulaLayout.minimumTouch, height))
             .contentShape(Capsule())
         }
-        .buttonStyle(ModulaPrimaryButtonStyle(accent: app.appearance.liveAccent, isLoading: isLoading))
+        // Black/white primary (Andy's rule: action buttons are never accent/coral).
+        .buttonStyle(ModulaPrimaryButtonStyle(fullWidth: true))
         .accessibilityValue(isLoading ? (loadingTitle ?? "In progress") : "")
     }
 }
 
-struct ModulaPrimaryButtonStyle: ButtonStyle {
+/// Accent-filled primary (legacy). Renamed: `ModulaPrimaryButtonStyle` is the black/white style in ModulaGlass.swift.
+struct ModulaAccentPrimaryButtonStyle: ButtonStyle {
     var accent: Color
     var isLoading = false
     @Environment(\.isEnabled) private var isEnabled
@@ -529,10 +547,22 @@ struct ModulaAvatar: View {
         .accessibilityAddTraits(.isImage)
     }
 
+    /// No-photo fallback, shared by every avatar (profile hero, header, comments, chats, people
+    /// cards): a neutral tinted-glass monogram. Same look everywhere and never the accent, so it
+    /// can't turn coral and the big and small avatars of one person always match.
     private var initialsView: some View {
         Circle()
-            .fill(app.appearance.liveAccent.gradient)
-            .overlay(Text(initials).font(.headline).foregroundStyle(.white))
+            .fill(Color(uiColor: .tertiarySystemFill))
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+            .overlay(
+                Text(initials)
+                    .font(.system(size: max(9, size * 0.38), weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .padding(size * 0.12)
+            )
     }
 
     private var loadingView: some View {
@@ -663,7 +693,7 @@ final class ProfileTabBarAvatarHook: UIView {
 }
 
 /// Shared, RTL- and localization-safe lookup for the system `UITabBar`.
-/// Tabs are matched by their logical index in `AppTab.allCases`, never by
+/// Tabs are matched by their logical index in the visible bar (`ShellTabBarLayout`), never by
 /// English titles or left-to-right screen position. The bar is cached weakly
 /// so repeated SwiftUI updates do not walk every window.
 @MainActor
@@ -690,15 +720,17 @@ enum TabBarIntrospection {
     }
 
     static func item(for tab: AppTab, in bar: UITabBar) -> UITabBarItem? {
-        guard let items = bar.items, items.count == AppTab.allCases.count,
-              let index = AppTab.allCases.firstIndex(of: tab) else { return nil }
+        let visible = ShellTabBarLayout.visible
+        guard let items = bar.items, items.count == visible.count,
+              let index = visible.firstIndex(of: tab) else { return nil }
         return items[index]
     }
 
     static func button(for tab: AppTab, in bar: UITabBar) -> UIView? {
         let buttons = logicalTabButtons(in: bar)
-        guard buttons.count == AppTab.allCases.count,
-              let index = AppTab.allCases.firstIndex(of: tab) else { return nil }
+        let visible = ShellTabBarLayout.visible
+        guard buttons.count == visible.count,
+              let index = visible.firstIndex(of: tab) else { return nil }
         return buttons[index]
     }
 
@@ -1023,22 +1055,26 @@ extension View {
 }
 struct ModulaListRow: View { var title: String; var subtitle: String?; var symbol: String; var action: (() -> Void)?; @State private var taps = 0; @Environment(\.accessibilityReduceMotion) private var reduceMotion; var body: some View { Button { taps += 1; action?() } label: { HStack(spacing: ModulaLayout.listRowSpacing) { Image(systemName: symbol).frame(width: ModulaLayout.listRowIconWidth).foregroundStyle(.tint).symbolEffect(.bounce, value: reduceMotion ? 0 : taps); VStack(alignment: .leading, spacing: ModulaSpacing.hairline) { Text(title).font(.body.weight(.medium)); if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }; Spacer(); if action != nil { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) } }.frame(minHeight: ModulaLayout.listRowMinHeight).contentShape(Rectangle()) }.buttonStyle(ModulaPressStyle(scale: 0.985, haptic: nil)).disabled(action == nil).accessibilityLabel(title).accessibilityValue(subtitle ?? "") } }
 struct ModulaSection<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { VStack(alignment: .leading, spacing: ModulaSpacing.sm) { ModulaText(text: title, role: .headline).accessibilityAddTraits(.isHeader); content }.frame(maxWidth: .infinity, alignment: .leading) } }
-struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, ModulaLayout.fieldHorizontalPadding).frame(minHeight: ModulaLayout.minimumTouch).background(.thinMaterial, in: Capsule()).accessibilityLabel(prompt) } }
+struct ModulaSearchField: View { @Binding var text: String; var prompt = "Search"; var body: some View { TextField(prompt, text: $text).textFieldStyle(.plain).padding(.horizontal, ModulaLayout.fieldHorizontalPadding).frame(minHeight: ModulaLayout.minimumTouch).modulaGlass(in: Capsule(), interactive: true).accessibilityLabel(prompt) } }
 struct ModulaMetric: View { var value: String; var label: String; var body: some View { VStack(alignment: .leading, spacing: ModulaSpacing.hairline) { ModulaText(text: value, role: .metric); ModulaText(text: label, role: .caption, color: .secondary) }.accessibilityElement(children: .combine) } }
-struct ModulaMetricPicker<Value: Hashable, Content: View>: View { var title: String = "Selection"; @Binding var selection: Value; var values: [Value]; @ViewBuilder var label: (Value) -> Content; var body: some View { Picker(title, selection: $selection) { ForEach(values, id: \.self) { label($0).tag($0) } }.pickerStyle(.segmented) } }
 struct ModulaChip: View {
     var title: String; var selected = false; var action: () -> Void
     @Environment(AppEnvironment.self) private var app
     var body: some View {
-        Button(title, action: action)
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(selected ? app.appearance.liveAccent : .secondary)
-            .frame(minHeight: ModulaLayout.minimumTouch)
-            .accessibilityAddTraits(selected ? .isSelected : [])
+        // Glass chip; selected = black/white fill (never accent).
+        Group {
+            if selected {
+                Button(title, action: action).buttonStyle(.modulaPrimary)
+            } else {
+                Button(title, action: action).buttonStyle(.modulaSecondary)
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .frame(minHeight: ModulaLayout.minimumTouch)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
-struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { HStack(spacing: 8) { content }.padding(6).background(.regularMaterial, in: Capsule()) } }
+struct ModulaToolbar<Content: View>: View { @ViewBuilder var content: Content; var body: some View { ModulaGlassGroup(spacing: 8) { HStack(spacing: 8) { content }.padding(6).modulaGlass(in: Capsule(), interactive: false) } } }
 struct ModulaTopBar: View { var title: String; var trailingLabel: String = "Settings"; var trailingSymbol: String = "gearshape"; var trailing: (() -> Void)?; var body: some View { HStack { Text(title).font(.largeTitle.bold()).accessibilityAddTraits(.isHeader); Spacer(); if let trailing { ModulaIconButton(title: trailingLabel, symbol: trailingSymbol, action: trailing) } }.padding(.horizontal, ModulaLayout.contentInset) } }
 struct ModulaMenu<Content: View>: View { var title: String; @ViewBuilder var content: Content; var body: some View { Menu(title, content: { content }) } }
 struct ModulaEmptyState: View {
@@ -1048,6 +1084,9 @@ struct ModulaEmptyState: View {
     /// One character, in place of the symbol. Call sites that omit it keep the symbol.
     var illustration: SproutIllustration? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pokes = 0
+    @State private var hops = 0
     var body: some View {
         ContentUnavailableView {
             VStack(spacing: 10) {
@@ -1060,11 +1099,27 @@ struct ModulaEmptyState: View {
                         .overlay(alignment: .bottomTrailing) {
                             Image(systemName: symbol)
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .frame(width: 30, height: 30)
                                 .modulaGlass(in: Circle(), interactive: false)
                                 .offset(x: -6, y: -4)
+                                .symbolEffect(.bounce, value: pokes)
                         }
+                        // Delight: poke the Moliboo and it hops (flat 2D squash-and-stretch).
+                        .keyframeAnimator(initialValue: 0.0, trigger: hops) { content, stretch in
+                            content.scaleEffect(x: 1 - 0.08 * stretch, y: 1 + 0.1 * stretch, anchor: .bottom)
+                        } keyframes: { _ in
+                            SpringKeyframe(-1.0, duration: 0.1)
+                            SpringKeyframe(1.0, duration: 0.16)
+                            SpringKeyframe(0.0, duration: 0.3, spring: .bouncy)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            pokes += 1
+                            if !reduceMotion { hops += 1 }
+                            HapticEngine.shared.play(.lightImpact)
+                        }
+                        .accessibilityHidden(true)
                 }
                 Text(title).font(.title3.weight(.semibold))
             }
@@ -1073,6 +1128,16 @@ struct ModulaEmptyState: View {
         } description: {
             Text(message)
         }
+        // Liquid Glass card that hugs the content, centred in whatever space the caller gives.
+        .padding(.vertical, 4)
+        .background {
+            let card = RoundedRectangle(cornerRadius: 30, style: .continuous)
+            Color.clear.modulaGlass(in: card, interactive: false, specular: true)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: 440)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .modulaPageEntrance()
     }
 }
@@ -1104,3 +1169,64 @@ struct ModulaSectionHeader: View {
     }
 }
 
+
+
+// MARK: - Appear motion (t237u)
+
+/// Fades and lifts content in once when it first appears, optionally staggered. Static under
+/// Reduce Motion. Cheap: one opacity + offset animation, no layout change.
+struct ModulaAppearModifier: ViewModifier {
+    var delay: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 10)
+            .onAppear {
+                guard !shown else { return }
+                if reduceMotion { shown = true } else {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(delay)) { shown = true }
+                }
+            }
+    }
+}
+
+extension View {
+    func modulaAppear(delay: Double = 0) -> some View { modifier(ModulaAppearModifier(delay: delay)) }
+    /// Same entrance, replayed every time `active` turns true (e.g. each time a drawer opens).
+    func modulaAppear(delay: Double = 0, replayWhen active: Bool) -> some View {
+        modifier(ModulaReplayAppearModifier(delay: delay, active: active))
+    }
+}
+
+struct ModulaReplayAppearModifier: ViewModifier {
+    var delay: Double = 0
+    var active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    /// Set once `active` went false while still mounted (closed but kept alive).
+    @State private var needsReplay = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 10)
+            // Always plays on mount (also when opened by a drag, before `active` flips).
+            .onAppear { play() }
+            .onChange(of: active) { _, now in
+                if !now { needsReplay = true; return }
+                guard needsReplay else { return }
+                needsReplay = false
+                var t = Transaction(); t.disablesAnimations = true
+                withTransaction(t) { shown = false }
+                play()
+            }
+    }
+
+    private func play() {
+        if reduceMotion { shown = true; return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(delay)) { shown = true }
+    }
+}

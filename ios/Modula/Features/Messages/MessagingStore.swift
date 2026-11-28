@@ -27,7 +27,12 @@ final class MessagingStore {
     private(set) var conversationState: MessagingLoadState = .idle
     var conversationQuery = ""
 
-    private(set) var threads: [ConversationID: [Message]] = [:]
+    private(set) var threads: [ConversationID: [Message]] = [:] {
+        didSet { chronologicalCache = [:] }
+    }
+    /// `messages(for:)` is read many times per chat render (list, header, typing, search);
+    /// sorting the thread each time was measurable on long chats. Cleared on any thread write.
+    @ObservationIgnored private var chronologicalCache: [ConversationID: [Message]] = [:]
     private(set) var threadCursors: [ConversationID: String?] = [:]
     private(set) var threadHasMore: [ConversationID: Bool] = [:]
     private(set) var threadState: [ConversationID: MessagingLoadState] = [:]
@@ -70,6 +75,15 @@ final class MessagingStore {
     private(set) var reactionDetails: [MessageID: [MessageReactionDetail]] = [:]
     private(set) var receiptsByMessage: [MessageID: MessageReceipts] = [:]
     private(set) var realtimeConnected = false
+    /// Posts whose comments the socket confirmed live (`post.subscribed`). Comments sheets pause
+    /// their REST poll only for these; everything else keeps polling.
+    private(set) var livePostIDs: Set<String> = []
+    /// Bumped on every `post.comment.*` event for a post (ids only; the sheet refetches).
+    private(set) var postCommentPulse: [String: Int] = [:]
+    /// Latest counts from `post.engagement` (only the fields the server sent).
+    private(set) var postEngagement: [String: PostEngagementCounts] = [:]
+    /// Bumped on `story.reaction` for my story items; the open viewers sheet refetches.
+    private(set) var storyReactionPulse: [String: Int] = [:]
     private var realtime: MessagingRealtimeClient?
     private var presenceHeartbeatTask: Task<Void, Never>?
     /// Coalesces duplicate share requests for the same recipient and first
@@ -88,9 +102,368 @@ final class MessagingStore {
     func isPinned(_ id: ConversationID) -> Bool { pinnedIDs.contains(id) }
 
     func togglePin(_ id: ConversationID) {
+        let pin = !pinnedIDs.contains(id)
+        let before = pinnedIDs
         if let i = pinnedIDs.firstIndex(of: id) { pinnedIDs.remove(at: i) }
         else { pinnedIDs.insert(id, at: 0); if pinnedIDs.count > MessagingPinStore.limit { pinnedIDs.removeLast() } }
         MessagingPinStore.save(pinnedIDs)
+        // Messaging features 4: chat pins sync per user when the server offers them.
+        guard capabilities.features4.chatPins else { return }
+        Task {
+            do { _ = try await repository.setChatPinned(conversation: id, pinned: pin) }
+            catch {
+                pinnedIDs = before
+                MessagingPinStore.save(before)
+                actionError = "Couldn't \(pin ? "pin" : "unpin") this chat."
+            }
+        }
+    }
+
+    // MARK: Messaging features 4
+
+    /// Message pins per chat (server list, newest first). Only filled when `pinnedMessages` is on.
+    private(set) var pinnedMessages: [ConversationID: [PinnedMessagePreview]] = [:]
+    /// Scheduled (sender-only), quick replies, folders, saved list, in-chat system notes.
+    private(set) var scheduledByConversation: [ConversationID: [ScheduledMessage]] = [:]
+    private(set) var quickReplies: [QuickReply] = []
+    private(set) var serverFolders: [ChatFolder] = []
+    private(set) var savedItems: [SavedMessageItem] = []
+    private(set) var savedCursor: String?
+    private(set) var savedLoading = false
+    private(set) var systemNotes: [ConversationID: [MessagingSystemNote]] = [:]
+    private static let folderMigrationKey = "messages.folders.migrated.v1"
+    private static let chatPinMigrationKey = "messages.pins.migrated.v1"
+
+    /// Server becomes the source of truth for chat pins; local pins are POSTed once first.
+    private func adoptServerChatPins(_ items: [Conversation]) {
+        guard capabilities.features4.chatPins else { return }
+        let defaults = UserDefaults.standard
+        if !defaults.bool(forKey: Self.chatPinMigrationKey) {
+            defaults.set(true, forKey: Self.chatPinMigrationKey)
+            let local = pinnedIDs
+            Task { for id in local.reversed() { _ = try? await repository.setChatPinned(conversation: id, pinned: true) } }
+            return
+        }
+        let server = items.filter(\.serverPinned)
+            .sorted { ($0.serverPinnedAt ?? .distantPast) > ($1.serverPinnedAt ?? .distantPast) }
+            .map(\.id)
+        let seen = Set(items.map(\.id))
+        // Keep pins for chats not in this page (pagination), replace the rest with the server's view.
+        let kept = pinnedIDs.filter { !seen.contains($0) }
+        let merged = server + kept
+        if merged != pinnedIDs { pinnedIDs = merged; MessagingPinStore.save(merged) }
+    }
+
+    func isMessagePinned(_ message: Message) -> Bool {
+        pinnedMessages[message.conversationID]?.contains { $0.messageID == message.id } == true
+    }
+
+    func loadMessagePins(_ conversation: ConversationID) async {
+        guard capabilities.features4.pinnedMessages else { return }
+        if let pins = try? await repository.pinnedMessages(conversation: conversation) { pinnedMessages[conversation] = pins }
+    }
+
+    func toggleMessagePin(_ message: Message) async {
+        guard capabilities.features4.pinnedMessages else { return }
+        let pin = !isMessagePinned(message)
+        let before = pinnedMessages[message.conversationID] ?? []
+        let preview = PinnedMessagePreview(messageID: message.id, text: message.body.text, senderName: message.sender.displayName)
+        pinnedMessages[message.conversationID] = pin ? [preview] + before : before.filter { $0.messageID != message.id }
+        do { try await repository.setMessagePinned(conversation: message.conversationID, message: message.id, pinned: pin) }
+        catch {
+            pinnedMessages[message.conversationID] = before
+            actionError = Self.f4Error(error, fallback: pin ? "Couldn't pin this message." : "Couldn't unpin this message.")
+        }
+    }
+
+    /// Saved = the existing star, synced to the server when `savedMessages` is on.
+    func toggleSaved(_ message: Message) {
+        let save = !starredIDs.contains(message.id)
+        toggleStar(message.id)
+        guard capabilities.features4.savedMessages else { return }
+        Task {
+            do { try await repository.setMessageSaved(conversation: message.conversationID, message: message.id, saved: save) }
+            catch { toggleStar(message.id); actionError = "Couldn't update Saved." }
+        }
+    }
+
+    func editHistory(_ message: Message) async -> [MessageEditVersion]? {
+        guard capabilities.features4.editHistory else { return nil }
+        return try? await repository.editHistory(conversation: message.conversationID, message: message.id)
+    }
+
+    func setNotificationLevel(_ conversation: ConversationID, level: String) async {
+        guard capabilities.features4.notificationLevels.contains(level),
+              let index = conversations.firstIndex(where: { $0.id == conversation }) else { return }
+        let before = conversations[index].notificationLevel
+        conversations[index].notificationLevel = level
+        do {
+            let saved = try await repository.setNotificationLevel(conversation: conversation, level: level)
+            if let i = conversations.firstIndex(where: { $0.id == conversation }) { conversations[i].notificationLevel = saved }
+        } catch {
+            if let i = conversations.firstIndex(where: { $0.id == conversation }) { conversations[i].notificationLevel = before }
+            actionError = "Couldn't change notifications."
+        }
+    }
+
+    func setDisappearing(_ conversation: ConversationID, ttlSeconds: Int?) async {
+        guard capabilities.features4.disappearing else { return }
+        do {
+            let ttl = try await repository.setDisappearing(conversation: conversation, ttlSeconds: ttlSeconds)
+            noteDisappearingChange(conversation, ttl: ttl)
+        } catch {
+            actionError = Self.f4Error(error, fallback: "Couldn't change disappearing messages.")
+        }
+    }
+
+    /// In-chat system row when the shared timer changes (local action or `conversation.updated` reason disappearing).
+    private func noteDisappearingChange(_ conversation: ConversationID, ttl: Int?) {
+        guard let i = conversations.firstIndex(where: { $0.id == conversation }) else { return }
+        guard conversations[i].disappearingTtlSeconds != ttl else { return }
+        conversations[i].disappearingTtlSeconds = ttl
+        systemNotes[conversation, default: []].append(MessagingSystemNote(text: DisappearingNote.text(ttlSeconds: ttl), at: Date()))
+    }
+
+    /// Branch on status + code, never on the message (contract conventions).
+    nonisolated static func f4Error(_ error: Error, fallback: String) -> String {
+        guard case APIError.rejected(let status, let code) = error else { return fallback }
+        switch (status, code) {
+        case (403, "CAPABILITY_DISABLED"): return "This isn't available right now."
+        case (403, _): return "Only group admins can change this."
+        case (409, _): return "You've reached the limit for this."
+        case (404, _): return "This chat or message isn't available."
+        default: return fallback
+        }
+    }
+
+    // MARK: Scheduled messages
+
+    func scheduled(for conversation: ConversationID) -> [ScheduledMessage] {
+        (scheduledByConversation[conversation] ?? []).filter(\.isOpen).sorted { $0.sendAt < $1.sendAt }
+    }
+
+    func loadScheduled(_ conversation: ConversationID) async {
+        guard capabilities.features4.scheduled else { return }
+        if let items = try? await repository.scheduledMessages(conversation: conversation) { scheduledByConversation[conversation] = items }
+    }
+
+    @discardableResult
+    func schedule(_ text: String, in conversation: ConversationID, at date: Date) async -> Bool {
+        let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard capabilities.features4.scheduled, !body.isEmpty else { return false }
+        do {
+            if let item = try await repository.schedule(conversation: conversation, text: body, sendAt: date) {
+                scheduledByConversation[conversation, default: []].append(item)
+            } else { await loadScheduled(conversation) }
+            HapticEngine.shared.play(.success)
+            return true
+        } catch {
+            actionError = Self.f4Error(error, fallback: "Couldn't schedule this message.")
+            return false
+        }
+    }
+
+    func updateScheduled(_ item: ScheduledMessage, text: String?, sendAt: Date?) async {
+        do {
+            let updated = try await repository.updateScheduled(conversation: item.conversationID, id: item.id, text: text, sendAt: sendAt)
+            replaceScheduled(updated ?? item)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't update the scheduled message.") }
+    }
+
+    func cancelScheduled(_ item: ScheduledMessage) async {
+        let before = scheduledByConversation[item.conversationID] ?? []
+        scheduledByConversation[item.conversationID] = before.filter { $0.id != item.id }
+        do { try await repository.cancelScheduled(conversation: item.conversationID, id: item.id) }
+        catch {
+            scheduledByConversation[item.conversationID] = before
+            actionError = Self.f4Error(error, fallback: "Couldn't delete the scheduled message.")
+        }
+    }
+
+    func sendScheduledNow(_ item: ScheduledMessage) async {
+        do {
+            if let updated = try await repository.sendScheduledNow(conversation: item.conversationID, id: item.id) { replaceScheduled(updated) }
+            await refreshThread(item.conversationID)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't send it now.") }
+    }
+
+    private func replaceScheduled(_ item: ScheduledMessage) {
+        var list = scheduledByConversation[item.conversationID] ?? []
+        if let i = list.firstIndex(where: { $0.id == item.id }) { list[i] = item } else { list.append(item) }
+        scheduledByConversation[item.conversationID] = list
+    }
+
+    // MARK: Quick replies
+
+    func loadQuickReplies() async {
+        guard capabilities.features4.quickReplies else { return }
+        if let items = try? await repository.quickReplies() { quickReplies = items }
+    }
+
+    @discardableResult
+    func saveQuickReply(id: String?, shortcut: String, text: String) async -> Bool {
+        guard capabilities.features4.quickReplies, QuickReplyMatcher.isValidShortcut(shortcut),
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        do {
+            if let saved = try await repository.saveQuickReply(id: id, shortcut: shortcut, text: text) {
+                quickReplies.removeAll { $0.id == saved.id }
+                quickReplies.append(saved)
+                quickReplies.sort { $0.shortcut < $1.shortcut }
+            }
+            return true
+        } catch {
+            if case APIError.rejected(409, _) = error { actionError = "That shortcut is taken, or you've hit the limit." }
+            else { actionError = Self.f4Error(error, fallback: "Couldn't save the quick reply.") }
+            return false
+        }
+    }
+
+    func deleteQuickReply(_ reply: QuickReply) async {
+        let before = quickReplies
+        quickReplies.removeAll { $0.id == reply.id }
+        do { try await repository.deleteQuickReply(id: reply.id) }
+        catch { quickReplies = before; actionError = Self.f4Error(error, fallback: "Couldn't delete the quick reply.") }
+    }
+
+    // MARK: Chat folders (server)
+
+    func loadFolders() async {
+        guard capabilities.features4.chatFolders else { return }
+        guard let items = try? await repository.folders() else { return }
+        serverFolders = MessagingFeatures4Decoder.sorted(items)
+        await migrateLocalFoldersOnce()
+    }
+
+    /// Contract: POST each device-local folder once, then the server is the source of truth.
+    private func migrateLocalFoldersOnce() async {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.folderMigrationKey) else { return }
+        defaults.set(true, forKey: Self.folderMigrationKey)
+        var grouped: [String: [ConversationID]] = [:]
+        for (id, name) in folderAssignments where !name.isEmpty { grouped[name, default: []].append(id) }
+        let existing = Set(serverFolders.map { $0.name.lowercased() })
+        var order = (serverFolders.map(\.sortOrder).max() ?? -1) + 1
+        for name in grouped.keys.sorted() where !existing.contains(name.lowercased()) {
+            let ids = Array((grouped[name] ?? []).prefix(200))
+            if let folder = try? await repository.createFolder(name: String(name.prefix(32)), emoji: nil,
+                                                              conversationIDs: ids, sortOrder: min(order, 1000)) {
+                serverFolders.append(folder)
+                order += 1
+            }
+        }
+        serverFolders = MessagingFeatures4Decoder.sorted(serverFolders)
+    }
+
+    @discardableResult
+    func createFolder(name: String, emoji: String?, conversationIDs: [ConversationID] = []) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard capabilities.features4.chatFolders, (1...32).contains(trimmed.count) else { return false }
+        do {
+            let order = min((serverFolders.map(\.sortOrder).max() ?? -1) + 1, 1000)
+            if let folder = try await repository.createFolder(name: trimmed, emoji: emoji, conversationIDs: conversationIDs, sortOrder: order) {
+                serverFolders = MessagingFeatures4Decoder.sorted(serverFolders + [folder])
+            }
+            return true
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't create the folder."); return false }
+    }
+
+    func renameFolder(_ folder: ChatFolder, to name: String, emoji: String?) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...32).contains(trimmed.count) else { return }
+        let cleanEmoji: String? = (emoji?.isEmpty ?? true) ? nil : emoji
+        do {
+            let updated = try await repository.updateFolder(id: folder.id, name: trimmed, emoji: .some(cleanEmoji))
+            adoptFolder(updated)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't rename the folder.") }
+    }
+
+    func setFolderChats(_ folder: ChatFolder, _ ids: [ConversationID]) async {
+        do {
+            let updated = try await repository.updateFolder(id: folder.id, conversationIDs: Array(ids.prefix(200)))
+            adoptFolder(updated)
+        } catch { actionError = Self.f4Error(error, fallback: "Couldn't update the folder.") }
+    }
+
+    private func adoptFolder(_ folder: ChatFolder?) {
+        guard let folder, let i = serverFolders.firstIndex(where: { $0.id == folder.id }) else { return }
+        serverFolders[i] = folder
+    }
+
+    func deleteFolder(_ folder: ChatFolder) async {
+        let before = serverFolders
+        serverFolders.removeAll { $0.id == folder.id }
+        do { try await repository.deleteFolder(id: folder.id) }
+        catch { serverFolders = before; actionError = Self.f4Error(error, fallback: "Couldn't delete the folder.") }
+    }
+
+    /// Reorder = rewrite sortOrder 0…n, PATCHing only the folders whose order changed.
+    func moveFolders(from source: IndexSet, to destination: Int) async {
+        var list = serverFolders
+        list.move(fromOffsets: source, toOffset: destination)
+        let reordered = list.enumerated().map { pair -> ChatFolder in var f = pair.element; f.sortOrder = pair.offset; return f }
+        let changed = reordered.filter { f in serverFolders.first { $0.id == f.id }?.sortOrder != f.sortOrder }
+        serverFolders = reordered
+        for folder in changed { _ = try? await repository.updateFolder(id: folder.id, sortOrder: folder.sortOrder) }
+    }
+
+    // MARK: Forward / theme / saved
+
+    func forward(_ message: Message, to targets: [ConversationID]) async -> [ForwardResult] {
+        let f4 = capabilities.features4
+        guard f4.forwarding, !targets.isEmpty else { return [] }
+        let capped = Array(targets.prefix(f4.forwardingMaxTargets))
+        do { return try await repository.forward(conversation: message.conversationID, message: message.id, to: capped) }
+        catch {
+            let reason = Self.f4Error(error, fallback: "Couldn't forward.")
+            return capped.map { ForwardResult(conversationID: $0, ok: false, reason: reason) }
+        }
+    }
+
+    func theme(for conversation: ConversationID) -> String? {
+        guard !capabilities.features4.chatThemes.isEmpty else { return nil }
+        return self.conversation(id: conversation)?.theme
+    }
+
+    /// Returns an error line for the picker (403 = group admins only), or nil on success.
+    func setTheme(_ theme: String, for conversation: ConversationID) async -> String? {
+        guard capabilities.features4.chatThemes.contains(theme) else { return "That theme isn't available." }
+        guard let i = conversations.firstIndex(where: { $0.id == conversation }) else { return nil }
+        let before = conversations[i].theme
+        conversations[i].theme = theme == "default" ? nil : theme
+        do {
+            let saved = try await repository.setTheme(conversation: conversation, theme: theme)
+            if let j = conversations.firstIndex(where: { $0.id == conversation }) { conversations[j].theme = saved }
+            return nil
+        } catch {
+            if let j = conversations.firstIndex(where: { $0.id == conversation }) { conversations[j].theme = before }
+            return Self.f4Error(error, fallback: "Couldn't change the theme.")
+        }
+    }
+
+    func loadSaved(reset: Bool) async {
+        guard capabilities.features4.savedMessages, !savedLoading, reset || savedCursor != nil else { return }
+        savedLoading = true
+        defer { savedLoading = false }
+        guard let page = try? await repository.savedMessages(cursor: reset ? nil : savedCursor) else { return }
+        let known = Set(savedItems.map(\.id))
+        savedItems = reset ? page.items : savedItems + page.items.filter { !known.contains($0.id) }
+        savedCursor = page.next
+    }
+
+    func unsave(_ item: SavedMessageItem) async {
+        let before = savedItems
+        savedItems.removeAll { $0.id == item.id }
+        if starredIDs.contains(item.messageID) { toggleStar(item.messageID) }
+        do { try await repository.setMessageSaved(conversation: item.conversationID, message: item.messageID, saved: false) }
+        catch { savedItems = before; actionError = Self.f4Error(error, fallback: "Couldn't remove from Saved.") }
+    }
+
+
+    func dropMessages(_ ids: [MessageID], in conversation: ConversationID) {
+        let drop = Set(ids)
+        guard !drop.isEmpty, let thread = threads[conversation] else { return }
+        threads[conversation] = thread.filter { !drop.contains($0.id) }
+        if var pins = pinnedMessages[conversation] { pins.removeAll { drop.contains($0.messageID) }; pinnedMessages[conversation] = pins }
     }
 
     func draftPreview(for id: ConversationID) -> String? {
@@ -455,14 +828,57 @@ final class MessagingStore {
         MessagingLocalStore.save(nicknames, "messages.nicknames.v1")
     }
 
-    func wallpaper(for id: ConversationID) -> MessagesWallpaperTheme {
-        MessagesWallpaperTheme(rawValue: wallpapers[id] ?? "") ?? .none
+    // MARK: Wallpapers (device-only: no server wallpaper capability exists, so nothing syncs)
+
+    /// Global default (Settings › Appearance › Chat wallpaper). Neutral (none) unless chosen.
+    private(set) var defaultWallpaperRaw: String? = UserDefaults.standard.string(forKey: "messages.wallpaper.default.v2")
+    /// Dim/blur for photo wallpapers, keyed like the photo files ("<chat id>" or the default key).
+    private(set) var wallpaperStyles: [String: String] = MessagingLocalStore.dictionary("messages.wallpaper.styles.v2")
+    /// Bumped when a photo file changes so views reload it.
+    private(set) var wallpaperRevision = 0
+
+    var defaultWallpaper: MessagesWallpaperTheme { MessagesWallpaperTheme(stored: defaultWallpaperRaw) ?? .none }
+
+    /// This chat's own choice, or nil when it follows the default.
+    func wallpaperOverride(for id: ConversationID) -> MessagesWallpaperTheme? {
+        MessagesWallpaperTheme(stored: wallpapers[id])
     }
 
-    func setWallpaper(_ theme: MessagesWallpaperTheme, for id: ConversationID) {
-        wallpapers[id] = theme == .none ? nil : theme.rawValue
-        MessagingLocalStore.save(wallpapers, "messages.wallpapers.v1")
+    func wallpaper(for id: ConversationID) -> MessagesWallpaperTheme {
+        wallpaperOverride(for: id) ?? defaultWallpaper
     }
+
+    /// Key for this chat's photo file and dim/blur: its own when overridden, else the default's.
+    func wallpaperKey(for id: ConversationID?) -> String {
+        guard let id, wallpaperOverride(for: id) != nil else { return MessagesWallpaperTheme.defaultKey }
+        return id
+    }
+
+    /// `id == nil` sets the global default; `theme == nil` makes the chat follow the default.
+    func setWallpaper(_ theme: MessagesWallpaperTheme?, for id: ConversationID?) {
+        if let id {
+            wallpapers[id] = theme?.rawValue
+            MessagingLocalStore.save(wallpapers, "messages.wallpapers.v1")
+            if theme != .photo { ChatWallpaperPhotoStore.remove(key: id) }
+        } else {
+            defaultWallpaperRaw = theme == nil || theme == MessagesWallpaperTheme.none ? nil : theme?.rawValue
+            UserDefaults.standard.set(defaultWallpaperRaw, forKey: "messages.wallpaper.default.v2")
+            if theme != .photo { ChatWallpaperPhotoStore.remove(key: MessagesWallpaperTheme.defaultKey) }
+        }
+        wallpaperRevision += 1
+    }
+
+    func wallpaperStyle(key: String) -> (dim: Double, blur: Double) {
+        let parts = (wallpaperStyles[key] ?? "").split(separator: ",").compactMap { Double($0) }
+        return parts.count == 2 ? (parts[0], parts[1]) : (0.25, 0)
+    }
+
+    func setWallpaperStyle(key: String, dim: Double, blur: Double) {
+        wallpaperStyles[key] = String(format: "%.3f,%.1f", dim, blur)
+        MessagingLocalStore.save(wallpaperStyles, "messages.wallpaper.styles.v2")
+    }
+
+    func noteWallpaperPhotoChanged() { wallpaperRevision += 1 }
 
     func isStarred(_ id: MessageID) -> Bool { starredIDs.contains(id) }
 
@@ -784,12 +1200,60 @@ final class MessagingStore {
     private func clearUnreadLocally(_ id: ConversationID) {
         guard let index = conversations.firstIndex(where: { $0.id == id }) else { return }
         let c = conversations[index]
-        guard c.unreadCount != 0 else { return }
+        guard c.unreadCount != 0 || c.markedUnread else { return }
+        // `POST /read` also clears a manual unread marker server-side.
         conversations[index] = Conversation(
             id: c.id, kind: c.kind, participants: c.participants, lastMessage: c.lastMessage,
             unreadCount: 0, updatedAt: c.updatedAt, titleOverride: c.titleOverride,
-            isMuted: c.isMuted, isArchived: c.isArchived
+            isMuted: c.isMuted, isArchived: c.isArchived, group: c.group, markedUnread: false
         )
+    }
+
+    private func setMarkedUnreadLocally(_ id: ConversationID, _ marked: Bool) {
+        guard let index = conversations.firstIndex(where: { $0.id == id }),
+              conversations[index].markedUnread != marked else { return }
+        conversations[index].markedUnread = marked
+    }
+
+    /// Swipe / context menu "Mark as Unread" (`POST /v1/conversations/:id/unread`). Only with
+    /// the server's `markUnread` capability; never touches read receipts.
+    func markConversationUnread(_ id: ConversationID) async {
+        guard capabilities.markUnread, let before = conversation(id: id), !before.isUnread else { return }
+        setMarkedUnreadLocally(id, true)
+        HapticEngine.shared.play(.confirmation)
+        #if DEBUG
+        if MessagingDebugFixture.isEnabled { return }
+        #endif
+        do {
+            let marked = try await repository.setMarkedUnread(conversation: id, unread: true)
+            setMarkedUnreadLocally(id, marked)
+            await refreshUnreadSummary()
+        } catch {
+            setMarkedUnreadLocally(id, false)
+            actionError = "Couldn't mark as unread."
+        }
+    }
+
+    // MARK: Live comments (messaging socket, `liveComments` capability)
+
+    /// Comments sheet opened: follow the post over the socket if the server offers it.
+    /// Returns false when live comments aren't available (the caller keeps polling).
+    @discardableResult
+    func followPostComments(_ postID: String) async -> Bool {
+        await probeCapabilities()
+        let live = capabilities.liveComments
+        guard live.enabled, capabilities.realtime else { return false }
+        startRealtimeIfNeeded()
+        guard let realtime else { return false }
+        realtime.subscribePost(postID, frame: live.subscribeFrame, unsubscribeFrame: live.unsubscribeFrame)
+        return true
+    }
+
+    func unfollowPostComments(_ postID: String) {
+        realtime?.unsubscribePost(postID)
+        livePostIDs.remove(postID)
+        postCommentPulse[postID] = nil
+        postEngagement[postID] = nil
     }
 
     /// The 1:1 conversation with a person, matched on handle (case-insensitive, optional "@") or id.
@@ -808,7 +1272,57 @@ final class MessagingStore {
     }
 
     func messages(for id: ConversationID) -> [Message] {
-        MessagingOrdering.messagesChronological(threads[id] ?? [])
+        let raw = threads[id] ?? []  // read through `threads` so observation still tracks it
+        let sorted: [Message]
+        if let cached = chronologicalCache[id] { sorted = cached }
+        else { sorted = MessagingOrdering.messagesChronological(raw); chronologicalCache[id] = sorted }
+        // Disappearing messages: hide anything past `expiresAt` even before `message.expired` lands.
+        guard capabilities.features4.disappearing, sorted.contains(where: { $0.expiresAt != nil }) else { return sorted }
+        let now = Date()
+        return sorted.filter { ($0.expiresAt ?? .distantFuture) > now }
+    }
+
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    /// Also closes the realtime socket / presence heartbeat, which nothing stopped before
+    /// (it kept reconnecting with the revoked session after sign-out).
+    func resetForAccountChange() {
+        livePostIDs = []
+        pinnedMessages = [:]
+        scheduledByConversation = [:]
+        quickReplies = []
+        serverFolders = []
+        savedItems = []
+        savedCursor = nil
+        systemNotes = [:]
+        storyReactionPulse = [:]
+        postCommentPulse = [:]
+        postEngagement = [:]
+        stopRealtime()
+        // Next account re-probes (and restarts realtime) on its first Messages visit.
+        probedV2 = false
+        conversations = []
+        conversationCursor = nil
+        conversationHasMore = false
+        conversationState = .idle
+        threads = [:]
+        threadCursors = [:]
+        threadHasMore = [:]
+        threadState = [:]
+        typingPeople = [:]
+        requests = []
+        requestState = .idle
+        accountUnreadCount = nil
+        presenceByActor = [:]
+        groups = [:]
+        historyHits = []
+        historyHasMore = false
+        historyCursor = nil
+        historyState = .idle
+        reactionDetails = [:]
+        receiptsByMessage = [:]
+        hiddenUnlockedThisSession = false
+        actionError = nil
     }
 
     func clearActionError() { actionError = nil }
@@ -816,6 +1330,7 @@ final class MessagingStore {
     #if DEBUG
     func installDebugInbox(_ items: [Conversation]) {
         conversations = items
+        accountUnreadCount = items.reduce(0) { $0 + $1.unreadCount }
         conversationState = .loaded
     }
 
@@ -1038,6 +1553,7 @@ final class MessagingStore {
     /// Reconciles a server inbox page with local archive/hide flags without inventing chats the API never returned,
     /// while keeping archived snapshots so the Archived folder still has something to show.
     private func adoptInbox(_ items: [Conversation], replacing: Bool) {
+        adoptServerChatPins(items)
         var incoming = items
         for index in incoming.indices {
             if archivedIDs.contains(incoming[index].id) {
@@ -1221,14 +1737,15 @@ enum MessagingArchiveSnapshotStore {
 }
 
 enum MessageThreadSearchScope: String, CaseIterable, Identifiable, Sendable {
-    case all, from, links, images, starred
+    case all, from, links, images, voice, starred
     var id: String { rawValue }
     var title: String {
         switch self {
         case .all: "All"
         case .from: "From"
         case .links: "Links"
-        case .images: "Images"
+        case .images: "Photos"
+        case .voice: "Voice"
         case .starred: "Starred"
         }
     }
@@ -1249,6 +1766,8 @@ enum MessageThreadSearchScope: String, CaseIterable, Identifiable, Sendable {
         case .images:
             guard let url, case .image = MessageInlineContent.classify(url) else { return false }
             return q.isEmpty || text.contains(q)
+        case .voice:
+            return message.kind == .voice && !message.isDeleted && (q.isEmpty || hasText)
         case .starred:
             return starredIDs.contains(message.id) && (q.isEmpty || hasText)
         }
@@ -1440,7 +1959,8 @@ extension MessagingStore {
     }
 
     func mentionCandidates(in id: ConversationID, query: String?) -> [ModulaComposerMention] {
-        guard capabilities.mentions else { return [] }
+        // No "@…" being typed → no suggestion card (it used to sit above the composer permanently).
+        guard capabilities.mentions, query != nil else { return [] }
         let people: [ConversationParticipant]
         if let members = groups[id]?.members {
             people = members.filter { !$0.isMe && $0.state == "active" && !$0.blocked }.map(\.participant)
@@ -1467,14 +1987,15 @@ extension MessagingStore {
         }
     }
 
-    func loadReceipts(_ message: Message) async {
+    /// `quiet`: background loads (the avatar stack under your last message) never raise an error toast.
+    func loadReceipts(_ message: Message, quiet: Bool = false) async {
         guard capabilities.groupReadReceipts, message.isOwn, !message.id.hasPrefix("local-") else { return }
         do {
             receiptsByMessage[message.id] = try await repository.receipts(conversation: message.conversationID, message: message.id)
         } catch APIError.rejected(403, _) {
             receiptsByMessage[message.id] = MessageReceipts(readBy: [], notYet: [], hiddenCount: 0, receiptsDisabled: true)
         } catch {
-            actionError = "Couldn't load who has read this."
+            if !quiet { actionError = "Couldn't load who has read this." }
         }
     }
 
@@ -1632,10 +2153,13 @@ extension MessagingStore {
         switch event {
         case .hello:
             realtimeConnected = true
+            // Topics re-subscribe on hello; they're live again once re-acked.
+            if !livePostIDs.isEmpty { livePostIDs = [] }
             presenceHeartbeatTask?.cancel()
             presenceHeartbeatTask = nil
         case .disconnected:
             realtimeConnected = false
+            if !livePostIDs.isEmpty { livePostIDs = [] }
             startPresenceHeartbeatFallback()
         case .messageCreated(let conversation, _, _, _), .messageUpdated(let conversation, _), .messageDeleted(let conversation, _):
             Task { _ = await pollThread(conversation); await pollInbox() }
@@ -1656,17 +2180,60 @@ extension MessagingStore {
             }
         case .read(let conversation, _, _):
             Task { _ = await pollThread(conversation) }
-        case .conversationUpdated(let conversation, _):
+        case .conversationUpdated(let conversation, let reason):
+            let ttlBefore = self.conversation(id: conversation)?.disappearingTtlSeconds
             Task {
                 await pollInbox()
                 if capabilities.groups { await loadGroup(conversation) }
+                if reason == "disappearing", let now = self.conversation(id: conversation), now.disappearingTtlSeconds != ttlBefore {
+                    systemNotes[conversation, default: []].append(
+                        MessagingSystemNote(text: DisappearingNote.text(ttlSeconds: now.disappearingTtlSeconds), at: Date()))
+                }
             }
+        case .scheduledUpdated(let conversation):
+            Task {
+                await loadScheduled(conversation)
+                await refreshThread(conversation)
+            }
+        case .foldersUpdated:
+            Task { await loadFolders() }
+        case .quickRepliesUpdated:
+            Task { await loadQuickReplies() }
         case .presence(let item):
             presenceByActor[item.actorId] = item
         case .callUpdated(let update):
             CallManager.shared.handleRealtime(update)
+        case .conversationUnread(let conversation, let marked):
+            guard capabilities.markUnread else { return }
+            if marked { setMarkedUnreadLocally(conversation, true) } else { setMarkedUnreadLocally(conversation, false) }
+            Task { await refreshUnreadSummary() }
+        case .storyReaction(let item):
+            storyReactionPulse[item, default: 0] &+= 1
+        case .messagePinned(let conversation):
+            Task { await loadMessagePins(conversation) }
+        case .messageSaved(let message, let saved):
+            if saved != starredIDs.contains(message) { toggleStar(message) }
+        case .messagesExpired(let conversation, let ids):
+            dropMessages(ids, in: conversation)
+        case .postSubscribed(let post):
+            livePostIDs.insert(post)
+        case .postComments(let post):
+            postCommentPulse[post, default: 0] &+= 1
+        case .postEngagement(let post, let likes, let reactions, let replies):
+            var counts = postEngagement[post] ?? PostEngagementCounts()
+            if let likes { counts.likeCount = likes }
+            if let reactions { counts.reactionCount = reactions }
+            if let replies { counts.replyCount = replies }
+            postEngagement[post] = counts
         case .error:
             break
         }
     }
+}
+
+/// Counts pushed by `post.engagement` (each optional: only what the server sent).
+struct PostEngagementCounts: Hashable, Sendable {
+    var likeCount: Int?
+    var reactionCount: Int?
+    var replyCount: Int?
 }

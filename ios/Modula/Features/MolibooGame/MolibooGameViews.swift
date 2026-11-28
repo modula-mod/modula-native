@@ -105,7 +105,7 @@ struct MolibooOutfitsPanel: View {
         Group {
             if !MolibooGameFlags.enabled { MolibooGameUnavailable() }
             else if let store { content(store).modifier(MolibooGameMessage(store: store)) }
-            else { ProgressView().frame(maxWidth: .infinity, minHeight: 160) }
+            else { ModulaLoadingState(title: "Loading your Moliboo…").frame(maxWidth: .infinity, minHeight: 160) }
         }
         .task {
             guard MolibooGameFlags.enabled, store == nil else { return }
@@ -118,11 +118,7 @@ struct MolibooOutfitsPanel: View {
     private func content(_ store: MolibooGameStore) -> some View {
         VStack(spacing: 12) {
             HStack {
-                Picker("Outfits", selection: $segment) {
-                    Text("Full outfits").tag(0)
-                    Text("My outfits").tag(1)
-                }
-                .pickerStyle(.segmented)
+                ModulaSegmentedControl("Outfits", selection: $segment, segments: [(0, "Full outfits"), (1, "My outfits")])
                 Button { showInventory = true } label: { Label("Inventory", systemImage: "square.grid.3x3.fill").labelStyle(.iconOnly) }
                     .frame(width: 44, height: 44)
                     .modulaGlass(in: Circle(), interactive: true)
@@ -138,7 +134,7 @@ struct MolibooOutfitsPanel: View {
                         Button { newName = ""; naming = true } label: {
                             Label("Save what I’m wearing", systemImage: "plus.circle.fill").font(.headline).frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                         .accessibilityIdentifier("moliboo.outfits.save")
                         if store.saved.isEmpty {
                             Text("Mix pieces in the Wardrobe, then save the look here.").font(.callout).foregroundStyle(.secondary).padding(.top, 12)
@@ -156,7 +152,7 @@ struct MolibooOutfitsPanel: View {
             Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showInventory) {
-            NavigationStack { MolibooInventoryView(store: store) }.presentationDetents([.large])
+            NavigationStack { MolibooInventoryView(store: store) }.presentationDetents([.large]).modulaSheetStyle()
         }
     }
 
@@ -167,10 +163,10 @@ struct MolibooOutfitsPanel: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(outfit.name).font(.headline)
-                Text("\(outfit.itemIds.count) pieces").font(.caption).foregroundStyle(.secondary)
+                Text(outfit.itemIds.count == 1 ? "1 piece" : "\(outfit.itemIds.count) pieces").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Wear") { Task { await store.equip(saved: outfit) } }.buttonStyle(.borderedProminent).controlSize(.small)
+            Button("Wear") { Task { await store.equip(saved: outfit) } }.buttonStyle(.modulaPrimary).controlSize(.small)
         }
         .padding(12)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
@@ -190,7 +186,7 @@ private struct OutfitSetCard: View {
                     HStack(spacing: 6) {
                         MolibooRarityDot(rarity: set.rarity)
                         Text(set.name).font(.headline)
-                        if worn { Image(systemName: "checkmark.seal.fill").foregroundStyle(Color.accentColor).accessibilityLabel("Wearing") }
+                        if worn { Image(systemName: "checkmark.seal.fill").foregroundStyle(Color.primary).accessibilityLabel("Wearing") }
                     }
                     Text(accessLine).font(.caption).foregroundStyle(.secondary)
                     if let c = set.completion {
@@ -212,6 +208,7 @@ private struct OutfitSetCard: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             if let bonus = set.setBonus {
                 Label(bonus.name, systemImage: "sparkles").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
@@ -219,7 +216,7 @@ private struct OutfitSetCard: View {
                 Text(set.completion?.complete == true ? (worn ? "Wearing" : "Wear full outfit") : "Unlock every piece to wear")
                     .frame(maxWidth: .infinity, minHeight: 36)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .disabled(worn || set.completion?.complete != true)
             .accessibilityIdentifier("moliboo.outfit.wear.\(set.setId)")
         }
@@ -264,6 +261,7 @@ struct MolibooInventoryView: View {
                         ForEach(MolibooWearableSlot.allCases) { s in chip(s.title, s) }
                     }
                 }
+                .modulaHorizontalRail()
                 Toggle("Only what I can wear", isOn: $ownedOnly).font(.callout)
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(entries) { e in cell(e) }
@@ -288,8 +286,10 @@ struct MolibooInventoryView: View {
         return Button(title) { slot = s }
             .font(.callout.weight(.semibold))
             .padding(.horizontal, 14).frame(minHeight: 36)
-            .foregroundStyle(on ? Color.accentColor : .primary)
-            .modulaGlass(in: Capsule(), interactive: true, tint: on ? Color.accentColor.opacity(0.18) : nil)
+            // Selected = solid black/white (same as the segmented control).
+            .foregroundStyle(on ? Color(uiColor: .systemBackground) : .primary)
+            .modulaGlass(in: Capsule(), interactive: true, tint: on ? Color.primary : nil, prominent: on)
+            .sensoryFeedback(.selection, trigger: on)
             .accessibilityAddTraits(on ? .isSelected : [])
     }
 
@@ -361,7 +361,7 @@ struct MolibooSkillsBuffsCard: View {
                 if !reduceMotion { withAnimation(.spring(duration: 0.35)) { pulse = true } }
                 Task { await store.useSkill(); pulse = false }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .disabled(!skill.ready || store.busy)
             .accessibilityHint("Plays the signature animation and adds a short glow")
             .accessibilityIdentifier("moliboo.skill.use")
@@ -371,11 +371,15 @@ struct MolibooSkillsBuffsCard: View {
     private var careRow: some View {
         HStack(spacing: 8) {
             ForEach(MolibooGameCareAction.allCases) { a in
-                Button { Task { await store.care(a) } } label: {
+                Button {
+                    HapticEngine.shared.play(.lightImpact)
+                    Task { await store.care(a) }
+                } label: {
                     VStack(spacing: 3) { Image(systemName: a.symbol).font(.body.weight(.semibold)); Text(a.title).font(.caption2.weight(.semibold)) }
                         .frame(maxWidth: .infinity, minHeight: 52)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MolibooSpringPressStyle())
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
                 .accessibilityIdentifier("moliboo.care.\(a.rawValue)")
             }
@@ -444,9 +448,9 @@ struct MolibooQuestsPanel: View {
                 Text("\(q.progress)/\(q.target) · \(rewardLine(q))").font(.caption2).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            if q.claimed { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor).accessibilityLabel("Collected") }
+            if q.claimed { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.primary).accessibilityLabel("Collected") }
             else if q.completed {
-                Button("Collect") { Task { await store.claim(q) } }.buttonStyle(.borderedProminent).controlSize(.small)
+                Button("Collect") { Task { await store.claim(q) } }.buttonStyle(.modulaPrimary).controlSize(.small)
                     .accessibilityIdentifier("moliboo.quest.claim.\(q.questId)")
             }
         }

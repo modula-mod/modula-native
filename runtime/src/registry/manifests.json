@@ -37,5 +37,21 @@
     ],
     "minHostVersion": "0.1.0",
     "minBridgeVersion": "0.1.0"
+  },
+  {
+    "id": "digital.modula.connect",
+    "name": "Modula Connect",
+    "version": "0.1.0",
+    "runtime": "react-native",
+    "entry": "connect",
+    "permissions": [
+      "navigation.open",
+      "haptics.selection",
+      "diagnostics.ready",
+      "diagnostics.dataReady",
+      "diagnostics.fail"
+    ],
+    "minHostVersion": "0.1.0",
+    "minBridgeVersion": "0.1.0"
   }
 ]

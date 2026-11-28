@@ -16,6 +16,7 @@ struct ReelsRouteView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .modifier(ModulaKeepAwake(key: ModulaKeepAwake.reelsKey))
         .task {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--uitest-reels-fixture") {
@@ -106,8 +107,9 @@ struct ReelFeedView: View {
                 ReelFeedTabs(tab: $feedTab)
                 Spacer()
                 Menu {
-                    Button("Post a video", systemImage: "video.badge.plus") {
+                    Button("Post a reel", systemImage: "video.badge.plus") {
                         HapticEngine.shared.play(.navigation)
+                        app.navigation.composeOrigin = .reels
                         app.navigation.open(.compose(.video))
                     }
                     if LiveFeatureFlags.isEnabled {
@@ -123,7 +125,7 @@ struct ReelFeedView: View {
                         .frame(height: 44)
                         .contentShape(Capsule())
                 }
-                .modulaGlass(in: Capsule(), tint: app.appearance.liveAccent.opacity(0.45), specular: true)
+                .modulaGlass(in: Capsule(), tint: nil, specular: true)
                 .accessibilityLabel("Create")
                 .accessibilityIdentifier("reels.create")
             }
@@ -161,7 +163,7 @@ struct ReelFeedView: View {
             if let reel = current, reel.postID != nil {
                 PostCommentsSheet(postID: reel.postID ?? reel.id)
                     .presentationDetents([.medium, .large], selection: $commentsDetent)
-                    .presentationDragIndicator(.visible)
+                    .modulaSheetStyle()
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
         }
@@ -170,6 +172,32 @@ struct ReelFeedView: View {
             AttachmentViewerRouter(attachment: attachment, onDismiss: { expandedVideo = nil })
         }
         .onChange(of: app.reels.activeID) { _, id in prefetchNeighbours(of: id) }
+        // Hardware keyboard: ↑/↓ previous/next reel; space and M go to the active page.
+        .focusable()
+        .focusEffectDisabled()
+        .onKeyPress(.upArrow) { move(-1); return .handled }
+        .onKeyPress(.downArrow) { move(1); return .handled }
+        .onKeyPress(.space) { NotificationCenter.default.post(name: .modulaReelKey, object: "space"); return .handled }
+        .onKeyPress(characters: CharacterSet(charactersIn: "mM"), phases: .down) { _ in
+            NotificationCenter.default.post(name: .modulaReelKey, object: "m"); return .handled
+        }
+        // L like, S speed, ←/→ ±5 s.
+        .onKeyPress(characters: CharacterSet(charactersIn: "lL"), phases: .down) { _ in
+            NotificationCenter.default.post(name: .modulaReelKey, object: "l"); return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "sS"), phases: .down) { _ in
+            NotificationCenter.default.post(name: .modulaReelKey, object: "s"); return .handled
+        }
+        .onKeyPress(.leftArrow) { NotificationCenter.default.post(name: .modulaReelKey, object: "back"); return .handled }
+        .onKeyPress(.rightArrow) { NotificationCenter.default.post(name: .modulaReelKey, object: "forward"); return .handled }
+        #if DEBUG
+        .task {
+            // `--debug-open-comments`: open the comments sheet on the first reel for screenshots.
+            guard ProcessInfo.processInfo.arguments.contains("--debug-open-comments") else { return }
+            try? await Task.sleep(for: .milliseconds(1500))
+            if current?.postID != nil { commentsDetent = .medium; showsComments = true }
+        }
+        #endif
         .accessibilityIdentifier("reels.feed")
         .accessibilityValue(RouteSerializer.serialize(focusID.map { .reels(.reel($0)) } ?? .reels(.feed)))
     }
@@ -185,7 +213,7 @@ struct ReelFeedView: View {
                 ForEach(app.reels.items) { reel in
                     ReelPageView(
                         reel: reel,
-                        isActive: app.reels.activeID == reel.id && expandedVideo == nil && scenePhase == .active,
+                        isActive: app.reels.activeID == reel.id && expandedVideo == nil && (scenePhase == .active || ModulaPiP.shared.activePlayer != nil || (scenePhase == .inactive && ModulaPiP.autoStartEnabled)),
                         coordinator: videoCoordinator,
                         reduceMotion: reduceMotion,
                         controlsTopInset: topBarBottom,
@@ -224,12 +252,26 @@ struct ReelFeedView: View {
 
     /// Warm the cache for the previous/next two reels so paging never lands on a spinner.
     private func prefetchNeighbours(of id: ReelID?) {
-        guard let id, let index = app.reels.index(of: id), ModulaPreferences.prefetchesVideo() else { return }
+        guard let id, let index = app.reels.index(of: id) else { return }
+        // Speed: creator avatars for the next reels are tiny; warm them even when video
+        // prefetch is off, so the rail never pops its avatar in after a swipe.
+        for offset in [1, 2, -1] {
+            let i = index + offset
+            guard app.reels.items.indices.contains(i), let url = app.reels.items[i].creator.avatarURL else { continue }
+            ModulaImagePrefetcher.prefetch(url: url, cacheKey: "avatar:\(url.path)", maximumPixelSize: 160, client: app.client)
+        }
+        guard ModulaPreferences.prefetchesVideo() else { return }
         let manager = app.attachmentDownloads
         for offset in [1, -1, 2] {
             let i = index + offset
             guard app.reels.items.indices.contains(i), let attachment = app.reels.items[i].attachment else { continue }
-            Task.detached(priority: .utility) { _ = try? await manager.download(attachment) }
+            if let local = attachment.localFileURL { ModulaPlayerPool.shared.prepare(local) }
+            Task.detached(priority: .utility) {
+                // Downloaded neighbours are pre-rolled so the swipe lands on a ready item.
+                if let url = try? await manager.download(attachment) {
+                    await MainActor.run { ModulaPlayerPool.shared.prepare(url) }
+                }
+            }
         }
     }
 
@@ -255,26 +297,43 @@ struct ReelPageView: View {
     @AppStorage("reels.playbackRate") private var savedRate = 1.0
     @State private var heartBurst = 0
     @State private var heartPoint: CGPoint? = nil
+    /// Global frame of the Like button while the reaction strip is open.
+    @State private var reactionAnchor: CGRect?
     @State private var clearDisplay = false
     @State private var showsQuickMenu = false
-    @State private var captionsOn = true
+    /// Quick menu "Captions": was toggled but never read. Persisted and drives the caption text.
+    @AppStorage("reels.captionsOn") private var captionsOn = true
     @State private var edgeBoost = false
+    /// Hold-to-pause: pressing pauses after a short delay (so swipes don't flicker) and hides the
+    /// overlays; lifting the finger resumes.
+    @State private var holdTask: Task<Void, Never>?
+    @State private var holdPaused = false
     @State private var playback = ModulaVideoPlaybackController()
 
     var body: some View {
         ZStack {
-            poster
-            // KEEP: module/video permission gate — do not remove or "fix".
-            if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
-                ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
-                                   height: nil, cornerRadius: 0, allowsPlayback: isActive,
-                                   controlsTopInset: controlsTopInset, immersive: true,
-                                   externalController: playback)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(false ? 0.72 : 1, anchor: .top)
-                    .clipShape(RoundedRectangle(cornerRadius: false ? 18 : 0, style: .continuous))
+            // Video layer only: double-tap like, tap pause and hold live HERE, not on the page.
+            // On the page container they sat above the rail/top bar Buttons, so every tap had to
+            // wait for the double-tap and long-press recognisers to fail (taps felt like they needed
+            // a hard/long press). The overlay controls are siblings now and respond instantly.
+            ZStack {
+                poster
+                // KEEP: module/video permission gate — do not remove or "fix".
+                if let attachment = reel.attachment, app.reels.capabilities.videoPlayback {
+                    ModulaVideoSurface(attachment: attachment, coordinator: coordinator, onExpand: onExpand,
+                                       height: nil, cornerRadius: 0, allowsPlayback: isActive,
+                                       controlsTopInset: controlsTopInset, immersive: true,
+                                       externalController: playback)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
-            if !clearDisplay {
+            .contentShape(Rectangle())
+            .gesture(videoTapGesture)
+            .onLongPressGesture(minimumDuration: 0.45, perform: {
+                HapticEngine.shared.play(.contextOpen)
+                showsQuickMenu = true
+            }, onPressingChanged: handleHold)
+            if !clearDisplay, !holdPaused {
                 // Legibility scrims: top (tabs/Create), right edge (rail) and bottom (caption),
                 // so overlays stay readable over busy video such as screen recordings.
                 LinearGradient(colors: [.black.opacity(0.32), .black.opacity(0.1), .clear], startPoint: .top, endPoint: .bottom)
@@ -298,9 +357,14 @@ struct ReelPageView: View {
                 .allowsHitTesting(false)
             }
             DoubleTapHeartBurst(trigger: heartBurst, point: heartPoint)
-            if !clearDisplay {
+                .allowsHitTesting(false)
+            playbackStatus
+            if let anchor = reactionAnchor {
+                reactionLayer(anchor: anchor)
+            }
+            if !clearDisplay, !holdPaused {
                 HStack(alignment: .bottom, spacing: 0) {
-                    ReelCaptionBlock(reel: reel)
+                    ReelCaptionBlock(reel: reel, showsCaption: captionsOn)
                         .padding(.leading, 14)
                         .padding(.bottom, 56)
                     Spacer(minLength: 8)
@@ -316,13 +380,18 @@ struct ReelPageView: View {
                                 excerpt: resolved.text,
                                 hasMedia: true
                             ))
+                        },
+                        onReactionsRequested: { frame in
+                            withAnimation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
+                                reactionAnchor = frame
+                            }
                         }
                     )
                 }
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .transition(.opacity)
             }
-            if !clearDisplay, reel.attachment != nil {
+            if !clearDisplay, !holdPaused, reel.attachment != nil {
                 Button {
                     playback.toggleMute()
                     HapticEngine.shared.play(.selection)
@@ -347,7 +416,7 @@ struct ReelPageView: View {
                     HapticEngine.shared.play(.selection)
                     app.navigation.flash("Speed 1×", symbol: "gauge.with.needle")
                 } label: {
-                    Text(String(format: "%.2g×", savedRate))
+                    Text(String(format: "%g×", savedRate))
                         .font(.caption.weight(.bold))
                         .monospacedDigit()
                         .foregroundStyle(.white)
@@ -373,6 +442,7 @@ struct ReelPageView: View {
             }
             if showsQuickMenu {
                 Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { showsQuickMenu = false }
+                    .transition(.opacity)
                 ReelQuickMenu(
                     rate: playback.rate,
                     captionsOn: captionsOn,
@@ -399,31 +469,64 @@ struct ReelPageView: View {
                         HapticEngine.shared.play(.success)
                         app.navigation.flash("Link copied", symbol: "link")
                     },
+                    onMiniPlayer: playback.player == nil ? nil : {
+                        ModulaVideoDock.shared.dock(from: playback, title: reel.caption ?? "Reel by \(reel.creator.displayName)",
+                                                    aspect: 9.0 / 16.0, route: .reels(.reel(reel.id)))
+                    },
+                    onPictureInPicture: (playback.player == nil || !ModulaPiP.isSupported) ? nil : {
+                        ModulaPiP.shared.start(playback.player)
+                    },
+                    onCopyCaption: (reel.caption?.isEmpty ?? true) ? nil : {
+                        UIPasteboard.general.string = reel.caption
+                        HapticEngine.shared.play(.success)
+                        app.navigation.flash("Caption copied", symbol: "text.quote")
+                    },
+                    onShareCard: {
+                        guard let image = ReelShareCard.render(reel) else { return }
+                        HapticEngine.shared.play(.success)
+                        var items: [Any] = [image]
+                        if reel.postID != nil { items.append(ModulaShareLink.post(resolved.id)) }
+                        PostSharing.presentSystemSheet(items: items)
+                    },
+                    onRemix: {
+                        HapticEngine.shared.play(.warning)
+                        app.navigation.flash("Remix and Duet aren't available yet", symbol: "rectangle.split.2x1")
+                    },
+                    onSleepTimer: { minutes in
+                        ReelSleepTimer.shared.set(minutes: minutes)
+                        app.navigation.flash(minutes == 0 ? "Sleep timer off" : "Reels pause in \(minutes) min", symbol: "moon.zzz")
+                    },
+                    sleepMinutesLeft: ReelSleepTimer.shared.minutesLeft,
                     onDismiss: { showsQuickMenu = false }
                 )
+                // Grows out of the press point area instead of popping in.
+                .transition(reduceMotion ? .opacity : .scale(scale: 0.85).combined(with: .opacity))
             }
         }
-        .contentShape(Rectangle())
-        // Double tap = like with a heart at the finger; single tap = pause/resume.
-        .gesture(
-            SpatialTapGesture(count: 2).onEnded { event in
-                guard ModulaPreferences.doubleTapToLike else { return }
-                heartPoint = event.location
+        .animation(.easeOut(duration: 0.18), value: holdPaused)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.82), value: showsQuickMenu)
+        .onReceive(NotificationCenter.default.publisher(for: .modulaReelSleep)) { _ in
+            guard isActive else { return }
+            playback.pause()
+            app.navigation.flash("Sleep timer: reels paused", symbol: "moon.zzz")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .modulaReelKey)) { note in
+            guard isActive, reel.attachment != nil else { return }
+            switch note.object as? String {
+            case "m": playback.toggleMute()
+            case "l":
                 let post = resolved
-                if !post.liked { Task { await app.postActions.toggleLike(post) } }
-                HapticEngine.shared.play(.lightImpact)
-                heartBurst += 1
+                Task { await app.postActions.toggleLike(post) }
+                HapticEngine.shared.play(.reactionSelect)
+                if !post.liked { heartBurst += 1 }
+            case "s": savedRate = Double(playback.cycleRate())
+            case "back": playback.skip(by: -5)
+            case "forward": playback.skip(by: 5)
+            default: playback.toggle()
             }
-            .exclusively(before: TapGesture().onEnded {
-                guard reel.attachment != nil, !showsQuickMenu else { return }
-                playback.toggle()
-                HapticEngine.shared.play(.selection)
-            })
-        )
-        .onLongPressGesture(minimumDuration: 0.45) {
-            HapticEngine.shared.play(.contextOpen)
-            showsQuickMenu = true
         }
+        .accessibilityAction(named: "Skip forward 10 seconds") { playback.skip(by: 10) }
+        .accessibilityAction(named: "Skip back 10 seconds") { playback.skip(by: -10) }
         // Auto-scroll: end-of-item notification (not `progress`, so this page doesn't
         // re-render four times a second just to watch for the end).
         .overlay(alignment: .bottom) {
@@ -433,6 +536,7 @@ struct ReelPageView: View {
                     .padding(.bottom, 30)
             }
         }
+        .onChange(of: isActive) { _, active in if !active { reactionAnchor = nil } }
         .onAppear {
             // Speed chosen in the quick menu sticks across reels and launches.
             if abs(Double(playback.rate) - savedRate) > 0.01 { playback.setRate(Float(savedRate)) }
@@ -474,11 +578,125 @@ struct ReelPageView: View {
         app.posts.resolved(reel.asSocialPost())
     }
 
+    /// Double tap = like with a heart at the finger; single tap = pause/resume. Video layer only.
+    private var videoTapGesture: some Gesture {
+        SpatialTapGesture(count: 2).onEnded { event in
+            guard ModulaPreferences.doubleTapToLike else { return }
+            heartPoint = event.location
+            let post = resolved
+            if !post.liked { Task { await app.postActions.toggleLike(post) } }
+            HapticEngine.shared.play(.reactionSelect) // same haptic as picking a reaction
+            heartBurst += 1
+        }
+        .exclusively(before: TapGesture().onEnded {
+            guard reel.attachment != nil, !showsQuickMenu else { return }
+            playback.toggle()
+            HapticEngine.shared.play(.selection)
+        })
+    }
+
+    /// Press-and-hold on the video pauses it while held (the quick menu opens at 0.45 s).
+    private func handleHold(_ pressing: Bool) {
+        holdTask?.cancel()
+        if pressing {
+            guard reel.attachment != nil, playback.state == .playing else { return }
+            holdTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(180))
+                guard !Task.isCancelled else { return }
+                playback.pause()
+                holdPaused = true
+            }
+        } else if holdPaused {
+            holdPaused = false
+            if !showsQuickMenu { playback.play() }
+        }
+    }
+
     /// Share the backing post when there is one; otherwise the reel itself
     /// (a reel id is not a post id).
     private var shareRoute: AppRoute {
         if let postID = reel.postID { return .post(postID, .root) }
         return .reels(.reel(reel.id))
+    }
+
+    /// Shared reaction strip (same component as posts/comments), opened by long-pressing Like.
+    /// Sits to the left of the button; tapping anywhere else closes it.
+    private func reactionLayer(anchor: CGRect) -> some View {
+        GeometryReader { geo in
+            let origin = geo.frame(in: .global).origin
+            let width = CGFloat(PostEmojiReaction.quick.count) * 42 + 12
+            let x = min(max(anchor.minX - origin.x - 8 - width / 2, width / 2 + 8), geo.size.width - width / 2 - 8)
+            ZStack {
+                Color.black.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { closeReactions() }
+                    .accessibilityHidden(true)
+                ModulaEmojiReactionStrip(
+                    options: PostEmojiReaction.quick.map { ModulaEmojiReactionOption(id: $0.emoji, emoji: $0.emoji, title: $0.title) },
+                    selectedID: resolved.liked ? (PostEmojiReactionStore.shared.emoji(for: resolved.id) ?? PostEmojiReaction.heart.emoji) : nil,
+                    onPick: { option in react(option.emoji) },
+                    onMore: nil
+                )
+                .environment(\.colorScheme, .dark)
+                .position(x: x, y: anchor.midY - origin.y)
+                .transition(.scale(scale: 0.3, anchor: .trailing).combined(with: .opacity))
+                .accessibilityIdentifier("reels.reaction.strip")
+            }
+        }
+        .ignoresSafeArea()
+        .accessibilityAction(.escape) { closeReactions() }
+    }
+
+    private func closeReactions() {
+        withAnimation(.easeOut(duration: 0.16)) { reactionAnchor = nil }
+    }
+
+    private func react(_ emoji: String) {
+        let option = PostEmojiReaction.custom(emoji)
+        let post = resolved
+        PostEmojiReactionStore.shared.set(emoji == PostEmojiReaction.heart.emoji ? nil : emoji, for: post.id)
+        heartPoint = nil
+        heartBurst += 1
+        closeReactions()
+        Task { await app.postActions.setReaction(post, reaction: option.reaction) }
+    }
+
+    /// Loading spinner while the first frame is coming, an error card with Retry when the item
+    /// fails, and a quiet note when this reel has no playable video (instead of a blank 0:00 page).
+    @ViewBuilder private var playbackStatus: some View {
+        if reel.attachment == nil || !app.reels.capabilities.videoPlayback {
+            if isActive {
+                Label("Video isn't available", systemImage: "video.slash")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 36)
+                    .modulaGlass(in: Capsule(), interactive: false, tint: .black.opacity(0.3))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, controlsTopInset + 60)
+                    .allowsHitTesting(false)
+            }
+        } else if isActive, playback.state == .failed {
+            VStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle").font(.title2)
+                Text("Couldn't play this video").font(.subheadline.weight(.semibold))
+                Button("Try again") {
+                    playback.retry()
+                    HapticEngine.shared.play(.selection)
+                }
+                .buttonStyle(.modulaPrimary)
+                .accessibilityIdentifier("reels.retry")
+            }
+            .foregroundStyle(.white)
+            .padding(20)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, tint: .black.opacity(0.35))
+        } else if isActive, playback.state == .playing, playback.duration == 0 {
+            ProgressView()
+                .tint(.white)
+                .controlSize(.large)
+                .allowsHitTesting(false)
+                .accessibilityLabel("Loading video")
+        }
     }
 
     private var poster: some View {
@@ -564,7 +782,7 @@ struct ReelOverlay: View {
                         if reel.author?.isVerified == true {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.caption)
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .accessibilityLabel("Verified")
                         }
                     }
@@ -667,9 +885,9 @@ struct DiscoverReelsShelf: View {
                             onOpen(reel)
                         } label: {
                             ZStack(alignment: .bottomLeading) {
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color(hex: reel.posterColor ?? "#222222"))
+                                ModulaMediaPlaceholder(hex: reel.posterColor)
                                     .frame(width: 132, height: 196)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                 if let url = reel.media?.posterURL {
                                     ModulaRemoteImage(url: url, cacheKey: "reel-poster:\(reel.id)", maximumPixelSize: 480) { phase in
                                         if case .success(let image) = phase {
@@ -708,6 +926,7 @@ struct DiscoverReelsShelf: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
         .accessibilityIdentifier("discover.reels.shelf")
     }
@@ -752,7 +971,7 @@ struct ReelsInstallModuleCard: View {
         VStack(spacing: 14) {
             Image(systemName: "puzzlepiece.extension.fill")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 76, height: 76)
                 .modulaGlass(in: Circle(), interactive: false)
             Text("Install a module to watch")
@@ -767,7 +986,7 @@ struct ReelsInstallModuleCard: View {
                     .padding(.horizontal, 20).frame(height: 44)
             }
             .buttonStyle(.plain)
-            .modulaGlass(in: Capsule(), tint: app.appearance.liveAccent)
+            .modulaGlass(in: Capsule(), tint: nil)
             Button("Try again", action: onRetry)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -788,6 +1007,8 @@ struct ReelsInstallModuleCard: View {
 struct ReelProgressBar: View {
     let playback: ModulaVideoPlaybackController
     @State private var scrubbing: Double?
+    @State private var lastTick = -1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -797,20 +1018,49 @@ struct ReelProgressBar: View {
                 Capsule().fill(.white.opacity(0.18))
                 Capsule().fill(.white.opacity(0.36)).frame(width: width * max(playback.buffered, played))
                 Capsule().fill(.white.opacity(0.95)).frame(width: width * played)
+                    // Glide between the 0.25 s time-observer ticks instead of stepping (GPU-cheap).
+                    .animation(scrubbing == nil && !reduceMotion && playback.state == .playing ? .linear(duration: 0.25) : nil, value: played)
+                if scrubbing != nil {
+                    Circle().fill(.white)
+                        .frame(width: 12, height: 12)
+                        .offset(x: width * played - 6)
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
             .frame(height: scrubbing == nil ? 2.5 : 5)
             .frame(maxHeight: .infinity, alignment: .center)
+            .overlay(alignment: .topLeading) {
+                if let scrubbing, playback.duration > 0 {
+                    // Time bubble above the finger while scrubbing.
+                    Text("\(Self.clock(scrubbing * playback.duration)) / \(Self.clock(playback.duration))")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .fixedSize()
+                        .offset(x: min(max(width * scrubbing - 46, 0), max(width - 92, 0)), y: -30)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
+            }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { value in scrubbing = min(max(value.location.x / max(width, 1), 0), 1) }
+                    .onChanged { value in
+                        let fraction = min(max(value.location.x / max(width, 1), 0), 1)
+                        scrubbing = fraction
+                        // Light tick every 10%.
+                        let tick = Int(fraction * 10)
+                        if tick != lastTick { lastTick = tick; HapticEngine.shared.play(.selection) }
+                    }
                     .onEnded { value in
                         playback.seek(to: min(max(value.location.x / max(width, 1), 0), 1))
                         scrubbing = nil
+                        lastTick = -1
                         HapticEngine.shared.play(.selection)
                     }
             )
-            .animation(.easeOut(duration: 0.15), value: scrubbing == nil)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: scrubbing == nil)
         }
         .frame(height: 22)
         .accessibilityElement()
@@ -824,5 +1074,78 @@ struct ReelProgressBar: View {
             @unknown default: break
             }
         }
+    }
+    static func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.isFinite ? seconds.rounded() : 0))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+
+extension Notification.Name {
+    /// Hardware-keyboard command for the active reel page ("space" / "m").
+    static let modulaReelKey = Notification.Name("modula.reels.key")
+    /// Reels sleep timer fired: the active page pauses.
+    static let modulaReelSleep = Notification.Name("modula.reels.sleep")
+}
+
+/// Quick menu › Sleep timer: pauses Reels after N minutes (this session only).
+@MainActor @Observable
+final class ReelSleepTimer {
+    static let shared = ReelSleepTimer()
+    private(set) var endsAt: Date?
+    @ObservationIgnored private var task: Task<Void, Never>?
+
+    var minutesLeft: Int? {
+        guard let endsAt else { return nil }
+        return max(1, Int((endsAt.timeIntervalSinceNow / 60).rounded(.up)))
+    }
+
+    func set(minutes: Int) {
+        task?.cancel()
+        guard minutes > 0 else { endsAt = nil; return }
+        let end = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        endsAt = end
+        task = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(end.timeIntervalSinceNow))
+            guard !Task.isCancelled, let self, self.endsAt == end else { return }
+            self.endsAt = nil
+            NotificationCenter.default.post(name: .modulaReelSleep, object: nil)
+            HapticEngine.shared.play(.warning)
+        }
+    }
+}
+
+
+/// Settings › Gestures › Keep screen on: stops auto-lock while a screen that opts in is visible and the app is
+/// active. Reference-counted so overlapping screens don't re-enable auto-lock early.
+struct ModulaKeepAwake: ViewModifier {
+    static let reelsKey = "display.keepAwake.reels"
+    static let readerKey = "display.keepAwake.reader"
+    let key: String
+    @AppStorage private var enabled: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var holding = false
+    @MainActor private static var holds = 0
+
+    init(key: String) {
+        self.key = key
+        _enabled = AppStorage(wrappedValue: false, key)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { update(visible: true) }
+            .onDisappear { update(visible: false) }
+            .onChange(of: enabled) { _, _ in update(visible: true) }
+            .onChange(of: scenePhase) { _, _ in update(visible: true) }
+    }
+
+    @MainActor private func update(visible: Bool) {
+        let want = visible && enabled && scenePhase == .active
+        guard want != holding else { return }
+        holding = want
+        Self.holds = max(0, Self.holds + (want ? 1 : -1))
+        UIApplication.shared.isIdleTimerDisabled = Self.holds > 0
     }
 }

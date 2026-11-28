@@ -72,7 +72,7 @@ final class N4GChromeContractTests: XCTestCase {
         XCTAssertFalse(ShellChromePolicy.policy(for: .discover(.trending)).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .settings(.appearance(.typography))).contextRailVisible)
         XCTAssertFalse(ShellChromePolicy.policy(for: .productHub(.featured)).contextRailVisible)
-        XCTAssertEqual(AppTab.allCases.map(\.rawValue), ["home", "discover", "modules", "activity", "profile"])
+        XCTAssertEqual(AppTab.defaultBar.map(\.rawValue), ["home", "discover", "modules", "activity"])
     }
 
     func testProfileLoopStaysOnFrozenSections() {

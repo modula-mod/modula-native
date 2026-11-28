@@ -143,6 +143,7 @@ struct ModulaPostContentRenderer: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
     }
 }
@@ -233,7 +234,7 @@ struct ModulaPostImage: View {
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Button("Retry", systemImage: "arrow.clockwise") { retryID += 1 }
                     .font(.caption.weight(.semibold))
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
             }
         }
     }
@@ -243,6 +244,16 @@ struct ModulaPostImageGallery: View {
     let attachments: [ModulaAttachment]
     var onOpen: (ModulaAttachment) -> Void
     @State private var page = 0
+    @State private var counterVisible = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Instagram-style window: at most 7 dots; dots further from the current page shrink, so long galleries
+    /// show position without a crowded row.
+    private func dotScale(_ index: Int, count: Int) -> CGFloat {
+        guard count > 5 else { return 1 }
+        let d = abs(index - page)
+        return d <= 1 ? 1 : (d == 2 ? 0.75 : (d == 3 ? 0.5 : 0))
+    }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -255,12 +266,42 @@ struct ModulaPostImageGallery: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 330)
+            .onChange(of: page) { _, _ in HapticEngine.shared.play(.selection) }
+            // Counter shows while you swipe, then fades after a moment so it doesn't sit on the photo.
             Text("\(page + 1) / \(attachments.count)")
                 .font(.caption2.monospacedDigit().weight(.bold))
                 .foregroundStyle(.white)
+                .contentTransition(.numericText(value: Double(page)))
                 .padding(.horizontal, 9).padding(.vertical, 5)
                 .background(.black.opacity(0.56), in: Capsule())
                 .padding(ModulaSpacing.xs)
+                .opacity(counterVisible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.25), value: counterVisible)
+                .animation(.snappy(duration: 0.2), value: page)
+                .task(id: page) {
+                    counterVisible = true
+                    try? await Task.sleep(for: .seconds(2))
+                    if !Task.isCancelled { counterVisible = false }
+                }
+            // Carousel dots (t176u): up to 10 pages, current one wider; edge dots shrink on long galleries.
+            HStack(spacing: 5) {
+                ForEach(0..<min(attachments.count, 10), id: \.self) { index in
+                    let scale = dotScale(index, count: min(attachments.count, 10))
+                    if scale > 0 {
+                        Capsule()
+                            .fill(.white.opacity(index == page ? 1 : 0.5))
+                            .frame(width: index == page ? 14 : 6 * scale, height: 6 * scale)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(.black.opacity(0.32), in: Capsule())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 10)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: page)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Image gallery")
@@ -323,7 +364,7 @@ struct ModulaVideoSurface: View {
                     Button("Retry", systemImage: "arrow.clockwise") {
                         download.retry(attachment, manager: app.attachmentDownloads)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                 }
                 .font(.caption.weight(.semibold))
                 .padding(12)
@@ -341,7 +382,7 @@ struct ModulaVideoSurface: View {
                         Label(loadLabel, systemImage: "arrow.down.circle.fill")
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(.ultraThinMaterial, in: Capsule())
+                            .modulaGlass(in: Capsule(), interactive: false)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
@@ -382,12 +423,13 @@ struct ModulaVideoSurface: View {
                 ImmersiveVideoProgress(controller: controller)
             }
         }
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear { reportVisibility(geometry.frame(in: .global)) }
-                    .onChange(of: geometry.frame(in: .global)) { _, frame in reportVisibility(frame) }
-            }
+        // Speed: visible fraction quantised to 5% steps, so the coordinator is told only when the
+        // bucket changes instead of on every scroll frame for every video cell.
+        .onGeometryChange(for: Int.self) { [viewportHeight] proxy in
+            // @Sendable transform: the viewport height is captured as a value (UIScreen is main-actor).
+            ModulaVideoSurface.visibleBucket(proxy.frame(in: .global), viewportHeight: viewportHeight)
+        } action: { bucket in
+            coordinator?.updateVisibility(id: attachment.id, fraction: Double(bucket) / 20)
         }
         .onDisappear {
             coordinator?.remove(id: attachment.id)
@@ -424,12 +466,15 @@ struct ModulaVideoSurface: View {
         }
     }
 
-    private func reportVisibility(_ frame: CGRect) {
-        guard frame.height > 0 else { return }
-        let viewport = UIScreen.main.bounds
-        let visible = frame.intersection(viewport)
-        let fraction = visible.isNull ? 0 : Double(max(0, visible.height / frame.height))
-        coordinator?.updateVisibility(id: attachment.id, fraction: fraction)
+    /// Read once per body on the main actor; the geometry transform only does arithmetic.
+    private var viewportHeight: CGFloat { UIScreen.main.bounds.height }
+
+    nonisolated static func visibleBucket(_ frame: CGRect, viewportHeight: CGFloat) -> Int {
+        guard frame.height > 0 else { return 0 }
+        let top = max(frame.minY, 0)
+        let bottom = min(frame.maxY, viewportHeight)
+        let visible = max(0, bottom - top)
+        return Int((visible / frame.height * 20).rounded())
     }
 }
 
@@ -552,14 +597,14 @@ struct ModulaDocumentCard: View {
         if let previewURL = attachment.bestPreviewURL {
             ModulaRemoteImage(url: previewURL, cacheKey: "attachment:\(attachment.id):document-preview", maximumPixelSize: 320) { phase in
                 if case .success(let image) = phase { Image(uiImage: image).resizable().scaledToFill() }
-                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(app.appearance.liveAccent) }
+                else { Image(systemName: attachment.kind.defaultSystemImage).font(.title2).foregroundStyle(.primary) }
             }
             .frame(width: 48, height: 52).clipped()
             .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
             .clipShape(RoundedRectangle(cornerRadius: ModulaRadius.small))
         } else {
             Image(systemName: attachment.kind.defaultSystemImage)
-                .font(.title2).foregroundStyle(app.appearance.liveAccent)
+                .font(.title2).foregroundStyle(.primary)
                 .frame(width: 48, height: 52)
                 .background(app.appearance.liveAccent.opacity(0.1), in: RoundedRectangle(cornerRadius: ModulaRadius.small))
         }
@@ -684,7 +729,7 @@ struct ModulaPostMetadataChip: View {
         Label(title, systemImage: systemImage)
             .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             .padding(.horizontal, 9).padding(.vertical, 6)
-            .background(Color.primary.opacity(0.055), in: Capsule())
+            .modulaGlass(in: Capsule(), interactive: false)
             .accessibilityElement(children: .combine)
     }
 }

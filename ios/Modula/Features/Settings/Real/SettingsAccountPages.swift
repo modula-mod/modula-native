@@ -196,7 +196,7 @@ struct RelationshipListView: View {
                 ProgressView()
             } else {
                 Button(kind.actionTitle) { pendingUndo = item }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                     .controlSize(.small)
             }
         }
@@ -273,6 +273,7 @@ struct PasswordStepUpSheet: View {
             .onAppear { focused = true }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
     }
 
     private func confirm() async {
@@ -330,9 +331,12 @@ struct DeleteAccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .sheet(isPresented: $showStepUp) {
-            PasswordStepUpSheet(reason: "We ask for your password before scheduling deletion. It’s valid for 10 minutes.") {
-                Task { await requestDeletion() }
+            Group {
+                PasswordStepUpSheet(reason: "We ask for your password before scheduling deletion. It’s valid for 10 minutes.") {
+                    Task { await requestDeletion() }
+                }
             }
+            .modulaSheetStyle()
         }
     }
 
@@ -363,7 +367,7 @@ struct DeleteAccountView: View {
                     Text("Schedule Deletion").frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .tint(.red)
             .controlSize(.large)
             .disabled(!canSubmit || working)
@@ -391,7 +395,7 @@ struct DeleteAccountView: View {
                     Text("Keep My Account").frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .controlSize(.large)
             .disabled(working)
             SettingsAPIFootnote(text: "Deletion runs after the grace period ends. Until it does, you can keep using Modula and cancel here.")

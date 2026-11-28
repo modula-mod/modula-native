@@ -59,7 +59,7 @@ struct AppLockView: View {
                 Button("Unlock") {
                     if lock.unlockBySlide() { lock.haptic(.success); app.refreshLaunchState() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
             } else if lock.settings.method == .pattern {
                 PatternPad(hideTrail: lock.settings.hidesPatternTrail, disabled: busy,
                            haptics: lock.settings.hapticsEnabled) { nodes in
@@ -94,10 +94,10 @@ struct AppLockView: View {
                     } label: {
                         Label(lock.biometricAvailability.kind.unlockLabel, systemImage: lock.biometricAvailability.kind.systemImage)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                 }
                 Button("Forgot?") { confirmsForgot = true }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -154,6 +154,9 @@ struct AppLockView: View {
             // "grid" (the retired purple Perspective Grid) falls back to the drape.
             if lockBackdrop == "drape" || lockBackdrop == "grid" {
                 SpectralDrapeView(interactive: false).ignoresSafeArea()
+            } else if lockBackdrop.hasPrefix("nature."),
+                      let kind = NatureWallpaperView.Kind(rawValue: String(lockBackdrop.dropFirst("nature.".count))) {
+                NatureWallpaperView(kind: kind, animated: effects).ignoresSafeArea()
             } else {
                 LockShaderAurora(animated: effects).ignoresSafeArea()
             }

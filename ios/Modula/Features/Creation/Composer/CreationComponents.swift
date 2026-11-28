@@ -281,8 +281,7 @@ struct CreationMoreOptionsSheet: View {
         }
         .modifier(MoreSheetBackground())
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(32)
+        .modulaSheetStyle()
         .accessibilityIdentifier("compose.more.sheet")
     }
 
@@ -363,11 +362,8 @@ struct CreationMoreOptionsSheet: View {
 /// Liquid Glass sheet background on iOS 26; thin material fallback before that.
 private struct MoreSheetBackground: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
-            content.presentationBackground(.clear).background(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 32)).ignoresSafeArea())
-        } else {
-            content.presentationBackground(.ultraThinMaterial)
-        }
+        // System Liquid Glass sheet on iOS 26; respects Reduce Transparency (opaque) via the shared modifier.
+        content.modulaGlassPresentation(fallback: .ultraThinMaterial)
     }
 }
 
@@ -419,6 +415,7 @@ struct CreationSuggestionRail: View {
             }
             .padding(.horizontal, 4)
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("compose.suggestions")
     }
 }
@@ -453,6 +450,7 @@ struct MediaAttachmentGrid: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
         }
         .padding(12)
         .background {
@@ -467,13 +465,10 @@ struct MediaAttachmentGrid: View {
         let url = fileURL(item)
         return ZStack(alignment: .bottomLeading) {
             if item.kind == .image {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image): image.resizable().scaledToFill()
-                    default: Rectangle().fill(.secondary.opacity(0.15))
-                    }
-                }
-                .frame(width: 168, height: 168).clipped()
+                // Downsampled off the main thread: AsyncImage decoded the full camera-resolution
+                // file for a 168 pt card (tens of MB per photo).
+                LocalMediaThumbnail(url: url, pointSize: 168)
+                    .frame(width: 168, height: 168).clipped()
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: symbol(item.kind)).font(.title)
@@ -490,7 +485,7 @@ struct MediaAttachmentGrid: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                 Spacer()
                 Button {
                     onRemove(item.id)
@@ -734,5 +729,32 @@ struct CreationTextPollEditor: View {
         }
         lines.append("(Text poll — reply with a number. Native polls coming later.)")
         return lines.joined(separator: "\n")
+    }
+}
+
+
+/// Small, off-main-thread thumbnail for a local media file (composer cards, story drafts).
+struct LocalMediaThumbnail: View {
+    let url: URL?
+    let pointSize: CGFloat
+    @Environment(\.displayScale) private var displayScale
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Rectangle().fill(.secondary.opacity(0.15))
+            }
+        }
+        .task(id: url) {
+            guard let url else { image = nil; return }
+            let pixels = pointSize * max(displayScale, 1)
+            image = await Task.detached(priority: .userInitiated) {
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return ModulaRemoteImageDecoder.downsample(data: data, maximumPixelSize: pixels)
+            }.value
+        }
     }
 }

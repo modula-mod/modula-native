@@ -73,6 +73,7 @@ struct MolibooCollectionBrowser: View {
                         .padding(.horizontal, 16)
                     }
                 }
+                .modulaHorizontalRail()
                 Text("\(shown.count) of \(roster.count)")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
@@ -168,6 +169,7 @@ struct MolibooCharacterDetailView: View {
                                 }
                             }
                         }
+                        .modulaHorizontalRail()
                     }
                     section("Wardrobe") {
                         Text(c.wearable ? "Wears Moliboo accessories, fitted for its shape." : "A Legend wears its own look, so accessories are not shown.")
@@ -245,23 +247,26 @@ struct MolibooCollectionEntry: View {
         .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
         .accessibilityIdentifier("moliboo.collection.entry")
         .sheet(isPresented: $shown) {
-            NavigationStack(path: $path) {
-                MolibooCollectionBrowser { kind in path.append(kind.rawValue) }
-                    .navigationDestination(for: String.self) { key in
-                        #if DEBUG
-                        if key == Self.fitLabRoute { MolibooFitLabView() }
-                        #endif
-                        if let kind = ModulaMascotKind(rawValue: key) { MolibooCharacterDetailView(kind: kind) }
-                    }
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Done") { shown = false } }
-                        #if DEBUG
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Fit lab") { path.append(Self.fitLabRoute) }.accessibilityIdentifier("moliboo.fitlab")
+            Group {
+                NavigationStack(path: $path) {
+                    MolibooCollectionBrowser { kind in path.append(kind.rawValue) }
+                        .navigationDestination(for: String.self) { key in
+                            #if DEBUG
+                            if key == Self.fitLabRoute { MolibooFitLabView() }
+                            #endif
+                            if let kind = ModulaMascotKind(rawValue: key) { MolibooCharacterDetailView(kind: kind) }
                         }
-                        #endif
-                    }
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) { Button("Done") { shown = false } }
+                            #if DEBUG
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button("Fit lab") { path.append(Self.fitLabRoute) }.accessibilityIdentifier("moliboo.fitlab")
+                            }
+                            #endif
+                        }
+                }
             }
+            .modulaSheetStyle()
         }
         .onAppear {
             #if DEBUG

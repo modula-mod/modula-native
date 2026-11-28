@@ -145,10 +145,7 @@ struct MascotStudioView: View {
                     actionBar
                     MolibooCollectionEntry()
                     MolibooMarketplaceEntry()
-                    Picker("Studio", selection: $tab) {
-                        ForEach(StudioTab.allCases) { t in Text(t.title).tag(t) }
-                    }
-                    .pickerStyle(.segmented)
+                    ModulaSegmentedControl("Studio", selection: $tab, options: StudioTab.allCases) { $0.title }
                     .padding(.horizontal, 2)
 
                     switch tab {
@@ -206,24 +203,31 @@ struct MascotStudioView: View {
             progress.lastUnlocked = nil
         }
         .sheet(item: $editingCustom) { draft in
-            NavigationStack {
-                CustomMascotEditor(mascot: draft) { saved in
-                    _ = customs.save(saved)
-                    kindRaw = saved.id
-                    editingCustom = nil
-                    brain.react(.excited)
-                    brain.burst(.confetti)
+            Group {
+                NavigationStack {
+                    CustomMascotEditor(mascot: draft) { saved in
+                        _ = customs.save(saved)
+                        kindRaw = saved.id
+                        editingCustom = nil
+                        brain.react(.excited)
+                        brain.burst(.confetti)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(item: $detailItem) { item in
-            MascotItemDetailSheet(item: item, selection: selection) { equipped in
-                if equipped { celebrateEquip() }
+            Group {
+                MascotItemDetailSheet(item: item, selection: selection) { equipped in
+                    if equipped { celebrateEquip() }
+                }
             }
+            .modulaSheetStyle()
         }
         .sheet(item: $shareImage) { img in
             MascotActivitySheet(items: [img.image])
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
         .alert("Save outfit", isPresented: $naming) {
             TextField("Name", text: $presetName)
@@ -287,7 +291,9 @@ struct MascotStudioView: View {
             sceneBackdrop
             livePreview
                 .scaleEffect(zoom, anchor: .bottom)
-                .rotation3DEffect(.degrees(rotation), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+                // 2D only: dragging leans the figure and slides it a little, no 3D spin.
+                .rotationEffect(.degrees(rotation / 8), anchor: .bottom)
+                .offset(x: rotation * 0.6)
                 // Feet on the scene's ground, clear of the bottom fade and of the nav bar above.
                 .padding(.bottom, 64)
                 .padding(.top, topBand)
@@ -399,7 +405,7 @@ struct MascotStudioView: View {
         HStack(spacing: 8) {
             ModulaGlassGroup(spacing: 8) {
                 HStack(spacing: 8) {
-                    ForEach(Emote.allCases) { e in
+                    ForEach(Emote.primary) { e in
                         Button {
                             play(e)
                         } label: {
@@ -412,6 +418,18 @@ struct MascotStudioView: View {
                         .modulaGlass(in: Capsule(), interactive: true)
                         .accessibilityLabel(e.title)
                     }
+                    Menu {
+                        ForEach(Emote.more) { e in
+                            Button(e.title, systemImage: e.symbol) { play(e) }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 40, height: 36)
+                    }
+                    .modulaGlass(in: Capsule(), interactive: true)
+                    .accessibilityLabel("More emotes")
                 }
             }
             Spacer()
@@ -438,6 +456,9 @@ struct MascotStudioView: View {
 
     private enum Emote: String, CaseIterable, Identifiable {
         case wave, dance, sit, celebrate
+        case love, laugh, surprise, shy, curious, hype, sleepy, sulk
+        static let primary: [Emote] = [.wave, .dance, .sit, .celebrate]
+        static var more: [Emote] { allCases.filter { !primary.contains($0) } }
         var id: String { rawValue }
         var title: String { rawValue.capitalized }
         var symbol: String {
@@ -446,6 +467,14 @@ struct MascotStudioView: View {
             case .dance: "music.note"
             case .sit: "chair.lounge.fill"
             case .celebrate: "party.popper.fill"
+            case .love: "heart.fill"
+            case .laugh: "face.smiling.inverse"
+            case .surprise: "exclamationmark.2"
+            case .shy: "hand.raised.fingers.spread.fill"
+            case .curious: "questionmark.circle.fill"
+            case .hype: "bolt.fill"
+            case .sleepy: "moon.zzz.fill"
+            case .sulk: "cloud.rain.fill"
             }
         }
     }
@@ -456,6 +485,14 @@ struct MascotStudioView: View {
         case .dance: brain.dance()
         case .sit: brain.sit()
         case .celebrate: brain.celebrate()
+        case .love: brain.react(.happy)
+        case .laugh: brain.react(.laughing)
+        case .surprise: brain.react(.surprised)
+        case .shy: brain.react(.shy)
+        case .curious: brain.react(.curious)
+        case .hype: brain.react(.excited)
+        case .sleepy: brain.react(.sleepy)
+        case .sulk: brain.react(.sad)
         }
         MascotSound.shared.play(.pick)
         HapticEngine.shared.play(.selection)
@@ -576,7 +613,7 @@ struct MascotStudioView: View {
                                 .font(.caption.weight(.semibold))
                             ProgressView(value: progress.collectionFraction(s))
                                 .progressViewStyle(.linear)
-                                .tint(on ? Color.accentColor : .secondary)
+                                .tint(on ? Color.primary : .secondary)
                                 .frame(width: 54)
                                 .scaleEffect(y: 0.6)
                         }
@@ -584,7 +621,7 @@ struct MascotStudioView: View {
                     }
                     .buttonStyle(.plain)
                     .modulaGlass(in: Capsule(), interactive: true)
-                    .overlay(Capsule().strokeBorder(on ? Color.accentColor : .clear, lineWidth: 1.5))
+                    .overlay(Capsule().strokeBorder(on ? Color.primary : .clear, lineWidth: 1.5))
                     .opacity(on ? 1 : 0.78)
                     .accessibilityAddTraits(on ? .isSelected : [])
                 }
@@ -604,8 +641,8 @@ struct MascotStudioView: View {
                 .padding(.horizontal, 10).padding(.vertical, 6)
         }
         .buttonStyle(.plain)
-        .background(Capsule().fill(on.wrappedValue ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05)))
-        .overlay(Capsule().strokeBorder(on.wrappedValue ? Color.accentColor : .clear, lineWidth: 1))
+        .background(Capsule().fill(on.wrappedValue ? Color.primary.opacity(0.12) : Color.primary.opacity(0.05)))
+        .overlay(Capsule().strokeBorder(on.wrappedValue ? Color.primary : .clear, lineWidth: 1))
     }
 
     private var presetsRow: some View {
@@ -659,7 +696,7 @@ struct MascotStudioView: View {
             .padding(8)
             .frame(maxWidth: .infinity, minHeight: 118)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.primary.opacity(empty ? 0.08 : 0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(empty ? Color.accentColor : .clear, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(empty ? Color.primary : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("No \(slot.title.lowercased())")
@@ -712,7 +749,7 @@ struct MascotStudioView: View {
                                 Text(done ? "Done" : "\(p.value)/\(p.goal)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                             }
                             Text(a.detail).font(.caption).foregroundStyle(.secondary)
-                            ProgressView(value: Double(p.value), total: Double(max(p.goal, 1))).tint(done ? .green : .accentColor)
+                            ProgressView(value: Double(p.value), total: Double(max(p.goal, 1))).tint(done ? .green : .primary)
                             HStack(spacing: 6) {
                                 if let id = a.rewardItemID, let item = MascotWardrobeCatalog.item(id: id) {
                                     Label(item.name, systemImage: "gift.fill").font(.caption2.weight(.semibold)).foregroundStyle(item.rarity.color)
@@ -765,7 +802,7 @@ struct MascotStudioView: View {
                     MascotSound.shared.play(.send)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .buttonBorderShape(.capsule)
             .disabled(!progress.canOpenChest)
         }
@@ -806,7 +843,7 @@ struct MascotStudioView: View {
                 Button("Reset progress (Debug)", role: .destructive) { progress.debugReset() }
             }
             .font(.caption)
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             #endif
         }
     }
@@ -828,7 +865,7 @@ struct MascotStudioView: View {
                     }
                     Spacer()
                     if kindRaw == custom.id {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.primary)
                     }
                 }
                 .padding(10)
@@ -850,7 +887,7 @@ struct MascotStudioView: View {
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .buttonBorderShape(.capsule)
             .disabled(customs.items.count >= CustomMascotStore.maxCount)
         }
@@ -892,7 +929,7 @@ struct MascotItemTile: View {
         .padding(8)
         .frame(maxWidth: .infinity, minHeight: 118)
         .background(shape.fill(LinearGradient(colors: [item.rarity.color.opacity(equipped ? 0.24 : 0.12), Color.primary.opacity(0.03)], startPoint: .top, endPoint: .bottom)))
-        .overlay(shape.strokeBorder(equipped ? Color.accentColor : item.rarity.color.opacity(0.75), lineWidth: equipped ? 2.5 : (item.rarity.glows ? 1.6 : 1)))
+        .overlay(shape.strokeBorder(equipped ? Color.primary : item.rarity.color.opacity(0.75), lineWidth: equipped ? 2.5 : (item.rarity.glows ? 1.6 : 1)))
         .shadow(color: item.rarity.glows ? item.rarity.color.opacity(item.rarity == .legendary ? 0.55 : 0.35) : .clear, radius: item.rarity == .legendary ? 8 : 5)
         .overlay(alignment: .topTrailing) { badge(equipped: equipped, inSeason: inSeason) }
         .overlay(alignment: .topLeading) {
@@ -1034,7 +1071,7 @@ struct MascotItemDetailSheet: View {
                                     Circle().fill(item.dyes[i])
                                         .frame(width: 30, height: 30)
                                         .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
-                                        .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: dye == i ? 3 : 0).padding(-4))
+                                        .overlay(Circle().strokeBorder(Color.primary, lineWidth: dye == i ? 3 : 0).padding(-4))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Colour \(i + 1)")
@@ -1053,7 +1090,8 @@ struct MascotItemDetailSheet: View {
             .padding(.bottom, 20)
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(.thinMaterial)
+        .modulaSheetStyle()
+        .modulaGlassPresentation()
         .onAppear {
             if wardrobe.outfit.contains(item) { dye = wardrobe.outfit.dye(for: item.slot) }
             brain.react(.curious)
@@ -1084,7 +1122,7 @@ struct MascotItemDetailSheet: View {
                     Text(wardrobe.outfit.contains(item) && wardrobe.outfit.dye(for: item.slot) == dye ? "Take off" : "Wear")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .buttonBorderShape(.capsule)
                 .disabled(!fit.isWearable)
             } else if !item.isAvailable() {
@@ -1106,7 +1144,7 @@ struct MascotItemDetailSheet: View {
                     Label("Buy for \(price)", systemImage: "circle.hexagongrid.fill")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 46)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .buttonBorderShape(.capsule)
                 .tint(.orange)
                 Text("Balance: \(progress.coins) coins").font(.caption).foregroundStyle(.secondary)
@@ -1264,15 +1302,22 @@ struct CustomMascotEditor: View {
                 colorRow("Eyes", r: $mascot.irisR, g: $mascot.irisG, b: $mascot.irisB)
             }
             Section("Features") {
-                Picker("Eyes", selection: $mascot.eyeStyle) {
-                    Text("Round").tag("round"); Text("Happy").tag("happy"); Text("Sleepy").tag("sleepy")
+                // Unified segmented control (was menu pickers): faster to compare looks live.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Eyes").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    ModulaSegmentedControl("Eyes", selection: $mascot.eyeStyle, segments: [("round", "Round"), ("happy", "Happy"), ("sleepy", "Sleepy")], compact: true)
                 }
-                Picker("Mouth", selection: $mascot.mouthStyle) {
-                    Text("Smile").tag("smile"); Text("Open").tag("open"); Text("Cat").tag("cat"); Text("None").tag("none")
+                .padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Mouth").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    ModulaSegmentedControl("Mouth", selection: $mascot.mouthStyle, segments: [("smile", "Smile"), ("open", "Open"), ("cat", "Cat"), ("none", "None")], compact: true)
                 }
-                Picker("Ears", selection: $mascot.ears) {
-                    Text("None").tag("none"); Text("Round").tag("round"); Text("Pointy").tag("pointy"); Text("Floppy").tag("floppy")
+                .padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Ears").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    ModulaSegmentedControl("Ears", selection: $mascot.ears, segments: [("none", "None"), ("round", "Round"), ("pointy", "Pointy"), ("floppy", "Floppy")], compact: true)
                 }
+                .padding(.vertical, 2)
                 Picker("Extras", selection: $mascot.extras) {
                     Text("None").tag("none"); Text("Gills").tag("gills"); Text("Tail").tag("tail"); Text("Antenna").tag("antenna"); Text("Horns").tag("horns")
                 }
@@ -1344,6 +1389,7 @@ struct MascotAssistantSettingsSection: View {
                                 store.persistRules()
                             } label: { Image(systemName: "trash") }
                             .buttonStyle(.borderless)
+                            .accessibilityLabel("Delete rule")
                         }
                         .padding(10)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
@@ -1352,7 +1398,7 @@ struct MascotAssistantSettingsSection: View {
                         TextField("Add keyword", text: $newKeyword)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit(addKeyword)
-                        Button("Add", action: addKeyword).buttonStyle(.bordered)
+                        Button("Add", action: addKeyword).buttonStyle(.modulaSecondary)
                     }
                 }
 
@@ -1398,7 +1444,7 @@ struct MascotAssistantSettingsSection: View {
                             }
                             .padding(6)
                             .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(on ? 0.08 : 0.02)))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.accentColor : .clear, lineWidth: 1.5))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.primary : .clear, lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                         .opacity(MascotEntitlements.canUse(kind) ? 1 : 0.4)
@@ -1413,7 +1459,7 @@ struct MascotAssistantSettingsSection: View {
                             }
                             .padding(6)
                             .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(on ? 0.08 : 0.02)))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.accentColor : .clear, lineWidth: 1.5))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? Color.primary : .clear, lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                     }
@@ -1540,7 +1586,7 @@ struct ProfileMascotChip: View {
                 dressUp = true
                 onLongPress?()
             }
-            .sheet(isPresented: $dressUp) { MascotDressUpSheet() }
+            .sheet(isPresented: $dressUp) { MascotDressUpSheet().modulaSheetStyle() }
             .onReceive(NotificationCenter.default.publisher(for: .mascotOutfitDidChange)) { _ in brain.outfitChanged() }
             .accessibilityLabel("Your Moliboo")
             .accessibilityHint("Long-press to dress up")

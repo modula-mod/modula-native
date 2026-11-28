@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 typealias ConversationID = String
 typealias MessageID = String
@@ -89,6 +90,15 @@ struct Conversation: Identifiable, Hashable, Sendable {
     var isMuted = false
     var isArchived = false
     var group: ConversationGroupSummary? = nil
+    /// Manually marked unread by me (`markUnread` capability). Never moves read receipts.
+    var markedUnread = false
+    /// Messaging features 4 (all optional; nil / defaults on older servers).
+    var serverPinnedAt: Date? = nil
+    var serverPinned = false
+    var notificationLevel: String? = nil
+    var disappearingTtlSeconds: Int? = nil
+    /// Shared chat theme preset id (`chatThemes`); nil = default.
+    var theme: String? = nil
 
     var title: String {
         if let titleOverride, !titleOverride.isEmpty { return titleOverride }
@@ -102,7 +112,7 @@ struct Conversation: Identifiable, Hashable, Sendable {
         participants.first.flatMap { $0.handle.isEmpty ? nil : "@\($0.handle)" }
     }
 
-    var isUnread: Bool { unreadCount > 0 }
+    var isUnread: Bool { unreadCount > 0 || markedUnread }
 }
 
 struct Message: Identifiable, Hashable, Sendable {
@@ -122,6 +132,11 @@ struct Message: Identifiable, Hashable, Sendable {
     var attachments: [MessageAttachment] = []
     var mentions: [MessageMention] = []
     var clientMessageId: String? = nil
+    /// Forwarded with attribution; `forwardedName == nil` + `isForwarded` = hidden by a block.
+    var isForwarded = false
+    var forwardedName: String? = nil
+    /// Disappearing timer at send time; dropped locally once passed.
+    var expiresAt: Date? = nil
 
     var previewText: String {
         if kind == .voice { return body.text.isEmpty ? "Voice note" : body.text }
@@ -222,6 +237,12 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
     var realtimeSingleInstance = false
     /// 1:1 voice/video calls (`calls` block, migration 090). Off unless the server says enabled.
     var calls: CallsCapabilities = .disabled
+    /// `POST /v1/conversations/:id/unread` (migration 092). Off unless the server says so.
+    var markUnread = false
+    /// Live comment updates over this socket (`liveComments.enabled`). Off unless advertised.
+    var liveComments: LiveCommentsCapability = .disabled
+    /// Messaging features 4 (migration 093). Every block off unless `enabled: true`.
+    var features4 = MessagingFeatures4()
 
     /// Live on api.modula.digital since backend migration 075_greenfield_messaging.
     static let production = MessagingBackendCapabilities(
@@ -266,6 +287,9 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
         static let requests = "/v1/message-requests"
         static func acceptRequest(id: String) -> String { "/v1/message-requests/\(escape(id))/accept" }
         static func declineRequest(id: String) -> String { "/v1/message-requests/\(escape(id))/decline" }
+        static func markUnread(conversationID: String) -> String {
+            "/v1/conversations/\(escape(conversationID))/unread"
+        }
         static let unreadSummary = "/v1/conversations/unread"
         static let capabilities = "/v1/messaging/capabilities"
         static let privacy = "/v1/messaging/privacy"
@@ -280,6 +304,37 @@ struct MessagingBackendCapabilities: Sendable, Equatable {
         static func groupLeave(_ id: String) -> String { "/v1/groups/\(escape(id))/leave" }
         static func reactions(_ conversation: String, _ message: String) -> String {
             "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/reactions"
+        }
+        static func messagePin(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/pin"
+        }
+        static func messageSaved(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/saved"
+        }
+        static func messageEdits(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/edits"
+        }
+        static func conversationPins(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/pins" }
+        static func chatPin(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/pin" }
+        static func notificationLevel(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/notifications" }
+        static func disappearing(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/disappearing" }
+        static func scheduled(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/scheduled" }
+        static func scheduledItem(_ conversation: String, _ id: String) -> String {
+            "/v1/conversations/\(escape(conversation))/scheduled/\(escape(id))"
+        }
+        static func scheduledSendNow(_ conversation: String, _ id: String) -> String { scheduledItem(conversation, id) + "/send-now" }
+        static let folders = "/v1/messaging/folders"
+        static func folder(_ id: String) -> String { "/v1/messaging/folders/\(escape(id))" }
+        static let quickReplies = "/v1/messaging/quick-replies"
+        static func quickReply(_ id: String) -> String { "/v1/messaging/quick-replies/\(escape(id))" }
+        static func forward(_ conversation: String, _ message: String) -> String {
+            "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/forward"
+        }
+        static func theme(_ conversation: String) -> String { "/v1/conversations/\(escape(conversation))/theme" }
+        static func savedMessages(cursor: String?) -> String {
+            var path = "/v1/messages/saved?limit=30"
+            if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .alphanumerics) { path += "&cursor=\(encoded)" }
+            return path
         }
         static func receipts(_ conversation: String, _ message: String) -> String {
             "/v1/conversations/\(escape(conversation))/messages/\(escape(message))/receipts"
@@ -326,7 +381,13 @@ enum MessagingPayloadDecoder {
             titleOverride: emptyToNil(value["title"]?.string ?? value["name"]?.string ?? value["group"]?["title"]?.string),
             isMuted: value["muted"]?.bool ?? false,
             isArchived: value["archived"]?.bool ?? false,
-            group: value["group"].flatMap(groupSummary)
+            group: value["group"].flatMap(groupSummary),
+            markedUnread: value["markedUnread"]?.bool ?? false,
+            serverPinnedAt: decodeDate(value["pinnedAt"]?.string),
+            serverPinned: value["pinned"]?.bool ?? false,
+            notificationLevel: value["notificationLevel"]?.string,
+            disappearingTtlSeconds: value["disappearingTtlSeconds"]?.int,
+            theme: value["theme"]?.string
         )
     }
 
@@ -365,7 +426,10 @@ enum MessagingPayloadDecoder {
             kind: kind,
             attachments: (value["attachments"]?.array ?? []).compactMap(attachment),
             mentions: (value["mentions"]?.array ?? []).compactMap(mention),
-            clientMessageId: value["clientMessageId"]?.string
+            clientMessageId: value["clientMessageId"]?.string,
+            isForwarded: { if case .object = value["forwardedFrom"] { return true } else { return false } }(),
+            forwardedName: value["forwardedFrom"]?["sender"]?["displayName"]?.string,
+            expiresAt: decodeDate(value["expiresAt"]?.string)
         )
     }
 
@@ -481,6 +545,9 @@ enum MessagingPayloadDecoder {
         caps.realtimeHeartbeatMs = realtime?["heartbeatMs"]?.int ?? 0
         caps.realtimeSingleInstance = realtime?["singleInstance"]?.bool ?? false
         caps.calls = CallPayloadDecoder.capabilities(value["calls"])
+        caps.markUnread = value["markUnread"]?.bool ?? false
+        caps.liveComments = LiveCommentsCapability(value["liveComments"])
+        caps.features4 = MessagingFeatures4(value)
         caps.privacyControls = !(value["privacyControls"]?.array ?? []).isEmpty
         caps.idempotentSend = value["idempotentSend"]?.bool ?? false
         let actions = Set((value["notificationActions"]?.array ?? []).compactMap(\.string))
@@ -598,7 +665,9 @@ enum MessagingOrdering {
     }
 
     static func messagesChronological(_ items: [Message]) -> [Message] {
-        items.sorted { $0.sentAt < $1.sentAt }
+        // Usually already in order (pages arrive sorted): skip the O(n log n) sort then.
+        if zip(items, items.dropFirst()).allSatisfy({ $0.sentAt <= $1.sentAt }) { return items }
+        return items.sorted { $0.sentAt < $1.sentAt }
     }
 }
 
@@ -796,3 +865,319 @@ struct HistorySearchPage: Sendable, Equatable {
     var hasMore: Bool
 }
 
+
+/// `liveComments` block of `/v1/messaging/capabilities`. Frame names come from the server.
+struct LiveCommentsCapability: Hashable, Sendable {
+    var enabled = false
+    var subscribeFrame = "post.subscribe"
+    var unsubscribeFrame = "post.unsubscribe"
+    var maxPostsPerSocket = 0
+
+    static let disabled = LiveCommentsCapability()
+
+    init() {}
+
+    init(_ value: JSONValue?) {
+        guard let value, value["enabled"]?.bool == true,
+              let subscribe = value["subscribeFrame"]?.string, !subscribe.isEmpty,
+              let unsubscribe = value["unsubscribeFrame"]?.string, !unsubscribe.isEmpty else { return }
+        enabled = true
+        subscribeFrame = subscribe
+        unsubscribeFrame = unsubscribe
+        maxPostsPerSocket = max(value["maxPostsPerSocket"]?.int ?? 1, 1)
+    }
+}
+
+/// Messaging features 4 capability blocks (`/v1/messaging/capabilities`, additive keys).
+struct MessagingFeatures4: Hashable, Sendable {
+    var pinnedMessages = false
+    var pinnedGroupAdminsOnly = true
+    var savedMessages = false
+    var editHistory = false
+    var disappearing = false
+    var disappearingOptions: [Int] = []
+    var chatPins = false
+    var chatPinsMax = 0
+    var notificationLevels: [String] = []
+    /// Parsed for later rounds (no UI yet): scheduled, folders, quick replies, forwarding, themes.
+    var scheduled = false
+    var scheduledMinLeadSeconds = 10
+    var scheduledMaxLeadDays = 365
+    var scheduledMaxPending = 50
+    var chatFolders = false
+    var chatFoldersMax = 20
+    var quickReplies = false
+    var quickRepliesMax = 50
+    var forwarding = false
+    var forwardingMaxTargets = 1
+    var forwardingKinds: [String] = []
+    var chatThemes: [String] = []
+
+    init() {}
+
+    init(_ value: JSONValue) {
+        func on(_ key: String) -> JSONValue? { value[key]?["enabled"]?.bool == true ? value[key] : nil }
+        if let block = on("pinnedMessages") {
+            pinnedMessages = true
+            pinnedGroupAdminsOnly = block["groupAdminsOnly"]?.bool ?? true
+        }
+        savedMessages = on("savedMessages") != nil
+        editHistory = on("editHistory") != nil
+        if let block = on("disappearingMessages") {
+            disappearingOptions = (block["ttlOptionsSeconds"]?.array ?? []).compactMap(\.int).filter { $0 > 0 }
+            disappearing = !disappearingOptions.isEmpty
+        }
+        if let block = on("chatPins") {
+            chatPins = true
+            chatPinsMax = block["max"]?.int ?? 10
+        }
+        if let block = on("notificationLevels") {
+            notificationLevels = (block["levels"]?.array ?? []).compactMap(\.string)
+        }
+        if let block = on("scheduledMessages") {
+            scheduled = true
+            scheduledMinLeadSeconds = max(block["minLeadSeconds"]?.int ?? 10, 0)
+            scheduledMaxLeadDays = max(block["maxLeadDays"]?.int ?? 365, 1)
+            scheduledMaxPending = max(block["maxPending"]?.int ?? 50, 1)
+        }
+        if let block = on("chatFolders") {
+            chatFolders = true
+            chatFoldersMax = max(block["maxFolders"]?.int ?? 20, 1)
+        }
+        if let block = on("quickReplies") {
+            quickReplies = true
+            quickRepliesMax = max(block["max"]?.int ?? 50, 1)
+        }
+        if let block = on("forwarding") {
+            forwardingKinds = (block["kinds"]?.array ?? []).compactMap(\.string)
+            forwardingMaxTargets = max(block["maxTargets"]?.int ?? 1, 1)
+            forwarding = !forwardingKinds.isEmpty
+        }
+        chatThemes = (on("chatThemes")?["themes"]?.array ?? []).compactMap(\.string)
+    }
+
+    static func ttlTitle(_ seconds: Int) -> String {
+        switch seconds {
+        case 3600: return "1 hour"
+        case 86400: return "1 day"
+        case 604800: return "1 week"
+        case 7776000: return "90 days"
+        default:
+            let days = seconds / 86400
+            let hours = max(seconds / 3600, 1)
+            if days > 0 { return days == 1 ? "1 day" : "\(days) days" }
+            return hours == 1 ? "1 hour" : "\(hours) hours"
+        }
+    }
+}
+
+struct MessageEditVersion: Hashable, Sendable, Identifiable {
+    let text: String
+    let at: Date?
+    let current: Bool
+    var id: String { "\(current)-\(at?.timeIntervalSince1970 ?? 0)-\(text)" }
+}
+
+// MARK: - Messaging features 4: DTOs and pure logic (decoders are covered by MessagingFeatures4UITests)
+
+struct ScheduledMessage: Identifiable, Hashable, Sendable {
+    enum State: String, Sendable { case pending, sending, sent, failed, cancelled }
+    let id: String
+    let conversationID: ConversationID
+    var text: String
+    var sendAt: Date
+    var state: State
+    var sentMessageID: MessageID?
+    var failureReason: String?
+    /// Still editable / cancellable from the list.
+    var isOpen: Bool { state == .pending || state == .failed }
+}
+
+struct ChatFolder: Identifiable, Hashable, Sendable {
+    let id: String
+    var name: String
+    var emoji: String?
+    var sortOrder: Int
+    var conversationIDs: [ConversationID]
+}
+
+struct QuickReply: Identifiable, Hashable, Sendable {
+    let id: String
+    var shortcut: String
+    var text: String
+}
+
+struct PinnedMessagePreview: Identifiable, Hashable, Sendable {
+    let messageID: MessageID
+    let text: String
+    let senderName: String
+    var id: MessageID { messageID }
+}
+
+struct SavedMessageItem: Identifiable, Hashable, Sendable {
+    let messageID: MessageID
+    let conversationID: ConversationID
+    let savedAt: Date?
+    let text: String
+    let senderName: String
+    let sentAt: Date?
+    var id: MessageID { messageID }
+}
+
+struct ForwardResult: Identifiable, Hashable, Sendable {
+    let conversationID: ConversationID
+    let ok: Bool
+    let reason: String?
+    var id: ConversationID { conversationID }
+}
+
+struct MessagingSystemNote: Identifiable, Hashable, Sendable {
+    let id = UUID()
+    let text: String
+    let at: Date
+}
+
+enum MessagingFeatures4Decoder {
+    static func scheduled(_ value: JSONValue) -> ScheduledMessage? {
+        guard let id = value["id"]?.string, let conversation = value["conversationId"]?.string,
+              let sendAt = MessagingPayloadDecoder.decodeDate(value["sendAt"]?.string) else { return nil }
+        return ScheduledMessage(id: id, conversationID: conversation, text: value["text"]?.string ?? "", sendAt: sendAt,
+                                state: ScheduledMessage.State(rawValue: value["state"]?.string ?? "") ?? .pending,
+                                sentMessageID: value["sentMessageId"]?.string, failureReason: value["failureReason"]?.string)
+    }
+
+    static func folder(_ value: JSONValue) -> ChatFolder? {
+        guard let id = value["id"]?.string, let name = value["name"]?.string else { return nil }
+        return ChatFolder(id: id, name: name, emoji: value["emoji"]?.string, sortOrder: value["sortOrder"]?.int ?? 0,
+                          conversationIDs: (value["conversationIds"]?.array ?? []).compactMap(\.string))
+    }
+
+    static func quickReply(_ value: JSONValue) -> QuickReply? {
+        guard let id = value["id"]?.string, let shortcut = value["shortcut"]?.string else { return nil }
+        return QuickReply(id: id, shortcut: shortcut, text: value["text"]?.string ?? "")
+    }
+
+    static func pin(_ value: JSONValue) -> PinnedMessagePreview? {
+        guard let id = value["messageId"]?.string else { return nil }
+        return PinnedMessagePreview(messageID: id, text: value["message"]?["body"]?.string ?? "",
+                                    senderName: value["message"]?["sender"]?["displayName"]?.string ?? "")
+    }
+
+    static func saved(_ value: JSONValue) -> SavedMessageItem? {
+        guard let id = value["messageId"]?.string, let conversation = value["conversationId"]?.string else { return nil }
+        let message = value["message"]
+        return SavedMessageItem(messageID: id, conversationID: conversation,
+                                savedAt: MessagingPayloadDecoder.decodeDate(value["savedAt"]?.string),
+                                text: message?["body"]?.string ?? "",
+                                senderName: message?["sender"]?["displayName"]?.string ?? "",
+                                sentAt: MessagingPayloadDecoder.decodeDate(message?["sentAt"]?.string))
+    }
+
+    static func forwardResults(_ value: JSONValue) -> [ForwardResult] {
+        (value["results"]?.array ?? []).compactMap { item in
+            guard let id = item["conversationId"]?.string else { return nil }
+            let ok = item["ok"]?.bool ?? false
+            return ForwardResult(conversationID: id, ok: ok,
+                                 reason: ok ? nil : (item["error"]?["reason"]?.string ?? item["error"]?["code"]?.string ?? "failed"))
+        }
+    }
+
+    /// Folders sorted the way the server lists them (sortOrder, then name for ties).
+    static func sorted(_ folders: [ChatFolder]) -> [ChatFolder] {
+        folders.sorted { ($0.sortOrder, $0.name.lowercased()) < ($1.sortOrder, $1.name.lowercased()) }
+    }
+}
+
+/// "/omw" in the composer: the typed shortcut prefix, or nil when the text isn't a shortcut query.
+enum QuickReplyMatcher {
+    static func query(in text: String) -> String? {
+        guard text.hasPrefix("/"), !text.contains(" "), !text.contains("\n") else { return nil }
+        let q = text.dropFirst().lowercased()
+        guard q.count <= 24, q.allSatisfy({ $0.isLetter && $0.isASCII || $0.isNumber && $0.isASCII || $0 == "_" || $0 == "-" }) else { return nil }
+        return String(q)
+    }
+
+    static func matches(_ replies: [QuickReply], text: String, limit: Int = 8) -> [QuickReply] {
+        guard let q = query(in: text) else { return [] }
+        let hits = replies.filter { q.isEmpty || $0.shortcut.hasPrefix(q) }
+        return Array(hits.sorted { $0.shortcut < $1.shortcut }.prefix(limit))
+    }
+
+    static func isValidShortcut(_ s: String) -> Bool {
+        let lower = s.lowercased()
+        return (1...24).contains(lower.count)
+            && lower.allSatisfy { ($0.isASCII && ($0.isLetter || $0.isNumber)) || $0 == "_" || $0 == "-" }
+    }
+}
+
+/// Quick presets for "Schedule message", clamped to the server's lead window.
+enum ScheduleSendPresets {
+    struct Preset: Hashable, Identifiable { let title: String; let date: Date; var id: String { title } }
+
+    static func presets(now: Date, calendar: Calendar = .current, minLead: Int = 10, maxLeadDays: Int = 365) -> [Preset] {
+        var out: [Preset] = []
+        if let hour = calendar.date(byAdding: .hour, value: 1, to: now) { out.append(.init(title: "In 1 hour", date: hour)) }
+        if let tonight = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: now), tonight.timeIntervalSince(now) > 3600 {
+            out.append(.init(title: "Tonight, 8 PM", date: tonight))
+        }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+           let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) {
+            out.append(.init(title: "Tomorrow, 9 AM", date: morning))
+        }
+        if let monday = calendar.nextDate(after: now, matching: DateComponents(hour: 9, minute: 0, weekday: 2), matchingPolicy: .nextTime),
+           !out.contains(where: { calendar.isDate($0.date, equalTo: monday, toGranularity: .minute) }) {
+            out.append(.init(title: "Monday, 9 AM", date: monday))
+        }
+        let range = window(now: now, minLead: minLead, maxLeadDays: maxLeadDays)
+        return out.filter { range.contains($0.date) }
+    }
+
+    static func window(now: Date, minLead: Int, maxLeadDays: Int) -> ClosedRange<Date> {
+        let start = now.addingTimeInterval(TimeInterval(max(minLead, 0) + 30))
+        let end = now.addingTimeInterval(TimeInterval(max(maxLeadDays, 1)) * 86400)
+        return start...max(end, start)
+    }
+}
+
+enum DisappearingNote {
+    static func text(ttlSeconds: Int?) -> String {
+        guard let ttl = ttlSeconds, ttl > 0 else { return "Disappearing messages turned off" }
+        return "Messages now disappear after \(MessagingFeatures4.ttlTitle(ttl))"
+    }
+}
+
+/// Server chat theme ids -> native palettes (bubbles + background). Unknown ids fall back to default.
+enum ChatThemePalette {
+    static func accent(_ id: String?) -> Color? {
+        switch id {
+        case "coral": Color(red: 1.0, green: 0.45, blue: 0.40)
+        case "ocean": Color(red: 0.10, green: 0.50, blue: 0.90)
+        case "forest": Color(red: 0.16, green: 0.58, blue: 0.36)
+        case "sunset": Color(red: 0.98, green: 0.55, blue: 0.18)
+        case "midnight": Color(red: 0.22, green: 0.24, blue: 0.55)
+        case "lavender": Color(red: 0.60, green: 0.48, blue: 0.90)
+        case "mono": Color(white: 0.28)
+        default: nil
+        }
+    }
+
+    static func background(_ id: String?) -> [Color] {
+        switch id {
+        case "coral": [Color(red: 1.0, green: 0.62, blue: 0.55), Color(red: 1.0, green: 0.82, blue: 0.70)]
+        case "ocean": [Color(red: 0.20, green: 0.60, blue: 0.95), Color(red: 0.40, green: 0.85, blue: 0.90)]
+        case "forest": [Color(red: 0.20, green: 0.55, blue: 0.35), Color(red: 0.60, green: 0.80, blue: 0.45)]
+        case "sunset": [Color(red: 1.0, green: 0.50, blue: 0.30), Color(red: 0.85, green: 0.35, blue: 0.60)]
+        case "midnight": [Color(red: 0.10, green: 0.12, blue: 0.35), Color(red: 0.35, green: 0.25, blue: 0.60)]
+        case "lavender": [Color(red: 0.70, green: 0.60, blue: 0.95), Color(red: 0.90, green: 0.75, blue: 0.95)]
+        case "mono": [Color(white: 0.55), Color(white: 0.80)]
+        default: []
+        }
+    }
+
+    static func title(_ id: String) -> String { id == "default" ? "Default" : id.capitalized }
+}
+
+extension EnvironmentValues {
+    /// Per-chat theme accent for own bubbles (nil = app accent).
+    @Entry var chatThemeAccent: Color? = nil
+}

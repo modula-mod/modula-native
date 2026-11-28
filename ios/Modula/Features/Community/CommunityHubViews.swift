@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CommunityRootView: View {
     let route: CommunityRoute
@@ -58,17 +59,20 @@ struct CommunityHubView: View {
     let route: CommunityRoute
     @Environment(AppEnvironment.self) private var app
     @State private var query = ""
+    @State private var topic: String?
+    @AppStorage("community.directory.sort") private var sortRaw = CommunityDirectorySort.relevant.rawValue
 
     private var scope: CommunityHubScope { route.hubScope ?? .forYou }
+    private var sort: CommunityDirectorySort { CommunityDirectorySort(rawValue: sortRaw) ?? .relevant }
     private var accent: Color { app.appearance.liveAccent }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                header
-                search
-                scopes
-                scopeBody
+                header.modulaAppear()
+                search.modulaAppear(delay: 0.05)
+                scopes.modulaAppear(delay: 0.1)
+                scopeBody.modulaAppear(delay: 0.15)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.bottom, 28)
@@ -118,31 +122,9 @@ struct CommunityHubView: View {
     }
 
     private var scopes: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(CommunityHubScope.allCases) { item in
-                        let selected = item == scope
-                        Button {
-                            guard item != scope else { return }
-                            HapticEngine.shared.play(.selection)
-                            app.navigation.replaceTop(with: .community(item.route))
-                        } label: {
-                            Label(item.title, systemImage: item.symbol)
-                                .font(.subheadline.weight(.semibold))
-                                .labelStyle(.titleAndIcon)
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 44)
-                                .foregroundStyle(selected ? Color.white : Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: selected ? accent : nil, prominent: selected, specular: true)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("community.scope.\(item.rawValue)")
-                    }
-                }
-            }
-        }
+        ModulaSegmentedControl("Community", selection: Binding(get: { scope }, set: { app.navigation.replaceTop(with: .community($0.route)) }),
+                               options: CommunityHubScope.allCases, symbol: { $0.symbol },
+                               identifier: { "community.scope.\($0.rawValue)" }) { $0.title }
     }
 
     @ViewBuilder
@@ -176,6 +158,7 @@ struct CommunityHubView: View {
             if scope == .topics {
                 categoryRail
             }
+            directoryHeader
             LazyVStack(spacing: 12) {
                 ForEach(visibleCommunities) { community in
                     CommunityDirectoryCard(community: community) { open(community) }
@@ -193,13 +176,51 @@ struct CommunityHubView: View {
     }
 
     private var visibleCommunities: [CommunitySummary] {
+        var list: [CommunitySummary]
         switch scope {
         case .forYou:
             let featured = app.communities.communities.filter(\.featured)
-            return featured.isEmpty ? app.communities.communities : featured
+            list = featured.isEmpty ? app.communities.communities : featured
         default:
-            return app.communities.communities
+            list = app.communities.communities
         }
+        if scope == .topics, let topic { list = list.filter { $0.category == topic } }
+        // Client-side order over the loaded page (the directory endpoint has no sort parameter).
+        switch sort {
+        case .relevant: break
+        case .members: list.sort { $0.memberCount > $1.memberCount }
+        case .active: list.sort { ($0.recentActivityAt ?? .distantPast) > ($1.recentActivityAt ?? .distantPast) }
+        case .name: list.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+        return list
+    }
+
+    private var directoryHeader: some View {
+        let count = visibleCommunities.count
+        return HStack(spacing: 8) {
+            Text("\(count) \(count == 1 ? "community" : "communities")")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+            Spacer(minLength: 8)
+            Menu {
+                Picker("Sort", selection: Binding(get: { sort }, set: { v in withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { sortRaw = v.rawValue } })) {
+                    ForEach(CommunityDirectorySort.allCases) { option in
+                        Label(option.title, systemImage: option.symbol).tag(option)
+                    }
+                }
+            } label: {
+                Label(sort.title, systemImage: "arrow.up.arrow.down")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 36)
+                    .modulaGlass(in: Capsule(), interactive: true)
+            }
+            .accessibilityLabel("Sort communities, \(sort.title)")
+            .accessibilityIdentifier("community.sort")
+        }
+        .animation(.snappy, value: count)
     }
 
     private var categoryRail: some View {
@@ -207,14 +228,28 @@ struct CommunityHubView: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { category in
-                    Text(category)
-                        .font(.subheadline.weight(.semibold))
+                    let on = topic == category
+                    Button {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) { topic = on ? nil : category }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        HStack(spacing: 5) {
+                            if on { Image(systemName: "checkmark").font(.caption.weight(.bold)).transition(.scale.combined(with: .opacity)) }
+                            Text(category).font(.subheadline.weight(.semibold)).fixedSize()
+                        }
+                        .foregroundStyle(on ? Color.modulaOnPrimary : .primary)
                         .padding(.horizontal, 12)
                         .frame(minHeight: 40)
-                        .modulaGlass(in: Capsule(), interactive: false, specular: true)
+                        .background { if on { Capsule().fill(Color.modulaPrimaryFill) } }
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
+                    .modulaGlass(in: Capsule(), interactive: true, specular: true)
+                    .accessibilityAddTraits(on ? .isSelected : [])
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     private func load(reset: Bool) async {
@@ -288,6 +323,10 @@ struct CommunityBuildersView: View {
     @State private var tab: CommunityBuildersTab = .feed
     @State private var postText = ""
     @State private var postIdempotencyKey = "community-post-\(UUID().uuidString.lowercased())"
+    @State private var confirmLeave = false
+    @State private var showRules = false
+    @State private var memberQuery = ""
+    @State private var memberFilter: CommunityMemberFilter = .all
 
     private var accent: Color { app.appearance.liveAccent }
     private var community: CommunityDetails? { app.communities.selectedCommunity }
@@ -377,37 +416,32 @@ struct CommunityBuildersView: View {
                 subtitle: community.membershipPolicy == .approval ? "Membership requires approval" : "Open membership"
             )
             Divider().padding(.leading, 64)
-            CommunityInfoRow(symbol: "person.3", tint: accent, title: "\(community.summary.memberCount) members", subtitle: memberSubtitle(community.summary.membership))
+            CommunityInfoRow(symbol: "person.3", tint: accent, title: community.summary.memberCount == 1 ? "1 member" : "\(community.summary.memberCount) members", subtitle: memberSubtitle(community.summary.membership))
             Divider().padding(.leading, 64)
-            CommunityInfoRow(symbol: "calendar", tint: accent, title: "\(app.communities.events.count) events", subtitle: "Server-persisted community schedule")
+            CommunityInfoRow(symbol: "calendar", tint: accent, title: app.communities.events.count == 1 ? "1 event" : "\(app.communities.events.count) events", subtitle: "Server-persisted community schedule")
+            Divider().padding(.leading, 64)
+            Button { showRules = true } label: {
+                HStack(spacing: 0) {
+                    CommunityInfoRow(symbol: "list.bullet.clipboard", tint: accent, title: "Rules & guidelines",
+                                     subtitle: community.postingPolicy == .moderators ? "Moderators post · tap to read" : "Members post · tap to read")
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary).padding(.trailing, 14)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("community.rules.open")
         }
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
+        .sheet(isPresented: $showRules) {
+            CommunityRulesSheet(community: community, attachmentsAllowed: app.communities.settings?.allowAttachments)
+                .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
+        }
     }
 
     private var tabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ModulaGlassGroup(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach(CommunityBuildersTab.allCases) { item in
-                        let selected = item == tab
-                        Button {
-                            tab = item
-                            HapticEngine.shared.play(.selection)
-                        } label: {
-                            Label(item.title, systemImage: item.symbol)
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 44)
-                                .foregroundStyle(selected ? Color.white : Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), interactive: true, tint: selected ? accent : nil, prominent: selected, specular: true)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                        .accessibilityIdentifier("community.builders.tab.\(item.rawValue)")
-                    }
-                }
-            }
-        }
+        ModulaSegmentedControl("Builders", selection: $tab, options: CommunityBuildersTab.allCases, symbol: { $0.symbol },
+                               identifier: { "community.builders.tab.\($0.rawValue)" }) { $0.title }
     }
 
     @ViewBuilder
@@ -418,7 +452,7 @@ struct CommunityBuildersView: View {
                 postComposer
             }
             if app.communities.posts.isEmpty {
-                CommunityPanel { Text(CommunityCopy.postsEmpty).font(.subheadline).foregroundStyle(.secondary) }
+                ModulaEmptyState(title: CommunityCopy.postsEmpty, message: "Posts from members show up here.", symbol: "text.bubble")
             } else {
                 ForEach(app.communities.posts) { item in
                     SharedFeedPostCard(post: item.post, identifierPrefix: "community")
@@ -435,7 +469,7 @@ struct CommunityBuildersView: View {
             }
         case .events:
             if app.communities.events.isEmpty {
-                CommunityPanel { Text(CommunityCopy.eventsEmpty).font(.subheadline).foregroundStyle(.secondary) }
+                ModulaEmptyState(title: CommunityCopy.eventsEmpty, message: "Upcoming events will be listed here.", symbol: "calendar")
             } else {
                 ForEach(app.communities.events) { event in
                     CommunityEventCard(event: event) {
@@ -448,12 +482,29 @@ struct CommunityBuildersView: View {
             }
         case .members:
             if app.communities.members.isEmpty {
-                CommunityPanel { Text(CommunityCopy.membersEmpty).font(.subheadline).foregroundStyle(.secondary) }
+                ModulaEmptyState(title: CommunityCopy.membersEmpty, message: "Members appear here once they join.", symbol: "person.2")
             } else {
-                ForEach(app.communities.members) { member in
+                let shown = CommunityMemberFilter.apply(app.communities.members, filter: memberFilter, query: memberQuery)
+                ModulaSearchField(text: $memberQuery, prompt: "Search members")
+                    .accessibilityIdentifier("community.members.search")
+                HStack(spacing: 8) {
+                    ForEach(CommunityMemberFilter.allCases) { f in
+                        ModulaChip(title: f.title(count: CommunityMemberFilter.apply(app.communities.members, filter: f, query: "").count),
+                                   selected: memberFilter == f) {
+                            withAnimation(.snappy(duration: 0.22)) { memberFilter = f }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                if shown.isEmpty {
+                    Text(memberQuery.isEmpty ? "No one in this group yet." : "No loaded members match “\(memberQuery)”.")
+                        .font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 20)
+                }
+                ForEach(Array(shown.enumerated()), id: \.element.id) { index, member in
                     CommunityMemberRow(member: member) {
                         app.navigation.push(.profile(member.profile.routeID, .overview))
                     }
+                    .modulaAppear(delay: Double(min(index, 8)) * 0.035)
                     if member.id == app.communities.members.last?.id, app.communities.membersNextCursor != nil {
                         ProgressView().task { await app.communities.loadMoreMembers() }
                     }
@@ -498,8 +549,8 @@ struct CommunityBuildersView: View {
                     .frame(maxWidth: .infinity).frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.white)
-                .modulaAccentCTA()
+                .foregroundStyle(Color.modulaOnPrimary)
+                .modulaPrimaryCTA()
                 .disabled(postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || app.communities.actionInProgress)
                 .accessibilityIdentifier("community.post.send")
             }
@@ -507,26 +558,49 @@ struct CommunityBuildersView: View {
     }
 
     private func membershipButton(_ community: CommunityDetails) -> some View {
-        Button {
-            Task {
-                if community.summary.membership == .active {
-                    await app.communities.leave()
-                } else {
-                    await app.communities.join(signedIn: app.auth.isSignedIn)
+        let isMember = community.summary.membership == .active
+        return Group {
+            if isMember {
+                // Leaving is a secondary action and asks first (members lose posting/voting).
+                Button { confirmLeave = true } label: {
+                    Group {
+                        if app.communities.actionInProgress { ProgressView() }
+                        else { Label("Joined", systemImage: "checkmark") }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                .buttonStyle(.modulaSecondaryWide)
+                .accessibilityHint("Double-tap to leave this community")
+            } else {
+                Button {
+                    Task {
+                        await app.communities.join(signedIn: app.auth.isSignedIn)
+                        HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                    }
+                } label: {
+                    Group {
+                        if app.communities.actionInProgress { ProgressView().tint(Color.modulaOnPrimary) }
+                        else { Text(membershipTitle(community.summary.membership)) }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity).frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.modulaOnPrimary)
+                .modulaPrimaryCTA()
             }
-        } label: {
-            Group {
-                if app.communities.actionInProgress { ProgressView() }
-                else { Text(membershipTitle(community.summary.membership)) }
-            }
-            .font(.subheadline.weight(.semibold))
-            .frame(maxWidth: .infinity).frame(minHeight: 44)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.white)
-        .modulaAccentCTA()
+        .animation(.snappy, value: isMember)
+        .confirmationDialog("Leave \(community.summary.name)?", isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button("Leave community", role: .destructive) {
+                Task {
+                    await app.communities.leave()
+                    HapticEngine.shared.play(app.communities.actionError == nil ? .success : .failure)
+                }
+            }
+        } message: {
+            Text("You can join again any time.")
+        }
         .disabled(app.communities.actionInProgress || community.summary.membership == .pending || community.summary.viewerRole == .owner)
         .accessibilityIdentifier("community.builders.membership")
     }
@@ -579,8 +653,16 @@ private struct CommunityMemberRow: View {
                 HStack(spacing: 12) {
                     ModulaAvatar(initials: member.profile.initials, url: member.profile.avatarURL, size: 44, name: member.profile.displayName)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(member.profile.displayName).font(.headline)
-                        Text("@\(member.profile.handle) · \(member.role.rawValue.capitalized)")
+                        HStack(spacing: 6) {
+                            Text(member.profile.displayName).font(.headline)
+                            if member.role == .owner || member.role == .admin || member.role == .moderator {
+                                Label(member.role.rawValue.capitalized, systemImage: member.role == .owner ? "crown.fill" : "shield.lefthalf.filled")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 7).padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.primary.opacity(0.08)))
+                            }
+                        }
+                        Text(member.joinedAt.map { "@\(member.profile.handle) · joined \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "@\(member.profile.handle) · \(member.role.rawValue.capitalized)")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -589,6 +671,11 @@ private struct CommunityMemberRow: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button { UIPasteboard.general.string = "@" + member.profile.handle; HapticEngine.shared.play(.success) } label: {
+                Label("Copy handle", systemImage: "at")
+            }
+        }
     }
 }
 
@@ -712,7 +799,7 @@ struct CommunityScenicCard: View {
                     .padding(.horizontal, 10).frame(height: 24)
                     .modulaGlass(in: Capsule(), interactive: false)
                 Text(title).font(.system(size: 28, weight: .bold, design: .rounded))
-                Text(message).font(.subheadline).foregroundStyle(.white.opacity(0.88)).fixedSize(horizontal: false, vertical: true)
+                Text(message).font(.subheadline).foregroundStyle(Color.modulaOnPrimary.opacity(0.88)).fixedSize(horizontal: false, vertical: true)
                 Button {
                     action()
                     HapticEngine.shared.play(.navigation)
@@ -720,7 +807,7 @@ struct CommunityScenicCard: View {
                     HStack(spacing: 6) { Text(cta); Image(systemName: "arrow.right") }
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16).frame(height: 44)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
@@ -732,5 +819,128 @@ struct CommunityScenicCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.8))
         .shadow(color: accent.opacity(0.2), radius: 16, y: 8)
+    }
+}
+
+
+/// Directory order (applied to the loaded page on device).
+enum CommunityDirectorySort: String, CaseIterable, Identifiable {
+    case relevant, members, active, name
+    var id: Self { self }
+    var title: String {
+        switch self {
+        case .relevant: "Relevant"
+        case .members: "Most members"
+        case .active: "Recently active"
+        case .name: "A–Z"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .relevant: "sparkles"
+        case .members: "person.3"
+        case .active: "clock"
+        case .name: "textformat"
+        }
+    }
+}
+
+
+// MARK: - Members filter + rules sheet
+
+enum CommunityMemberFilter: String, CaseIterable, Identifiable {
+    case all, staff, members
+    var id: String { rawValue }
+    func title(count: Int) -> String {
+        switch self {
+        case .all: "All \(count)"
+        case .staff: "Staff \(count)"
+        case .members: "Members \(count)"
+        }
+    }
+    /// Filters the loaded page(s) of members; staff (owner, admins, moderators) sort first.
+    static func apply(_ members: [CommunityMember], filter: CommunityMemberFilter, query: String) -> [CommunityMember] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let isStaff: (CommunityMember) -> Bool = { [.owner, .admin, .moderator].contains($0.role) }
+        let rank: (CommunityRole) -> Int = { r in
+            switch r { case .owner: 0; case .admin: 1; case .moderator: 2; case .member: 3; case .restricted: 4 }
+        }
+        return members.filter { m in
+            switch filter {
+            case .all: true
+            case .staff: isStaff(m)
+            case .members: !isStaff(m)
+            }
+        }
+        .filter { q.isEmpty || $0.profile.displayName.lowercased().contains(q) || $0.profile.handle.lowercased().contains(q) }
+        .enumerated()
+        .sorted { (rank($0.element.role), $0.offset) < (rank($1.element.role), $1.offset) }
+        .map(\.element)
+    }
+}
+
+/// Rules built from the community's real policies, plus Modula's community guidelines (which apply everywhere).
+struct CommunityRulesSheet: View {
+    let community: CommunityDetails
+    let attachmentsAllowed: Bool?
+    @Environment(\.dismiss) private var dismiss
+
+    private var communityRules: [(String, String, String)] {
+        var rules: [(String, String, String)] = [
+            (community.membershipPolicy == .approval ? "person.badge.clock" : "person.badge.plus",
+             community.membershipPolicy == .approval ? "Membership needs approval" : "Anyone can join",
+             community.membershipPolicy == .approval ? "Moderators review each request before you can take part." : "Join to post, vote and RSVP."),
+            (community.postingPolicy == .moderators ? "megaphone" : "text.bubble",
+             community.postingPolicy == .moderators ? "Only moderators post" : "Members can post",
+             community.postingPolicy == .moderators ? "Members can read and react; posts come from the team." : "Keep posts on topic for \(community.summary.name)."),
+            (community.summary.visibility == .private ? "lock" : "globe",
+             community.summary.visibility == .private ? "Private space" : "Public space",
+             community.summary.visibility == .private ? "Posts are only visible to members." : "Anyone can read posts here."),
+        ]
+        if let attachmentsAllowed {
+            rules.append((attachmentsAllowed ? "paperclip" : "paperclip.badge.ellipsis",
+                          attachmentsAllowed ? "Photos and files allowed" : "Text only",
+                          attachmentsAllowed ? "Share images and files that fit the topic." : "Attachments are turned off in this community."))
+        }
+        return rules
+    }
+
+    private static let guidelines: [(String, String, String)] = [
+        ("hand.raised", "Be kind", "No harassment, hate or threats."),
+        ("checkmark.seal", "Be genuine", "No spam, scams or impersonation."),
+        ("lock.shield", "Respect privacy", "Don’t share other people’s personal information."),
+        ("flag", "Report, don’t retaliate", "Use Report on posts that break these rules."),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section(community.summary.name) {
+                    ForEach(Array(communityRules.enumerated()), id: \.offset) { i, r in row(r).modulaAppear(delay: Double(i) * 0.04) }
+                }
+                Section {
+                    ForEach(Array(Self.guidelines.enumerated()), id: \.offset) { i, r in row(r).modulaAppear(delay: 0.12 + Double(i) * 0.04) }
+                } header: { Text("Modula community guidelines") } footer: {
+                    Text("Moderators can remove posts or members that break these rules.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Rules")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .accessibilityIdentifier("community.rules.sheet")
+    }
+
+    private func row(_ r: (String, String, String)) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: r.0).font(.body.weight(.semibold)).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(r.1).font(.subheadline.weight(.semibold))
+                Text(r.2).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }

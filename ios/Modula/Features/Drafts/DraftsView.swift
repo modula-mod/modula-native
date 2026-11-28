@@ -41,7 +41,14 @@ struct DraftsView: View {
                             .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
+                }
+            }
+            if let error = app.drafts.syncError {
+                Section {
+                    Label(error, systemImage: "arrow.triangle.2.circlepath.icloud")
+                        .foregroundStyle(.secondary)
+                    Button("Retry Sync") { Task { await app.drafts.refresh() } }
                 }
             }
             if app.drafts.capabilities.serverPostDrafts, let error = app.drafts.syncError {
@@ -63,6 +70,7 @@ struct DraftsView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .modulaHorizontalRail()
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             if filter == .reels {
@@ -117,6 +125,8 @@ struct DraftsView: View {
         }
         .modulaCanvas()
         .navigationTitle("Drafts")
+        // Inline like the rest of the app: an inherited large title stuck over the first row.
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("drafts.root")
         .confirmationDialog(
             "Discard draft?",
@@ -282,7 +292,7 @@ struct DraftRestorePrompt: View {
                     onStartNew()
                     dismiss()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 Spacer()
                 Button {
                     HapticEngine.shared.play(.navigation)
@@ -293,7 +303,7 @@ struct DraftRestorePrompt: View {
                         .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
             }
         }
         .padding(20)

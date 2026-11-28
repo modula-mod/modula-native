@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsGroup<Content: View>: View {
     let title: String
@@ -38,14 +39,22 @@ struct SettingsToggleCard<Content: View>: View {
                 SettingsGlassCard { rows }
             }
         }
-        .toggleStyle(.switch)
-        .tint(app.appearance.liveAccent)
+        // Switches always use the shared accent style (a plain .switch here dropped the accent).
+        .toggleStyle(SettingsHapticToggleStyle())
+        .tint(.primary)
     }
 
+    /// 52pt rows; dividers stay hairlines (the minHeight used to apply to each divider too,
+    /// which spaced Push › Notify me about rows ~110pt apart).
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
-            content
-                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            ForEach(subviews: content) { row in
+                if row.containerValues.settingsIsDivider {
+                    row
+                } else {
+                    row.frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                }
+            }
         }
     }
 }
@@ -61,7 +70,12 @@ extension EnvironmentValues {
 }
 
 struct SettingsDivider: View {
-    var body: some View { Divider().padding(.leading, 42) }
+    var body: some View { Divider().padding(.leading, 42).containerValue(\.settingsIsDivider, true) }
+}
+
+extension ContainerValues {
+    /// Marks `SettingsDivider` so card layouts don't give it a row's minimum height.
+    @Entry var settingsIsDivider: Bool = false
 }
 
 struct SettingsNavigationRow: View {
@@ -93,11 +107,11 @@ private struct AppearanceChoice<Value: Hashable>: View {
             }
             .font(.subheadline.weight(.semibold))
             // Text/checkmark colour picked by the accent's luminance (white on yellow was unreadable).
-            .foregroundStyle(selection == value ? Self.onColor(app.appearance.liveAccent) : Color.primary)
+            .foregroundStyle(selection == value ? Color.modulaOnPrimary : Color.primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: 46)
-            .background(selection == value ? app.appearance.liveAccent : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(selection == value ? Color.modulaPrimaryFill : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == value ? .isSelected : [])
@@ -145,18 +159,17 @@ struct SettingsView: View {
     @Environment(AppEnvironment.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Namespace private var identityNamespace
     @State private var query = ""
     @State private var searchPresented = false
     #if DEBUG
     @State private var debugScroll = ScrollPosition(edge: .top)
     #endif
-    @State private var headerProgress: CGFloat = 0
     @State private var scrollY: CGFloat = 0
     @State private var avatarFrame: CGRect = .zero
     @State private var showsQR = false
     @State private var intelligenceStatus = "Checking local providers"
-    @State private var quickPane: SettingsQuickPane?
     @State private var showsPrivacyDashboard = false
     @AppStorage("settings.battery.dataSaver") private var dataSaver = false
     @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true
@@ -176,22 +189,30 @@ struct SettingsView: View {
                 if isSearching {
                     // Atlas v5 09.002: grouped matches, each with its breadcrumb; unavailable
                     // destinations say so instead of looking like working settings.
-                    if filteredSearchItems.isEmpty {
+                    // Speed: one registry search per render (it ran twice: once for isEmpty, once to group).
+                    let groups = groupedSearchItems
+                    if groups.isEmpty {
                         SettingsGroup(title: "Results") {
                             ModulaEmptyState(title: "No settings for “\(query)”", message: "Try a broader word, like privacy or theme.", symbol: "magnifyingglass")
                                 .frame(minHeight: 220)
                         }
                     } else {
-                        ForEach(groupedSearchItems, id: \.category) { group in
+                        Text("\(groups.reduce(0) { $0 + $1.items.count }) result\(groups.reduce(0) { $0 + $1.items.count } == 1 ? "" : "s")")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
+                            .accessibilityIdentifier("settings.search.count")
+                        ForEach(Array(groups.enumerated()), id: \.element.category) { gi, group in
                             SettingsGroup(title: group.category) {
                                 ForEach(Array(group.items.enumerated()), id: \.element.id) { index, item in
                                     SettingsTileRow(title: item.title, subtitle: searchSubtitle(item, category: group.category), symbol: item.symbol) {
+                                        SettingsRecentSearches.add(query)
                                         app.navigation.settingsFocusAnchor = item.anchor
                                         app.navigation.open(.settings(item.route))
                                     }
                                     if index < group.items.count - 1 { SettingsDivider() }
                                 }
                             }
+                            .modulaAppear(delay: Double(min(gi, 5)) * 0.04)
                         }
                     }
                 } else if searchPresented {
@@ -209,7 +230,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.heading")
 
-                    settingsCover
+                    settingsHeader
 
                     if identityAvatarURL == nil, app.auth.account != nil {
                         TelegramSettingsCard {
@@ -220,8 +241,6 @@ struct SettingsView: View {
                     // Atlas v5 08.01 / 09.001: one pinned 2D Moliboo feature card, launch shortcuts,
                     // then the numbered categories, each destination listed once.
                     molibooHero
-
-                    quickActions
 
                     settingsSection("Account & Membership") {
                         TelegramRow(title: "Account", symbol: "person.fill", tint: .blue) { app.navigation.open(.settings(.account(.root))) }
@@ -250,18 +269,16 @@ struct SettingsView: View {
                             .accessibilityIdentifier("settings.privacy-dashboard.open")
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        sectionHeader("Appearance & Accessibility")
-                        TelegramSettingsCard {
-                            SettingsLiveAppearanceCard { app.navigation.open(.settings(.appearance(.root))) }
-                        }
-                        TelegramSettingsCard {
+                    settingsSection("Appearance & Accessibility") {
+                            // A plain row into the Appearance page (the inline preview block is gone).
+                            TelegramRow(title: "Appearance", symbol: "paintbrush.fill", tint: .cyan, value: themeValue) { app.navigation.open(.settings(.appearance(.root))) }
+                                .accessibilityIdentifier("settings.appearance")
+                            TelegramDivider()
                             TelegramRow(title: "Personalisation", symbol: "slider.horizontal.3", tint: .indigo) { app.navigation.open(.settings(.personalisation(.root))) }
                             TelegramDivider()
                             TelegramRow(title: "Accessibility", symbol: "accessibility", tint: .blue) { app.navigation.open(.settings(.accessibility(.root))) }
                             TelegramDivider()
                             TelegramRow(title: "Language", symbol: "globe", tint: .blue) { app.navigation.open(.settings(.language(.root))) }
-                        }
                     }
 
                     settingsSection("Notifications & Communication") {
@@ -341,6 +358,13 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 4)
+                        // Long-press to copy the exact version/build for bug reports.
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = versionSummary
+                                HapticEngine.shared.play(.success)
+                            } label: { Label("Copy version", systemImage: "doc.on.doc") }
+                        }
                         .accessibilityIdentifier("settings.footer.version")
                 }
             }
@@ -349,10 +373,27 @@ struct SettingsView: View {
             .padding(.bottom, SettingsInsets.bottom)
         }
         .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, y in
-            scrollY = y
+            // Only -280…150 drives anything (stretch / collapse); past that, stop re-rendering.
+            let clamped = min(max(y, -281), 151)
+            if abs(clamped - scrollY) >= 0.5 { scrollY = clamped }
         }
         .modulaSoftScrollEdge()
-        .background(SettingsAmbientBackdrop().ignoresSafeArea())
+        // Shared progressive blur instead of the system's opaque band (as on Profile / Discover):
+        // hidden at rest, fades in once rows start sliding under the search bar.
+        .modifier(SettingsTopEdgeEffectHidden())
+        .overlay(alignment: .top) {
+            ModulaTopProgressiveBlur(
+                height: ProfileFullBleedMetrics.windowSafeAreaTop + 44 + SettingsTopBlur.searchBarHeight + ModulaTopProgressiveBlur.restingFade,
+                tint: ModulaPalette.resolve(app.appearance, scheme: colorScheme).canvas,
+                reduceTransparency: reduceTransparency || app.appearance.contrastTransparency == .reduceTransparency
+            )
+            .ignoresSafeArea(edges: .top)
+            .opacity(Double(min(max(scrollY / 24, 0), 1)))
+        }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        // Login's Spectral Drape world, dimmed for the glass cards (static under Reduce Motion,
+        // solid under Reduce Transparency, paused off-screen by the drape itself).
+        .background(SettingsDrapeBackdrop())
         .overlay {
             if !isSearching {
                 IslandAvatarMerge(frame: avatarFrame, reduceMotion: reduceMotion) { heroAvatar(size: 100) }
@@ -377,21 +418,16 @@ struct SettingsView: View {
                     .offset(y: reduceMotion ? 0 : (1 - collapse) * 8)
                     .accessibilityHidden(collapse < 0.6)
             }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if collapse > 0.85 || scrollY < -40 {
-                    Button { searchPresented = true } label: { Image(systemName: "magnifyingglass") }
-                        .transition(.opacity)
-                        .accessibilityLabel("Search Settings")
-                }
-            }
+            // No toolbar search icon: the pinned search bar is the one search affordance.
         }
-        .animation(.easeOut(duration: 0.18), value: collapse > 0.85 || scrollY < -40)
         .sheet(isPresented: $showsPrivacyDashboard) {
             SettingsPrivacyDashboard()
                 .presentationDetents([.large])
+                .modulaSheetStyle()
         }
         .fullScreenCover(isPresented: $showsQR) {
             SettingsQRModal { showsQR = false }
+                .modulaPullDownToDismiss { showsQR = false }
                 .transition(.scale)
         }
         // Liquid Glass search capsule pinned under the nav bar (replaces the system `.searchable`
@@ -432,64 +468,79 @@ struct SettingsView: View {
         ModulaAvatar(initials: identityInitials, url: identityAvatarURL, size: size)
     }
 
-    /// Cover banner: real profile cover when the account has one, otherwise the accent gradient.
-    /// Counts come from `GET /v1/profiles/:handle` via the profile store. Missing profile hides the chips.
-    private var settingsCover: some View {
+    /// Centred identity header: cover banner across the top of a glass card, the avatar centred on
+    /// its lower edge (fully inside the card, never clipped), name and handle centred below, then
+    /// Edit profile and tidy stats. Counts come from the profile store; signed out shows a hint.
+    private var settingsHeader: some View {
         let profile = app.profile.ownProfile
         let merge = IslandAvatarMerge<EmptyView>.progress(for: avatarFrame)
-        return VStack(alignment: .leading, spacing: 12) {
-            ZStack(alignment: .bottomLeading) {
-                settingsCoverArt
-                    .frame(height: 156)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-                LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
-                    .allowsHitTesting(false)
-                HStack(alignment: .center, spacing: 12) {
-                    heroAvatar(size: 64)
-                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                        .scaleEffect(reduceMotion ? 1 : 1 + min(max(0, -scrollY) / 280, 0.25), anchor: .bottom)
-                        .opacity(merge > 0 ? 0 : 1)
-                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
-                        .onTapGesture { openProfileEdit() }
-                        .accessibilityLabel("Profile photo")
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(identityDisplayName)
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        if let identityHandle {
-                            Text(identityHandle)
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.88))
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    Button("Edit profile") { openProfileEdit() }
+        let avatarSize: CGFloat = 92
+        let card = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return VStack(spacing: 0) {
+            settingsCoverArt
+                .frame(height: 132)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .overlay(LinearGradient(colors: [.clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom))
+                .contentShape(Rectangle())
+                .onTapGesture { openProfileEdit() }
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
+                heroAvatar(size: avatarSize)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.92), lineWidth: 3))
+                    .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+                    .opacity(merge > 0 ? 0 : 1)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { avatarFrame = $0 }
+                    .onTapGesture { openProfileEdit() }
+                    .accessibilityLabel("Profile photo")
+                    .accessibilityAddTraits(.isButton)
+                    .padding(.top, -avatarSize / 2)
+                    .padding(.bottom, 6)
+                Text(identityDisplayName)
+                    .font(.title2.weight(.bold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .accessibilityAddTraits(.isHeader)
+                if let identityHandle {
+                    Text(identityHandle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                Button { openProfileEdit() } label: {
+                    Label("Edit profile", systemImage: "pencil")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .frame(height: 36)
-                        .background(.white.opacity(0.22), in: Capsule())
-                        .accessibilityIdentifier("settings.edit.cover")
                 }
-                .padding(14)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .buttonStyle(.modulaSecondary)
+                .padding(.top, 10)
+                .accessibilityIdentifier("settings.edit.cover")
 
-            if app.auth.account != nil, let profile {
-                HStack(spacing: 8) {
-                    settingsStat(profile.postCount, "Posts", "square.and.pencil")
-                    settingsStat(profile.followerCount, "Followers", "person.fill")
-                    settingsStat(profile.followingCount, "Following", "person.2.fill")
+                if app.auth.account != nil, let profile {
+                    HStack(spacing: 0) {
+                        settingsStat(profile.postCount, "Posts")
+                        Divider().frame(height: 28)
+                        settingsStat(profile.followerCount, "Followers")
+                        Divider().frame(height: 28)
+                        settingsStat(profile.followingCount, "Following")
+                    }
+                    .padding(.top, 14)
+                } else if app.auth.account == nil {
+                    Text("Sign in to see your posts, followers and following.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 12)
                 }
-            } else if app.auth.account == nil {
-                Text("Sign in to see your posts, followers and following.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
+        .clipShape(card)
+        .modulaGlass(in: card, interactive: false, specular: true)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("settings.cover")
     }
 
@@ -517,18 +568,15 @@ struct SettingsView: View {
         )
     }
 
-    private func settingsStat(_ count: Int, _ label: String, _ symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(count.formatted(), systemImage: symbol)
-                .font(.subheadline.weight(.semibold))
-                .labelStyle(.titleAndIcon)
+    private func settingsStat(_ count: Int, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(count.formatted())
+                .font(.headline.monospacedDigit())
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label), \(count.formatted())")
     }
@@ -542,7 +590,14 @@ struct SettingsView: View {
                 .padding(.leading, 4)
             TelegramSettingsCard { content() }
         }
+        // Sections rise in once, in reading order (first screenful only; none with Reduce Motion).
+        .modulaAppear(delay: Double(min(Self.sectionOrder.firstIndex(of: title) ?? 6, 6)) * 0.035)
     }
+
+    private static let sectionOrder = [
+        "Account & Membership", "Privacy & Security", "Appearance & Accessibility",
+        "Notifications & Communication", "Content, Social & Activity", "Modules & Intelligence",
+    ]
 
     /// Developer rows: each gets its own symbol and colour tile (they all looked like the same puzzle piece).
     private func tinted(_ title: String, _ symbol: String, _ tint: Color, _ route: SettingsRoute) -> some View {
@@ -677,7 +732,8 @@ struct SettingsView: View {
                     Text("MOLIBOO · YOUR COMPANION")
                         .font(.caption2.weight(.bold))
                         .tracking(0.6)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        // Secondary label colour: the accent (dark red on dark glass) failed contrast.
+                        .foregroundStyle(.secondary)
                     Text(kind.name)
                         .font(.title3.weight(.bold))
                         .foregroundStyle(.primary)
@@ -704,44 +760,15 @@ struct SettingsView: View {
         .accessibilityIdentifier("settings.moliboo.hero")
     }
 
-    /// Launch shortcuts (Atlas v5 09.001). Each opens an existing, working destination.
-    private var quickActions: some View {
-        HStack(spacing: 10) {
-            quickAction("Privacy", "checkmark.shield.fill", .indigo, id: "privacy") { showsPrivacyDashboard = true }
-            quickAction("Account", "person.crop.circle.fill", .blue, id: "account") { openAccountOrLogin() }
-            quickAction("Appearance", "paintbrush.fill", .cyan, id: "appearance") { app.navigation.open(.settings(.appearance(.root))) }
-            quickAction("Modules", "shippingbox.fill", .green, id: "modules") { app.navigation.open(.settings(.modules(.root))) }
-        }
-        .accessibilityIdentifier("settings.quick-actions")
-    }
-
-    private func quickAction(_ title: String, _ symbol: String, _ tint: Color, id: String, action: @escaping () -> Void) -> some View {
-        Button {
-            HapticEngine.shared.play(.selection)
-            action()
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .frame(maxWidth: .infinity, minHeight: 76)
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .accessibilityIdentifier("settings.quick.\(id)")
-    }
-
     /// Shown while the search field is focused and empty (Atlas v5 09.002 "suggested searches").
     private var suggestedSearches: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SettingsRecentSearchesGroup { query = $0 }
+            suggestedGroup
+        }
+    }
+
+    private var suggestedGroup: some View {
         SettingsGroup(title: "Suggested") {
             ForEach(Array(Self.suggestions.enumerated()), id: \.offset) { index, suggestion in
                 SettingsTileRow(title: suggestion.0, symbol: suggestion.1) { query = suggestion.0 }
@@ -840,7 +867,7 @@ struct SettingsIdentityHero: View {
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 44)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             .buttonBorderShape(.capsule)
             .accessibilityIdentifier("settings.identity.edit")
         }
@@ -908,7 +935,7 @@ private struct SettingsQuickSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
     }
 }
 
@@ -983,6 +1010,12 @@ struct AppearanceSettingsView: View {
                 themeSection(store)
                 accentSection(store)
                 brandingSection(store)
+                navigationSection(store)
+                ChatWallpaperSettingsRow()
+                CallIDSettingsRow()
+                CallsPreferencesRow()
+                ModulaNumberSettingsRow()
+                ConnectPhoneNumbersRow()
                 advancedSection(store)
 
                 Text("Saved on this iPhone. Account appearance sync isn’t available — the server route has no declared preference shape.")
@@ -1013,7 +1046,7 @@ struct AppearanceSettingsView: View {
                         .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("appearance.preview-full")
                 }
                 .padding(.horizontal, ModulaLayout.contentInset)
@@ -1094,6 +1127,7 @@ struct AppearanceSettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(store.liveAccent)
             }
+            AccentLivePreview(accent: store.liveAccent)
             HStack(spacing: 12) {
                 ForEach(AppearanceStore.Accent.allCases) { accent in
                     let selected = store.customAccentHex == nil && store.accent == accent
@@ -1160,6 +1194,36 @@ struct AppearanceSettingsView: View {
             Text("The wordmark at the top of Home. It only changes how Modula looks to you.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
+    }
+
+    /// Settings › Appearance › Custom navigation (tab bar destinations).
+    private func navigationSection(_ store: AppearanceStore) -> some View {
+        Button {
+            app.navigation.open(.settings(.appearance(.tabBar)))
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "dock.rectangle")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Custom navigation").font(.headline)
+                    Text(store.tabBar.map(\.title).joined(separator: " · "))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityHint("Choose the tabs in your bottom bar")
+        .accessibilityIdentifier("appearance.custom-navigation")
     }
 
     private func advancedSection(_ store: AppearanceStore) -> some View {
@@ -1399,7 +1463,7 @@ struct AppearanceLivePreview: View {
                         .font(.caption.weight(.semibold))
                         .lineLimit(2)
                     HStack(spacing: 10) {
-                        Image(systemName: "heart.fill").foregroundStyle(accent)
+                        Image(systemName: "heart.fill").foregroundStyle(.primary)
                         Image(systemName: "bubble.left")
                         Image(systemName: "arrow.2.squarepath")
                     }
@@ -1412,7 +1476,7 @@ struct AppearanceLivePreview: View {
                     .accessibilityHidden(true)
             }
             HStack {
-                Label("Home", systemImage: "house.fill").foregroundStyle(accent).labelStyle(.titleAndIcon)
+                Label("Home", systemImage: "house.fill").foregroundStyle(.primary).labelStyle(.titleAndIcon)
                 Spacer()
                 Image(systemName: "safari")
                 Spacer()
@@ -1454,7 +1518,7 @@ private struct AppearanceThemeCard: View {
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(accent)
+                        .foregroundStyle(.primary)
                         .padding(6)
                         .accessibilityHidden(true)
                 }
@@ -1515,7 +1579,7 @@ struct AppearancePreviewView: View {
                 ModulaText(text: "Trying out a new look for my Modula. What do you think? 🎨", role: compact ? .body : .headline)
                 // A realistic mini post, so accent / theme / density changes are visible live.
                 HStack(spacing: 18) {
-                    Label("24", systemImage: "heart.fill").foregroundStyle(app.appearance.liveAccent)
+                    Label("24", systemImage: "heart.fill").foregroundStyle(.primary)
                     Label("6", systemImage: "bubble.left")
                     Label("2", systemImage: "arrow.2.squarepath")
                     Spacer()
@@ -1524,7 +1588,8 @@ struct AppearancePreviewView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-                if !compact { ModulaButton(title: "Follow", symbol: "person.badge.plus") {} }
+                // Preview only: looks like the real button, not tappable.
+                if !compact { ModulaButton(title: "Follow", symbol: "person.badge.plus") {}.allowsHitTesting(false).accessibilityHidden(true) }
             }
         }
     }
@@ -1621,19 +1686,13 @@ struct ComponentCatalogView: View {
             LazyVStack(alignment: .leading, spacing: 24) {
                 catalog("Live Appearance") {
                     VStack(spacing: 12) {
-                        Picker("Theme", selection: $appearance.theme) {
-                            ForEach(AppearanceStore.Theme.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
-                        }.pickerStyle(.segmented)
-                        Picker("Dark Style", selection: $appearance.darkStyle) {
-                            ForEach(AppearanceStore.DarkStyle.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
-                        }.pickerStyle(.segmented)
+                        ModulaSegmentedControl("Theme", selection: $appearance.theme, options: AppearanceStore.Theme.allCases) { settingsDisplayTitle($0.rawValue) }
+                        ModulaSegmentedControl("Dark Style", selection: $appearance.darkStyle, options: AppearanceStore.DarkStyle.allCases) { settingsDisplayTitle($0.rawValue) }
                         HStack {
                             Picker("Accent", selection: $appearance.accent) { ForEach(AppearanceStore.Accent.allCases) { Text($0.title).tag($0) } }
                             Picker("Font", selection: $appearance.fontFamily) { ForEach(AppearanceStore.FontFamily.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) } }
                         }
-                        Picker("Density", selection: $appearance.density) {
-                            ForEach(AppearanceStore.Density.allCases, id: \.self) { Text(settingsDisplayTitle($0.rawValue)).tag($0) }
-                        }.pickerStyle(.segmented)
+                        ModulaSegmentedControl("Density", selection: $appearance.density, options: AppearanceStore.Density.allCases) { settingsDisplayTitle($0.rawValue) }
                     }
                 }
                 AppearancePreviewView()
@@ -1956,7 +2015,7 @@ private struct AppearanceLogoChoice: View {
                 case .moliboos:
                     Image(systemName: "sparkle")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .accessibilityHidden(true)
                     MoliboosWordmark(height: 22)
                 }
@@ -2107,6 +2166,604 @@ enum SettingsV5Category {
         case .help, .whatsNew, .about: "Help, Legal & About"
         case .developer, .labs: "Developer & Labs"
         default: "Settings"
+        }
+    }
+}
+
+
+// MARK: - Custom navigation (tab bar)
+
+/// Settings › Appearance › Custom navigation (t226u/t227u). "In your tab bar" is an ordered list
+/// with native drag handles (Home pinned with a lock, − removes); "More destinations" adds with +.
+/// Presets, per-tab icon + colour, and bar options all preview live and save locally
+/// (`AppearanceStore.tabBar` + `TabBarCustomization`).
+struct CustomNavigationSettingsView: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var notice: String?
+    @State private var noticeToken = 0
+    @State private var editingTab: AppTab?
+    @State private var editMode: EditMode = .active
+
+    private var custom: TabBarCustomization { TabBarCustomization.shared }
+
+    var body: some View {
+        let bar = app.appearance.tabBar
+        let more = AppTab.barCandidates.filter { !bar.contains($0) }
+        List {
+            Section {
+                CustomNavigationPreviewBar(tabs: bar)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+                presetGrid(bar: bar)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+            } header: {
+                Text("Preview")
+            } footer: {
+                Text("Profile is always a swipe from the right edge.")
+            }
+
+            Section {
+                ForEach(bar) { tab in
+                    barRow(tab, bar: bar)
+                        .moveDisabled(tab == .home)
+                        .listRowBackground(CustomNavigationRowGlass())
+                }
+                .onMove { from, to in move(from: from, to: to) }
+            } header: {
+                Text("In your tab bar · \(bar.count) of \(AppTab.maxBarCount)")
+            } footer: {
+                Text("Drag to reorder. Tap a tab to change its icon and colour.")
+            }
+
+            if !more.isEmpty {
+                Section("More destinations") {
+                    ForEach(more) { tab in
+                        moreRow(tab, full: bar.count >= AppTab.maxBarCount)
+                            .listRowBackground(CustomNavigationRowGlass())
+                    }
+                }
+            }
+
+            lookSection
+            behaviourSection
+
+            Section {
+                Button { restore() } label: {
+                    Label("Restore to default", systemImage: "arrow.counterclockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .modulaGlass(in: Capsule(), interactive: true)
+                .disabled(bar == AppTab.defaultBar && !custom.isCustomised)
+                .opacity(bar == AppTab.defaultBar && !custom.isCustomised ? 0.5 : 1)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier("custom-navigation.restore")
+            }
+        }
+        .environment(\.editMode, $editMode)
+        .scrollContentBackground(.hidden)
+        .overlay(alignment: .bottom) { toast }
+        .modulaSoftScrollEdge()
+        .modulaCanvas()
+        .navigationTitle("Custom navigation")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $editingTab) { tab in
+            TabAppearanceSheet(tab: tab).modulaSheetStyle()
+        }
+    }
+
+    @ViewBuilder private var toast: some View {
+        if let notice {
+            Text(notice)
+                .font(.footnote.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .modulaGlass(in: Capsule(), interactive: false)
+                .padding(.bottom, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private func presetGrid(bar: [AppTab]) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            ForEach(TabBarPreset.allCases) { preset in
+                let active = bar == AppTab.sanitizedBar(preset.tabs)
+                Button { apply(preset) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: preset.symbol).font(.body.weight(.semibold))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(preset.title).font(.subheadline.weight(.semibold))
+                            Text("\(preset.tabs.count) tabs").font(.caption).foregroundStyle(active ? Color.modulaOnPrimary.opacity(0.75) : .secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if active { Image(systemName: "checkmark").font(.caption.weight(.bold)) }
+                    }
+                    .foregroundStyle(active ? Color.modulaOnPrimary : Color.primary)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                    .background {
+                        if active { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.modulaPrimaryFill) }
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                .accessibilityLabel("\(preset.title) preset: \(preset.tabs.map(\.title).joined(separator: ", "))")
+                .accessibilityAddTraits(active ? .isSelected : [])
+                .accessibilityIdentifier("custom-navigation.preset.\(preset.rawValue)")
+            }
+        }
+    }
+
+    private func icon(_ tab: AppTab, selected: Bool = false) -> some View {
+        let tint = custom.tint(for: tab).color
+        return Image(systemName: custom.symbol(for: tab, selected: selected))
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(tint ?? Color.primary)
+            .frame(width: 40, height: 40)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous), interactive: false)
+            .accessibilityHidden(true)
+    }
+
+    private func barRow(_ tab: AppTab, bar: [AppTab]) -> some View {
+        HStack(spacing: 12) {
+            if tab == .home {
+                Image(systemName: "lock.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .accessibilityLabel("Pinned")
+            } else {
+                Button { remove(tab) } label: {
+                    Image(systemName: "minus")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.borderless)
+                .modulaGlass(in: Circle(), interactive: true)
+                .accessibilityLabel("Remove \(tab.title)")
+                .accessibilityIdentifier("custom-navigation.remove.\(tab.rawValue)")
+            }
+            Button { editingTab = tab } label: {
+                HStack(spacing: 12) {
+                    icon(tab, selected: true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tab.title).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                        Text(tab == .home ? "Always first" : tab.blurb)
+                            .font(.footnote).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Text("\((bar.firstIndex(of: tab) ?? 0) + 1)")
+                        .font(.caption.weight(.bold)).monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityHint("Change icon and colour")
+        }
+        .padding(.vertical, 2)
+        .accessibilityIdentifier("custom-navigation.bar.\(tab.rawValue)")
+    }
+
+    private func moreRow(_ tab: AppTab, full: Bool) -> some View {
+        HStack(spacing: 12) {
+            Button { add(tab) } label: {
+                Image(systemName: "plus")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(full ? Color.secondary : Color.modulaOnPrimary)
+                    .frame(width: 30, height: 30)
+                    .background(full ? Color.clear : Color.modulaPrimaryFill, in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.borderless)
+            .modulaGlass(in: Circle(), interactive: true)
+            .accessibilityLabel("Add \(tab.title)")
+            .accessibilityIdentifier("custom-navigation.add.\(tab.rawValue)")
+            Button { editingTab = tab } label: {
+                HStack(spacing: 12) {
+                    icon(tab)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tab.title).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                        Text(tab.blurb).font(.footnote).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 2)
+        .moveDisabled(true)
+    }
+
+    @ViewBuilder private var lookSection: some View {
+        @Bindable var custom = TabBarCustomization.shared
+        Section {
+            optionRow("Icons") {
+                ModulaSegmentedControl(segments: TabIconStyle.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.iconStyle))
+            }
+            optionRow("Tab bar size") {
+                ModulaSegmentedControl(segments: TabBarSize.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.size))
+            }
+            optionRow("Badges") {
+                ModulaSegmentedControl(segments: TabBadgeStyle.allCases.map { .init(id: $0, title: $0.title) }, selection: animated($custom.badgeStyle))
+            }
+            Toggle("Show labels", isOn: animated($custom.showLabels))
+                .listRowBackground(CustomNavigationRowGlass())
+        } header: {
+            Text("Look")
+        } footer: {
+            Text("Compact shrinks the bar while you scroll; Regular keeps it full size.")
+        }
+    }
+
+    @ViewBuilder private var behaviourSection: some View {
+        @Bindable var custom = TabBarCustomization.shared
+        Section {
+            Picker("Double-tap a tab", selection: $custom.reselect) {
+                ForEach(TabReselectAction.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .tint(.primary)
+            .listRowBackground(CustomNavigationRowGlass())
+            Toggle("Long-press quick menu", isOn: $custom.longPressMenu)
+                .listRowBackground(CustomNavigationRowGlass())
+            Toggle("Haptics", isOn: $custom.haptics)
+                .listRowBackground(CustomNavigationRowGlass())
+        } header: {
+            Text("Behaviour")
+        } footer: {
+            Text("Double-tap the tab you're on. Refresh reloads that tab's screen. The long-press menu works in Modula's own tab bar.")
+        }
+    }
+
+    private func optionRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.subheadline.weight(.semibold))
+            content()
+        }
+        .padding(.vertical, 4)
+        .listRowBackground(CustomNavigationRowGlass())
+    }
+
+    private func animated<Value>(_ binding: Binding<Value>) -> Binding<Value> {
+        reduceMotion ? binding : binding.animation(.snappy)
+    }
+
+    private func add(_ tab: AppTab) {
+        var bar = app.appearance.tabBar
+        guard bar.count < AppTab.maxBarCount else {
+            flash("Up to \(AppTab.maxBarCount) tabs. Remove one first.")
+            return
+        }
+        bar.append(tab)
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        commit(bar)
+    }
+
+    private func remove(_ tab: AppTab) {
+        var bar = app.appearance.tabBar
+        guard tab != .home, let index = bar.firstIndex(of: tab) else { return }
+        guard bar.count > AppTab.minBarCount else {
+            flash("Keep at least \(AppTab.minBarCount) tabs")
+            return
+        }
+        bar.remove(at: index)
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        commit(bar)
+    }
+
+    private func move(from source: IndexSet, to destination: Int) {
+        var bar = app.appearance.tabBar
+        bar.move(fromOffsets: source, toOffset: max(destination, 1))
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        commit(bar)
+    }
+
+    private func apply(_ preset: TabBarPreset) {
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        custom.applyPresetLook(preset)
+        commit(preset.tabs)
+        UIAccessibility.post(notification: .announcement, argument: "\(preset.title) preset applied")
+    }
+
+    private func restore() {
+        if custom.haptics { HapticEngine.shared.play(.selection) }
+        custom.reset()
+        commit(AppTab.defaultBar)
+    }
+
+    private func commit(_ bar: [AppTab]) {
+        let clean = AppTab.sanitizedBar(bar)
+        if reduceMotion { app.appearance.tabBar = clean } else { withAnimation(.snappy) { app.appearance.tabBar = clean } }
+    }
+
+    private func flash(_ message: String) {
+        if custom.haptics { HapticEngine.shared.play(.warning) }
+        noticeToken += 1
+        let token = noticeToken
+        withAnimation(.snappy) { notice = message }
+        UIAccessibility.post(notification: .announcement, argument: message)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            guard token == noticeToken else { return }
+            withAnimation(.snappy) { notice = nil }
+        }
+    }
+}
+
+/// Per-tab icon + colour picker (Custom navigation → tap a tab).
+private struct TabAppearanceSheet: View {
+    let tab: AppTab
+    @Environment(\.dismiss) private var dismiss
+    private var custom: TabBarCustomization { TabBarCustomization.shared }
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    let tint = custom.tint(for: tab).color
+                    VStack(spacing: 8) {
+                        Image(systemName: custom.symbol(for: tab, selected: true))
+                            .font(.system(size: 34, weight: .semibold))
+                            .foregroundStyle(tint ?? Color.primary)
+                            .frame(width: 76, height: 76)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+                            .contentTransition(.symbolEffect(.replace))
+                        Text(tab.title).font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .combine)
+
+                    Text("Icon").font(.headline)
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(Array(tab.iconChoices.enumerated()), id: \.offset) { index, choice in
+                            let on = custom.iconIndex(for: tab) == index
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy) { custom.setIconIndex(index, for: tab) }
+                            } label: {
+                                Image(systemName: on ? choice.filled : choice.outline)
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(on ? Color.modulaOnPrimary : Color.primary)
+                                    .frame(maxWidth: .infinity, minHeight: 60)
+                                    .background {
+                                        if on { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.modulaPrimaryFill) }
+                                    }
+                                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
+                            .accessibilityLabel(index == 0 ? "Default icon" : "Alternate icon \(index)")
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+
+                    Text("Colour").font(.headline)
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(TabIconTint.allCases) { option in
+                            let on = custom.tint(for: tab) == option
+                            Button {
+                                HapticEngine.shared.play(.selection)
+                                withAnimation(.snappy) { custom.setTint(option, for: tab) }
+                            } label: {
+                                VStack(spacing: 6) {
+                                    swatch(option)
+                                        .frame(width: 40, height: 40)
+                                        .overlay { Circle().strokeBorder(Color.primary, lineWidth: on ? 3 : 0).padding(-5) }
+                                    Text(option.title)
+                                        .font(.caption2.weight(on ? .semibold : .regular))
+                                        .foregroundStyle(on ? Color.primary : Color.secondary)
+                                        .fixedSize()
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 72)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(option.title)
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                    }
+                }
+                .padding(.horizontal, ModulaLayout.contentInset)
+                .padding(.vertical, 16)
+            }
+            .navigationTitle("\(tab.title) icon")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { MessagesDoneButton { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder private func swatch(_ option: TabIconTint) -> some View {
+        if let color = option.color {
+            Circle().fill(color)
+        } else {
+            Circle()
+                .fill(LinearGradient(colors: [.black, .black, .white, .white], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay { Circle().strokeBorder(Color.secondary.opacity(0.4), lineWidth: 1) }
+        }
+    }
+}
+
+/// Glass row background for the Custom navigation list (solid with Reduce Transparency via modulaGlass).
+private struct CustomNavigationRowGlass: View {
+    var body: some View {
+        Color.clear.modulaGlass(in: Rectangle(), interactive: false)
+    }
+}
+
+/// Live, non-interactive copy of the bottom bar for the Custom navigation page.
+private struct CustomNavigationPreviewBar: View {
+    let tabs: [AppTab]
+
+    var body: some View {
+        let custom = TabBarCustomization.shared
+        HStack(spacing: 2) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { offset, tab in
+                let selected = offset == 0
+                VStack(spacing: 3) {
+                    Image(systemName: custom.symbol(for: tab, selected: selected))
+                        .font(.system(size: custom.showLabels ? 18 : 21, weight: selected ? .semibold : .medium))
+                        .foregroundStyle(custom.tint(for: tab).color ?? (selected ? Color.primary : Color.secondary))
+                        .contentTransition(.symbolEffect(.replace))
+                    if custom.showLabels {
+                        Text(tab.title)
+                            .font(.caption2.weight(selected ? .semibold : .medium))
+                            .foregroundStyle(selected ? Color.primary : Color.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: custom.size == .compact ? 44 : 54)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .modulaGlass(in: Capsule(), interactive: false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Tab bar preview: \(tabs.map(\.title).joined(separator: ", "))")
+    }
+}
+
+
+/// Settings root: hide the system top scroll-edge band; the shared progressive blur replaces it.
+private struct SettingsTopEdgeEffectHidden: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
+    }
+}
+
+enum SettingsTopBlur {
+    /// Pinned glass search bar: 44pt field + 4pt top + 8pt bottom padding.
+    static let searchBarHeight: CGFloat = 56
+}
+
+/// Settings root background: the login screen's Spectral Drape, dimmed so glass cards stay
+/// readable. Reduce Transparency (system setting) gets the solid canvas instead; Reduce Motion
+/// and off-screen pausing are handled by `SpectralDrapeView`.
+struct SettingsDrapeBackdrop: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                ModulaPalette.resolve(app.appearance, scheme: scheme).canvas
+            } else {
+                ModulaAuthBackdrop(calm: true)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+
+// MARK: - Accent live preview (t235u)
+
+/// A small mock of where the accent shows (toggle, link, unread dot, progress, selected tab)
+/// so you can judge a colour before leaving Appearance.
+struct AccentLivePreview: View {
+    let accent: Color
+    @State private var on = true
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Circle().fill(accent).frame(width: 8, height: 8)
+                    Text("New message").font(.subheadline.weight(.semibold))
+                }
+                Text("Read more").font(.footnote.weight(.semibold)).foregroundStyle(accent)
+                ProgressView(value: 0.62).tint(accent).frame(maxWidth: 120)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 10) {
+                Toggle("Preview toggle", isOn: $on)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(accent)
+                HStack(spacing: 14) {
+                    Image(systemName: "house.fill").foregroundStyle(accent)
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    Image(systemName: "bubble.left").foregroundStyle(.secondary)
+                }
+                .font(.system(size: 16, weight: .semibold))
+            }
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(.smooth(duration: 0.3), value: accent)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Accent preview")
+        .modulaAppear()
+        .accessibilityIdentifier("settings.appearance.accentPreview")
+    }
+}
+
+
+// MARK: - Recent settings searches
+
+enum SettingsRecentSearches {
+    static let key = "settings.search.recent"
+    static var all: [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+    static func add(_ raw: String) {
+        let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else { return }
+        var list = all.filter { $0.caseInsensitiveCompare(q) != .orderedSame }
+        list.insert(q, at: 0)
+        UserDefaults.standard.set(Array(list.prefix(5)), forKey: key)
+    }
+}
+
+/// Last five searches that led somewhere (saved when you open a result); tap to search again.
+struct SettingsRecentSearchesGroup: View {
+    let pick: (String) -> Void
+    @State private var recents = SettingsRecentSearches.all
+
+    var body: some View {
+        if !recents.isEmpty {
+            SettingsGroup(title: "Recent") {
+                VStack(spacing: 0) {
+                    ForEach(Array(recents.enumerated()), id: \.element) { index, q in
+                        SettingsTileRow(title: q, symbol: "clock.arrow.circlepath") { pick(q) }
+                        if index < recents.count - 1 { SettingsDivider() }
+                    }
+                    Button("Clear Recent Searches") {
+                        UserDefaults.standard.removeObject(forKey: SettingsRecentSearches.key)
+                        withAnimation(.snappy) { recents = [] }
+                        HapticEngine.shared.play(.selection)
+                    }
+                    .font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .accessibilityIdentifier("settings.search.recent.clear")
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+            .accessibilityIdentifier("settings.search.recent")
         }
     }
 }

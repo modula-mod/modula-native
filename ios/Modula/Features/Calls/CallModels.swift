@@ -93,6 +93,11 @@ struct CallsCapabilities: Sendable, Equatable {
     var negotiationTimeoutMs = 20_000
     var reconnectGraceMs = 30_000
     var signallingProtocolVersion = 0
+    /// Short custom "Modula call IDs" (claim + lookup). Not phone numbers. Off unless the server
+    /// reports `calls.callIds.enabled` (see /workspace/CALLS-BACKEND.md).
+    var callIDs = false
+    var callIDMinLength = 4
+    var callIDMaxLength = 10
 
     static let disabled = CallsCapabilities()
     static let supportedProtocolVersion = 1
@@ -172,6 +177,11 @@ enum CallPayloadDecoder {
         caps.negotiationTimeoutMs = value["negotiationTimeoutMs"]?.int ?? 20_000
         caps.reconnectGraceMs = value["reconnectGraceMs"]?.int ?? 30_000
         caps.signallingProtocolVersion = value["signallingProtocolVersion"]?.int ?? 0
+        if let ids = value["callIds"], ids["enabled"]?.bool == true {
+            caps.callIDs = true
+            caps.callIDMinLength = max(ids["minLength"]?.int ?? 4, 3)
+            caps.callIDMaxLength = max(ids["maxLength"]?.int ?? 10, caps.callIDMinLength)
+        }
         return caps
     }
 
@@ -413,4 +423,29 @@ enum CallHistoryPlacement {
         }
         return slots
     }
+}
+
+/// `GET /v1/calls/ids/{callId}`: who owns a Modula call ID, and the 1:1 conversation to call in.
+struct CallIDLookup: Sendable, Equatable {
+    let callID: String
+    let party: CallParty
+    /// Existing (or server-created) direct conversation; nil = open a chat first.
+    let conversationID: String?
+}
+
+enum CallIDFormat {
+    /// Digits only, within the server's length window.
+    static func isValid(_ value: String, caps: CallsCapabilities) -> Bool {
+        value.allSatisfy(\.isASCIIDigit) && (caps.callIDMinLength...caps.callIDMaxLength).contains(value.count)
+    }
+
+    static func party(_ value: JSONValue?) -> CallParty? {
+        guard let value, let id = value["id"]?.string else { return nil }
+        return CallParty(id: id, handle: value["handle"]?.string ?? "", displayName: value["displayName"]?.string ?? "",
+                         avatarURL: value["avatarUrl"]?.string.flatMap(URL.init(string:)))
+    }
+}
+
+private extension Character {
+    var isASCIIDigit: Bool { ("0"..."9").contains(self) }
 }

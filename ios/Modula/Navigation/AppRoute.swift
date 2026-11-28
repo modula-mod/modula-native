@@ -2,8 +2,42 @@ import Foundation
 
 enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
     case home, discover, modules, activity, profile
+    /// Optional bar destinations (Settings › Appearance › Custom navigation).
+    case messages, search, reels, saved, drafts, communities, teams
+    /// More bar destinations (t226u): Phone (calls), In-Mail, Moliboo world, Modula Connect.
+    case phone, inMail = "in-mail", moliboo, connect
+    /// Widget console (t240u).
+    case board
     var id: Self { self }
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .messages: "Chats"
+        case .inMail: "In-Mail"
+        default: rawValue.capitalized
+        }
+    }
+    /// One-line description for the Custom navigation editor.
+    var blurb: String {
+        switch self {
+        case .home: "Your feed"
+        case .discover: "Trending, people and topics"
+        case .modules: "Product hub and modules"
+        case .activity: "Notifications and mentions"
+        case .profile: "Your profile"
+        case .messages: "Chats inbox"
+        case .search: "Search everything"
+        case .reels: "Short videos"
+        case .saved: "Bookmarks and collections"
+        case .drafts: "Unfinished posts"
+        case .communities: "Your communities"
+        case .teams: "Teams you belong to"
+        case .phone: "Calls, contacts and keypad"
+        case .inMail: "Longer messages"
+        case .moliboo: "Your Moliboo world"
+        case .connect: "Modula Connect (preview)"
+        case .board: "Widgets console"
+        }
+    }
     var icon: String {
         switch self {
         case .home: "house"
@@ -11,6 +45,18 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .modules: "shippingbox"
         case .activity: "bell"
         case .profile: "person.crop.circle"
+        case .messages: "bubble.left.and.bubble.right"
+        case .search: "magnifyingglass"
+        case .reels: "play.rectangle"
+        case .saved: "bookmark"
+        case .drafts: "doc.text"
+        case .communities: "person.3"
+        case .teams: "person.2.badge.gearshape"
+        case .phone: "phone"
+        case .inMail: "envelope"
+        case .moliboo: "pawprint"
+        case .connect: "antenna.radiowaves.left.and.right"
+        case .board: "square.grid.2x2"
         }
     }
     var selectedIcon: String {
@@ -20,6 +66,18 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .modules: "shippingbox.fill"
         case .activity: "bell.fill"
         case .profile: "person.crop.circle.fill"
+        case .messages: "bubble.left.and.bubble.right.fill"
+        case .search: "magnifyingglass"
+        case .reels: "play.rectangle.fill"
+        case .saved: "bookmark.fill"
+        case .drafts: "doc.text.fill"
+        case .communities: "person.3.fill"
+        case .teams: "person.2.badge.gearshape.fill"
+        case .phone: "phone.fill"
+        case .inMail: "envelope.fill"
+        case .moliboo: "pawprint.fill"
+        case .connect: "antenna.radiowaves.left.and.right"
+        case .board: "square.grid.2x2.fill"
         }
     }
     var defaultRoute: AppRoute {
@@ -29,6 +87,56 @@ enum AppTab: String, CaseIterable, Codable, Hashable, Identifiable {
         case .modules: .productHub(.featured)
         case .activity: .activity(.all)
         case .profile: .me(.overview)
+        case .messages: .messages(.inbox)
+        case .search: .search(.root(nil))
+        case .reels: .reels(.feed)
+        case .saved: .saved(.root)
+        case .drafts: .drafts(.root)
+        case .communities: .community(.hub)
+        case .teams: .teams(.root)
+        case .phone: .messages(.calls)
+        case .inMail: .messages(.inMail(.inbox))
+        case .moliboo: .settings(.moliboo)
+        case .connect: .module(ConnectPreview.moduleID, localPath: nil)
+        case .board: .board
+        }
+    }
+
+    /// Default bottom bar. Profile is not a tab any more: it opens from the right-edge swipe,
+    /// the sidebar, or the VoiceOver "Open Profile" action.
+    static let defaultBar: [AppTab] = [.home, .discover, .modules, .activity]
+    /// Everything the user can put in the bar, in picker order (Home always first).
+    static let barCandidates: [AppTab] = [.home, .discover, .modules, .activity, .messages, .search, .reels, .saved, .drafts, .communities, .teams, .phone, .inMail, .moliboo, .connect, .board]
+    static let minBarCount = 2
+    static let maxBarCount = 5
+
+    /// Valid bar: known candidates, no duplicates, Home first, 2…5 items.
+    static func sanitizedBar(_ tabs: [AppTab]) -> [AppTab] {
+        var out: [AppTab] = [.home]
+        for tab in tabs where tab != .home && barCandidates.contains(tab) && !out.contains(tab) {
+            out.append(tab)
+        }
+        if out.count > maxBarCount { out = Array(out.prefix(maxBarCount)) }
+        if out.count < minBarCount { return defaultBar }
+        return out
+    }
+
+    /// True when `route` is this optional tab's own screen family (so it opens in that tab).
+    func hosts(_ route: AppRoute) -> Bool {
+        switch (self, route) {
+        case (.phone, .messages(.calls)), (.inMail, .messages(.inMail)), (.moliboo, .settings(.moliboo)):
+            true
+        case (.connect, .module(let id, _)):
+            id == ConnectPreview.moduleID
+        case (.board, .board):
+            true
+        case (.messages, .messages(.calls)), (.messages, .messages(.inMail)):
+            false
+        case (.messages, .messages), (.search, .search), (.reels, .reels), (.saved, .saved),
+             (.drafts, .drafts), (.communities, .community), (.teams, .teams):
+            true
+        default:
+            false
         }
     }
 }
@@ -64,6 +172,8 @@ enum AccountSettingsRoute: String, CaseIterable, Codable, Hashable {
 }
 enum AppearanceSettingsRoute: String, CaseIterable, Codable, Hashable {
     case root, theme, darkStyle = "dark-style", accent, typography, fontFamily = "font-family", textSize = "text-size"
+    /// Custom navigation: which destinations sit in the bottom tab bar.
+    case tabBar = "tab-bar"
     case appIcon = "app-icon", density, motion, haptics, contrastTransparency = "contrast-transparency"
     case iconStyle = "icon-style", interfaceShape = "interface-shape", moduleBranding = "module-branding"
     case preview
@@ -185,19 +295,23 @@ enum SettingsRoute: Hashable {
 enum MessagesRoute: Hashable {
     case inbox
     case requests
+    /// Saved messages across chats (`savedMessages` capability).
+    case saved
     case inMail(InMailRoute)
     case new
     case conversation(String)
     /// 1:1 chat with a person (handle or profile id): opens the existing conversation, else a starter
     /// addressed to them. Never the inbox.
     case direct(String)
+    /// Phone-style Calls: Favourites / Recents / Contacts / Keypad (gated on the calls capability).
+    case calls
 }
 enum InMailRoute: Hashable { case inbox, compose, thread(String) }
 enum StoriesRoute: Hashable { case root, create, story(String) }
 enum ReelsRoute: Hashable { case feed, reel(String) }
 enum TeamsRoute: Hashable { case root, create, team(String, TeamSection) }
 enum TeamSection: String, CaseIterable, Codable, Hashable { case overview, members, roles, modules, settings }
-enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics, studio }
+enum DeveloperRoute: String, CaseIterable, Codable, Hashable { case components, appearance, modules, runtime, bridge, diagnostics, studio, callScreens = "call-screens" }
 enum SearchRoute: Hashable { case root(String?), section(SearchSection, String?) }
 enum SavedRoute: Hashable { case root, posts, modules, links }
 enum CollectionsRoute: Hashable { case root, collection(String) }
@@ -230,6 +344,8 @@ enum AppRoute: Hashable {
     case drafts(DraftsRoute)
     /// Community surfaces. Kept outside the five root tabs and opened from product navigation.
     case community(CommunityRoute)
+    /// Board: the widget console (t240u).
+    case board
 
     var tab: AppTab? {
         switch self {
@@ -244,7 +360,7 @@ enum AppRoute: Hashable {
 }
 
 enum RouteRegistry {
-    static let globalTabs = AppTab.allCases
+    static let globalTabs = AppTab.barCandidates
     static func canonicalPath(for route: AppRoute) -> String { RouteSerializer.serialize(route) }
     static func parse(_ value: String) -> AppRoute? { RouteParser.parse(value) }
 }
@@ -325,6 +441,8 @@ enum RouteParser {
         case "command":
             guard p.count == 1 else { return nil }
             return .command
+        case "board":
+            return p.count == 1 ? .board : nil
         case "saved":
             guard p.count <= 2 else { return nil }
             if p.count == 1 { return .saved(.root) }
@@ -364,6 +482,12 @@ enum RouteParser {
         case "requests":
             guard p.count == 2 else { return nil }
             return .messages(.requests)
+        case "saved":
+            guard p.count == 2 else { return nil }
+            return .messages(.saved)
+        case "calls":
+            guard p.count == 2 else { return nil }
+            return .messages(.calls)
         case "new":
             guard p.count == 2 else { return nil }
             return .messages(.new)
@@ -526,6 +650,8 @@ enum RouteSerializer {
             switch route {
             case .inbox: "/messages/inbox"
             case .requests: "/messages/requests"
+            case .saved: "/messages/saved"
+            case .calls: "/messages/calls"
             case .new: "/messages/new"
             case .conversation(let id): "/messages/\(id)"
             case .direct(let person): "/messages/to/\(person)"
@@ -563,6 +689,7 @@ enum RouteSerializer {
             case .root: "/collections"
             case .collection(let id): "/collections/\(id)"
             }
+        case .board: "/board"
         case .drafts(let route):
             switch route {
             case .root: "/drafts"

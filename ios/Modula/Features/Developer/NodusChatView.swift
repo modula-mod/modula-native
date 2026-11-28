@@ -145,67 +145,100 @@ struct NodusChatView: View {
             Text("Its messages are removed from this iPhone. This can’t be undone.")
         }
         .sheet(isPresented: $showingConversations) {
-            NodusLibraryBrowser(model: model)
+            Group {
+                NodusLibraryBrowser(model: model)
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingKnowledge) {
-            NodusKnowledgeAttachmentSheet(model: model)
+            Group {
+                NodusKnowledgeAttachmentSheet(model: model)
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingPlugins) {
-            NodusPluginSheet(
-                query: $pluginQuery,
-                memoryOn: model.activeConversation?.memoryEnabled == true,
-                onSelect: handlePlugin
-            )
+            Group {
+                NodusPluginSheet(
+                    query: $pluginQuery,
+                    memoryOn: model.activeConversation?.memoryEnabled == true,
+                    onSelect: handlePlugin
+                )
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingMemory) {
-            NavigationStack { NodusMemoryView() }
+            Group {
+                NavigationStack { NodusMemoryView() }
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingChatSettings) {
-            NodusChatSettingsSheet(model: model)
+            Group {
+                NodusChatSettingsSheet(model: model)
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingModels) {
-            NodusModelSheet(identity: model.modelIdentity, availability: model.availability)
+            Group {
+                NodusModelSheet(identity: model.modelIdentity, availability: model.availability)
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingSystemInfo) {
-            NodusSystemInfoSheet(
-                chats: model.conversations.count,
-                projects: model.library.projects.count,
-                folders: model.library.folders.count,
-                prompts: model.library.prompts.count,
-                personas: model.library.placements.filter { !$0.persona.isEmpty }.count,
-                skills: model.library.placements.filter { !$0.skillIDs.isEmpty }.count
-            )
+            Group {
+                NodusSystemInfoSheet(
+                    chats: model.conversations.count,
+                    projects: model.library.projects.count,
+                    folders: model.library.folders.count,
+                    prompts: model.library.prompts.count,
+                    personas: model.library.placements.filter { !$0.persona.isEmpty }.count,
+                    skills: model.library.placements.filter { !$0.skillIDs.isEmpty }.count
+                )
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingConnectors, onDismiss: followConnector) {
-            NodusConnectorsSheet(model: model, draftCount: attachments.count, onLibrary: {
-                connectorFollowUp = .library
-                showingConnectors = false
-            }, onKnowledge: {
-                connectorFollowUp = .knowledge
-                showingConnectors = false
-            }, onMemory: {
-                connectorFollowUp = .memory
-                showingConnectors = false
-            })
+            Group {
+                NodusConnectorsSheet(model: model, draftCount: attachments.count, onLibrary: {
+                    connectorFollowUp = .library
+                    showingConnectors = false
+                }, onKnowledge: {
+                    connectorFollowUp = .knowledge
+                    showingConnectors = false
+                }, onMemory: {
+                    connectorFollowUp = .memory
+                    showingConnectors = false
+                })
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingPrompts) {
-            NodusMarketplaceSheet(model: model)
+            Group {
+                NodusMarketplaceSheet(model: model)
+            }
+            .modulaSheetStyle()
         }
-        .sheet(isPresented: $showingSkills) { NodusSkillsSheet(model: model) }
-        .sheet(isPresented: $showingPersona) { NodusPersonaSheet(model: model) }
-        .sheet(isPresented: $showingCustomise) { NodusCustomiseSheet(model: model) }
+        .sheet(isPresented: $showingSkills) { NodusSkillsSheet(model: model).modulaSheetStyle() }
+        .sheet(isPresented: $showingPersona) { NodusPersonaSheet(model: model).modulaSheetStyle() }
+        .sheet(isPresented: $showingCustomise) { NodusCustomiseSheet(model: model).modulaSheetStyle() }
         .sheet(isPresented: $showingRemote) {
-            NodusRemoteSheet(
-                pathStatus: pathMonitor.status,
-                interfaceName: pathMonitor.interfaceName,
-                searchOn: model.activeConversation?.searchEnabled == true,
-                webCitations: model.messages.reduce(0) { $0 + $1.citations.filter { $0.kind == .web }.count }
-            )
+            Group {
+                NodusRemoteSheet(
+                    pathStatus: pathMonitor.status,
+                    interfaceName: pathMonitor.interfaceName,
+                    searchOn: model.activeConversation?.searchEnabled == true,
+                    webCitations: model.messages.reduce(0) { $0 + $1.citations.filter { $0.kind == .web }.count }
+                )
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showingFunctions) {
-            NodusFunctionsSheet(lastReply: model.messages.last(where: { $0.role == .nodus })?.text) { function in
-                perform(function)
+            Group {
+                NodusFunctionsSheet(lastReply: model.messages.last(where: { $0.role == .nodus })?.text) { function in
+                    perform(function)
+                }
             }
+            .modulaSheetStyle()
         }
         .photosPicker(isPresented: $showingPhotos, selection: $photoItem, matching: .images)
         .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.image, .text, .plainText, .pdf, .data], allowsMultipleSelection: false) { result in
@@ -218,10 +251,16 @@ struct NodusChatView: View {
             Task { await importPhoto(item) }
         }
         .sheet(item: $correctionTarget) { message in
-            correctionSheet(message)
+            Group {
+                correctionSheet(message)
+            }
+            .modulaSheetStyle()
         }
         .sheet(item: $savingCitation) { citation in
-            NodusSaveSearchSourceSheet(citation: citation)
+            Group {
+                NodusSaveSearchSourceSheet(citation: citation)
+            }
+            .modulaSheetStyle()
         }
         .alert("Rename Chat", isPresented: $showingRename) {
             TextField("Title", text: $renameText)

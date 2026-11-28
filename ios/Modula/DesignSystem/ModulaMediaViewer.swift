@@ -1,3 +1,4 @@
+import Photos
 import SwiftUI
 
 enum ModulaMediaViewerSource: Hashable, Sendable {
@@ -63,7 +64,7 @@ struct ModulaMediaViewerControls: View {
                     Image(systemName: "xmark")
                         .font(.body.weight(.semibold))
                         .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .modulaGlass(in: Circle(), interactive: true)
                 }
                 .accessibilityLabel("Close media")
                 Spacer()
@@ -75,11 +76,21 @@ struct ModulaMediaViewerControls: View {
                 }
                 Spacer()
                 if allowsShare, let shareURL {
-                    ShareLink(item: shareURL) {
+                    // Share, plus Save to Photos / Copy image (same permission as sharing).
+                    Menu {
+                        ShareLink(item: shareURL) { Label("Share", systemImage: "square.and.arrow.up") }
+                        Button { Task { await ModulaImageActions.saveToPhotos(shareURL) } } label: {
+                            Label("Save to Photos", systemImage: "square.and.arrow.down")
+                        }
+                        Button { Task { await ModulaImageActions.copy(shareURL) } } label: {
+                            Label("Copy image", systemImage: "doc.on.doc")
+                        }
+                    } label: {
                         Image(systemName: "square.and.arrow.up")
                             .frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
-                            .background(.ultraThinMaterial, in: Circle())
+                            .modulaGlass(in: Circle(), interactive: true)
                     }
+                    .tint(.primary)
                     .accessibilityLabel("Share \(title)")
                 } else {
                     Color.clear.frame(width: ModulaLayout.minimumTouch, height: ModulaLayout.minimumTouch)
@@ -116,9 +127,13 @@ struct ModulaMediaViewer: View {
     var onDismiss: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Optional: covers presented without the app environment (labs, previews) just skip prefetch.
+    @Environment(AppEnvironment.self) private var app: AppEnvironment?
     @State private var selection: String
     @State private var zoomedPageID: String?
     @State private var controlsVisible = true
+    /// 0…1 while the current page is pulled down to close (finger-following dismiss).
+    @State private var pullProgress: CGFloat = 0
 
     init(
         items: [ModulaMediaViewerItem],
@@ -154,7 +169,7 @@ struct ModulaMediaViewer: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.black.opacity(1 - pullProgress * 0.75).ignoresSafeArea()
             TabView(selection: $selection) {
                 ForEach(items) { item in
                     ModulaMediaViewerPage(
@@ -162,7 +177,8 @@ struct ModulaMediaViewer: View {
                         isSelected: selection == item.id,
                         onZoomChanged: { zoomed in zoomedPageID = zoomed ? item.id : nil },
                         onDismiss: dismiss,
-                        onToggleControls: { controlsVisible.toggle() }
+                        onToggleControls: { controlsVisible.toggle() },
+                        onPullChanged: { pullProgress = $0 }
                     )
                     .tag(item.id)
                 }
@@ -179,6 +195,7 @@ struct ModulaMediaViewer: View {
                     allowsShare: currentItem.allowsShare,
                     onDismiss: dismiss
                 )
+                .opacity(1 - min(pullProgress * 3, 1))
                 .transition(.opacity)
             }
         }
@@ -187,7 +204,9 @@ struct ModulaMediaViewer: View {
         .onChange(of: selection) { _, _ in
             zoomedPageID = nil
             HapticEngine.shared.play(.selectionChanged)
+            prefetchNeighbours()
         }
+        .onAppear { prefetchNeighbours() }
         .accessibilityIdentifier("media.viewer")
     }
 
@@ -198,6 +217,16 @@ struct ModulaMediaViewer: View {
         HapticEngine.shared.play(.selectionChanged)
         onDismiss()
     }
+
+    /// Speed: the previous/next photo is fetched and decoded before the swipe lands on it.
+    private func prefetchNeighbours() {
+        guard let client = app?.client else { return }
+        let index = currentIndex
+        for neighbour in [index + 1, index - 1] {
+            guard let item = items[safe: neighbour], case .remote(let url) = item.source else { continue }
+            ModulaImagePrefetcher.prefetch(url: url, cacheKey: "viewer:\(item.id)", maximumPixelSize: 4_096, client: client)
+        }
+    }
 }
 
 struct ModulaMediaViewerPage: View {
@@ -206,25 +235,37 @@ struct ModulaMediaViewerPage: View {
     var onZoomChanged: (Bool) -> Void
     var onDismiss: () -> Void
     var onToggleControls: () -> Void
+    /// Pull-down-to-close progress (0…1) so the viewer can fade its backdrop with the finger.
+    var onPullChanged: (CGFloat) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 1
     @State private var settledScale: CGFloat = 1
     @State private var settledOffset: CGSize = .zero
     @State private var retryID = 0
-    @GestureState private var gestureOffset: CGSize = .zero
+    @State private var pageSize: CGSize = .zero
+    /// Snaps back without bounce when a pull is released short of closing.
+    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.26, bounce: 0)))
+    private var gestureOffset: CGSize = .zero
+
+    private var pullProgress: CGFloat {
+        guard scale <= 1.05 else { return 0 }
+        return min(max(gestureOffset.height / 320, 0), 1)
+    }
 
     var body: some View {
         mediaContent
-            .scaleEffect(scale)
+            .scaleEffect(scale * (1 - pullProgress * 0.22))
             .offset(x: settledOffset.width + gestureOffset.width, y: settledOffset.height + gestureOffset.height)
             .contentShape(Rectangle())
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
             .gesture(magnifyGesture)
             .simultaneousGesture(panGesture)
             // Enhancements-50: double-tap registered first so it isn't swallowed by the single tap.
-            .onTapGesture(count: 2, perform: toggleZoom)
+            .onTapGesture(count: 2) { location in toggleZoom(at: location) }
             .onTapGesture { onToggleControls() }
             .onChange(of: isSelected) { _, selected in if !selected { reset() } }
+            .onChange(of: pullProgress) { _, progress in onPullChanged(progress) }
             .accessibilityLabel(item.accessibilityDescription)
             .accessibilityAddTraits(.isImage)
             .accessibilityAction(named: "Zoom in") { setZoom(2.2) }
@@ -238,7 +279,7 @@ struct ModulaMediaViewerPage: View {
             ModulaRemoteImage(url: url, cacheKey: "viewer:\(item.id)", maximumPixelSize: 4_096, retryID: retryID) { phase in
                 switch phase {
                 case .success(let image): Image(uiImage: image).resizable().scaledToFit()
-                case .loading: ProgressView().tint(.white)
+                case .loading: ProgressView().tint(Color.modulaOnPrimary)
                 case .failure: fallback.overlay(alignment: .bottom) {
                     Button {
                         HapticEngine.shared.play(.lightImpact)
@@ -249,7 +290,7 @@ struct ModulaMediaViewerPage: View {
                             .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.bottom, 44)
                 }
                 }
@@ -296,22 +337,59 @@ struct ModulaMediaViewerPage: View {
 
     private var panGesture: some Gesture {
         DragGesture(minimumDistance: 10)
-            .updating($gestureOffset) { value, state, _ in state = value.translation }
+            .updating($gestureOffset) { value, state, _ in
+                if scale > 1.05 {
+                    state = value.translation
+                } else if value.translation.height > 0, value.translation.height > abs(value.translation.width) {
+                    // Unzoomed: only a downward pull follows the finger (sideways stays the pager's).
+                    state = CGSize(width: value.translation.width * 0.35, height: value.translation.height)
+                }
+            }
             .onEnded { value in
-                if scale <= 1.05, value.translation.height > 120, abs(value.translation.width) < abs(value.translation.height) {
+                let vertical = abs(value.translation.width) < abs(value.translation.height)
+                let flung = value.predictedEndTranslation.height > 420
+                if scale <= 1.05, vertical, value.translation.height > 0, value.translation.height > 120 || flung {
                     onDismiss()
                 } else if scale > 1.05 {
-                    settledOffset = CGSize(
-                        width: settledOffset.width + value.translation.width,
-                        height: settledOffset.height + value.translation.height
+                    // Zoomed pan keeps its momentum a little and settles inside the image's edges
+                    // (no panning off into black).
+                    let target = CGSize(
+                        width: settledOffset.width + value.translation.width + (value.predictedEndTranslation.width - value.translation.width) * 0.25,
+                        height: settledOffset.height + value.translation.height + (value.predictedEndTranslation.height - value.translation.height) * 0.25
                     )
+                    let clamped = clampedOffset(target, scale: scale)
+                    if reduceMotion { settledOffset = clamped } else {
+                        withAnimation(.spring(duration: 0.32, bounce: 0.12)) { settledOffset = clamped }
+                    }
                 }
             }
     }
 
-    private func toggleZoom() {
-        setZoom(scale > 1.2 ? 1 : 2.2)
+    /// Double tap zooms *into the tapped point* (Photos-style), or back out.
+    private func toggleZoom(at location: CGPoint? = nil) {
+        if scale > 1.2 {
+            setZoom(1)
+        } else {
+            let target: CGFloat = 2.2
+            var offset = CGSize.zero
+            if let location, pageSize.width > 0 {
+                let dx = location.x - pageSize.width / 2, dy = location.y - pageSize.height / 2
+                offset = clampedOffset(CGSize(width: -dx * (target - 1), height: -dy * (target - 1)), scale: target)
+            }
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.1)) {
+                scale = target
+                settledScale = target
+                settledOffset = offset
+            }
+            onZoomChanged(true)
+        }
         HapticEngine.shared.play(.lightImpact)
+    }
+
+    private func clampedOffset(_ offset: CGSize, scale: CGFloat) -> CGSize {
+        guard pageSize.width > 0 else { return offset }
+        let maxX = pageSize.width * (scale - 1) / 2, maxY = pageSize.height * (scale - 1) / 2
+        return CGSize(width: min(max(offset.width, -maxX), maxX), height: min(max(offset.height, -maxY), maxY))
     }
 
     private func setZoom(_ value: CGFloat) {
@@ -328,4 +406,88 @@ struct ModulaMediaViewerPage: View {
 
 private extension Collection {
     subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
+// MARK: - Pull down to close (full-screen covers without their own pager/scroll)
+
+extension View {
+    /// Finger-following pull-down that closes a full-screen cover (video / audio viewers).
+    /// Only downward, vertical-dominant drags take part, so taps and player scrubbing keep working.
+    func modulaPullDownToDismiss(_ onDismiss: @escaping () -> Void) -> some View {
+        modifier(ModulaPullDownToDismiss(onDismiss: onDismiss))
+    }
+}
+
+private struct ModulaPullDownToDismiss: ViewModifier {
+    let onDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState(resetTransaction: Transaction(animation: .spring(duration: 0.26, bounce: 0)))
+    private var pull: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        let progress = min(pull / 360, 1)
+        content
+            .offset(y: reduceMotion ? 0 : pull)
+            .scaleEffect(reduceMotion ? 1 : 1 - progress * 0.12, anchor: .top)
+            .opacity(reduceMotion ? 1 - progress * 0.5 : 1)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 18)
+                    .updating($pull) { value, state, _ in
+                        guard value.translation.height > 0,
+                              value.translation.height > abs(value.translation.width) * 1.3 else { return }
+                        state = value.translation.height
+                    }
+                    .onEnded { value in
+                        let vertical = value.translation.height > abs(value.translation.width) * 1.3
+                        guard vertical, value.translation.height > 120 || value.predictedEndTranslation.height > 420 else { return }
+                        HapticEngine.shared.play(.selectionChanged)
+                        onDismiss()
+                    }
+            )
+            .accessibilityAction(.escape) { onDismiss() }
+    }
+}
+
+
+/// Save / copy a remote image the viewer is showing. Uses the image bytes (Sendable `Data`).
+@MainActor
+enum ModulaImageActions {
+    private static func data(for url: URL) async -> Data? {
+        if url.isFileURL { return try? Data(contentsOf: url) }
+        return try? await URLSession.shared.data(from: url).0
+    }
+
+    static func saveToPhotos(_ url: URL) async {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            HapticEngine.shared.play(.warning)
+            ModulaToastCenter.shared.show("Allow Photos access in Settings to save", symbol: "photo.badge.exclamationmark")
+            return
+        }
+        guard let bytes = await data(for: url), UIImage(data: bytes) != nil else {
+            HapticEngine.shared.play(.failure)
+            ModulaToastCenter.shared.show("Couldn't load the image", symbol: "exclamationmark.triangle")
+            return
+        }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetCreationRequest.forAsset().addResource(with: .photo, data: bytes, options: nil)
+            }
+            HapticEngine.shared.play(.saveComplete)
+            ModulaToastCenter.shared.show("Saved to Photos", symbol: "checkmark.circle")
+        } catch {
+            HapticEngine.shared.play(.failure)
+            ModulaToastCenter.shared.show("Couldn't save image", symbol: "exclamationmark.triangle")
+        }
+    }
+
+    static func copy(_ url: URL) async {
+        guard let bytes = await data(for: url), let image = UIImage(data: bytes) else {
+            HapticEngine.shared.play(.failure)
+            return
+        }
+        UIPasteboard.general.image = image
+        HapticEngine.shared.play(.success)
+        ModulaToastCenter.shared.show("Image copied", symbol: "doc.on.doc")
+    }
 }

@@ -604,12 +604,28 @@ final class ProductHubStore {
         }
     }
 
+    enum UninstallResult: Equatable {
+        case removed
+        case needsStepUp(idempotencyKey: String)
+        case failed
+    }
+
     @discardableResult
     func uninstall(_ id: String) async -> Bool {
+        if case .removed = await uninstall(id, choice: .keepData, confirmDelete: false) { return true }
+        return false
+    }
+
+    func uninstall(
+        _ id: String,
+        choice: ModuleUninstallChoice,
+        confirmDelete: Bool,
+        idempotencyKey: String? = nil
+    ) async -> UninstallResult {
         if product(id)?.betaClassification == "local-development" {
-            return uninstallLocalDevelopment(id)
+            return uninstallLocalDevelopment(id) ? .removed : .failed
         }
-        guard operations[id] == nil else { return false }
+        guard operations[id] == nil else { return .failed }
         operations[id] = .uninstalling
         lifecycleErrors[id] = nil
         defer { operations[id] = nil }
@@ -618,17 +634,86 @@ final class ProductHubStore {
                WebGameSessionPins.shared.contains(activation.store.moduleRoot(accountID: accountID, moduleId: id)) {
                 throw ModuleActivationError.activeSession
             }
-            try await client.uninstallModule(id, idempotencyKey: Self.key("uninstall", id))
+            let key = idempotencyKey ?? Self.key("uninstall", id)
+            let outcome = await ModuleUninstallFlow(client: client).requestUninstall(
+                moduleID: id,
+                choice: choice,
+                confirmDelete: confirmDelete,
+                idempotencyKey: key
+            )
+            switch outcome {
+            case .succeeded:
+                return await finishUninstall(id)
+            case .needsPasswordStepUp:
+                return .needsStepUp(idempotencyKey: key)
+            case .failed(let message):
+                lifecycleErrors[id] = message
+                await refreshInstallations()
+                return .failed
+            case .cancelled, .passwordRejected, .rateLimited, .unavailable, .stillRequiresStepUp,
+                 .needsTOTP, .needsSignInAgain:
+                await refreshInstallations()
+                return .failed
+            }
+        } catch {
+            lifecycleErrors[id] = Self.message(error, verb: "remove")
+            await refreshInstallations()
+            return .failed
+        }
+    }
+
+    /// After the step-up sheet confirms a password or TOTP code: one step-up, then one
+    /// deleteData retry. If that retry still requires step-up, `needsPasswordStepUp` is
+    /// returned so the sheet can re-prompt once. A failure after that re-prompt stops
+    /// with the still-installed error. A 409 from password step-up returns `needsTOTP`.
+    /// Neither password nor TOTP returns `needsSignInAgain`; the module stays installed.
+    func completeDeleteDataAfterStepUp(
+        _ id: String,
+        credential: ModuleStepUpCredential,
+        idempotencyKey: String,
+        isReprompt: Bool = false
+    ) async -> ModuleUninstallOutcome {
+        guard operations[id] == nil else { return .failed("This module is already being updated. Try again in a moment.") }
+        operations[id] = .uninstalling
+        lifecycleErrors[id] = nil
+        defer { operations[id] = nil }
+        let outcome = await ModuleUninstallFlow(client: client).submitStepUpAndRetryDelete(
+            moduleID: id,
+            credential: credential,
+            confirmDelete: true,
+            idempotencyKey: idempotencyKey,
+            isReprompt: isReprompt
+        )
+        switch outcome {
+        case .succeeded:
+            let removed = await finishUninstall(id)
+            return removed == .removed ? .succeeded : .failed("The module was uninstalled on the server, but this device couldn’t finish removing it. Pull to refresh and try again.")
+        case .passwordRejected, .rateLimited, .unavailable, .needsPasswordStepUp, .needsTOTP, .needsSignInAgain:
+            await refreshInstallations()
+            return outcome
+        case .stillRequiresStepUp(let message), .failed(let message):
+            lifecycleErrors[id] = message
+            await refreshInstallations()
+            return outcome
+        case .cancelled:
+            lifecycleErrors[id] = ModuleUninstallFlow.cancelledNotice
+            await refreshInstallations()
+            return outcome
+        }
+    }
+
+    private func finishUninstall(_ id: String) async -> UninstallResult {
+        do {
             let removed = try await settle(id) { $0 == nil || $0?.isPresent == false }
             if removed, let activation, let accountID {
                 try activation.store.removeModule(accountID: accountID, moduleId: id)
             }
             restoreLocalDevelopmentInstallations()
-            return removed
+            return removed ? .removed : .failed
         } catch {
             lifecycleErrors[id] = Self.message(error, verb: "remove")
             await refreshInstallations()
-            return false
+            return .failed
         }
     }
 
@@ -1221,7 +1306,7 @@ final class ProductHubStore {
 
     static func message(_ error: Error, verb: String) -> String {
         switch error {
-        case APIError.unauthenticated, APIError.rejected(401, _): "Sign in to Modula to \(verb) modules."
+        case APIError.unauthenticated, APIError.rejected(401, "UNAUTHENTICATED"), APIError.rejected(401, "SESSION_EXPIRED"): "Sign in to Modula to \(verb) modules."
         case APIError.rejected(_, "CAPABILITY_DISABLED"): "Installing modules is turned off on this server."
         case APIError.rejected(_, "CONFLICT"), APIError.rejected(409, _): "Another change to this module is in progress. Try again shortly."
         case let api as APIError: "Couldn’t \(verb) the module. \(api.userFacingMessage)"
@@ -1382,12 +1467,12 @@ struct InstallStateButton: View {
                 .accessibilityIdentifier("module.open")
         } else if product.installable {
             Button("Available to install", systemImage: "arrow.down.circle") {}
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .disabled(true)
                 .frame(maxWidth: .infinity, minHeight: 44)
         } else {
             Button("Coming Soon", systemImage: "clock") {}
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .disabled(true)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
@@ -1469,7 +1554,7 @@ struct ProductGetOpenControl: View {
                     .rotationEffect(.degrees(spin ? 360 : 0))
                     .animation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .linear(duration: 0.9).repeatForever(autoreverses: false), value: spin)
                     .onAppear { spin = true }.onDisappear { spin = false }
-                Image(systemName: "arrow.down").font(.caption.weight(.bold)).foregroundStyle(accent)
+                Image(systemName: "arrow.down").font(.caption.weight(.bold)).foregroundStyle(.primary)
             } else {
                 Group {
                     if installed || product.installable {
@@ -1504,27 +1589,13 @@ struct ProductCategoryChips: View {
         return out
     }
     var body: some View {
-        let accent = app.appearance.liveAccent
-        // No kinds → no orphan "Categories" header.
+        // No kinds → no orphan "Categories" header. Shared segmented control (no thumb until one is chosen).
         if !kinds.isEmpty {
-        VStack(alignment: .leading, spacing: 10) {
-            ModulaSectionHeader(title: "Categories")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(kinds, id: \.self) { kind in
-                        Button { onOpen(kind); HapticEngine.shared.play(.selection) } label: {
-                            Text(kind.capitalized).font(.subheadline.weight(.semibold))
-                                .foregroundStyle(selected == kind ? accent : .primary)
-                                .padding(.horizontal, 14).padding(.vertical, 9)
-                                .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(selected == kind ? 0.32 : 0.12))
-                        }
-                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-                        .accessibilityIdentifier("product-hub.category.\(kind)")
-                        .accessibilityAddTraits(selected == kind ? .isSelected : [])
-                    }
-                }
-            }.scrollClipDisabled()
-        }
+            VStack(alignment: .leading, spacing: 10) {
+                ModulaSectionHeader(title: "Categories")
+                ModulaSegmentedControl("Categories", selection: Binding(get: { selected ?? "" }, set: { onOpen($0) }),
+                                       options: kinds, identifier: { "product-hub.category.\($0)" }) { $0.capitalized }
+            }
         }
     }
 }

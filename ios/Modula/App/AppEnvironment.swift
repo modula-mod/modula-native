@@ -56,6 +56,14 @@ final class AppEnvironment {
     let nodusModels: NodusModelManager
 
     init() {
+        ModulaSignpost.begin("Launch")
+        ModulaSignpost.begin("LaunchToFeed")
+        ModulaSignpost.begin("EnvironmentInit")
+        defer { ModulaSignpost.end("EnvironmentInit") }
+        // Speed: room for the server's ETag / Cache-Control responses (conditional GETs → 304s), set
+        // before the first URLSession.shared use. Policy stays the server's; this only lifts the
+        // 512 KB / 10 MB defaults.
+        URLCache.shared = URLCache(memoryCapacity: 16 * 1_024 * 1_024, diskCapacity: 96 * 1_024 * 1_024)
         let launchArguments = ProcessInfo.processInfo.arguments
         if launchArguments.contains("--reset-appearance") { appearance.reset() }
         ModulaPreferences.resetInertLabsTogglesIfNeeded()
@@ -163,7 +171,24 @@ final class AppEnvironment {
             draftsStore.setAccountID(account?.accountId)
             self?.collections.setAccountID(account?.accountId)
             self?.molibooOwnership.setAccountID(account?.accountId)
-            self?.communities.resetForAccountChange()
+            // Fires on every account write (incl. a same-account revalidation refresh); only a
+            // real sign-out / switch drops the previous account's in-memory stores. (Communities
+            // used to be wiped on every write, e.g. when the cached launch account was refreshed.)
+            if let self, self.accountScopeID != account?.accountId {
+                let hadAccount = self.accountScopeID != nil
+                self.accountScopeID = account?.accountId
+                self.communities.resetForAccountChange()
+                if hadAccount {
+                    self.resetAccountScopedStores()
+                    self.accountScopeWasReset = true
+                }
+                if account != nil, self.accountScopeWasReset {
+                    // Sign-in after a sign-out/switch this launch: the boot-path probe already ran
+                    // for the previous account, so re-probe (restarts the messaging socket).
+                    let messagingStore = self.messaging
+                    Task(priority: .utility) { await messagingStore.probeCapabilities() }
+                }
+            }
             Task {
                 await catalogueStore?.load()
                 await self?.molibooOwnership.refresh()
@@ -193,6 +218,8 @@ final class AppEnvironment {
             // The diagnostic surface is a bundled developer tool, never a catalogue product.
             if id == "modula.runtime-diagnostic" { return .runnable(descriptor: nil) }
             #endif
+            // Modula Connect is a bundled PREVIEW on mock data (no catalogue product, no backend calls).
+            if id == ConnectPreview.moduleID { return .runnable(descriptor: nil) }
             if let catalogueStore { return catalogueStore.installGate(for: id) }
             if let self, let cached = self.moduleActivation.active(accountID: self.runtime.accountID ?? self.auth.account?.accountId, moduleId: id) {
                 return .runnable(descriptor: cached.descriptor)
@@ -290,6 +317,7 @@ final class AppEnvironment {
     }
 
     func bootstrapLaunch() async {
+        ModulaSignpost.begin("Bootstrap")
         gate.beginBoot()
         #if DEBUG
         // UITest-only: start signed out against the isolated N1 fixture so the real
@@ -447,6 +475,20 @@ final class AppEnvironment {
         if let url { UIApplication.shared.open(url) }
     }
 
+    /// Account the in-memory stores currently hold data for (see `auth.onAccountChange`).
+    @ObservationIgnored private var accountScopeID: String?
+    @ObservationIgnored private var accountScopeWasReset = false
+
+    private func resetAccountScopedStores() {
+        home.resetForAccountChange()
+        activity.resetForAccountChange()
+        discover.resetForAccountChange()
+        profile.resetForAccountChange()
+        saved.resetForAccountChange()
+        messaging.resetForAccountChange()
+        stories.resetForAccountChange()
+    }
+
     func performSignOut(resetAppLock: Bool = true) async {
         drafts.flush()
         runtime.revokeAll()
@@ -454,6 +496,7 @@ final class AppEnvironment {
         drafts.setAccountID(nil)
         catalogue.dropAccountScope()
         ModulaWarmCache.clearAll()
+        URLCache.shared.removeAllCachedResponses()  // HTTP cache (ETag/Cache-Control) is account-scoped too
         ModulaImageDiskCache.clear()
         if resetAppLock {
             appLock.resetAfterSignOut()

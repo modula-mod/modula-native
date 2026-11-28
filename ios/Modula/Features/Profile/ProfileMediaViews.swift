@@ -83,9 +83,12 @@ struct ProfileMediaWorkspace: ViewModifier {
             .sheet(isPresented: $showsScenes, onDismiss: {
                 if cropSession == nil { action = nil }
             }) {
-                ShellSceneCoverPicker { data in
-                    Task { await beginCrop(data: data, kind: .cover) }
+                Group {
+                    ShellSceneCoverPicker { data in
+                        Task { await beginCrop(data: data, kind: .cover) }
+                    }
                 }
+                .modulaSheetStyle()
             }
             .onChange(of: libraryItem) { _, item in
                 guard let item else { return }
@@ -112,7 +115,7 @@ struct ProfileMediaWorkspace: ViewModifier {
                         .font(.footnote.weight(.semibold))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(.regularMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                         .padding(.bottom, 12)
                         .accessibilityIdentifier("profile.media.progress")
                 } else if let message = app.profile.actionError {
@@ -125,7 +128,7 @@ struct ProfileMediaWorkspace: ViewModifier {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .padding(.bottom, 12)
                     .accessibilityIdentifier("profile.media.error")
                 }

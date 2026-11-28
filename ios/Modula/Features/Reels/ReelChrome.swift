@@ -8,24 +8,46 @@ struct ReelTikTokRail: View {
     var isPlaying: Bool = true
     var onComment: () -> Void
     var onShare: () -> Void
+    /// Long-press on Like: opens the shared reaction strip next to it (global frame of the heart).
+    var onReactionsRequested: ((CGRect) -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @State private var heartFrame: CGRect = .zero
+    @State private var suppressLikeTap = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var following = false
     @State private var followBusy = false
-    @State private var spin = false
+    /// Brief "followed" confirmation: the + morphs into a checkmark, then the badge leaves.
+    @State private var justFollowed = false
 
     var body: some View {
-        VStack(spacing: 16) {
+        // One white SF Symbol family, same size/weight/shadow, count under each (TikTok spacing).
+        // Only the like heart takes colour when active; Save fills white (no yellow).
+        VStack(spacing: 14) {
             creator
-            railButton("heart.fill", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .red) {
+            railButton("heart.fill", count: max(post.likeCount, post.reactionCount), active: post.liked, tint: .red, label: post.liked ? "Unlike" : "Like") {
+                // The release after a long-press (strip opened) must not also toggle the like.
+                if suppressLikeTap { suppressLikeTap = false; return }
                 Task { await app.postActions.toggleLike(post) }
                 HapticEngine.shared.play(.lightImpact)
             }
-            railButton("ellipsis.bubble.fill", count: post.replyCount, active: false) { onComment() }
-            railButton("bookmark.fill", count: 0, active: post.saved, tint: .yellow) {
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { heartFrame = $0 }
+            // Quick taps finish long before 0.4 s, so this never delays a normal like.
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                guard let onReactionsRequested else { return }
+                suppressLikeTap = true
+                HapticEngine.shared.play(.contextOpen)
+                onReactionsRequested(heartFrame)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    suppressLikeTap = false
+                }
+            })
+            .accessibilityAction(named: "React") { onReactionsRequested?(heartFrame) }
+            railButton("bubble.right.fill", count: post.replyCount, active: false, label: "Comments", id: "ellipsis.bubble.fill") { onComment() }
+            railButton(post.saved ? "bookmark.fill" : "bookmark", count: 0, active: post.saved, label: post.saved ? "Unsave" : "Save", id: "bookmark.fill") {
                 Task { await app.postActions.toggleSave(post) }
             }
-            railButton("arrowshape.turn.up.right.fill", count: 0, active: false) { onShare() }
+            railButton("paperplane.fill", count: 0, active: false, label: "Share", id: "arrowshape.turn.up.right.fill") { onShare() }
             soundDisc
         }
         .foregroundStyle(.white)
@@ -51,21 +73,31 @@ struct ReelTikTokRail: View {
                     followBusy = true
                     Task {
                         let ok = await app.profile.follow(profileID: reel.creator.id, handle: reel.creator.handle)
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { following = ok }
                         followBusy = false
-                        if ok { HapticEngine.shared.play(.followComplete) }
+                        guard ok else { return }
+                        HapticEngine.shared.play(.followComplete)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { justFollowed = true }
+                        try? await Task.sleep(for: .milliseconds(reduceMotion ? 300 : 850))
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { following = true }
                     }
                 } label: {
-                    Image(systemName: "plus")
+                    // White badge, black glyph (never accent/coral). Hit area padded to 44 pt.
+                    Image(systemName: justFollowed ? "checkmark" : "plus")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.black)
+                        .contentTransition(.symbolEffect(.replace))
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(app.appearance.liveAccent))
-                        .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                        .background(Circle().fill(.white))
+                        .scaleEffect(justFollowed && !reduceMotion ? 1.12 : 1)
+                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .offset(y: 10)
-                .accessibilityLabel("Follow \(reel.creator.displayName)")
+                .offset(y: 21)
+                .transition(.scale(scale: 0.3).combined(with: .opacity))
+                .disabled(justFollowed)
+                .accessibilityLabel(justFollowed ? "Following \(reel.creator.displayName)" : "Follow \(reel.creator.displayName)")
                 .accessibilityIdentifier("reels.follow")
             }
         }
@@ -89,15 +121,15 @@ struct ReelTikTokRail: View {
         .accessibilityLabel(title)
     }
 
-    private func railButton(_ symbol: String, count: Int, active: Bool, tint: Color = .white, action: @escaping () -> Void) -> some View {
+    private func railButton(_ symbol: String, count: Int, active: Bool, tint: Color = .white, label: String, id: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Image(systemName: symbol)
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(.system(size: 27, weight: .semibold))
                     .foregroundStyle(active ? tint : .white)
-                    .shadow(color: .black.opacity(0.45), radius: 3, y: 1)
+                    .shadow(color: .black.opacity(0.4), radius: 4, y: 1)
                     .symbolEffect(.bounce, value: active)
-                    .frame(height: 34)
+                    .frame(width: 44, height: 40)
                 // Always reserve the count line so rail spacing stays even.
                 Text(count > 0 ? (ModulaCountFormat.compact(count) ?? "\(count)") : " ")
                     .font(.caption2.weight(.semibold))
@@ -105,10 +137,13 @@ struct ReelTikTokRail: View {
                     .shadow(color: .black.opacity(0.5), radius: 2)
                     .contentTransition(.numericText())
             }
-            .frame(width: 52)
+            .frame(width: 56)
+            .contentShape(Rectangle())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.88, haptic: .selection))
-        .accessibilityIdentifier("reels.rail.\(symbol)")
+        .accessibilityLabel(label)
+        .accessibilityValue(count > 0 ? "\(count)" : "")
+        .accessibilityIdentifier("reels.rail.\(id ?? symbol)")
     }
 }
 
@@ -116,15 +151,15 @@ struct ReelTikTokRail: View {
 
 struct ReelCaptionBlock: View {
     let reel: Reel
+    var showsCaption = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded = false
 
+    /// Speed: read twice per render (the `isEmpty` check and the chip row) and re-split the caption each time;
+    /// now parsed once per caption and cached alongside the styled caption.
     private var hashtags: [String] {
         guard let text = reel.caption else { return [] }
-        return text.split(whereSeparator: \.isWhitespace).compactMap { token -> String? in
-            let t = String(token)
-            return t.hasPrefix("#") && t.count > 1 ? t : nil
-        }
+        return ReelCaptionStyle.hashtags(text)
     }
 
     var body: some View {
@@ -137,31 +172,69 @@ struct ReelCaptionBlock: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
-            if let caption = reel.caption, !caption.isEmpty {
+            if showsCaption, let caption = reel.caption, !caption.isEmpty {
                 Button {
-                    withAnimation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .snappy) { expanded.toggle() }
+                    withAnimation(ModulaEffectGate.reduceMotion(reduceMotion) ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { expanded.toggle() }
+                    HapticEngine.shared.play(.selection)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(caption)
-                            .font(.subheadline)
-                            .foregroundStyle(.white)
-                            .lineLimit(expanded ? 12 : 2)
-                            .multilineTextAlignment(.leading)
+                        // Expanded: scrolls inside a capped height instead of pushing the rail off.
+                        if expanded {
+                            ScrollView(.vertical) {
+                                Text(ReelCaptionStyle.styled(caption))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.white)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .scrollIndicators(.hidden)
+                            .scrollBounceBehavior(.basedOnSize)
+                            .frame(maxHeight: 220)
+                        } else {
+                            Text(ReelCaptionStyle.styled(caption))
+                                .font(.subheadline)
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
                         if caption.count > 80 {
                             Text(expanded ? "less" : "more")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.white.opacity(0.7))
+                                .contentTransition(.opacity)
                         }
                     }
                     .frame(maxWidth: 280, alignment: .leading)
+                    .padding(expanded ? 10 : 0)
+                    .background {
+                        // Legibility backing only while expanded (cheap: a flat colour, no blur).
+                        if expanded {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.black.opacity(0.38))
+                                .transition(.opacity)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint(expanded ? "Collapses the caption" : "Shows the full caption")
+                .transition(.opacity)
             }
-            if !hashtags.isEmpty {
-                Text(hashtags.prefix(6).joined(separator: " "))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
+            if showsCaption, !hashtags.isEmpty {
+                // Tappable hashtags → Search (was static text).
+                HStack(spacing: 6) {
+                    ForEach(Array(hashtags.prefix(4)), id: \.self) { tag in
+                        Button {
+                            app.navigation.push(.search(.root(tag)))
+                            HapticEngine.shared.play(.navigation)
+                        } label: {
+                            Text(tag)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Search \(tag)")
+                    }
+                }
             }
             musicMarquee
         }
@@ -199,59 +272,142 @@ struct ReelQuickMenu: View {
     var autoScroll = false
     var onToggleAutoScroll: () -> Void = {}
     var onCopyLink: (() -> Void)? = nil
+    /// Keep watching in the floating dock / system Picture in Picture (nil hides the row).
+    var onMiniPlayer: (() -> Void)? = nil
+    var onPictureInPicture: (() -> Void)? = nil
+    var onCopyCaption: (() -> Void)? = nil
+    var onShareCard: (() -> Void)? = nil
+    /// Remix / Duet: shown, but gated until the server can create derived reels.
+    var onRemix: (() -> Void)? = nil
+    var onSleepTimer: ((Int) -> Void)? = nil
+    var sleepMinutesLeft: Int? = nil
     var onDismiss: () -> Void
 
+    private static let rates: [Double] = [0.5, 1.0, 1.25, 1.5, 2.0]
+
     var body: some View {
+        // Compact Notes-style menu: a row of three icon actions, then a short list with normal
+        // row heights. Speed is a picker in the first tile instead of four separate rows.
         VStack(alignment: .leading, spacing: 0) {
-            Text("Playback").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 4)
-            ForEach([0.5, 1.0, 1.5, 2.0], id: \.self) { value in
-                Button {
-                    onRate(Float(value)); onDismiss()
-                } label: {
-                    HStack {
-                        Text(value == 1 ? "Normal" : String(format: "%.1g×", value))
-                        Spacer()
-                        if abs(Double(rate) - value) < 0.05 {
-                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+            HStack(spacing: 8) {
+                Menu {
+                    Picker("Playback speed", selection: Binding(
+                        get: { Self.rates.min(by: { abs($0 - Double(rate)) < abs($1 - Double(rate)) }) ?? 1 },
+                        set: { onRate(Float($0)); onDismiss() }
+                    )) {
+                        ForEach(Self.rates, id: \.self) { value in
+                            Text(value == 1 ? "Normal" : String(format: "%g×", value)).tag(value)
                         }
                     }
-                    .padding(.horizontal, 16).frame(minHeight: 44)
+                } label: {
+                    tile(abs(rate - 1) < 0.01 ? "Speed" : String(format: "%g×", Double(rate)), symbol: "gauge.with.needle")
                 }
-                .buttonStyle(.plain)
-            }
-            Divider().padding(.vertical, 4)
-            Button { onNotInterested(); onDismiss() } label: {
-                Label("Not interested", systemImage: "eye.slash").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            if let onCopyLink {
-                Button { onCopyLink(); onDismiss() } label: {
-                    Label("Copy link", systemImage: "link").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(String(format: "%g times", Double(rate)))
+                .accessibilityIdentifier("reels.menu.speed")
+                Button { onSave(); onDismiss() } label: { tile("Save", symbol: "bookmark") }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("reels.menu.save")
+                if let onCopyLink {
+                    Button { onCopyLink(); onDismiss() } label: { tile("Copy link", symbol: "link") }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("reels.menu.copylink")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("reels.menu.copylink")
             }
-            Button { onSave(); onDismiss() } label: {
-                Label("Save video", systemImage: "bookmark").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            Button { onToggleCaptions(); onDismiss() } label: {
-                Label(captionsOn ? "Captions on" : "Captions off", systemImage: "captions.bubble").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            Button { onToggleClear(); onDismiss() } label: {
-                Label(clearDisplay ? "Show UI" : "Clear display", systemImage: "eye").padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }.buttonStyle(.plain)
-            Button { onToggleAutoScroll(); onDismiss() } label: {
-                Label(autoScroll ? "Auto-scroll on" : "Auto-scroll off", systemImage: autoScroll ? "arrow.down.to.line.circle.fill" : "arrow.down.to.line.circle")
-                    .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(8)
+
+            Divider().padding(.horizontal, 12)
+
+            VStack(spacing: 0) {
+                if let onMiniPlayer {
+                    row("Mini player", symbol: "rectangle.inset.bottomright.filled", id: "reels.menu.miniplayer", action: onMiniPlayer)
+                }
+                if let onPictureInPicture {
+                    row("Picture in Picture", symbol: "pip.enter", id: "reels.menu.pip", action: onPictureInPicture)
+                }
+                row("Captions", symbol: "captions.bubble", checked: captionsOn, id: "reels.menu.captions", action: onToggleCaptions)
+                row(clearDisplay ? "Show controls" : "Clear display", symbol: "eye", id: "reels.menu.clear", action: onToggleClear)
+                row("Auto-scroll", symbol: "arrow.down.to.line.circle", checked: autoScroll, id: "reels.menu.autoscroll", action: onToggleAutoScroll)
+                    .accessibilityHint("Moves to the next reel when a video ends")
+                if let onSleepTimer {
+                    Menu {
+                        ForEach([15, 30, 45, 60], id: \.self) { m in
+                            Button("\(m) minutes") { onSleepTimer(m); onDismiss() }
+                        }
+                        if sleepMinutesLeft != nil {
+                            Button("Turn Off", systemImage: "xmark", role: .destructive) { onSleepTimer(0); onDismiss() }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(sleepMinutesLeft.map { "Sleep timer · \($0) min" } ?? "Sleep timer").font(.body).lineLimit(1).minimumScaleFactor(0.85)
+                            Spacer(minLength: 8)
+                            Image(systemName: "moon.zzz").font(.body).frame(width: 22)
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("reels.menu.sleep")
+                }
+                if let onCopyCaption {
+                    row("Copy caption", symbol: "text.quote", id: "reels.menu.copycaption", action: onCopyCaption)
+                }
+                if let onShareCard {
+                    row("Share as card", symbol: "rectangle.portrait.on.rectangle.portrait.angled", id: "reels.menu.sharecard", action: onShareCard)
+                }
+                if let onRemix {
+                    row("Remix or Duet", symbol: "rectangle.split.2x1", id: "reels.menu.remix", action: onRemix)
+                        .opacity(0.55)
+                        .accessibilityHint("Not available yet")
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Moves to the next reel when a video ends")
-            .accessibilityIdentifier("reels.menu.autoscroll")
+            .padding(.vertical, 4)
+
+            Divider().padding(.horizontal, 12)
+
+            row("Not interested", symbol: "eye.slash", id: "reels.menu.notinterested", action: onNotInterested)
+                .padding(.vertical, 4)
         }
-        .padding(.bottom, 10)
-        .frame(width: 260)
+        .frame(width: 270)
         .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
-        .shadow(color: .black.opacity(0.35), radius: 20, y: 10)
+        .shadow(color: .black.opacity(0.3), radius: 18, y: 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(.escape, onDismiss)
+    }
+
+    private func tile(_ title: String, symbol: String) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
+            Text(title)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(.primary)
+        .frame(maxWidth: .infinity, minHeight: 60)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.08)))
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func row(_ title: String, symbol: String, checked: Bool? = nil, id: String, action: @escaping () -> Void) -> some View {
+        Button { action(); onDismiss() } label: {
+            HStack(spacing: 12) {
+                Text(title).font(.body).lineLimit(1).minimumScaleFactor(0.85)
+                Spacer(minLength: 8)
+                if checked == true {
+                    Image(systemName: "checkmark").font(.subheadline.weight(.semibold))
+                }
+                Image(systemName: symbol).font(.body).frame(width: 22)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(checked == true ? .isSelected : [])
+        .accessibilityIdentifier(id)
     }
 }
 
@@ -260,26 +416,11 @@ struct ReelQuickMenu: View {
 struct ReelFeedTabs: View {
     @Binding var tab: ReelFeedTab
     var body: some View {
-        HStack(spacing: 18) {
-            ForEach(ReelFeedTab.allCases) { item in
-                Button {
-                    withAnimation(.snappy) { tab = item }
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    VStack(spacing: 4) {
-                        Text(item.title)
-                            .font(.subheadline.weight(tab == item ? .bold : .semibold))
-                            .foregroundStyle(.white.opacity(tab == item ? 1 : 0.55))
-                        Capsule()
-                            .fill(.white)
-                            .frame(width: tab == item ? 28 : 0, height: 3)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(tab == item ? .isSelected : [])
-                .accessibilityIdentifier("reels.tab.\(item.rawValue)")
-            }
-        }
+        // Shared segmented control, forced dark so it reads over video.
+        ModulaSegmentedControl("Reels feed", selection: $tab, options: ReelFeedTab.allCases, compact: true,
+                               identifier: { "reels.tab.\($0.rawValue)" }) { $0.title }
+            .fixedSize()
+            .environment(\.colorScheme, .dark)
     }
 }
 
@@ -365,5 +506,79 @@ struct ReelMarqueeText: View {
             .lineLimit(1)
             .fixedSize()
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { textWidth = $0 }
+    }
+}
+
+
+/// Reel captions: #hashtags and @mentions in bold, so they read as tappable-looking tags over video, with a soft
+/// shadow for legibility on bright frames. Cached per caption (captions re-render on every progress tick).
+enum ReelCaptionStyle {
+    nonisolated(unsafe) private static var cache: [String: AttributedString] = [:]
+    nonisolated(unsafe) private static var tagCache: [String: [String]] = [:]
+    static func hashtags(_ caption: String) -> [String] {
+        if let hit = tagCache[caption] { return hit }
+        let tags = caption.split(whereSeparator: \.isWhitespace).compactMap { token -> String? in
+            let t = String(token)
+            return t.hasPrefix("#") && t.count > 1 ? t : nil
+        }
+        if tagCache.count > 64 { tagCache.removeAll() }
+        tagCache[caption] = tags
+        return tags
+    }
+    static func styled(_ caption: String) -> AttributedString {
+        if let hit = cache[caption] { return hit }
+        var out = AttributedString()
+        var first = true
+        for token in caption.split(separator: " ", omittingEmptySubsequences: false) {
+            if !first { out += AttributedString(" ") }
+            first = false
+            var piece = AttributedString(String(token))
+            if (token.hasPrefix("#") || token.hasPrefix("@")) && token.count > 1 {
+                piece.font = .subheadline.weight(.bold)
+            }
+            out += piece
+        }
+        if cache.count > 64 { cache.removeAll() }
+        cache[caption] = out
+        return out
+    }
+}
+
+
+/// Story-sized share image for a reel: creator, caption (hashtags bold), engagement and the Modula link,
+/// over the reel's poster colour. Rendered on device with ImageRenderer; shared via the system sheet.
+struct ReelShareCard: View {
+    let reel: Reel
+    var body: some View {
+        let base = Color(hex: reel.posterColor ?? "#1B3A4B")
+        ZStack(alignment: .bottomLeading) {
+            LinearGradient(colors: [base, base.opacity(0.75), .black], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.rectangle.fill").font(.system(size: 30, weight: .bold))
+                    Text("Reel").font(.system(size: 30, weight: .heavy, design: .rounded))
+                }
+                Spacer()
+                Text("@\(reel.creator.handle)").font(.system(size: 34, weight: .bold))
+                if let caption = reel.caption, !caption.isEmpty {
+                    Text(ReelCaptionStyle.styled(String(caption.prefix(220)))).font(.system(size: 28)).lineLimit(6)
+                }
+                HStack(spacing: 22) {
+                    Label("\(reel.engagement.likeCount)", systemImage: "heart.fill")
+                    Label("\(reel.engagement.replyCount)", systemImage: "bubble.right.fill")
+                }
+                .font(.system(size: 24, weight: .semibold))
+                Text("Watch on Modula").font(.system(size: 22, weight: .semibold)).opacity(0.8)
+            }
+            .foregroundStyle(.white)
+            .padding(56)
+        }
+        .frame(width: 1080 / 2, height: 1920 / 2)
+    }
+
+    @MainActor static func render(_ reel: Reel) -> UIImage? {
+        let renderer = ImageRenderer(content: ReelShareCard(reel: reel))
+        renderer.scale = 2
+        return renderer.uiImage
     }
 }

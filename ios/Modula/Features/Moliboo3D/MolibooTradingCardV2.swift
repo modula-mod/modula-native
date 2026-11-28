@@ -26,8 +26,9 @@ struct MolibooTradingCardV2: View {
         .frame(width: Self.base.width, height: Self.base.height)
         .scaleEffect(scale)
         .frame(width: width, height: width * Self.base.height / Self.base.width)
-        .rotation3DEffect(.degrees(Double(reduceMotion ? 0 : tilt.width) * 10), axis: (0, 1, 0), perspective: 0.65)
-        .rotation3DEffect(.degrees(Double(reduceMotion ? 0 : -tilt.height) * 8), axis: (1, 0, 0), perspective: 0.65)
+        // Strictly 2D: a flat lean and parallax drift instead of a perspective tilt.
+        .rotationEffect(.degrees(reduceMotion ? 0 : Double(tilt.width) * 2))
+        .offset(x: reduceMotion ? 0 : tilt.width * 5, y: reduceMotion ? 0 : tilt.height * 5)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(faceDown
             ? "Face-down Moliboo card"
@@ -322,7 +323,7 @@ struct MolibooGalleryInspectView: View {
 
                 HStack(spacing: 12) {
                     Button(faceDown ? "Show front" : "Show back") { flip() }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.modulaSecondary)
                     if let exportImage {
                         ShareLink(
                             item: exportImage,
@@ -330,10 +331,10 @@ struct MolibooGalleryInspectView: View {
                         ) {
                             Label("Share card", systemImage: "square.and.arrow.up")
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     } else {
                         Button("Share card") { exportImage = renderedShareImage() }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.modulaPrimary)
                     }
                 }
                 .font(.subheadline.weight(.semibold))

@@ -96,7 +96,7 @@ struct PostReactionPicker: View {
             }
             .padding(.top, 12)
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .accessibilityIdentifier("post.reaction.picker")
     }
@@ -112,11 +112,13 @@ struct PostReactionPicker: View {
         guard !reduceMotion, symbol != nil || glyph != nil else { commit(); return }
         burst = glyph ?? symbol.map { "sf:\($0)" }
         burstTrigger += 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28, execute: commit)
+        // Speed: commit (optimistic update + network) almost immediately; the burst keeps playing.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: commit)
     }
 }
 
-/// Small radial burst of the chosen reaction.
+/// Radial burst of the chosen reaction: a centre pop, a soft shock ring and 10 pieces on
+/// varied radii/rotations. One animated value drives everything (cheap; no per-piece state).
 private struct PickerReactionBurst: View {
     let glyph: String?
     let trigger: Int
@@ -125,18 +127,26 @@ private struct PickerReactionBurst: View {
     var body: some View {
         ZStack {
             if let glyph, progress < 1 {
-                ForEach(0..<8, id: \.self) { i in
-                    let angle = Double(i) / 8 * 2 * .pi
+                Circle()
+                    .stroke(Color.accentColor.opacity(0.5 * Double(1 - progress)), lineWidth: 3 * (1 - progress) + 0.5)
+                    .frame(width: 30 + 110 * progress, height: 30 + 110 * progress)
+                piece(glyph)
+                    .scaleEffect(progress < 0.35 ? 0.6 + progress * 3 : 1.65 - (progress - 0.35) * 0.9)
+                    .opacity(Double(progress < 0.6 ? 1 : (1 - progress) / 0.4))
+                ForEach(0..<10, id: \.self) { i in
+                    let angle = Double(i) / 10 * 2 * .pi + (i.isMultiple(of: 2) ? 0.15 : -0.1)
+                    let reach: CGFloat = i % 3 == 0 ? 70 : (i % 3 == 1 ? 54 : 42)
                     piece(glyph)
-                        .scaleEffect(0.6 + progress * 0.5)
-                        .offset(x: cos(angle) * 54 * progress, y: sin(angle) * 40 * progress)
+                        .scaleEffect((0.45 + progress * 0.45) * (i % 3 == 0 ? 0.8 : 1))
+                        .rotationEffect(.degrees(Double(i % 2 == 0 ? 1 : -1) * 40 * Double(progress)))
+                        .offset(x: cos(angle) * reach * progress, y: sin(angle) * reach * 0.8 * progress - 10 * progress)
                         .opacity(Double(1 - progress))
                 }
             }
         }
         .onChange(of: trigger) { _, _ in
             progress = 0
-            withAnimation(.easeOut(duration: 0.5)) { progress = 0.999 }
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.9)) { progress = 0.999 }
         }
     }
 

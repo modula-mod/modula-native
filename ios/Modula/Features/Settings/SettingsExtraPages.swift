@@ -79,7 +79,7 @@ struct WhatsNewSettingsHost: View {
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
                 .accessibilityHidden(true)
             Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
@@ -416,7 +416,7 @@ private struct MigrationOverviewPage: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Not yet available", systemImage: "clock.badge.questionmark")
                         .font(.headline)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                     Text("This section explains how migration is intended to work. You can’t start a move here.")
                         .font(.subheadline)
                         .fixedSize(horizontal: false, vertical: true)
@@ -430,7 +430,7 @@ private struct MigrationOverviewPage: View {
                         Text("Learn about migration").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.top, 4)
                     .accessibilityIdentifier("settings.migration.learn")
                 }
@@ -469,7 +469,7 @@ private struct MigrationOverviewPage: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                     .disabled(true)
                     .accessibilityLabel("Move My Account, unavailable")
                     .accessibilityHint("Not available yet. It needs portable identity and a secure node handoff.")
@@ -486,20 +486,26 @@ private struct MigrationOverviewPage: View {
         .navigationTitle("Migration")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showsWhat) {
-            MigrationInfoSheet(
-                title: "What is Migration?",
-                paragraphs: ["Migration would change your account’s authoritative home node: the operator responsible for its account records. Only supported records included in your plan would move. Moving your account is different from setting up a new phone, importing a file or transferring a wallet."]
-            ) { app.navigation.open(.settings(.migration(.help))) }
+            Group {
+                MigrationInfoSheet(
+                    title: "What is Migration?",
+                    paragraphs: ["Migration would change your account’s authoritative home node: the operator responsible for its account records. Only supported records included in your plan would move. Moving your account is different from setting up a new phone, importing a file or transferring a wallet."]
+                ) { app.navigation.open(.settings(.migration(.help))) }
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsWhyNot) {
-            MigrationInfoSheet(
-                title: "Migration isn’t available yet",
-                paragraphs: [
-                    "Stage: MX-00 — Explain.",
-                    "Account moves require verified portable identity, signed node discovery, destination acceptance and a secure handoff with recovery. These requirements must be confirmed for your account and destination before a transfer can be offered.",
-                    "If capability checks are unavailable, that is not evidence that your account is ready to move."
-                ]
-            ) { app.navigation.open(.settings(.migration(.help))) }
+            Group {
+                MigrationInfoSheet(
+                    title: "Migration isn’t available yet",
+                    paragraphs: [
+                        "Stage: MX-00 — Explain.",
+                        "Account moves require verified portable identity, signed node discovery, destination acceptance and a secure handoff with recovery. These requirements must be confirmed for your account and destination before a transfer can be offered.",
+                        "If capability checks are unavailable, that is not evidence that your account is ready to move."
+                    ]
+                ) { app.navigation.open(.settings(.migration(.help))) }
+            }
+            .modulaSheetStyle()
         }
     }
 }
@@ -723,7 +729,7 @@ private struct MigrationInfoSheet: View {
                         Text("Read migration help").font(.headline).frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: .selection))
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.top, 6)
                 }
                 .padding(20)
@@ -735,5 +741,6 @@ private struct MigrationInfoSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
     }
 }

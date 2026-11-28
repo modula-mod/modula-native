@@ -1,9 +1,18 @@
 import Foundation
 import CryptoKit
 
+/// Present on `401 STEP_UP_REQUIRED` when the server sends it. Older servers omit both fields.
+struct StepUpRequirement: Equatable, Sendable {
+    var action: String?
+    var maxAgeSeconds: Int?
+}
+
 enum APIError: Error, LocalizedError, Equatable {
     case unconfigured, unauthenticated, secureStorage, invalidResponse, accountChanged
     case rejected(Int, String)
+    /// Session is still valid; the action needs a recent re-auth. Optional `action` and
+    /// `maxAgeSeconds` come from `error.details` when the server provides them.
+    case stepUpRequired(StepUpRequirement)
 
     var errorDescription: String? { userFacingMessage }
 
@@ -23,7 +32,7 @@ enum APIError: Error, LocalizedError, Equatable {
             "Verify your email before signing in."
         case .rejected(_, "RATE_LIMITED"), .rejected(_, "TOO_MANY_REQUESTS"):
             "Too many attempts. Try again shortly."
-        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"):
+        case .rejected(_, "STEP_UP_REQUIRED"), .rejected(_, "FORBIDDEN_STEP_UP"), .stepUpRequired:
             "Confirm your password to continue."
         case .rejected(_, "VALIDATION_FAILED"): "Check the details you entered and try again."
         case .rejected(_, "FORBIDDEN"), .rejected(_, "PERMISSION_DENIED"):
@@ -42,31 +51,49 @@ enum APIError: Error, LocalizedError, Equatable {
 
     var diagnosticDescription: String {
         switch self {
-        case .rejected(let status, let code): "Greenfield request failed (\(status), \(code))."
-        default: userFacingMessage
+        case .rejected(let status, let code): return "Greenfield request failed (\(status), \(code))."
+        case .stepUpRequired(let requirement):
+            let action = requirement.action ?? "unspecified"
+            let age = requirement.maxAgeSeconds.map(String.init) ?? "unspecified"
+            return "Greenfield request failed (401, STEP_UP_REQUIRED, action=\(action), maxAgeSeconds=\(age))."
+        default: return userFacingMessage
         }
     }
 
     var code: String? {
-        if case .rejected(_, let code) = self { return code }
-        return nil
+        switch self {
+        case .rejected(_, let code): return code
+        case .stepUpRequired: return "STEP_UP_REQUIRED"
+        default: return nil
+        }
     }
 
     /// `401 STEP_UP_REQUIRED` means the session is still valid; the action needs a
     /// recent password / passkey / Apple confirmation. It must not be treated as a
     /// revoked token (refresh + sign-out).
-    var requiresStepUp: Bool {
-        if case .rejected(_, let code) = self { return Self.isStepUpCode(code) }
-        return false
+    ///
+    /// `action` and `maxAgeSeconds` are taken from `error.details` when present and
+    /// are nil on older servers that omit them. Callers must not show `maxAgeSeconds`
+    /// as a countdown.
+    var requiresStepUp: StepUpRequirement? {
+        switch self {
+        case .stepUpRequired(let requirement):
+            return requirement
+        case .rejected(_, let code) where Self.isStepUpCode(code):
+            return StepUpRequirement(action: nil, maxAgeSeconds: nil)
+        default:
+            return nil
+        }
     }
 
     static func isStepUpCode(_ code: String) -> Bool {
         code == "STEP_UP_REQUIRED" || code == "FORBIDDEN_STEP_UP"
     }
 
-    static func requiresStepUp(_ error: Error) -> Bool {
-        (error as? APIError)?.requiresStepUp == true
+    static func requiresStepUp(_ error: Error) -> StepUpRequirement? {
+        (error as? APIError)?.requiresStepUp
     }
+
 }
 
 struct GreenfieldAccount: Codable, Sendable, Equatable {
@@ -185,7 +212,37 @@ private struct Envelope<T: Decodable>: Decodable {
     let ok: Bool
     let data: T?
     let error: Failure?
-    struct Failure: Decodable { let code: String }
+    struct Failure: Decodable {
+        let code: String
+        let details: Details?
+        struct Details: Decodable {
+            var action: String?
+            var maxAgeSeconds: Int?
+
+            enum CodingKeys: String, CodingKey { case action, maxAgeSeconds }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                action = try container.decodeIfPresent(String.self, forKey: .action)
+                if let int = try? container.decodeIfPresent(Int.self, forKey: .maxAgeSeconds) {
+                    maxAgeSeconds = int
+                } else if let double = try? container.decodeIfPresent(Double.self, forKey: .maxAgeSeconds) {
+                    maxAgeSeconds = Int(double)
+                } else {
+                    maxAgeSeconds = nil
+                }
+            }
+        }
+
+        enum CodingKeys: String, CodingKey { case code, details }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            code = try container.decode(String.self, forKey: .code)
+            // Older or partial details must not fail the whole envelope.
+            details = try? container.decode(Details.self, forKey: .details)
+        }
+    }
 }
 
 struct PasswordResetRequestResult: Codable, Sendable {
@@ -567,10 +624,108 @@ actor GreenfieldClient {
 
     /// Uninstall keeps the account's module data so a reinstall restores it.
     func uninstallModule(_ moduleID: String, idempotencyKey: String) async throws {
+        try await uninstallModule(moduleID, choice: .keepData, confirmDelete: false, idempotencyKey: idempotencyKey)
+    }
+
+    /// `DELETE /v1/modules/:id/install`. `deleteData` requires `confirmDelete: true`.
+    /// Do not send `recentAuth`: Mosaic #201 ignores a client-asserted claim and reads
+    /// recency only from the session (refreshed by sign-in or `/v1/auth/step-up/*`).
+    func uninstallModule(
+        _ moduleID: String,
+        choice: ModuleUninstallChoice,
+        confirmDelete: Bool,
+        idempotencyKey: String
+    ) async throws {
         guard let path = Self.modulePath(moduleID) else { throw APIError.invalidResponse }
-        let _: JSONValue = try await authenticated("DELETE", path: "/v1/modules/\(path)/install", body: .object([
-            "choice": .string("keepData"), "idempotencyKey": .string(idempotencyKey),
-        ]))
+        guard Self.isSafeIdempotencyKey(idempotencyKey) else { throw APIError.invalidResponse }
+        var body: [String: JSONValue] = [
+            "choice": .string(choice.rawValue),
+            "idempotencyKey": .string(idempotencyKey),
+        ]
+        if choice == .deleteData {
+            body["confirmDelete"] = .bool(confirmDelete)
+        }
+        let _: JSONValue = try await authenticated(
+            "DELETE",
+            path: "/v1/modules/\(path)/install",
+            body: .object(body),
+            headers: ["Idempotency-Key": idempotencyKey]
+        )
+    }
+
+    /// Re-authenticates the current session only (`POST /v1/auth/step-up/password`).
+    /// Requires the current bearer. The body is exactly `{ "password" }` — no email
+    /// or account id. The password is not stored. A successful result refreshes
+    /// `recent_authentication_at` on this session; retry the original call with the
+    /// same access token. Rate limits surface `Retry-After` when the server sends it.
+    func passwordStepUp(password: String) async throws -> PasswordStepUpResult {
+        if password.isEmpty || password.count > 1024 {
+            throw PasswordStepUpFailure.validation("Enter your password")
+        }
+        let generation = epoch
+        let bearer = try await accessToken()
+        let first = try await performRequest(
+            "POST",
+            path: "/v1/auth/step-up/password",
+            body: .object(["password": .string(password)]),
+            bearer: bearer
+        )
+        if first.response.statusCode == 401, generation == epoch, tokens != nil {
+            let code = Self.peekErrorCode(first.data) ?? "UNAUTHENTICATED"
+            if Self.shouldRefreshAfterStepUp401(code) {
+                let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
+                let retry = try await performRequest(
+                    "POST",
+                    path: "/v1/auth/step-up/password",
+                    body: .object(["password": .string(password)]),
+                    bearer: renewed
+                )
+                return try Self.decodePasswordStepUp(retry.data, response: retry.response)
+            }
+        }
+        return try Self.decodePasswordStepUp(first.data, response: first.response)
+    }
+
+    /// Re-authenticates the current session with an authenticator code
+    /// (`POST /v1/auth/step-up/totp`). Requires the current bearer. The body is
+    /// exactly `{ "code" }`. A successful result is `{stepUp:true, authenticationStrength:"strong"}`
+    /// and refreshes `recent_authentication_at`. Wrong codes are `401 INVALID_CREDENTIALS`.
+    /// No enrolled TOTP is `401 AUTH_METHOD_UNAVAILABLE`. The code is not stored.
+    func totpStepUp(code: String) async throws -> PasswordStepUpResult {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed.count > 16 {
+            throw PasswordStepUpFailure.validation("Enter the 6-digit code from your authenticator app.")
+        }
+        let generation = epoch
+        let bearer = try await accessToken()
+        let first = try await performRequest(
+            "POST",
+            path: "/v1/auth/step-up/totp",
+            body: .object(["code": .string(trimmed)]),
+            bearer: bearer
+        )
+        if first.response.statusCode == 401, generation == epoch, tokens != nil {
+            let peeked = Self.peekErrorCode(first.data) ?? "UNAUTHENTICATED"
+            if Self.shouldRefreshAfterStepUp401(peeked) {
+                let renewed = try await accessToken(forceRefresh: true, rejected: bearer)
+                let retry = try await performRequest(
+                    "POST",
+                    path: "/v1/auth/step-up/totp",
+                    body: .object(["code": .string(trimmed)]),
+                    bearer: renewed
+                )
+                return try Self.decodePasswordStepUp(
+                    retry.data,
+                    response: retry.response,
+                    defaultValidationMessage: "That code wasn’t right. Try again."
+                )
+            }
+        }
+        return try Self.decodePasswordStepUp(
+            first.data,
+            response: first.response,
+            defaultValidationMessage: "That code wasn’t right. Try again."
+        )
     }
 
     /// Module ids are reverse-DNS; anything else never reaches a URL path.
@@ -751,7 +906,7 @@ actor GreenfieldClient {
             let result: T = try await send(method, path: path, body: body, bearer: bearer, timeout: timeout, headers: headers)
             guard generation == epoch else { throw APIError.accountChanged }
             return result
-        } catch let error as APIError where error.requiresStepUp && generation == epoch {
+        } catch let error as APIError where error.requiresStepUp != nil && generation == epoch {
             // Session is valid; the action needs a recent re-auth. Do not refresh or sign out.
             throw error
         } catch APIError.rejected(401, _) where generation == epoch && tokens != nil {
@@ -764,7 +919,7 @@ actor GreenfieldClient {
                 let result: T = try await send(method, path: path, body: body, bearer: renewed, timeout: timeout, headers: headers)
                 guard generation == epoch else { throw APIError.accountChanged }
                 return result
-            } catch let error as APIError where error.requiresStepUp && generation == epoch {
+            } catch let error as APIError where error.requiresStepUp != nil && generation == epoch {
                 throw error
             } catch APIError.rejected(401, let code) where generation == epoch {
                 // The refresh just succeeded, so the shell's own session is valid. For
@@ -800,7 +955,7 @@ actor GreenfieldClient {
     /// and 5xx keep the stored tokens so the user stays signed in and can retry.
     /// `401 STEP_UP_REQUIRED` is not a revoked session and must never sign the user out.
     nonisolated static func refreshFailureEndsSession(_ error: Error) -> Bool {
-        if APIError.requiresStepUp(error) { return false }
+        if APIError.requiresStepUp(error) != nil { return false }
         switch error {
         case APIError.rejected(_, "UNAUTHENTICATED"): return true
         case APIError.rejected(let status, _): return status == 400 || status == 401 || status == 403
@@ -851,6 +1006,104 @@ actor GreenfieldClient {
         }
     }
 
+    private func performRequest(
+        _ method: String, path: String, body: JSONValue? = nil, bearer: String? = nil, timeout: TimeInterval = 20,
+        headers: [String: String] = [:]
+    ) async throws -> (data: Data, response: HTTPURLResponse) {
+        guard let baseURL, baseURL.scheme == "https", baseURL.user == nil, baseURL.password == nil,
+              path.hasPrefix("/v1/"), !path.contains(".."), let url = URL(string: path, relativeTo: baseURL)?.absoluteURL,
+              url.host == baseURL.host else { throw APIError.unconfigured }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = timeout
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
+        request.setValue("ModulaNative/0.1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        // Same flags as send() (#203): no cookies, no cached auth envelopes.
+        request.httpShouldHandleCookies = false
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        if let bearer { request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
+        request.httpBody = try body.map { try JSONEncoder().encode($0) }
+        let (data, response) = try await transport.data(for: request)
+        guard let http = response as? HTTPURLResponse, data.count < 8_000_000 else { throw APIError.invalidResponse }
+        return (data, http)
+    }
+
+    nonisolated static func peekErrorCode(_ data: Data) -> String? {
+        guard let envelope = try? JSONDecoder().decode(Envelope<JSONValue>.self, from: data) else { return nil }
+        return envelope.error?.code
+    }
+
+    /// 401s that are step-up or credential failures must not start a token refresh.
+    nonisolated static func shouldRefreshAfterStepUp401(_ code: String) -> Bool {
+        !APIError.isStepUpCode(code)
+            && code != "VALIDATION_FAILED"
+            && code != "INVALID_CREDENTIALS"
+            && code != "AUTH_METHOD_UNAVAILABLE"
+            && code != "CONFLICT"
+    }
+
+    nonisolated static func decodePasswordStepUp(
+        _ data: Data,
+        response: HTTPURLResponse,
+        defaultValidationMessage: String = "That password is not correct."
+    ) throws -> PasswordStepUpResult {
+        struct StepUpEnvelope: Decodable {
+            var ok: Bool
+            var data: PasswordStepUpResult?
+            var error: StepUpError?
+            struct StepUpError: Decodable {
+                var code: String?
+                var message: String?
+                var fieldErrors: [String: String]?
+                var details: [String: JSONValue]?
+                var retryable: Bool?
+            }
+        }
+        let envelope: StepUpEnvelope
+        do {
+            envelope = try JSONDecoder().decode(StepUpEnvelope.self, from: data)
+        } catch {
+            if response.statusCode == 429 {
+                let wait = GreenfieldFailureDetails.parse(data, response: response)?.retryAfterSeconds.map(TimeInterval.init)
+                throw PasswordStepUpFailure.rateLimited(retryAfter: wait, message: "Too many attempts. Try again shortly.")
+            }
+            throw APIError.invalidResponse
+        }
+        if (200..<300).contains(response.statusCode), envelope.ok, let value = envelope.data {
+            return value
+        }
+        let code = envelope.error?.code ?? (response.statusCode == 429 ? "RATE_LIMITED" : "REQUEST_FAILED")
+        let fieldMessage = envelope.error?.fieldErrors?["password"] ?? envelope.error?.fieldErrors?["code"]
+        let message = fieldMessage ?? envelope.error?.message
+        // Precedence (GreenField #203 / Mosaic #207): Retry-After header, then
+        // details.retryAfterSeconds, then the legacy details.retryAfter string.
+        // If none are present, leave retryAfter nil — do not invent a timer.
+        let retryAfter = GreenfieldFailureDetails.parse(data, response: response)?.retryAfterSeconds.map(TimeInterval.init)
+        switch code {
+        case "VALIDATION_FAILED", "INVALID_CREDENTIALS":
+            throw PasswordStepUpFailure.validation(message ?? defaultValidationMessage)
+        case "RATE_LIMITED", "TOO_MANY_REQUESTS":
+            throw PasswordStepUpFailure.rateLimited(
+                retryAfter: retryAfter,
+                message: message ?? "Too many attempts. Try again in a few minutes."
+            )
+        case "CONFLICT":
+            throw PasswordStepUpFailure.conflict(message ?? "This account has no password. Confirm with your authenticator or passkey instead.")
+        case "AUTH_METHOD_UNAVAILABLE":
+            throw PasswordStepUpFailure.methodUnavailable(message ?? "This account has no authenticator app set up.")
+        default:
+            if response.statusCode == 429 {
+                throw PasswordStepUpFailure.rateLimited(
+                    retryAfter: retryAfter,
+                    message: message ?? "Too many attempts. Try again in a few minutes."
+                )
+            }
+            throw PasswordStepUpFailure.failed(message ?? APIError.rejected(response.statusCode, code).userFacingMessage)
+        }
+    }
+
     /// Waiters of a shared refresh remap a revoked-refresh failure to `unauthenticated`
     /// so `authenticated()` cannot start a second refresh (no retry loop). The owner of
     /// the task is the one that calls `invalidateSession()`.
@@ -886,7 +1139,17 @@ actor GreenfieldClient {
         for (field, value) in headers where field == "Idempotency-Key" { request.setValue(value, forHTTPHeaderField: field) }
         request.httpBody = try body.map { try JSONEncoder().encode($0) }
         let started = Date()
-        let (data, response) = try await transport.data(for: request)
+        let safeSignpostPath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+        let signpostState = ModulaSignpost.signposter.beginInterval("Request", id: ModulaSignpost.signposter.makeSignpostID(),
+                                                                    "\(method, privacy: .public) \(safeSignpostPath, privacy: .public)")
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await transfer(request, method: method, path: path, bearer: bearer)
+        } catch {
+            ModulaSignpost.signposter.endInterval("Request", signpostState, "failed")
+            throw error
+        }
+        ModulaSignpost.signposter.endInterval("Request", signpostState, "\(data.count, privacy: .public)B")
         if ModulaPreferences.verboseLogging {
             // Settings → Labs → "Verbose local logging": method, path (with the query
             // stripped), status, size and timing only — never headers or bodies.
@@ -899,16 +1162,46 @@ actor GreenfieldClient {
         }
         let http = response as? HTTPURLResponse
         guard Self.recordsFailureDetails(path) else {
+            // Speed: large bodies (feeds, threads, catalogue) decode on a background executor so the
+            // client actor stays free for the parallel requests that follow them.
+            if data.count > 32_768 {
+                return try await Task.detached(priority: .userInitiated) {
+                    try Self.decodeEnvelope(data, response: response, method: method, path: path) as T
+                }.value
+            }
             return try Self.decodeEnvelope(data, response: response, method: method, path: path)
         }
         do {
-            let value: T = try Self.decodeEnvelope(data, response: response, method: method, path: path)
+            let value: T
+            if data.count > 32_768 {
+                value = try await Task.detached(priority: .userInitiated) {
+                    try Self.decodeEnvelope(data, response: response, method: method, path: path) as T
+                }.value
+            } else {
+                value = try Self.decodeEnvelope(data, response: response, method: method, path: path)
+            }
             authFailureDetails[path] = nil
             return value
         } catch {
             authFailureDetails[path] = GreenfieldFailureDetails.parse(data, response: http)
             throw error
         }
+    }
+
+    /// Speed: identical concurrent GETs (same path, same session) share one network round trip —
+    /// e.g. Home, the side sheet and a badge refresh all asking for the same page at launch.
+    /// Writes are never coalesced.
+    private var inFlightGETs: [String: Task<(Data, URLResponse), Error>] = [:]
+
+    private func transfer(_ request: URLRequest, method: String, path: String, bearer: String?) async throws -> (Data, URLResponse) {
+        guard method == "GET" else { return try await transport.data(for: request) }
+        let key = "\(path)|\(bearer?.suffix(16) ?? "anon")"
+        if let existing = inFlightGETs[key] { return try await existing.value }
+        let transport = self.transport
+        let task = Task { try await transport.data(for: request) }
+        inFlightGETs[key] = task
+        defer { inFlightGETs[key] = nil }
+        return try await task.value
     }
 
     /// Sign-in and account (register / verify / resend) answers carry structured failure
@@ -952,10 +1245,31 @@ actor GreenfieldClient {
                     "Greenfield \(method, privacy: .public) \(path, privacy: .public) failed \(http.statusCode, privacy: .public) \(safeCode, privacy: .public)"
                 )
             }
+            if APIError.isStepUpCode(safeCode) {
+                throw APIError.stepUpRequired(StepUpRequirement(
+                    action: envelope.error?.details?.action,
+                    maxAgeSeconds: envelope.error?.details?.maxAgeSeconds
+                ))
+            }
             throw APIError.rejected(http.statusCode, safeCode)
         }
         guard let value = envelope.data else { throw APIError.invalidResponse }
         return value
+    }
+
+    /// Test and client helper: decode a failed envelope into `APIError`, including
+    /// optional `details.action` and `details.maxAgeSeconds` on `STEP_UP_REQUIRED`.
+    nonisolated static func decodedError(from data: Data, status: Int) -> APIError {
+        let url = URL(string: "https://api.modula.test/v1/error")!
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+        do {
+            let _: JSONValue = try decodeEnvelope(data, response: response, method: "POST", path: "/v1/error")
+            return .invalidResponse
+        } catch let error as APIError {
+            return error
+        } catch {
+            return .invalidResponse
+        }
     }
 
     /// Status-only mapping for bodies that are not Greenfield JSON.

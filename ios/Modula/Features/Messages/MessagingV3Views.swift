@@ -1,4 +1,5 @@
 import AVFoundation
+import Speech
 import SwiftUI
 
 // MARK: - Who reacted (16)
@@ -45,6 +46,7 @@ struct MessageReactorsSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .task { await app.messaging.loadReactionDetails(message) }
         .accessibilityIdentifier("messages.reactors")
     }
@@ -68,7 +70,9 @@ struct MessageReceiptsSheet: View {
                         if !receipts.readBy.isEmpty {
                             Section("Seen") {
                                 ForEach(receipts.readBy) { row in
-                                    HStack {
+                                    HStack(spacing: 10) {
+                                        ModulaAvatar(initials: row.participant.initials, url: row.participant.avatarURL, size: 28,
+                                                     name: row.participant.displayName)
                                         Text(row.participant.displayName)
                                         Spacer()
                                         if let readAt = row.readAt {
@@ -100,6 +104,7 @@ struct MessageReceiptsSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
         .task { await app.messaging.loadReceipts(message) }
         .accessibilityIdentifier("messages.receipts")
     }
@@ -112,30 +117,59 @@ private final class MessageAudioPlayer: NSObject, ObservableObject, AVAudioPlaye
     @Published var isPlaying = false
     @Published var progress: CGFloat = 0
     @Published var loading = false
+    @Published var rate: Float = 1
     private var player: AVAudioPlayer?
     private var timer: Timer?
 
     func toggle(url: URL, client: GreenfieldClient) async {
         if let player {
-            if player.isPlaying { player.pause(); isPlaying = false } else { player.play(); isPlaying = true; startTimer() }
+            if player.isPlaying { pause() } else { play(player) }
             return
         }
+        guard let player = await prepare(url: url, client: client) else { return }
+        play(player)
+    }
+
+    /// Scrubbing: seeks (loading first if needed) without starting playback.
+    func seek(to fraction: CGFloat, url: URL, client: GreenfieldClient) async {
+        let clamped = min(1, max(0, fraction))
+        progress = clamped
+        guard let player = await prepare(url: url, client: client), player.duration > 0 else { return }
+        player.currentTime = player.duration * Double(clamped)
+    }
+
+    func cycleRate() {
+        rate = rate == 1 ? 1.5 : (rate == 1.5 ? 2 : 1)
+        player?.rate = rate
+    }
+
+    private func prepare(url: URL, client: GreenfieldClient) async -> AVAudioPlayer? {
+        if let player { return player }
         loading = true
         defer { loading = false }
-        let data: Data?
-        if url.isFileURL {
-            data = try? Data(contentsOf: url)
-        } else {
-            data = try? await client.mediaData(from: url, maximumBytes: 20_000_000)
-        }
-        guard let data, let player = try? AVAudioPlayer(data: data) else { return }
+        guard let data = await MessageVoiceData.load(url: url, client: client),
+              let player = try? AVAudioPlayer(data: data) else { return nil }
+        player.delegate = self
+        player.enableRate = true
+        player.rate = rate
+        player.prepareToPlay()
+        self.player = player
+        return player
+    }
+
+    private func play(_ player: AVAudioPlayer) {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)
-        player.delegate = self
-        self.player = player
+        player.rate = rate
         player.play()
         isPlaying = true
         startTimer()
+    }
+
+    private func pause() {
+        player?.pause()
+        isPlaying = false
+        timer?.invalidate()
     }
 
     private func startTimer() {
@@ -157,43 +191,242 @@ private final class MessageAudioPlayer: NSObject, ObservableObject, AVAudioPlaye
     }
 }
 
+/// Voice-note bytes (file or authenticated media URL), shared by playback and transcription.
+enum MessageVoiceData {
+    static func load(url: URL, client: GreenfieldClient) async -> Data? {
+        if url.isFileURL { return try? Data(contentsOf: url) }
+        return try? await client.mediaData(from: url, maximumBytes: 20_000_000)
+    }
+}
+
+/// Voice transcripts. No server transcription capability exists, so this is on-device only
+/// (SFSpeechRecognizer with `requiresOnDeviceRecognition`; audio never leaves the phone).
+/// Permission is asked the first time someone opens a transcript. Results are cached on disk.
+@MainActor @Observable
+final class MessageVoiceTranscripts {
+    static let shared = MessageVoiceTranscripts()
+
+    enum Phase: Equatable { case idle, working, done(String), failed(String) }
+
+    private(set) var phases: [String: Phase] = [:]
+    /// Attachments whose transcript is expanded under the bubble.
+    var expanded: Set<String> = []
+
+    func phase(_ id: String) -> Phase {
+        if let phase = phases[id] { return phase }
+        if let cached = Self.cached(id) { return .done(cached) }
+        return .idle
+    }
+
+    func show(_ attachment: MessageAttachment, client: GreenfieldClient) {
+        expanded.insert(attachment.id)
+        transcribe(attachment, client: client)
+    }
+
+    func toggle(_ attachment: MessageAttachment, client: GreenfieldClient) {
+        if expanded.contains(attachment.id) { expanded.remove(attachment.id) } else { show(attachment, client: client) }
+    }
+
+    func transcribe(_ attachment: MessageAttachment, client: GreenfieldClient) {
+        let id = attachment.id
+        switch phase(id) {
+        case .working, .done: return
+        case .idle, .failed: break
+        }
+        guard let url = attachment.url else { phases[id] = .failed("This voice note isn't available."); return }
+        phases[id] = .working
+        Task {
+            let result = await Self.recognize(url: url, client: client)
+            switch result {
+            case .success(let text):
+                phases[id] = .done(text)
+                Self.store(text, id: id)
+            case .failure(let message):
+                phases[id] = .failed(message.text)
+            }
+        }
+    }
+
+    struct Failure: Error { let text: String }
+
+    private static func recognize(url: URL, client: GreenfieldClient) async -> Result<String, Failure> {
+        let status: SFSpeechRecognizerAuthorizationStatus = SFSpeechRecognizer.authorizationStatus() == .notDetermined
+            ? await withCheckedContinuation { cont in SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) } }
+            : SFSpeechRecognizer.authorizationStatus()
+        guard status == .authorized else { return .failure(Failure(text: "Allow Speech Recognition in Settings to see transcripts.")) }
+        guard let recognizer = SFSpeechRecognizer(locale: Locale.current) ?? SFSpeechRecognizer(),
+              recognizer.supportsOnDeviceRecognition else {
+            return .failure(Failure(text: "On-device transcription isn't available for this language."))
+        }
+        guard let data = await MessageVoiceData.load(url: url, client: client) else {
+            return .failure(Failure(text: "Couldn't load this voice note."))
+        }
+        let ext = url.pathExtension.isEmpty ? "m4a" : url.pathExtension
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("voice-\(UUID().uuidString).\(ext)")
+        guard (try? data.write(to: file)) != nil else { return .failure(Failure(text: "Couldn't read this voice note.")) }
+        defer { try? FileManager.default.removeItem(at: file) }
+        let request = SFSpeechURLRecognitionRequest(url: file)
+        request.requiresOnDeviceRecognition = true
+        request.shouldReportPartialResults = false
+        request.addsPunctuation = true
+        let once = TranscriptOnce()
+        return await withCheckedContinuation { cont in
+            _ = recognizer.recognitionTask(with: request) { result, error in
+                if let result, result.isFinal {
+                    guard once.claim() else { return }
+                    let text = result.bestTranscription.formattedString
+                    cont.resume(returning: text.isEmpty ? .failure(Failure(text: "No speech found.")) : .success(text))
+                } else if error != nil {
+                    guard once.claim() else { return }
+                    cont.resume(returning: .failure(Failure(text: "No speech found.")))
+                }
+            }
+        }
+    }
+
+    private final class TranscriptOnce: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        func claim() -> Bool { lock.withLock { if done { return false }; done = true; return true } }
+    }
+
+    private static func fileURL(_ id: String) -> URL? {
+        guard let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        let folder = base.appendingPathComponent("VoiceTranscripts", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent(id.replacingOccurrences(of: "/", with: "_") + ".txt")
+    }
+
+    private static func cached(_ id: String) -> String? {
+        guard let url = fileURL(id) else { return nil }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
+
+    private static func store(_ text: String, id: String) {
+        guard let url = fileURL(id) else { return }
+        try? text.write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
+/// Compact voice bubble: play · scrubbable neutral waveform · time · speed, with a small
+/// "Transcript" control that expands the on-device transcript underneath.
 struct MessageVoicePlayer: View {
     let attachment: MessageAttachment
     var accent: Color
+    /// Glyph on the play circle (the inverse of `accent`).
+    var glyph: Color = .modulaOnPrimary
     @StateObject private var player = MessageAudioPlayer()
     @Environment(AppEnvironment.self) private var app
+    private var transcripts: MessageVoiceTranscripts { .shared }
 
     var body: some View {
         let duration = attachment.durationMs ?? 0
-        HStack(spacing: 10) {
-            Button {
-                guard let url = attachment.url else { return }
-                Task { await player.toggle(url: url, client: app.client) }
-            } label: {
-                Group {
-                    if player.loading { ProgressView().controlSize(.small) }
-                    else { Image(systemName: player.isPlaying ? "pause.fill" : "play.fill") }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Button {
+                    guard let url = attachment.url else { return }
+                    Task { await player.toggle(url: url, client: app.client) }
+                } label: {
+                    Group {
+                        if player.loading { ProgressView().controlSize(.small).tint(glyph) }
+                        else { Image(systemName: player.isPlaying ? "pause.fill" : "play.fill").font(.footnote.weight(.bold)) }
+                    }
+                    .frame(width: 32, height: 32)
+                    .foregroundStyle(glyph)
+                    .background(accent, in: Circle())
                 }
-                .frame(width: 36, height: 36)
-                .foregroundStyle(.white)
-                .background(accent, in: Circle())
+                .buttonStyle(.plain)
+                .disabled(attachment.url == nil)
+                .accessibilityLabel(player.isPlaying ? "Pause voice note" : "Play voice note")
+                GeometryReader { geo in
+                    ModulaWaveformView(
+                        levels: attachment.waveform.isEmpty ? Array(repeating: 0.3, count: 32) : attachment.waveform.map { CGFloat($0) },
+                        tint: accent,
+                        progress: player.progress
+                    )
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    // Tap a spot to jump there; drag sideways to scrub (no zero-distance drag racing the bubble's long-press).
+                    .onTapGesture(coordinateSpace: .local) { location in
+                        guard let url = attachment.url, geo.size.width > 0 else { return }
+                        Task { await player.seek(to: location.x / geo.size.width, url: url, client: app.client) }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 10)
+                            .onEnded { value in
+                                guard let url = attachment.url, geo.size.width > 0 else { return }
+                                Task { await player.seek(to: value.location.x / geo.size.width, url: url, client: app.client) }
+                            }
+                    )
+                }
+                .frame(width: 120, height: 24)
+                .accessibilityElement()
+                .accessibilityLabel("Playback position")
+                .accessibilityValue("\(Int(player.progress * 100)) percent")
+                .accessibilityAdjustableAction { direction in
+                    guard let url = attachment.url else { return }
+                    let step: CGFloat = direction == .increment ? 0.1 : -0.1
+                    Task { await player.seek(to: player.progress + step, url: url, client: app.client) }
+                }
+                Text(String(format: "%d:%02d", duration / 60_000, (duration / 1000) % 60))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(accent.opacity(0.7))
+                    .fixedSize()
+                Button { player.cycleRate() } label: {
+                    Text(player.rate == 1 ? "1×" : (player.rate == 1.5 ? "1.5×" : "2×"))
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 6)
+                        .frame(minWidth: 34, minHeight: 22)
+                        .background(Capsule().fill(accent.opacity(0.14)))
+                        .fixedSize()
+                }
+                .buttonStyle(.plain)
+                .frame(minHeight: 32)
+                .accessibilityLabel("Playback speed \(player.rate == 1 ? "normal" : (player.rate == 1.5 ? "one and a half times" : "double"))")
             }
-            .buttonStyle(.plain)
-            .disabled(attachment.url == nil)
-            .accessibilityLabel(player.isPlaying ? "Pause voice note" : "Play voice note")
-            ModulaWaveformView(
-                levels: attachment.waveform.isEmpty ? Array(repeating: 0.3, count: 32) : attachment.waveform.map { CGFloat($0) },
-                tint: accent,
-                progress: player.progress
-            )
-            .frame(height: 28)
-            Text(String(format: "%d:%02d", duration / 60_000, (duration / 1000) % 60))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+            transcriptArea
         }
-        .padding(8)
-        .frame(maxWidth: 280)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .accessibilityIdentifier("messages.voice")
+    }
+
+    @ViewBuilder
+    private var transcriptArea: some View {
+        let open = transcripts.expanded.contains(attachment.id)
+        Button {
+            withAnimation(.snappy(duration: 0.22)) { transcripts.toggle(attachment, client: app.client) }
+        } label: {
+            Label(open ? "Hide transcript" : "View transcript", systemImage: "text.quote")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(accent.opacity(0.75))
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("messages.voice.transcript")
+        if open {
+            Group {
+                switch transcripts.phase(attachment.id) {
+                case .idle, .working:
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.mini).tint(accent)
+                        Text("Transcribing on this iPhone…")
+                    }
+                case .done(let text):
+                    Text(text).textSelection(.enabled)
+                case .failed(let message):
+                    Text(message)
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(accent.opacity(0.9))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 240, alignment: .leading)
+            .padding(.bottom, 4)
+            .transition(.opacity)
+        }
     }
 }
 
@@ -260,6 +493,7 @@ struct NewGroupView: View {
                             }
                         }
                     }
+                    .modulaHorizontalRail()
                 }
                 ForEach(filtered) { person in
                     Button {
@@ -273,7 +507,7 @@ struct NewGroupView: View {
                             Text(person.displayName)
                             Spacer()
                             if selected.contains(where: { $0.id == person.id }) {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
                             }
                         }
                     }
@@ -346,7 +580,6 @@ struct GroupInfoView: View {
     @State private var description: String = ""
     @State private var addQuery = ""
     @State private var confirmLeave = false
-    @State private var removing: String?
 
     private var group: GroupDetail? { app.messaging.groups[conversationID] }
 
@@ -435,5 +668,111 @@ struct GroupInfoView: View {
             }
         }
         .accessibilityIdentifier("messages.groupInfo")
+    }
+}
+
+
+// MARK: - Read-receipt avatars (groups)
+
+/// Up to three stacked reader faces (+n) under your latest message in a group. Loads the
+/// Seen-by receipts quietly when the delivery state changes; tap opens the full list.
+struct MessageReadAvatarStack: View {
+    let message: Message
+    var onOpen: () -> Void
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let readers = app.messaging.receiptsByMessage[message.id]?.readBy.map(\.participant) ?? []
+        Group {
+            if !readers.isEmpty {
+                Button(action: onOpen) {
+                    HStack(spacing: -5) {
+                        ForEach(readers.prefix(3)) { person in
+                            ModulaAvatar(initials: person.initials, url: person.avatarURL, size: 16, name: person.displayName)
+                                .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 1.5))
+                        }
+                        if readers.count > 3 {
+                            Text("+\(readers.count - 3)")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 8)
+                                .fixedSize()
+                        }
+                    }
+                    .frame(minHeight: 24)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(readers.count == 1 ? "Seen by \(readers[0].displayName)" : "Seen by \(readers.count) people")
+                .accessibilityHint("Shows who has read this")
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .task(id: "\(message.id)-\(message.delivery.rawValue)") {
+            await app.messaging.loadReceipts(message, quiet: true)
+        }
+    }
+}
+
+// MARK: - Per-chat notification presets
+
+/// Chat info › Notifications: server levels (All / Mentions only / Nothing) when offered, plus
+/// timed mute presets (1 hour · 8 hours · 1 week · until I unmute) and Unmute.
+struct ChatNotificationPresetsMenu<Label: View>: View {
+    let conversationID: ConversationID
+    @ViewBuilder var label: (_ title: String, _ symbol: String, _ value: String) -> Label
+    @Environment(AppEnvironment.self) private var app
+
+    private var conversation: Conversation? { app.messaging.conversation(id: conversationID) }
+
+    private var summary: String {
+        guard let conversation else { return "All messages" }
+        if conversation.isMuted {
+            if let until = app.messaging.muteUntilDate(for: conversationID) {
+                return "Muted until \(until.formatted(Calendar.current.isDateInToday(until) ? .dateTime.hour().minute() : .dateTime.weekday(.abbreviated).hour().minute()))"
+            }
+            return "Muted"
+        }
+        if let level = conversation.notificationLevel, level != "all" { return MessagingNotificationLevel.title(level) }
+        return "All messages"
+    }
+
+    var body: some View {
+        let levels = app.messaging.capabilities.features4.notificationLevels
+        Menu {
+            if !levels.isEmpty {
+                Section("Notify me about") {
+                    ForEach(levels, id: \.self) { level in
+                        Button {
+                            Task { await app.messaging.setNotificationLevel(conversationID, level: level) }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            SwiftUI.Label(MessagingNotificationLevel.title(level),
+                                          systemImage: (conversation?.notificationLevel ?? "all") == level ? "checkmark" : MessagingNotificationLevel.icon(level))
+                        }
+                    }
+                }
+            }
+            if app.messaging.capabilities.mute {
+                Section("Mute") {
+                    if conversation?.isMuted == true {
+                        Button("Unmute", systemImage: "bell") {
+                            Task { await app.messaging.unmuteNow(conversationID) }
+                            HapticEngine.shared.play(.selection)
+                        }
+                    }
+                    ForEach(MessageMuteDuration.allCases) { duration in
+                        Button(duration.title, systemImage: duration == .forever ? "bell.slash" : "clock") {
+                            Task { await app.messaging.mute(id: conversationID, for: duration) }
+                            HapticEngine.shared.play(.selection)
+                        }
+                    }
+                }
+            }
+        } label: {
+            label("Notifications", conversation?.isMuted == true ? "bell.slash" : "bell", summary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("messages.info.notifications")
     }
 }

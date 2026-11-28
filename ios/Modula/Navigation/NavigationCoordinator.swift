@@ -4,13 +4,23 @@ import SwiftUI
 @MainActor @Observable
 final class NavigationCoordinator {
     var selectedTab: AppTab = .home
+    /// Tabs currently in the bottom bar (Settings › Appearance › Custom navigation), synced by RootView.
+    var visibleTabs: [AppTab] = AppTab.defaultBar {
+        didSet {
+            ShellTabBarLayout.visible = visibleTabs
+            if !visibleTabs.contains(selectedTab) { selectedTab = .home }
+        }
+    }
     private(set) var roots: [AppTab: AppRoute] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, $0.defaultRoute) })
     private(set) var paths: [AppTab: [AppRoute]] = Dictionary(uniqueKeysWithValues: AppTab.allCases.map { ($0, []) })
     var presented: AppPresentation?
+    /// Where the open composer was launched from. `.reels` = Reels → Create: the composer posts
+    /// publicly (GET /v1/reels lists public posts with a ready video) and routes back to Reels.
+    var composeOrigin: ComposeOrigin?
     var banner: ModulaBanner?
     /// Gesture Navigation System: the one owner of Sidebar / Profile sheet / Modules Dock.
     let spatial = SpatialNavigationCoordinator()
-    /// Tests pin this; otherwise follows `SpatialNavigationFeature` (Debug on, Release off).
+    /// Tests pin this; otherwise follows `SpatialNavigationFeature` (on by default; dev toggle turns it off).
     @ObservationIgnored var spatialEnabledOverride: Bool?
     var spatialEnabled: Bool { spatialEnabledOverride ?? SpatialNavigationFeature.enabled() }
     /// Leading global sidebar. Not a sixth tab and not Edge Picker. Backed by `spatial`, so
@@ -45,10 +55,38 @@ final class NavigationCoordinator {
     func binding(for tab: AppTab) -> Binding<[AppRoute]> {
         Binding(get: { self.paths[tab] ?? [] }, set: { self.paths[tab] = $0 })
     }
+    /// Swipe up on the bottom bar / accessory, the Home banner, or the VoiceOver action.
+    /// Spatial on: the Modules Dock (half detent; closes any other layer). Off: the classic sheet.
+    func openModulesDock() {
+        if spatialEnabled {
+            if spatial.isDockOpen { spatial.raiseDock() } else { spatial.openDock(.half) }
+        } else {
+            PresentationCoordinator.present(.installedModules, in: self)
+        }
+    }
+
+    /// Which visible tab a route opens in: a custom tab that owns it (Saved, Messages…), else its
+    /// classic tab when that tab is in the bar. Nil = push on the current tab (e.g. Profile
+    /// routes now that Profile isn't a tab).
+    func hostTab(for route: AppRoute) -> AppTab? {
+        // Stay put when the current tab is the route's classic home (Discover's inline search
+        // must not jump to a custom Search tab mid-query).
+        if let tab = route.tab, tab == selectedTab, visibleTabs.contains(tab) { return tab }
+        if let owner = visibleTabs.first(where: { $0.hosts(route) }) { return owner }
+        if let tab = route.tab, visibleTabs.contains(tab) { return tab }
+        return nil
+    }
+
     func select(_ tab: AppTab) {
         // Profile is a sheet from the right, not a tab root swap, when spatial navigation is on.
         if tab == .profile, spatialEnabled {
             spatial.openProfile(.me)
+            return
+        }
+        // Not in the bar (Custom navigation): show its screen on the current tab instead.
+        guard visibleTabs.contains(tab) else {
+            spatial.close()
+            appendDeduplicatingSearch(tab.defaultRoute)
             return
         }
         selectedTab = tab
@@ -84,11 +122,13 @@ final class NavigationCoordinator {
         default:
             break
         }
-        if let tab = route.tab {
+        if let tab = hostTab(for: route) {
             // A tab switch lands on another stack; the tapped card isn't there to morph from.
             if tab != selectedTab { ModulaHeroMorph.disarm() }
             selectedTab = tab
             if isContextRoot(route) { roots[tab] = route; return }
+            // Opening a custom tab's own root (e.g. Saved) just shows that tab.
+            if route == root(for: tab) { return }
         }
         // A story viewer left on the stack (closed visually but never popped) made the next
         // destination — e.g. Saved from the sidebar — flash the Story Viewer first. Drop
@@ -132,7 +172,7 @@ final class NavigationCoordinator {
     }
 
     func replaceContext(with route: AppRoute) {
-        guard let tab = route.tab else { return }
+        guard let tab = hostTab(for: route) else { return }
         selectedTab = tab
         roots[tab] = route
     }
@@ -160,7 +200,7 @@ final class NavigationCoordinator {
     var isAtTabRoot: Bool { paths[selectedTab]?.isEmpty != false }
     /// Replace the top of the current stack (used by Search scope/query updates) without pushing.
     func replaceTop(with route: AppRoute) {
-        if let tab = route.tab { selectedTab = tab }
+        if let tab = hostTab(for: route) { selectedTab = tab }
         if var path = paths[selectedTab], !path.isEmpty {
             path[path.count - 1] = route
             paths[selectedTab] = path
@@ -481,7 +521,7 @@ struct ShellChromePolicy: Equatable {
                 immersive: false,
                 hidesForKeyboard: false
             )
-        case .saved, .collections, .drafts, .community:
+        case .saved, .collections, .drafts, .community, .board:
             Self(
                 bottomBarVisible: true,
                 contextRailVisible: false,
@@ -518,7 +558,9 @@ struct ShellChromeMetrics: Equatable, Sendable {
 
     var occupiedBottomHeight: CGFloat { bottomBarHeight + accessoryHeight }
     var contentBottomInset: CGFloat {
-        containerReservesOccupiedRegion ? opticalClearance : occupiedBottomHeight + opticalClearance
+        // The floating Tools accessory (Following / For You / Discover / Modules) sits over the last
+        // cards even when the container reserves the tab bar, so always clear its height too.
+        containerReservesOccupiedRegion ? opticalClearance + accessoryHeight : occupiedBottomHeight + opticalClearance
     }
 
     static func resolve(policy: ShellChromePolicy, containerReservesOccupiedRegion: Bool = true) -> Self {
@@ -529,4 +571,15 @@ struct ShellChromeMetrics: Equatable, Sendable {
             opticalClearance: policy.bottomBarVisible ? 16 : 8
         )
     }
+}
+
+/// Launch context for the composer (not part of the route, never serialised).
+enum ComposeOrigin: Hashable, Sendable { case reels }
+
+
+/// Visible bar order for UIKit introspection helpers (tab bar avatar / icon motion), which run
+/// outside SwiftUI's environment. Written by `NavigationCoordinator.visibleTabs`.
+@MainActor
+enum ShellTabBarLayout {
+    static var visible: [AppTab] = AppTab.defaultBar
 }

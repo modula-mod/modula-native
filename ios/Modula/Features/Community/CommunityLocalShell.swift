@@ -468,12 +468,11 @@ struct CommunityLocalComingSoonButton: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .accessibilityHint(CommunityLocalCopy.comingSoon)
     }
 }
 
-#if DEBUG
 
 struct CommunityLocalScenicCard: View {
     let scene: String
@@ -501,7 +500,7 @@ struct CommunityLocalScenicCard: View {
                     HStack(spacing: 6) { Text(cta); Image(systemName: "arrow.right") }
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16).frame(height: 44)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
@@ -585,7 +584,7 @@ struct CommunityLocalSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .accessibilityIdentifier("community.settings.save")
             }
             .padding(.horizontal, ModulaLayout.contentInset)
@@ -710,7 +709,7 @@ struct CommunityLocalPollView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .disabled(loading || !CommunityPollListing.acceptsPostID(postID))
                     .accessibilityIdentifier("community.poll.load")
                     if !app.auth.isSignedIn {

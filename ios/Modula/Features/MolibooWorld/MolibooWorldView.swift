@@ -45,7 +45,9 @@ struct MolibooWorldView: View {
     @State private var stage = MolibooStageState()
     @State private var route: Route?
     @State private var showSwitcher = false
+    @State private var switcherQuery = ""
     @State private var showCareSheet = false
+    @State private var game: MolibooMiniGame?
     @State private var sheet: Section?
     @State private var scrollY: CGFloat = 0
     /// Global bottom of the pinned header and top of the inline family tabs: once the tabs reach the
@@ -196,14 +198,15 @@ struct MolibooWorldView: View {
         .toolbar(.hidden, for: .tabBar)
         .onAppear { if !onboarded { showWelcome = true } }
         .navigationDestination(item: $route) { r in destination(r) }
-        .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]) }
-        .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $showSwitcher) { switcher.presentationDetents([.medium]).modulaSheetStyle() }
+        .sheet(item: $sheet) { s in sectionSheet(s).presentationDetents([.medium, .large]).modulaSheetStyle() }
         .sheet(isPresented: $showCareSheet) {
             MolibooCareSheet(characterID: characterID, name: displayName, care: care) { a in
                 if a == .photo { showCareSheet = false }
                 performAction(a)
             }
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
         .task {
             #if DEBUG
@@ -214,7 +217,7 @@ struct MolibooWorldView: View {
             }
             if MOL03DebugHarness.arg("-MOLWorldPush") == "studio", route == nil { try? await Task.sleep(for: .seconds(2)); route = .studio(characterID) }
             #endif
-            if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence)) }
+            if chat == nil { chat = MolibooChatModel(backend: MolibooIntelligenceChatBackend(service: app.intelligence, memory: app.nodusMemoryStore)) }
             care.refresh(characterID)
             stage.wake(allowed: motionAllowed, for: MolibooStageState.launchWakeSeconds)   // brief hello, then settle
             stage.startAmbient { motionAllowed && route == nil && sheet == nil }
@@ -260,9 +263,10 @@ struct MolibooWorldView: View {
                     Spacer()
                     Button { surprise() } label: {
                         Image(systemName: "sparkles").font(.headline).frame(width: 44, height: 44)
+                            .symbolEffect(.bounce, value: joyPulseTick)
                             .modulaGlass(in: Circle(), interactive: true, specular: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(MolibooSpringPressStyle())
                     .accessibilityIdentifier("world.sparkle").accessibilityLabel("Surprise")
                     Menu {
                         Button { route = .settings } label: { Label("Moliboo settings", systemImage: "gearshape") }
@@ -286,6 +290,7 @@ struct MolibooWorldView: View {
     private func surprise() {
         let pick: MolibooEmotion = [.happy, .excited, .curious].randomElement() ?? .happy
         joyPulseTick += 1
+        HapticEngine.shared.play(.lightImpact)
         stage.bounce(allowed: motionAllowed); stage.react(pick, allowed: motionAllowed)
         care.interact(characterID, mood: 1, bond: 1)
     }
@@ -369,45 +374,10 @@ struct MolibooWorldView: View {
     /// Native Liquid Glass segmented switcher: icon + short label, one glass capsule track the same 44 pt height as
     /// the header buttons, and a selection capsule that glides between segments (no motion under Reduce Motion).
     private var navBar: some View {
-        ModulaGlassGroup(spacing: 0) {
-            HStack(spacing: 2) {
-                ForEach(Section.allCases) { s in
-                    let selected = navSelection == s
-                    Button { select(s) } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: selected ? s.selectedSymbol : s.symbol)
-                                .font(.footnote.weight(.semibold))
-                                .frame(width: 18)
-                            Text(s.title)
-                                .font(.footnote.weight(.semibold))
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
-                        .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background {
-                            if selected {
-                                Capsule()
-                                    .fill(Color.primary.opacity(0.09))
-                                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5))
-                                    .matchedGeometryEffect(id: "world.nav.selection", in: navNS)
-                            }
-                        }
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("world.nav.\(s.rawValue)")
-                    .accessibilityLabel(s.title)
-                    .accessibilityHint(s.accessibilityHint)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-            .padding(4)
+        ModulaSegmentedControl("World sections", selection: Binding(get: { navSelection }, set: { select($0) }),
+                               options: Section.allCases, symbol: { $0.symbol },
+                               identifier: { "world.nav.\($0.rawValue)" }) { $0.title }
             .frame(height: 44)
-            .modulaGlass(in: Capsule(), interactive: false, tint: glassTint, specular: true)
-            .modulaGlassID("world.nav", in: glassNS)
-        }
         .frame(maxWidth: 320)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -491,7 +461,7 @@ struct MolibooWorldView: View {
 
     private var compactHeader: some View {
         HStack(spacing: 10) {
-            if let img = MolibooPortrait.image(for: characterID) {
+            if let img = MolibooPortrait.thumb(for: characterID, dressed: true) ?? MolibooPortrait.image(for: characterID) {
                 Image(uiImage: img).resizable().interpolation(.high).scaledToFit().frame(width: 34, height: 34)
             }
             Text(displayName).font(.headline)
@@ -501,7 +471,9 @@ struct MolibooWorldView: View {
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 14).frame(height: 52)
-        .background(.regularMaterial, in: Capsule())
+        .modulaGlass(in: Capsule(), interactive: false)
+        .contentTransition(.numericText())
+        .animation(.snappy, value: careState.mood)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .top)
         .accessibilityIdentifier("world.compactHeader")
@@ -545,7 +517,7 @@ struct MolibooWorldView: View {
                             .submitLabel(.send)
                             .onSubmit { send() }
                             .accessibilityIdentifier("world.composer.field")
-                        Button { chat.draft += emotion.emoji } label: {
+                        Button { chat.draft += emotion.emoji; HapticEngine.shared.play(.selection) } label: {
                             Image(systemName: "face.smiling")
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(.secondary)
@@ -613,11 +585,43 @@ struct MolibooWorldView: View {
                 .accessibilityIdentifier("world.care.open").accessibilityHint("Opens Care details")
             }
             MolibooStatusPanel(state: careState, life: life) { checkIn() }
+            MolibooGoalsCard(life: life)
             Text("Activities").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
             MolibooActionGrid(life: life, asleep: careState.asleep, columns: 4) { performAction($0) }
+            Text("Mini-games").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooGamesRow { game = $0 }
+            Text("How are you feeling?").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
+            MolibooFeelingRow { shareFeeling($0) }
             Text("Recent moments").font(.headline).padding(.top, 8).accessibilityAddTraits(.isHeader)
             MolibooMomentsList(moments: life.moments)
         }
+        .sheet(item: $game) { g in
+            Group {
+                switch g {
+                case .treats: MolibooTreatCatchGame { finishGame(g, score: $0) }
+                case .match: MolibooMemoryGame { finishGame(g, score: $0) }
+                }
+            }
+            .presentationDetents([.large])
+            .modulaSheetStyle()
+        }
+    }
+
+    private func finishGame(_ g: MolibooMiniGame, score: Int) {
+        if care.recordGame(characterID, name: displayName, game: g.title, score: score) {
+            joyPulseTick += 1
+            stage.bounce(allowed: motionAllowed)
+            stage.react(score >= 8 ? .excited : .happy, allowed: motionAllowed)
+            say(score >= 8 ? "That was amazing!" : "Again, again!")
+        } else {
+            say("That was fun… I need a rest.")
+        }
+    }
+
+    private func shareFeeling(_ f: MolibooFeeling) {
+        care.shareFeeling(f, id: characterID, name: displayName)
+        stage.react(f.reaction, allowed: motionAllowed)
+        say(f.line)
     }
 
     /// Runs a care action through the shared store and shows the pet's reaction (pose, pulse, speech, haptic).
@@ -691,45 +695,9 @@ struct MolibooWorldView: View {
 
     /// Liquid Glass family tab strip, kept in sync with the pager below.
     private var familyTabs: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                // Each family is its own glass chip (the old single capsule read as clipped at the screen edge).
-                ModulaGlassGroup(spacing: 8) {
-                    HStack(spacing: 8) {
-                        ForEach(pickerFamilies) { f in
-                            let selected = f == currentPickerFamily
-                            Button {
-                                withAnimation(navAnimation) { pickerFamily = f }
-                                UISelectionFeedbackGenerator().selectionChanged()
-                            } label: {
-                                Text(f.displayTitle)
-                                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
-                                    .lineLimit(1).fixedSize()
-                                    .foregroundStyle(selected ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
-                                    .padding(.horizontal, 16)
-                                    .frame(height: 38)
-                                    .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .modulaGlass(in: Capsule(), interactive: true,
-                                         tint: selected ? app.appearance.liveAccent : glassTint, prominent: selected, specular: true)
-                            .id(f)
-                            .accessibilityIdentifier("world.family.tab.\(f.rawValue)")
-                            .accessibilityLabel(f.displayTitle)
-                            .accessibilityAddTraits(selected ? .isSelected : [])
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            .scrollIndicators(.hidden)
-            .contentMargins(.horizontal, 24, for: .scrollContent)
-            .modulaHorizontalEdgeFade()
-            .onChange(of: currentPickerFamily) { _, f in
-                withAnimation(navAnimation) { proxy.scrollTo(f, anchor: .center) }
-            }
-            .onAppear { proxy.scrollTo(currentPickerFamily, anchor: .center) }
-        }
+        ModulaSegmentedControl("Families", selection: Binding(get: { currentPickerFamily }, set: { f in withAnimation(navAnimation) { pickerFamily = f } }),
+                               options: pickerFamilies, identifier: { "world.family.tab.\($0.rawValue)" }) { $0.displayTitle }
+            .padding(.horizontal, 24)
     }
 
     /// One page per family, paged horizontally. Height follows the visible page so short families leave no gap.
@@ -745,6 +713,7 @@ struct MolibooWorldView: View {
             }
             .scrollTargetLayout()
         }
+        .modulaHorizontalRail()
         .scrollTargetBehavior(.paging)
         .scrollIndicators(.hidden)
         .scrollPosition(id: Binding(get: { Optional(currentPickerFamily) }, set: { if let f = $0 { withAnimation(navAnimation) { pickerFamily = f } } }))
@@ -875,20 +844,36 @@ struct MolibooWorldView: View {
     }
 
     private var switcher: some View {
-        NavigationStack {
-            List(MolibooRegistry.available3D.map(\.id), id: \.self) { id in
-                Button { kindRaw = id; showSwitcher = false } label: {
-                    HStack {
-                        if let img = MolibooPortrait.image(for: id) { Image(uiImage: img).resizable().scaledToFit().frame(width: 40, height: 40) }
-                        Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id)
+        let ids = MolibooRegistry.available3D.map(\.id)
+        let q = switcherQuery.trimmingCharacters(in: .whitespaces)
+        let shown = q.isEmpty ? ids : ids.filter { (MolibooRegistry.descriptor(for: $0)?.displayName ?? $0).localizedCaseInsensitiveContains(q) }
+        return NavigationStack {
+            List(shown, id: \.self) { id in
+                Button {
+                    HapticEngine.shared.play(.selection)
+                    kindRaw = id; showSwitcher = false
+                } label: {
+                    HStack(spacing: 12) {
+                        // Speed: the small cached thumb (64 pt) instead of rendering a 180 pt portrait per row.
+                        if let img = MolibooPortrait.thumb(for: id) { Image(uiImage: img).resizable().scaledToFit().frame(width: 40, height: 40) }
+                        Text(MolibooRegistry.descriptor(for: id)?.displayName ?? id).foregroundStyle(.primary)
                         Spacer()
-                        if id == characterID { Image(systemName: "checkmark").foregroundStyle(.cyan) }
+                        if id == characterID { Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.primary) }
                     }
+                    .contentShape(Rectangle())
                 }
+                .accessibilityAddTraits(id == characterID ? .isSelected : [])
                 .accessibilityIdentifier("world.switcher.\(id)")
             }
+            .overlay {
+                if shown.isEmpty { ContentUnavailableView.search(text: q) }
+            }
+            .searchable(text: $switcherQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Moliboos")
             .navigationTitle("Switch Moliboo").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSwitcher = false } } }
         }
+        .tint(.primary)
+        .onDisappear { switcherQuery = "" }
     }
 
     private func flash(_ s: String) {
@@ -897,7 +882,7 @@ struct MolibooWorldView: View {
 
     private func toastView(_ s: String) -> some View {
         Text(s).font(.footnote.weight(.semibold)).padding(.horizontal, 14).padding(.vertical, 10)
-            .background(.regularMaterial, in: Capsule())
+            .modulaGlass(in: Capsule(), interactive: false)
             .frame(maxWidth: .infinity).padding(.top, 54)
             .accessibilityIdentifier("world.toast")
             .allowsHitTesting(false)

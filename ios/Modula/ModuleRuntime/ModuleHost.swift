@@ -39,7 +39,7 @@ struct ModuleHost: View {
                     } description: {
                         Text(session.error ?? "Module unavailable")
                     } actions: {
-                        Button("Retry") { retry() }.buttonStyle(.borderedProminent).tint(app.appearance.liveAccent)
+                        Button("Retry") { retry() }.buttonStyle(.modulaPrimary).tint(.primary)
                         Button("Close") { app.navigation.close() }
                     }
                     .accessibilityIdentifier("module.host.failed")
@@ -64,8 +64,15 @@ struct ModuleHost: View {
                         .background(palette.canvas)
                         .overlay {
                             if session.state == .loadingModule || session.state == .startingRuntime {
-                                ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.liveAccent, reduceMotion: reduceMotion)
-                                    .transition(reduceMotion ? .identity : .opacity)
+                                if moduleID == ConnectPreview.moduleID {
+                                    // Connect is a bundled RN module (spec: "RN module owns screens"); it opens
+                                    // on its own branded splash rather than the generic module card.
+                                    ConnectOpeningSplash()
+                                        .transition(reduceMotion ? .identity : .opacity)
+                                } else {
+                                    ModuleOpeningOverlay(name: session.manifest.name, accent: app.appearance.liveAccent, reduceMotion: reduceMotion)
+                                        .transition(reduceMotion ? .identity : .opacity)
+                                }
                             }
                         }
                         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: session.state)
@@ -76,7 +83,7 @@ struct ModuleHost: View {
                 } description: {
                     Text(app.runtime.unavailableReason(for: moduleID) ?? "This module can’t be opened right now.")
                 } actions: {
-                    Button("Close") { app.navigation.close() }.buttonStyle(.bordered)
+                    Button("Close") { app.navigation.close() }.buttonStyle(.modulaSecondary)
                 }
                 .accessibilityIdentifier("module.host.unavailable")
             }
@@ -86,12 +93,24 @@ struct ModuleHost: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text(session?.manifest.name ?? "Module")
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
-                    .lineLimit(1)
+                if moduleID == ConnectPreview.moduleID {
+                    ModulaConnectLogo(markSize: 24)
+                        .accessibilityIdentifier("module.host.title")
+                } else {
+                VStack(spacing: 0) {
+                    Text(session?.manifest.name ?? "Module")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let version = session?.manifest.version {
+                        Text(version)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(session?.manifest.name ?? "Module")
                 .accessibilityIdentifier("module.host.title")
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -210,8 +229,8 @@ struct ModuleHost: View {
             Text(message)
         } actions: {
             Button(retryTitle) { retry() }
-                .buttonStyle(.borderedProminent)
-                .tint(app.appearance.liveAccent)
+                .buttonStyle(.modulaPrimary)
+                .tint(.primary)
                 .frame(minHeight: ModulaLayout.minimumTouch)
             if showsProductHub {
                 Button("View in Product Hub") {

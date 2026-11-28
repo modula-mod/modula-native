@@ -118,7 +118,7 @@ struct CommandCenterView: View {
                 }
             }
             .modulaCanvas()
-            .tint(app.appearance.liveAccent)
+            .tint(.primary)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Command Center")
             .accessibilityIdentifier("command.center")
@@ -340,6 +340,7 @@ struct CreateActionPicker: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("create.picker")
         .onAppear { HapticEngine.shared.play(.contextOpen) }
     }

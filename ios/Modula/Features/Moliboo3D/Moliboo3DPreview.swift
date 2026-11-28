@@ -65,6 +65,7 @@ struct Moliboo3DPreview: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
                 HStack {
                     Button("Wobble") { controller.wobble() }
                     Button("Idle bob") { controller.playClip("idle_bob") }
@@ -79,7 +80,7 @@ struct Moliboo3DPreview: View {
                             if hatOn { controller.unequip(wardrobeItemID: hatID) } else { await controller.equip(wardrobeItemID: hatID) }
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.modulaPrimary)
                     .accessibilityIdentifier("moliboo3d.hatToggle")
                     Button("Save outfit") { save(controller) }
                         .buttonStyle(.bordered)

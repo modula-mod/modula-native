@@ -480,7 +480,7 @@ struct StructuredDocumentEditor: View {
             HStack(spacing: 8) {
                 ForEach(["bold", "italic", "heading", "list", "quote"], id: \.self) { command in
                     Button(command.capitalized) { apply(command == "list" ? "bulletList" : command) }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.modulaSecondary)
                         .controlSize(.small)
                         .accessibilityIdentifier("product-ui.richtext.command.\(command)")
                 }

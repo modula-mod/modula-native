@@ -178,10 +178,7 @@ struct MolibooWardrobeSheet: View {
     private var filters: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Picker("Ownership", selection: $query.ownership) {
-                    ForEach(MolibooWardrobeOwnership.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented).frame(width: 130)
+                ModulaSegmentedControl("Ownership", selection: $query.ownership, options: MolibooWardrobeOwnership.allCases) { $0.title }.frame(width: 130)
                 .accessibilityIdentifier("wardrobe.ownership")
                 chip("All slots", on: query.slot == nil, id: "wardrobe.slot.all") { query.slot = nil }
                 ForEach(MascotWardrobeSlot.allCases) { s in
@@ -189,6 +186,7 @@ struct MolibooWardrobeSheet: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .modulaHorizontalEdgeFade()
     }
 
@@ -203,9 +201,9 @@ struct MolibooWardrobeSheet: View {
 
     private var actionBar: some View {
         HStack(spacing: 10) {
-            Button("Apply") { session.apply() }.buttonStyle(.borderedProminent).disabled(!session.canApply)
+            Button("Apply") { session.apply() }.buttonStyle(.modulaPrimary).disabled(!session.canApply)
                 .accessibilityIdentifier("wardrobe.apply")
-            Button("Revert") { session.revert() }.buttonStyle(.bordered).disabled(!session.isPreviewing)
+            Button("Revert") { session.revert() }.buttonStyle(.modulaSecondary).disabled(!session.isPreviewing)
                 .accessibilityIdentifier("wardrobe.revert")
             Spacer()
             Menu {
@@ -241,12 +239,13 @@ struct MolibooWardrobeSheet: View {
                             .padding(.horizontal, 10).padding(.vertical, 6)
                             .modulaGlass(in: Capsule(), interactive: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(MolibooSpringPressStyle())
                     .contextMenu { Button("Delete", role: .destructive) { session.delete(p) } }
                     .accessibilityIdentifier("wardrobe.preset.\(p.name)")
                 }
             }
         }
+        .modulaHorizontalRail()
         .modulaHorizontalEdgeFade()
     }
 
@@ -346,7 +345,7 @@ struct MolibooPhotoPreview: View {
                 ShareLink(item: picture, preview: SwiftUI.SharePreview(shareTitle, image: picture)) {
                     Label("Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent).padding(.horizontal, 24)
+                .buttonStyle(.modulaPrimary).padding(.horizontal, 24)
                 .accessibilityIdentifier("studio.photo.share")
             }
             .navigationTitle("Photo").navigationBarTitleDisplayMode(.inline)
@@ -392,6 +391,7 @@ struct MolibooWardrobeSheet2D: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             HStack(spacing: 10) {
                 Button("Apply") { session.apply() }.disabled(!session.canApply)
                 Button("Revert") { session.revert() }.disabled(!session.isPreviewing)
@@ -399,7 +399,7 @@ struct MolibooWardrobeSheet2D: View {
                 Button("Save") { saving = true }.disabled(session.isPreviewing && !session.canApply)
             }
             .font(.subheadline.weight(.semibold))
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(results, id: \.id) { item in
@@ -423,10 +423,18 @@ struct MolibooWardrobeSheet2D: View {
                                 MolibooWardrobePriceLabel(item: item)
                             }
                             .overlay(alignment: .topTrailing) {
-                                if on { Image(systemName: "checkmark.circle.fill").foregroundStyle(.white, Color.accentColor).padding(6) }
+                                // Black/white equipped mark (no coral accent), readable on any item art.
+                                if on {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color(uiColor: .systemBackground), Color.primary)
+                                        .padding(6)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
                             }
+                            .animation(.snappy(duration: 0.2), value: on)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MolibooSpringPressStyle())
+                        .sensoryFeedback(.selection, trigger: on)
                         .accessibilityIdentifier("wardrobe.item.\(item.id)")
                         .accessibilityAddTraits(on ? .isSelected : [])
                     }
@@ -446,7 +454,7 @@ struct MolibooWardrobeSheet2D: View {
         Button(action: action) {
             Text(title).font(.caption.weight(.semibold))
                 .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(on ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
+                .background(on ? Color.primary.opacity(0.12) : Color.primary.opacity(0.06), in: Capsule())
         }
         .buttonStyle(.plain)
     }

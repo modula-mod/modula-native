@@ -176,6 +176,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             XCTAssertTrue(element.exists, "Missing native tab \(title)")
             XCTAssertTrue(element.isHittable, "Unreachable native tab \(title)")
         }
+        showAccessoryToolsPage(app)
         for identifier in ["accessory.feeds", "accessory.summary", "accessory.refresh"] {
             let element = app.descendants(matching: .any)[identifier]
             XCTAssertTrue(element.exists, "Missing shell control \(identifier)")
@@ -199,6 +200,7 @@ final class N2PolishAccessibilityUITests: XCTestCase {
             "--runtime-unavailable", "--reset-appearance", "--ui-oled", "--ui-large-text", "--ui-reduce-transparency",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityExtraExtraLarge"
         ])
+        showAccessoryToolsPage(app)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.feeds"].firstMatch.isHittable
             || app.descendants(matching: .any)["tab.accessory"].firstMatch.exists)
         XCTAssertTrue(app.tabBars.buttons["Home"].firstMatch.isHittable)
@@ -1961,7 +1963,7 @@ final class N3CHomeUITests: XCTestCase {
         XCTAssertTrue(reels.waitForExistence(timeout: 5))
         reels.tap()
         XCTAssertTrue(app.descendants(matching: .any)["reels.feed"].firstMatch.waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["Post a video"].exists)
+        XCTAssertTrue(app.buttons["Post a reel"].exists)
         attachScreenshot(app, name: "post05-reels-entry")
         app.buttons["Back"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["native.home"].firstMatch.waitForExistence(timeout: 5))
@@ -2025,6 +2027,8 @@ final class N3CHomeUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["home.hero"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["home.sign-in"].firstMatch.exists)
 
+        // Home lands on the quick-tabs page (0); the tools live on page 1.
+        showAccessoryToolsPage(app)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.feeds"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.summary"].firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any)["accessory.refresh"].firstMatch.exists)
@@ -2049,6 +2053,7 @@ final class N3CHomeUITests: XCTestCase {
         )
         dismissModulaSheet(sheet)
 
+        showAccessoryToolsPage(app)
         let feeds = app.buttons["accessory.feeds"].firstMatch
         XCTAssertTrue(feeds.waitForExistence(timeout: 4))
         feeds.tap()
@@ -2412,5 +2417,23 @@ final class POST03CatalogUITests: XCTestCase {
     private func back(_ app: XCUIApplication) {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.descendants(matching: .any)["catalog.posts"].waitForExistence(timeout: 4))
+    }
+}
+
+/// The shell accessory opens on its quick-tabs page (Following / For You / Discover / Modules) on
+/// Home; the Feeds / Summary / Refresh tools are the next page. Swipe (or use the "Next context"
+/// accessibility action) until the tools are on screen.
+@MainActor
+func showAccessoryToolsPage(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+    let feeds = app.descendants(matching: .any)["accessory.feeds"].firstMatch
+    if feeds.exists && feeds.isHittable { return }
+    let accessory = app.descendants(matching: .any)["tab.accessory"].firstMatch
+    guard accessory.waitForExistence(timeout: 5) else {
+        XCTFail("Missing shell accessory", file: file, line: line)
+        return
+    }
+    for _ in 0..<3 {
+        accessory.swipeLeft()
+        if feeds.waitForExistence(timeout: 1.5), feeds.isHittable { return }
     }
 }

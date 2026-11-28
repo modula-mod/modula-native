@@ -51,7 +51,7 @@ struct ContextCatalogPage: View {
                 }
                 CatalogLabSection(title: "Context Menu + Preview") {
                     Button("Open preview") { previewPresented = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     Text("The preview uses the shared overlay host and elevated Modula material.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -209,7 +209,7 @@ struct SheetsCatalogPage: View {
                 }
                 Section("Examples") {
                     Button("Present detented sheet") { sheetPresented = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                     Text("Use the floating source button to exercise the connected morph path.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -225,16 +225,19 @@ struct SheetsCatalogPage: View {
             SheetCatalogContent(scrollable: scrollable)
         }
         .sheet(isPresented: $sheetPresented) {
-            ModulaSheet(
-                detents: [.content, .compact, .medium, .large, .full],
-                selectedDetent: $detent,
-                dismissible: dismissible,
-                backgroundInteractionEnabled: backgroundInteraction,
-                transition: .morph,
-                morphSource: .init("catalog.sheet.button")
-            ) {
-                SheetCatalogContent(scrollable: scrollable)
+            Group {
+                ModulaSheet(
+                    detents: [.content, .compact, .medium, .large, .full],
+                    selectedDetent: $detent,
+                    dismissible: dismissible,
+                    backgroundInteractionEnabled: backgroundInteraction,
+                    transition: .morph,
+                    morphSource: .init("catalog.sheet.button")
+                ) {
+                    SheetCatalogContent(scrollable: scrollable)
+                }
             }
+            .modulaSheetStyle()
         }
         .navigationTitle("Sheets")
     }

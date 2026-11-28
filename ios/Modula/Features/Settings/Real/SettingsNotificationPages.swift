@@ -91,7 +91,7 @@ struct NotificationCategoriesView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         }
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
         .modulaSoftScrollEdge()
         .navigationTitle(scope == .social ? "Social Notifications" : "Module Notifications")
         .navigationBarTitleDisplayMode(.inline)
@@ -161,7 +161,7 @@ struct QuietHoursSettingsView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         }
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
         .modulaSoftScrollEdge()
         .navigationTitle("Quiet Hours")
         .navigationBarTitleDisplayMode(.inline)
@@ -245,7 +245,7 @@ struct MyReportsView: View {
                                 Text(Self.statusLabel(report.status))
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(Color.primary.opacity(0.06), in: Capsule())
+                                    .modulaGlass(in: Capsule(), interactive: false)
                             }
                             if let details = report.details, !details.isEmpty {
                                 Text(details).font(.caption).foregroundStyle(.secondary).lineLimit(2)

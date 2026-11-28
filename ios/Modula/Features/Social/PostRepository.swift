@@ -59,6 +59,11 @@ actor GreenfieldPostRepository: PostRepository {
         )
     }
 
+    /// GET /v1/posts/:postId/reactions → `{viewerReaction, total, byType}` (greenfield ReactionService).
+    func reactionSummary(postID: SocialPostID) async throws -> JSONValue {
+        try await client.json("GET", path: "/v1/posts/\(Self.pathEscaped(postID))/reactions")
+    }
+
     func replies(commentID: SocialCommentID, postID: SocialPostID) async throws -> [SocialComment] {
         let value = try await client.json("GET", path: "/v1/comments/\(Self.pathEscaped(commentID))/replies")
         return SocialPayloadDecoder.commentPage(from: value, postID: postID).items

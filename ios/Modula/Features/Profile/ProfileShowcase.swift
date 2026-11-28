@@ -34,13 +34,10 @@ struct ProfileShowcaseShelf: View {
             HStack(alignment: .firstTextBaseline) {
                 ModulaSectionHeader(title: "Showcase", subtitle: "Your favourite Moliboos")
                 Button(picks.isEmpty ? "Add" : "Edit") {
-                    HapticEngine.shared.play(.selection)
                     editing = true
                 }
+                .buttonStyle(.modulaSecondary)
                 .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 34)
-                .modulaAccentCTA()
                 .accessibilityIdentifier("profile.showcase.edit")
             }
             HStack(spacing: 10) {
@@ -48,9 +45,10 @@ struct ProfileShowcaseShelf: View {
                     slot(index < picks.count ? picks[index] : nil)
                 }
             }
-            Text("Only shown on your profile on this device until profiles can sync a showcase.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Label("Saved on this device for now", systemImage: "iphone")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .accessibilityLabel("Showcase is saved on this device until profiles can sync it")
         }
         .sheet(isPresented: $editing) {
             ProfileShowcasePicker(selection: Binding(
@@ -58,6 +56,7 @@ struct ProfileShowcaseShelf: View {
                 set: { raw = ProfileShowcaseStore.encode($0) }
             ))
             .presentationDetents([.medium, .large])
+            .modulaSheetStyle()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.showcase")
@@ -74,7 +73,7 @@ struct ProfileShowcaseShelf: View {
                 } else {
                     Image(systemName: "plus")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .frame(height: 52)
                     Text("Empty slot").font(.caption).foregroundStyle(.secondary)
                 }
@@ -114,7 +113,7 @@ struct ProfileShowcasePicker: View {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                         .padding(.horizontal, 12)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
             }
         }
@@ -216,6 +215,7 @@ struct ProfileProgressionCard: View {
                     }
                 }
             }
+            .modulaHorizontalRail()
             .spatialGesturePriority()
         }
         .padding(12)

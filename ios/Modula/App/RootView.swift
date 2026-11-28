@@ -2,6 +2,8 @@ import SwiftUI
 
 struct RootView: View {
     @State private var visitedTabs: Set<AppTab> = []
+    /// Custom navigation › Double-tap "Refresh": bumping a tab's token rebuilds its root screen.
+    @State private var tabRefreshTokens: [AppTab: Int] = [:]
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppEnvironment.self) private var app
     @Environment(\.colorScheme) private var scheme
@@ -42,8 +44,13 @@ struct RootView: View {
         .overlay { PostMenuHost() }
         .overlay { CommandPaletteHost() }
         .overlay { CelebrationHost() }
+        // Persistent mini player (video dock): above every screen, below sheets.
+        .overlay { ModulaVideoDockHost() }
         .sheet(item: $navigation.presented) { presentation in
-            ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+            Group {
+                ModulaSheet(detents: presentation.sheetDetents) { PresentationView(presentation: presentation) }
+            }
+            .modulaSheetStyle()
         }
         .overlay {
             // Morphs from Dynamic Island (or notch/status fallback). Shared by every `flash`.
@@ -56,6 +63,9 @@ struct RootView: View {
         // Ideas30 #18: offline banner. #27: one-time "What's new" sheet (opens the 30-ideas gallery).
         .overlay(alignment: .top) { Lab30OfflineBanner() }
         .modifier(Lab30WhatsNewPresenter())
+        #if DEBUG
+        .modifier(DebugCommentsSheetPresenter())
+        #endif
         .modulaConsumesIntentRoutes()
         .background(palette.canvas.ignoresSafeArea())
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
@@ -158,9 +168,7 @@ struct RootView: View {
                 .tabViewBottomAccessory(isEnabled: policy.shellAccessoryVisible) {
                     ShellAccessorySystemSlot(route: navigation.currentRoute)
                 }
-                // On Activity the minimised bar collapses to a lone bell + red badge bubble
-                // (bottom-left), which read as a stray notifications button — keep it expanded there.
-                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
+                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab, size: TabBarCustomization.shared.size) ? .onScrollDown : .never)
         } else if #available(iOS 26.0, *) {
             tabs(navigation: navigation, accessoryClearance: policy.shellAccessoryVisible ? ModulaLayout.accessoryClearance : 0)
                 .toolbar(policy.bottomBarVisible ? .visible : .hidden, for: .tabBar)
@@ -169,9 +177,7 @@ struct RootView: View {
                         ShellAccessorySystemSlot(route: navigation.currentRoute)
                     }
                 }
-                // On Activity the minimised bar collapses to a lone bell + red badge bubble
-                // (bottom-left), which read as a stray notifications button — keep it expanded there.
-                .tabBarMinimizeBehavior(navigation.selectedTab == .activity ? .never : .onScrollDown)
+                .tabBarMinimizeBehavior(Self.tabBarMinimizes(on: navigation.selectedTab, size: TabBarCustomization.shared.size) ? .onScrollDown : .never)
         } else {
             tabs(navigation: navigation, hidesSystemTabBar: true)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -179,6 +185,26 @@ struct RootView: View {
                         ModulaBottomChrome(route: navigation.currentRoute, showsAccessory: policy.shellAccessoryVisible)
                     }
                 }
+        }
+    }
+
+    /// On Activity the minimised bar collapses to a lone bell + red badge bubble (bottom-left),
+    /// which read as a stray notifications button. On Discover it collapses to a lone compass
+    /// bubble with the Tools pill squeezed in beside it, both floating over the rails —
+    /// keep the bar expanded on those tabs so the bottom chrome has one stable shape.
+    /// Custom navigation › Size: Compact always shrinks on scroll, Regular never does.
+    static func tabBarMinimizes(on tab: AppTab, size: TabBarSize) -> Bool {
+        switch size {
+        case .compact: true
+        case .regular: false
+        case .automatic: tabBarMinimizes(on: tab)
+        }
+    }
+
+    static func tabBarMinimizes(on tab: AppTab) -> Bool {
+        switch tab {
+        case .activity, .discover: false
+        default: true
         }
     }
 
@@ -191,12 +217,19 @@ struct RootView: View {
         let reselectable = Binding<AppTab>(
             get: { navigation.selectedTab },
             set: { tab in
+                let custom = TabBarCustomization.shared
                 if tab == navigation.selectedTab {
                     if navigation.path(for: tab).isEmpty {
-                        ModulaTabReselect.post(tab)
-                    } else {
+                        switch custom.reselect {
+                        case .scrollToTop: ModulaTabReselect.post(tab)
+                        case .refresh:
+                            tabRefreshTokens[tab, default: 0] += 1
+                            if custom.haptics { HapticEngine.shared.play(.selection) }
+                        case .backToStart, .nothing: break
+                        }
+                    } else if custom.reselect != .nothing {
                         navigation.binding(for: tab).wrappedValue = []
-                        HapticEngine.shared.play(.selection)
+                        if custom.haptics { HapticEngine.shared.play(.selection) }
                     }
                 } else if tab == .profile, navigation.spatialEnabled {
                     // Profile is a sheet from the right over the current tab, not a tab swap.
@@ -205,23 +238,27 @@ struct RootView: View {
                 } else {
                     navigation.selectedTab = tab
                     navigation.spatial.close()
+                    if custom.haptics { HapticEngine.shared.play(.selection) }
                 }
             }
         )
         return TabView(selection: reselectable) {
-            ForEach(AppTab.allCases) { tab in
+            ForEach(navigation.visibleTabs) { tab in
                 NavigationStack(path: navigation.binding(for: tab)) {
                     Group {
                         // Lazy tabs: TabView builds every tab's root at launch; Messages,
                         // Activity, Profile… now build on first visit instead.
                         if tab == navigation.selectedTab || visitedTabs.contains(tab) {
                             RouteView(route: navigation.root(for: tab))
+                                .environment(\.modulaTabRoot, true)
+                                .id(tabRefreshTokens[tab, default: 0])
                         } else {
                             Color.clear
                         }
                     }
                         .navigationDestination(for: AppRoute.self) {
                             RouteView(route: $0)
+                                .environment(\.modulaTabRoot, false)
                                 // Pushed Settings / Premium pages: no minimised tab bubble (the profile avatar
                                 // floated bottom-left over plan cards). Back is the one way out.
                                 .modifier(SystemTabBarHidden(hidden: hidesSystemTabBar || Self.hidesTabBar(on: $0)))
@@ -242,23 +279,38 @@ struct RootView: View {
                         .renderingMode(.original)
                         Text(tab.title)
                     } else {
-                        Label(tab.title, systemImage: navigation.selectedTab == tab ? tab.selectedIcon : tab.icon)
-                            .symbolEffect(.bounce, value: navigation.selectedTab == tab)
-                            .contentTransition(.symbolEffect(.replace))
+                        // Inline (not a helper view) so the system bar reads the Image + Text pair.
+                        let selected = navigation.selectedTab == tab
+                        let symbol = TabBarCustomization.shared.symbol(for: tab, selected: selected)
+                        if let color = TabBarCustomization.shared.tint(for: tab).uiColor {
+                            Image(uiImage: TabIconRenderer.image(symbol, color: color, selected: selected))
+                                .renderingMode(.original)
+                        } else {
+                            Image(systemName: symbol)
+                                .symbolEffect(.bounce, value: selected)
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        if TabBarCustomization.shared.showLabels {
+                            Text(tab.title)
+                        }
                     }
                 }
-                .badge(tab == .activity ? activityBadge : 0)
+                .badge(badgeText(for: tab))
                 .tag(tab)
             }
         }
         .onChange(of: navigation.selectedTab, initial: true) { _, selected in
             if !visitedTabs.contains(selected) { visitedTabs.insert(selected) }
         }
+        // Custom navigation (Settings › Appearance): the bar follows the saved list live.
+        .onChange(of: app.appearance.tabBar, initial: true) { _, bar in
+            if navigation.visibleTabs != bar { navigation.visibleTabs = bar }
+        }
+        // Profile left the tab bar: keep a direct VoiceOver route to it (also: right-edge swipe, sidebar).
+        .accessibilityAction(named: Text("Open Profile")) {
+            navigation.select(.profile)
+        }
         .overlay {
-            ProfileTabBarAvatarApplicator(image: app.profile.tabBarAvatar)
-                .frame(width: 0, height: 0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
             TabBarIconMotionApplicator(
                 selectedTab: navigation.selectedTab,
                 reduceMotion: reduceMotion
@@ -273,6 +325,29 @@ struct RootView: View {
         if case .settings = route { return true }
         return false
     }
+
+    /// Badge per Custom navigation › Badges (count / dot / off).
+    private func badgeText(for tab: AppTab) -> Text? {
+        let count = Self.badgeCount(for: tab, activity: activityBadge, drafts: draftsBadge, chats: app.messaging.accountUnreadCount ?? 0)
+        guard count > 0 else { return nil }
+        switch TabBarCustomization.shared.badgeStyle {
+        case .count: return Text(count > 99 ? "99+" : "\(count)")
+        case .dot: return Text(" ")
+        case .off: return nil
+        }
+    }
+
+    static func badgeCount(for tab: AppTab, activity: Int, drafts: Int, chats: Int) -> Int {
+        switch tab {
+        case .activity: activity
+        case .drafts: drafts
+        case .messages: chats
+        default: 0
+        }
+    }
+
+    /// Unsent drafts (posts + stories), shown on the Drafts tab when it's in the bar.
+    private var draftsBadge: Int { app.drafts.posts.count + app.drafts.stories.count }
 
     /// Unread Activity, quietened by an iOS Focus filter per Settings → Focus.
     private var activityBadge: Int {
@@ -291,12 +366,20 @@ struct RootView: View {
         guard let index = arguments.firstIndex(of: "--uitest-open"), arguments.indices.contains(index + 1) else { return }
         let target = arguments[index + 1]
         let navigation = app.navigation
+        if MessagingDebugFixture.isEnabled, app.messaging.conversations.isEmpty {
+            app.messaging.installDebugInbox(MessagingDebugFixture.inbox())
+            for id in ["fx-crew", "fx-sophia"] where !app.messaging.isPinned(id) { app.messaging.togglePin(id) }
+        }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(900))
             switch target {
             case "sidebar": navigation.presentSidebar()
             case "settings": navigation.open(.settings(.root))
             case "inbox": navigation.open(.messages(.inbox))
+            case "activity": navigation.open(.activity(.all))
+            case "reels": navigation.open(.reels(.feed))
+            case "home": break
+            case "comments": navigation.push(.post("fx-post", .comments))
             case "chat": navigation.open(.messages(.inbox)); try? await Task.sleep(for: .milliseconds(500)); navigation.push(.messages(.conversation("fx-sophia")))
             default: if let route = RouteRegistry.parse(target) { navigation.open(route) }
             }
@@ -361,6 +444,7 @@ struct RouteView: View {
             DevelopmentRouteView(title: "Components", symbol: "square.grid.3x3")
             #endif
         case .developer(.studio): DeveloperStudioView()
+        case .developer(.callScreens): CallScreensGallery()
         case .developer(let route): DevelopmentRouteView(title: route.rawValue.capitalized, symbol: "hammer")
         case .command:
             CommandCenterView(context: .global)
@@ -379,6 +463,8 @@ struct RouteView: View {
             CollectionDetailView(collectionID: id)
         case .drafts:
             DraftsView()
+        case .board:
+            BoardView()
         case .community(let route):
             CommunityRootView(route: route)
         }
@@ -402,6 +488,7 @@ struct PresentationView: View {
             ModulaActivityShareView(items: [shareURL(for: route)]) { app.navigation.presented = nil }
                 .ignoresSafeArea()
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
                 .accessibilityIdentifier("share.sheet")
         case .filters: DevelopmentRouteView(title: "Filters", symbol: "line.3.horizontal.decrease.circle")
         case .modulePermissions: DevelopmentRouteView(title: "Module Permissions", symbol: "hand.raised")
@@ -497,4 +584,15 @@ struct ModulaActivityShareView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+
+/// True for a tab's root screen (not a pushed page). Screens that normally hide the tab bar
+/// (Messages) keep it when they are a Custom navigation tab root.
+private struct ModulaTabRootKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var modulaTabRoot: Bool {
+        get { self[ModulaTabRootKey.self] }
+        set { self[ModulaTabRootKey.self] = newValue }
+    }
 }

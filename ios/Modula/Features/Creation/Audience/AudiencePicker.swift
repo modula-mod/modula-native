@@ -20,7 +20,7 @@ struct AudiencePicker: View {
             HStack(spacing: 5) {
                 Image(systemName: audienceSymbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                 Text(selection.title)
                     .font(.subheadline.weight(.semibold))
                 Image(systemName: "chevron.down")

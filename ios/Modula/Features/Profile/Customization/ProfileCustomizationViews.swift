@@ -67,6 +67,7 @@ struct ProfileAccentPicker: View {
                     }
                     .padding(.vertical, 2)
                 }
+                .modulaHorizontalRail()
             } else if let selection {
                 HStack(spacing: 10) {
                     Circle().fill(selection.color).frame(width: 22, height: 22)
@@ -201,6 +202,7 @@ struct FeaturedModulesEditor: View {
                 }
                 .padding(.vertical, 2)
             }
+            .modulaHorizontalRail()
         }
     }
 

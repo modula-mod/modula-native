@@ -97,9 +97,17 @@ enum HomeGreeting {
     }
 
     static func dateChip(_ date: Date, locale: Locale = .current) -> String {
+        if locale == .current { return currentDateChipFormatter.string(from: date) }
+        return dateChipFormatter(locale).string(from: date)
+    }
+
+    /// Home re-renders the greeting often; reuse the formatter for the current locale.
+    nonisolated(unsafe) private static let currentDateChipFormatter = dateChipFormatter(.current)
+
+    private static func dateChipFormatter(_ locale: Locale) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.setLocalizedDateFormatFromTemplate("EEEdMMM")
-        return formatter.string(from: date)
+        return formatter
     }
 }

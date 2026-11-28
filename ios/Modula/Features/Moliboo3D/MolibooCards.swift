@@ -261,8 +261,9 @@ struct MolibooTradingCardView: View {
         .frame(width: Self.base.width, height: Self.base.height)
         .scaleEffect(width / Self.base.width)
         .frame(width: width, height: width * Self.base.height / Self.base.width)
-        .rotation3DEffect(.degrees(Double(tilt.width) * 12), axis: (0, 1, 0), perspective: 0.6)
-        .rotation3DEffect(.degrees(Double(-tilt.height) * 10), axis: (1, 0, 0), perspective: 0.6)
+        // Moliboos are strictly 2D: tilt is a flat lean + parallax drift, no perspective.
+        .rotationEffect(.degrees(Double(tilt.width) * 2.5))
+        .offset(x: tilt.width * 6, y: tilt.height * 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(faceDown ? "Face-down card" : "\(card.name), \(card.rarity.title), level \(card.level), \(card.element.title)")
     }
@@ -590,7 +591,6 @@ struct MolibooPackOpeningView: View {
     @State private var legendaryCard: MolibooCard?
     @State private var burst = false
     @State private var flash = false
-    @State private var ambient = MolibooTiltSource()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     private var motionOn: Bool { !reduceMotion && scenePhase == .active }
@@ -613,10 +613,10 @@ struct MolibooPackOpeningView: View {
                 Spacer()
                 if phase == .done {
                     Button { onDone() } label: {
-                        Label("Add to binder", systemImage: "books.vertical.fill").font(.headline).foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 52)
+                        Label("Add to binder", systemImage: "books.vertical.fill").font(.headline).foregroundStyle(Color.modulaOnPrimary).frame(maxWidth: .infinity, minHeight: 52)
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("pack.done")
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -660,10 +660,10 @@ struct MolibooPackOpeningView: View {
             .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
             .onAppear { if motionOn { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { wobble = true } } }
             Button { tear() } label: {
-                Label("Tear open", systemImage: "hand.draw.fill").font(.headline).foregroundStyle(.white).padding(.horizontal, 28).frame(minHeight: 50)
+                Label("Tear open", systemImage: "hand.draw.fill").font(.headline).foregroundStyle(Color.modulaOnPrimary).padding(.horizontal, 28).frame(minHeight: 50)
             }
             .buttonStyle(.plain)
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .opacity(phase == .sealed ? 1 : 0)
             .accessibilityIdentifier("pack.tear")
         }
@@ -743,13 +743,12 @@ struct MolibooFlipCard: View {
             MolibooTradingCardView(card: card, width: 150, animating: animating, faceDown: true)
                 .opacity(faceUp ? 0 : 1)
             MolibooTradingCardView(card: card, width: 150, animating: animating)
-                .rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (0, 1, 0))
                 .opacity(faceUp ? 1 : 0)
         }
-        // rotation3DEffect renders into a layer the size of the view, which cut the rarity glow
-        // into hard vertical edges. Give the glow room inside the layer, then take it back out.
+        // Give the rarity glow room inside the effect layer, then take it back out.
         .padding(40)
-        .rotation3DEffect(.degrees(faceUp && !reduceMotion ? 180 : 0), axis: (0, 1, 0), perspective: 0.5)
+        // 2D flip: a horizontal squash through the middle while the faces cross-fade (no 3D).
+        .modifier(MolibooFlatFlip(faceUp: faceUp, enabled: !reduceMotion))
         .padding(-40)
     }
 }
@@ -788,7 +787,8 @@ struct MolibooLegendaryReveal: View {
                         }
                     }
                     .frame(width: 340, height: 340)
-                    .rotation3DEffect(.degrees(68), axis: (1, 0, 0))
+                    // Flat ellipse (2D) instead of a perspective-tilted orbit.
+                    .scaleEffect(x: 1, y: 0.37)
                     MolibooTradingCardView(card: card, width: 230, tilt: CGSize(width: sin(t * 0.8) * 0.5, height: cos(t * 0.6) * 0.3), animating: animating)
                         .scaleEffect(crown ? 1 : 0.6)
                 }
@@ -809,10 +809,10 @@ struct MolibooLegendaryReveal: View {
                     .shadow(color: .orange, radius: 10)
                 Spacer()
                 Button(action: onContinue) {
-                    Text("Continue").font(.headline).foregroundStyle(.white).padding(.horizontal, 36).frame(minHeight: 50)
+                    Text("Continue").font(.headline).foregroundStyle(Color.modulaOnPrimary).padding(.horizontal, 36).frame(minHeight: 50)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .accessibilityIdentifier("pack.legendary.continue")
                 .padding(.bottom, 50)
             }
@@ -830,5 +830,19 @@ private struct MolibooLegendaryShimmer: ViewModifier {
     let animated: Bool
     func body(content: Content) -> some View {
         if on { content.molibooShimmer(strength, animated: animated) } else { content }
+    }
+}
+
+
+/// Flat (2D) card flip: squashes horizontally to a sliver and back while the faces swap.
+struct MolibooFlatFlip: ViewModifier, @MainActor Animatable {
+    var progress: Double
+    var enabled: Bool
+    init(faceUp: Bool, enabled: Bool) { progress = faceUp ? 1 : 0; self.enabled = enabled }
+    var animatableData: Double { get { progress } set { progress = newValue } }
+    func body(content: Content) -> some View {
+        let squash = enabled ? max(0.02, abs(cos(progress * .pi))) : 1
+        content
+            .scaleEffect(x: squash, y: enabled ? 1 - 0.04 * sin(progress * .pi) : 1)
     }
 }

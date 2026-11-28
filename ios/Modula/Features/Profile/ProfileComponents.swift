@@ -10,6 +10,11 @@ struct ProfileCover: View {
     var tint: Color? = nil
     var scrollProgress: CGFloat = 0
     var safeAreaTop: CGFloat = ProfileFullBleedMetrics.windowSafeAreaTop
+    /// Cover's resting minY in `.scrollView` space is `-scrollRestOffset` (0 for plain scroll
+    /// views like Edit Profile; header height when the scroll view uses top contentMargins).
+    /// Without it the parallax treated "at rest" as "scrolled" and slid the image down,
+    /// leaving a black strip above the cover.
+    var scrollRestOffset: CGFloat = 0
     var pocketCenterX: CGFloat? = nil
     var pocketRadius: CGFloat? = nil
     var onTap: (() -> Void)? = nil
@@ -107,19 +112,30 @@ struct ProfileCover: View {
             }
             .frame(width: width, height: coverHeight + stretch, alignment: .top)
             // Parallax: the hero drifts at ~40% of the scroll speed while the page scrolls up.
-            .visualEffect { [reduceMotion] content, proxy in
-                let minY = proxy.frame(in: .scrollView).minY
-                return content.offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
+            // Only the image layer moves: on pull-down it stretches up from its bottom edge
+            // (filling the gap above), on scroll-up it drifts at ~40% speed. The notch mask and
+            // the avatar sitting in it are untouched, so the avatar never scales or shifts.
+            .visualEffect { [reduceMotion, coverHeight, scrollRestOffset] content, proxy in
+                let minY = proxy.frame(in: .scrollView).minY + scrollRestOffset
+                let pull = max(0, minY)
+                let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
+                return content
+                    .scaleEffect(x: scale, y: scale, anchor: .bottom)
+                    .offset(y: reduceMotion || minY >= 0 ? 0 : -minY * 0.4)
             }
             .mask {
-                if let pocketCenterX, let pocketRadius {
-                    // Inverted pocket: a concave notch carved up into the banner's bottom edge.
-                    ProfileCoverNotchShape(centerX: pocketCenterX, radius: pocketRadius)
-                } else {
-                    Rectangle()
+                // Mask reaches far above the frame so the stretched image can fill the pull gap;
+                // the bottom edge (and its notch) stays fixed.
+                Group {
+                    if let pocketCenterX, let pocketRadius {
+                        // Inverted pocket: a concave notch carved up into the banner's bottom edge.
+                        ProfileCoverNotchShape(centerX: pocketCenterX, radius: pocketRadius)
+                    } else {
+                        Rectangle()
+                    }
                 }
+                .padding(.top, -1200)
             }
-            .clipped()
             .overlay {
                 if let pocketCenterX, let pocketRadius {
                     ProfileCoverNotchRim(
@@ -134,16 +150,12 @@ struct ProfileCover: View {
         // Stretchy header: on pull-down the cover scales from its bottom edge to fill the gap
         // (no blank strip). On scroll-up it stays sharp until it slides under the header bar,
         // then blurs progressively.
-        .visualEffect { [reduceMotion, coverHeight, safeAreaTop] content, proxy in
-            let minY = proxy.frame(in: .scrollView).minY
-            let pull = max(0, minY)
-            let scale = coverHeight > 0 ? (coverHeight + pull) / coverHeight : 1
+        .visualEffect { [reduceMotion, coverHeight, safeAreaTop, scrollRestOffset] content, proxy in
+            let minY = proxy.frame(in: .scrollView).minY + scrollRestOffset
             let headerBottom = safeAreaTop + 44
             let under = max(0, -minY - (coverHeight - headerBottom - 40))
             let radius = reduceMotion ? 0 : min(under / 80 * 14, 14)
-            return content
-                .scaleEffect(x: scale, y: scale, anchor: .bottom)
-                .blur(radius: radius, opaque: true)
+            return content.blur(radius: radius)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -415,6 +427,10 @@ struct ProfileAvatarPocket: View {
                     .offset(y: -intersection)
                     .padding(.leading, inset)
             }
+            // One rigid unit (photo, ring, banner, badge), drawn above the cover and isolated
+            // from the cover's stretch / parallax geometry.
+            .geometryGroup()
+            .zIndex(1)
             .onAppear {
                 overlayStore.bind(accountID: app.auth.account?.accountId)
                 if isOwnProfile { overlayStore.noteOwnAvatar(profile.avatarURL) }
@@ -518,6 +534,9 @@ struct ProfileIdentityBlock: View {
     let profile: ModulaProfile
     /// Others' profiles: small "Follows you" tag beside the name when the API says so.
     var showsFollowsYou: Bool = false
+    /// `.name` = name, badges and @handle (beside the avatar); `.details` = headline + bio.
+    var part: Part = .all
+    enum Part { case all, name, details }
     @Environment(AppEnvironment.self) private var app
     @Environment(\.profileAccentColor) private var profileAccent
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -536,10 +555,15 @@ struct ProfileIdentityBlock: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: part == .name ? 2 : 6) {
+            if part != .details {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 ModulaText(text: profile.displayName, role: .title)
+                    // Long names wrap to two lines and scale down a little; never a mid-word cut.
                     .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
                 if showsOwnPremiumBadge {
                     PremiumProfileBadge(plan: premiumStore.plan)
                 }
@@ -591,8 +615,9 @@ struct ProfileIdentityBlock: View {
                 }
             }
             .accessibilityIdentifier("profile.handle")
+            }
 
-            if let headline = profile.headline, !headline.isEmpty {
+            if part != .name, let headline = profile.headline, !headline.isEmpty {
                 Text(headline)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
@@ -601,7 +626,7 @@ struct ProfileIdentityBlock: View {
                     .accessibilityIdentifier("profile.headline")
             }
 
-            if !profile.bio.isEmpty {
+            if part != .name, !profile.bio.isEmpty {
                 // Links, #hashtags and @mentions in the bio are live.
                 Text(PostTextLinks.attributed(profile.bio))
                     .font(.body)
@@ -619,8 +644,15 @@ struct ProfileIdentityBlock: View {
                         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
                             return .discarded
                         }
-                        return .systemAction
+                        // Same in-app browser (and "Open links in Modula" setting) as post links.
+                        return ModulaLinkRouter.handle(url, source: nil)
                     })
+                    .contextMenu {
+                        Button { UIPasteboard.general.string = profile.bio; HapticEngine.shared.play(.success) } label: {
+                            Label("Copy bio", systemImage: "doc.on.doc")
+                        }
+                        ShareLink(item: profile.bio) { Label("Share bio", systemImage: "square.and.arrow.up") }
+                    }
                     .accessibilityIdentifier("profile.bio")
 
                 if bioIsLong {
@@ -869,7 +901,7 @@ struct ProfileAboutGrid: View {
                         if let action = row.2 {
                             Button(row.1, action: action)
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(app.appearance.liveAccent)
+                                .foregroundStyle(.primary)
                                 .buttonStyle(.plain)
                                 .lineLimit(2)
                         } else {
@@ -915,6 +947,7 @@ struct ProfileInfoChips: View {
         let symbol: String
         let title: String
         let action: (() -> Void)?
+        var url: URL? = nil
     }
 
     private var accent: Color { profileAccent ?? app.appearance.liveAccent }
@@ -938,7 +971,7 @@ struct ProfileInfoChips: View {
             let open = openURL
             items.append(Chip(id: "website", symbol: "link", title: website.domain ?? website.label, action: {
                 ProfileAboutGrid.openSafely(url, openURL: open)
-            }))
+            }, url: url))
         }
         if let joined = profile.joinedAt {
             items.append(Chip(id: "joined", symbol: "calendar", title: "Joined \(joined.formatted(.dateTime.month(.abbreviated).year()))", action: nil))
@@ -991,6 +1024,7 @@ struct ProfileInfoChips: View {
             }
             .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: nil))
             .modulaGlass(in: Capsule(), interactive: true)
+            .modifier(ProfileLinkPreviewMenu(url: chip.url, app: app, open: action))
             .accessibilityLabel("Website, \(chip.title)")
             .accessibilityIdentifier("profile.chip.\(chip.id)")
         } else {
@@ -1075,12 +1109,9 @@ struct ProfileHeroActions: View {
         ModulaGlassGroup(spacing: 10) {
             HStack(spacing: 10) {
                 if isOwn {
-                    pill("Edit profile", symbol: "pencil", prominent: true, id: "edit", action: onEdit)
-                        .accessibilityIdentifier("profile.edit.cta")
-                    pill("Share profile", symbol: "square.and.arrow.up", prominent: false, id: "share", action: onShare)
+                    // Edit and QR live in the top bar now: one wide Share here.
+                    pill("Share profile", symbol: "square.and.arrow.up", prominent: true, id: "share", action: onShare)
                         .accessibilityIdentifier("profile.share")
-                    icon("Profile QR code", symbol: "qrcode", id: "qr", action: onCode)
-                        .accessibilityIdentifier("profile.qr")
                 } else {
                     followPill
                         .accessibilityIdentifier("profile.follow.cta")
@@ -1109,7 +1140,7 @@ struct ProfileHeroActions: View {
                 .labelStyle(.titleAndIcon)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
-                .foregroundStyle(prominent ? Color.white : Color.primary)
+                .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 44)
                 .contentShape(Capsule())
@@ -1128,7 +1159,7 @@ struct ProfileHeroActions: View {
                 if followBusy {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(isFollowing ? Color.primary : Color.white)
+                        .tint(isFollowing ? Color.primary : Color.modulaOnPrimary)
                 } else {
                     Image(systemName: isFollowing ? "checkmark" : "plus")
                         .font(.subheadline.weight(.bold))
@@ -1138,14 +1169,14 @@ struct ProfileHeroActions: View {
                     .font(.subheadline.weight(.semibold))
                     .contentTransition(.interpolate)
             }
-            .foregroundStyle(isFollowing ? Color.primary : Color.white)
+            .foregroundStyle(isFollowing ? Color.primary : Color.modulaOnPrimary)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
             .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.96, haptic: nil))
         .disabled(followBusy)
-        .modulaGlass(in: Capsule(), interactive: true, tint: isFollowing ? nil : tint, prominent: !isFollowing, specular: true)
+        .modifier(ProfilePillSurface(prominent: !isFollowing, tint: tint))
         .modulaGlassID("follow", in: glass)
         .animation(ModulaEffectGate.reduceMotion(systemReduceMotion) ? nil : .spring(response: 0.34, dampingFraction: 0.78), value: isFollowing)
         .accessibilityLabel(followTitle)
@@ -1223,6 +1254,44 @@ struct ProfileHighlightItem: Identifiable {
 struct ProfileHighlightsRow: View {
     let items: [ProfileHighlightItem]
     var tint: Color
+    /// Own profile: hold a highlight to move it. The order is kept on this iPhone.
+    var reorderable = false
+    var orderKey = ""
+    @AppStorage("profile.highlightOrder.v1") private var orderRaw = ""
+
+    private var savedOrder: [String] {
+        guard !orderKey.isEmpty,
+              let data = orderRaw.data(using: .utf8),
+              let map = try? JSONDecoder().decode([String: [String]].self, from: data) else { return [] }
+        return map[orderKey] ?? []
+    }
+
+    private var ordered: [ProfileHighlightItem] {
+        let order = savedOrder
+        guard reorderable, !order.isEmpty else { return items }
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        // "+ New" stays first; known highlights follow your order; new ones go after.
+        return items.enumerated().sorted { a, b in
+            let ra = a.element.id == "new" ? -1 : (rank[a.element.id] ?? order.count + a.offset)
+            let rb = b.element.id == "new" ? -1 : (rank[b.element.id] ?? order.count + b.offset)
+            return ra == rb ? a.offset < b.offset : ra < rb
+        }.map(\.element)
+    }
+
+    private func move(_ id: String, by delta: Int) {
+        var ids = ordered.map(\.id).filter { $0 != "new" }
+        guard let i = ids.firstIndex(of: id) else { return }
+        let j = delta == .min ? 0 : min(max(i + delta, 0), ids.count - 1)
+        guard i != j else { return }
+        let moved = ids.remove(at: i)
+        ids.insert(moved, at: j)
+        var map = (orderRaw.data(using: .utf8)).flatMap { try? JSONDecoder().decode([String: [String]].self, from: $0) } ?? [:]
+        map[orderKey] = ids
+        if let data = try? JSONEncoder().encode(map), let text = String(data: data, encoding: .utf8) {
+            withAnimation(.snappy) { orderRaw = text }
+        }
+        HapticEngine.shared.play(.selection)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1230,7 +1299,7 @@ struct ProfileHighlightsRow: View {
                 .font(.headline)
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 14) {
-                    ForEach(items) { item in
+                    ForEach(ordered) { item in
                         Button {
                             HapticEngine.shared.play(.selection)
                             item.action()
@@ -1245,12 +1314,20 @@ struct ProfileHighlightsRow: View {
                             }
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                        .contextMenu {
+                            if reorderable, item.id != "new", items.count > 2 {
+                                Button("Move to Front", systemImage: "arrow.left.to.line") { move(item.id, by: .min) }
+                                Button("Move Left", systemImage: "arrow.left") { move(item.id, by: -1) }
+                                Button("Move Right", systemImage: "arrow.right") { move(item.id, by: 1) }
+                            }
+                        }
                         .accessibilityLabel(item.title)
                         .accessibilityIdentifier("profile.highlight.\(item.id)")
                     }
                 }
                 .padding(.vertical, 2)
             }
+            .modulaHorizontalRail()
             .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
@@ -1326,6 +1403,7 @@ struct ProfileFeaturedModulesRow: View {
                 }
                 .padding(.vertical, 4)
             }
+            .modulaHorizontalRail()
             .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
@@ -1447,7 +1525,7 @@ struct ProfilePeopleRow: View {
                             if person.isVerified {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.caption)
-                                    .foregroundStyle(app.appearance.liveAccent)
+                                    .foregroundStyle(.primary)
                                     .accessibilityLabel("Verified")
                             }
                         }
@@ -1612,9 +1690,9 @@ struct ProfilePrimaryCTA: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 44)
-            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
             .background(
-                Capsule().fill(prominent ? app.appearance.liveAccent : Color.primary.opacity(0.08))
+                Capsule().fill(prominent ? Color.modulaPrimaryFill : Color.primary.opacity(0.08))
             )
             .overlay(
                 Capsule().stroke(Color.primary.opacity(prominent ? 0 : 0.12), lineWidth: 1)
@@ -1655,13 +1733,23 @@ struct ProfilePreviewHeader: View {
 struct ProfileAvatarContent: View {
     let profile: ModulaProfile
     let size: CGFloat
+    @Environment(AppEnvironment.self) private var app
     @AppStorage(MascotProfileSettings.useAsAvatarKey) private var useMascot = false
     @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+
+    /// The mascot is a local, signed-in-user setting: it may stand in for *your* missing photo,
+    /// never for another account's (they get the shared initials monogram instead).
+    private var isOwnProfile: Bool {
+        guard let account = app.auth.account else { return false }
+        if profile.id == account.accountId { return true }
+        let handle = account.primaryHandle
+        return !handle.isEmpty && profile.handle.caseInsensitiveCompare(handle) == .orderedSame
+    }
 
     var body: some View {
         let selection = MascotSelection.resolve(raw: kindRaw)
         // The real photo wins wherever one exists, so the profile matches posts/Settings.
-        if useMascot, selection != .off, profile.avatarURL == nil {
+        if isOwnProfile, useMascot, selection != .off, profile.avatarURL == nil {
             MascotAvatarView(size: size)
         } else {
             ModulaAvatar(initials: profile.initials, url: profile.avatarURL, size: size, name: profile.displayName)
@@ -1876,6 +1964,9 @@ struct ProfileAvatarFrame: Identifiable, Hashable, Sendable {
         .init(id: "dashed.mint", title: "Dashed Mint", kind: .dashed(Color(hex: "#34C759"))),
         .init(id: "grad.aurora", title: "Aurora", kind: .gradient([.purple, .pink, .orange, .yellow, .purple])),
         .init(id: "grad.ice", title: "Ice", kind: .gradient([.cyan, .blue, .indigo, .cyan])),
+        .init(id: "grad.holo", title: "Holo", kind: .gradient([Color(hex: "#7CF7E4"), Color(hex: "#9EA8FF"), Color(hex: "#FF9BE5"), Color(hex: "#FFE29A")])),
+        .init(id: "grad.ember", title: "Ember", kind: .gradient([Color(hex: "#FF3B30"), Color(hex: "#FF9F0A"), Color(hex: "#FFD60A")])),
+        .init(id: "dual.mono", title: "Mono", kind: .dualRing(Color.white, Color(hex: "#8E8E93"))),
         .init(id: "pixels.lime", title: "Pixels", kind: .pixels(Color(hex: "#A8E10C"))),
         .init(id: "laurels.gold", title: "Laurels", kind: .laurels(Color(hex: "#C9A227"))),
         .init(id: "hex.teal", title: "Hex", kind: .hex(Color(hex: "#369CAA"))),
@@ -2048,10 +2139,9 @@ struct ModulaDecoratedAvatar<Content: View>: View {
 
     private var ringPad: CGFloat {
         switch frame.kind {
+        // One pad for every ring so all frames read the same size in the grid and on the profile.
         case .none: 0
-        case .softRing, .dashed: 4
-        case .dualRing, .gradient, .neon, .sparkle, .shimmer, .neonPulse: 6
-        case .pixels, .laurels, .hex, .mascotPaw, .orbit, .auroraPulse, .flame, .seasonal: 8
+        default: 6
         }
     }
 
@@ -2101,14 +2191,19 @@ struct ModulaDecoratedAvatar<Content: View>: View {
             Circle().strokeBorder(color.opacity(0.35), lineWidth: 3)
         case .dualRing(let a, let b):
             Circle().strokeBorder(
-                AngularGradient(colors: [a, b, a], center: .center),
+                AngularGradient(colors: [a, b, a], center: .center, angle: .degrees(-90)),
                 lineWidth: 3.5
             )
+            .blur(radius: 3)
+            .opacity(0.6)
         case .gradient(let colors):
+            // Soft glow under the crisp gradient ring.
             Circle().strokeBorder(
-                AngularGradient(colors: colors, center: .center),
+                AngularGradient(colors: Self.seamless(colors), center: .center, angle: .degrees(-90)),
                 lineWidth: 4
             )
+            .blur(radius: 4)
+            .opacity(0.7)
         case .shimmer(let color), .neonPulse(let color), .orbit(let color):
             Circle().strokeBorder(color.opacity(0.3), lineWidth: 3)
         case .auroraPulse:
@@ -2129,7 +2224,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
             Circle().strokeBorder(color.opacity(0.85), lineWidth: 2.5)
         case .dualRing(let a, let b):
             Circle()
-                .strokeBorder(AngularGradient(colors: [a, b, a], center: .center), lineWidth: 3)
+                .strokeBorder(AngularGradient(colors: [a, b, a], center: .center, angle: .degrees(-90)), lineWidth: 3)
                 .padding(2)
             Circle()
                 .strokeBorder(b.opacity(0.5), lineWidth: 1)
@@ -2139,8 +2234,7 @@ struct ModulaDecoratedAvatar<Content: View>: View {
                 .strokeBorder(color, style: StrokeStyle(lineWidth: 2.5, dash: [5, 4]))
         case .gradient(let colors):
             Circle()
-                .strokeBorder(AngularGradient(colors: colors, center: .center), lineWidth: 3.5)
-                .shadow(color: colors.first?.opacity(reduceMotion ? 0 : 0.45) ?? .clear, radius: 8)
+                .strokeBorder(AngularGradient(colors: Self.seamless(colors), center: .center, angle: .degrees(-90)), lineWidth: 3.5)
         case .pixels(let color):
             Circle().strokeBorder(color, lineWidth: 2)
             ForEach(0..<8, id: \.self) { i in
@@ -2276,6 +2370,12 @@ struct ModulaDecoratedAvatar<Content: View>: View {
 
     private var pipSize: CGFloat { max(12, min(size * 0.2, 26)) }
 
+    /// Closes an angular gradient so it has no hard seam at the start angle.
+    static func seamless(_ colors: [Color]) -> [Color] {
+        guard let first = colors.first, colors.count > 1 else { return colors }
+        return colors.last == first ? colors : colors + [first]
+    }
+
     private var presencePip: some View {
         Circle()
             .fill(presence.color)
@@ -2345,7 +2445,9 @@ struct ProfileAvatarOverlayEditor: View {
                 .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-            .safeAreaInset(edge: .bottom) { applyBar }
+            // Last row (rings / presence) always scrolls clear of the Done bar.
+            .contentMargins(.bottom, 48, for: .scrollContent)
+            .safeAreaInset(edge: .bottom, spacing: 0) { applyBar }
             .modulaCanvas()
             .navigationTitle("Frames")
             .navigationBarTitleDisplayMode(.inline)
@@ -2431,8 +2533,12 @@ struct ProfileAvatarOverlayEditor: View {
                     }
                 }
                 .padding(.vertical, 6)
-                .padding(.horizontal, 2)
             }
+            // Rail runs edge to edge of the sheet with a 16pt inset at both ends, so the last
+            // label ("Freelance", "Custom") is never clipped.
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .padding(.horizontal, -16)
+            .modulaHorizontalRail()
             .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
@@ -2459,7 +2565,7 @@ struct ProfileAvatarOverlayEditor: View {
                 .background {
                     if selected {
                         Circle()
-                            .strokeBorder(accent, lineWidth: 2.5)
+                            .strokeBorder(Color.primary, lineWidth: 2.5)
                             .matchedGeometryEffect(id: "status.selection", in: selection)
                     }
                 }
@@ -2469,7 +2575,8 @@ struct ProfileAvatarOverlayEditor: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: 80, alignment: .top)
+                    .frame(minWidth: 80, alignment: .top)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .contentShape(Rectangle())
         }
@@ -2528,37 +2635,10 @@ struct ProfileAvatarOverlayEditor: View {
 
     private var visibilitySection: some View {
         section("Who sees your frame", subtitle: visibility == .onlyMe ? "Shown only on your own profile page." : nil) {
-            HStack(spacing: 4) {
-                ForEach(ProfileFrameVisibility.allCases) { option in
-                    let selected = option == visibility
-                    Button {
-                        withAnimation(selectionSpring) { visibility = option }
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        Label(option.title, systemImage: option.systemImage)
-                            .font(.subheadline.weight(.semibold))
-                            .labelStyle(.titleAndIcon)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundStyle(selected ? Color.white : Color.secondary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 40)
-                            .background {
-                                if selected {
-                                    Capsule()
-                                        .fill(accent)
-                                        .shadow(color: accent.opacity(0.3), radius: 6, y: 2)
-                                        .matchedGeometryEffect(id: "visibility.pill", in: selection)
-                                }
-                            }
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                }
-            }
-            .padding(4)
-            .modulaGlass(in: Capsule(), interactive: false)
+            ModulaSegmentedControl(segments: ProfileFrameVisibility.allCases.map {
+                .init(id: $0, title: $0.title, systemImage: $0.systemImage)
+            }, selection: $visibility, accessibilityLabel: "Who sees your frame",
+               identifier: { "profile.frame.visibility.\($0.title)" })
             .disabled(badge == nil)
             .opacity(badge == nil ? 0.5 : 1)
         }
@@ -2586,8 +2666,9 @@ struct ProfileAvatarOverlayEditor: View {
                             }
                             Text(item.title)
                                 .font(.caption2.weight(.semibold))
-                                .foregroundStyle(selected ? accent : Color.secondary)
+                                .foregroundStyle(selected ? Color.primary : Color.secondary)
                                 .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                             Text(item.rarity.title)
                                 .font(.caption2.weight(.bold))
                                 .foregroundStyle(item.rarity.tint)
@@ -2595,14 +2676,11 @@ struct ProfileAvatarOverlayEditor: View {
                         }
                         .padding(8)
                         .frame(maxWidth: .infinity)
-                        .background {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(selected ? accent.opacity(0.14) : Color.primary.opacity(0.04))
-                        }
+                        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
                         .overlay {
                             if selected {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(accent.opacity(0.6), lineWidth: 1.5)
+                                    .strokeBorder(Color.primary.opacity(0.6), lineWidth: 1.5)
                                     .matchedGeometryEffect(id: "ring.selection", in: selection)
                             }
                         }
@@ -2632,15 +2710,18 @@ struct ProfileAvatarOverlayEditor: View {
                             }
                             .padding(.horizontal, 12)
                             .frame(height: 36)
-                            .background(
-                                Capsule().fill(presence == status ? status.color.opacity(0.18) : Color.primary.opacity(0.05))
-                            )
+                            .modulaGlass(in: Capsule(), interactive: true)
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(presence == status ? 0.6 : 0), lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(presence == status ? .isSelected : [])
                     }
                 }
+                .padding(.vertical, 2)
             }
+            .contentMargins(.horizontal, 16, for: .scrollContent)
+            .padding(.horizontal, -16)
+            .modulaHorizontalRail()
             .spatialGesturePriority()
             .scrollIndicators(.hidden)
         }
@@ -2652,14 +2733,14 @@ struct ProfileAvatarOverlayEditor: View {
         Button(action: apply) {
             Text(hasChanges ? "Apply" : "Done")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-        .background(accent, in: Capsule())
-        .shadow(color: accent.opacity(0.35), radius: 12, y: 4)
+        // Plain black/white glass action (never accent).
+        .modulaGlass(in: Capsule(), interactive: true)
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
@@ -2806,8 +2887,10 @@ struct ProfileArcBanner: View {
                     AngularGradient(
                         stops: [
                             .init(color: color.opacity(0), location: 0),
+                            .init(color: color.opacity(0.75), location: 0.12),
                             .init(color: color, location: 0.22),
                             .init(color: color, location: 0.84),
+                            .init(color: color.opacity(0.75), location: 0.92),
                             .init(color: color.opacity(0), location: 1)
                         ],
                         center: .center,
@@ -2856,7 +2939,7 @@ struct ProfileArcText: View {
     var size: CGFloat
     var fontSize: CGFloat
     /// Middle of the label on the circle (lower-left).
-    var centerDegrees: Double = 132
+    var centerDegrees: Double = 131
 
     private struct Glyph: Identifiable {
         let id: Int
@@ -2872,7 +2955,7 @@ struct ProfileArcText: View {
                 Text(glyph.character)
                     .font(.system(size: layout.font, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.22), radius: 0.6, y: 0.4)
+                    .shadow(color: .black.opacity(0.28), radius: 0.8, y: 0.5)
                     .fixedSize()
                     .rotationEffect(.degrees(glyph.degrees - 90))
                     .position(
@@ -2888,20 +2971,20 @@ struct ProfileArcText: View {
     private func glyphLayout() -> (glyphs: [Glyph], font: CGFloat) {
         let characters = Array(text).map(String.init)
         guard !characters.isEmpty, radius > 0 else { return ([], fontSize) }
-        let tracking: CGFloat = 0.06
+        // Even, slightly open tracking reads best on a curve (letters fan out on the outside).
+        let tracking: CGFloat = 0.1
+        // Real advances from the rounded heavy face (no per-letter guesses), so #HIRING and
+        // #OPENTOCOLLAB get the same optical spacing.
+        let base = UIFont.systemFont(ofSize: 100, weight: .heavy)
+        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 100) } ?? base
         func advance(_ character: String) -> CGFloat {
-            switch character {
-            case "I", "1", "!", ".", ",", "'": return 0.34
-            case "M", "W": return 0.9
-            case "#": return 0.72
-            default: return 0.7
-            }
+            (character as NSString).size(withAttributes: [.font: rounded]).width / 100
         }
         var font = fontSize
         var widths = characters.map { advance($0) * font }
         var total = widths.reduce(0, +) + CGFloat(characters.count - 1) * font * tracking
-        // Keep the label inside the visible part of the band (~150° of arc).
-        let maxSpan = radius * CGFloat(150 * Double.pi / 180)
+        // Fit inside the solid (non-fading) part of the band: ~112° centred on it.
+        let maxSpan = radius * CGFloat(112 * Double.pi / 180)
         if total > maxSpan {
             let scale = maxSpan / total
             font *= scale
@@ -3061,10 +3144,40 @@ private struct ProfilePillSurface: ViewModifier {
 
     func body(content: Content) -> some View {
         if prominent {
-            // Same filled accent CTA as the rest of the app (was a darkened cover tint).
-            content.modulaAccentCTA()
+            // Primary CTA: solid label-colour fill, inverted label (t169u — no accent).
+            content.modulaPrimaryCTA()
         } else {
             content.modulaGlass(in: Capsule(), interactive: true, specular: true)
+        }
+    }
+}
+
+
+/// Touch and hold the profile website chip: a live link preview card (title, image, domain from the existing
+/// link-preview endpoint) with Open, Copy Link and Share. The preview gets the environment explicitly, because
+/// context-menu previews are hosted outside the view tree.
+struct ProfileLinkPreviewMenu: ViewModifier {
+    let url: URL?
+    let app: AppEnvironment
+    let open: () -> Void
+
+    func body(content: Content) -> some View {
+        if let url {
+            content.contextMenu {
+                Button("Open", systemImage: "safari") { open() }
+                Button("Copy Link", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.url = url
+                    HapticEngine.shared.play(.success)
+                }
+                ShareLink(item: url) { Label("Share", systemImage: "square.and.arrow.up") }
+            } preview: {
+                ModulaRichLinkCard(url: url)
+                    .environment(app)
+                    .frame(width: 320)
+                    .padding(12)
+            }
+        } else {
+            content
         }
     }
 }

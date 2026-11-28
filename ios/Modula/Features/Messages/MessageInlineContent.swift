@@ -13,12 +13,27 @@ enum MessageInlineContent: Equatable, Sendable {
 
     private static let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "gif", "webp", "heic", "avif"]
 
+    /// One shared detector (NSDataDetector matching is thread-safe) + a bounded memo: the inbox
+    /// filters, thread search scopes and every bubble render ask for the same strings repeatedly.
+    nonisolated(unsafe) private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    nonisolated(unsafe) private static var urlMemo: [String: URL?] = [:]
+    private static let memoLock = NSLock()
+
     static func firstURL(in text: String) -> URL? {
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        // Cheap reject: no dot and no scheme, no web link.
+        guard text.contains(".") || text.contains("://"), let detector else { return nil }
+        memoLock.lock()
+        if let hit = urlMemo[text] { memoLock.unlock(); return hit }
+        memoLock.unlock()
         let range = NSRange(text.startIndex..., in: text)
-        return detector.matches(in: text, options: [], range: range)
+        let url = detector.matches(in: text, options: [], range: range)
             .compactMap(\.url)
             .first { $0.scheme == "https" || $0.scheme == "http" }
+        memoLock.lock()
+        if urlMemo.count > 600 { urlMemo.removeAll(keepingCapacity: true) }
+        urlMemo[text] = .some(url)
+        memoLock.unlock()
+        return url
     }
 
     static func classify(_ url: URL) -> MessageInlineContent {
@@ -87,6 +102,8 @@ struct MessageLinkPreview: View {
     let url: URL
     @State private var metadata: LPLinkMetadata?
     @State private var failed = false
+    @State private var hero: UIImage?
+    @State private var icon: UIImage?
 
     var body: some View {
         Group {
@@ -94,11 +111,25 @@ struct MessageLinkPreview: View {
                 // A compact card in the app's own style (title + domain) instead of LPLinkView,
                 // which truncated long addresses mid-host ("https://www.kl-cc.co…").
                 Link(destination: url) {
+                  VStack(alignment: .leading, spacing: 0) {
+                    if let hero {
+                        Image(uiImage: hero)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: 280, maxHeight: 140)
+                            .clipped()
+                            .accessibilityHidden(true)
+                    }
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "safari")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28)
+                        Group {
+                            if let icon {
+                                Image(uiImage: icon).resizable().scaledToFit()
+                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            } else {
+                                Image(systemName: "safari").font(.title3).foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(width: 28, height: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(metadata.title?.isEmpty == false ? metadata.title! : MessagePreviewText.displayHost(url))
                                 .font(.subheadline.weight(.semibold))
@@ -113,9 +144,12 @@ struct MessageLinkPreview: View {
                         Spacer(minLength: 0)
                     }
                     .padding(12)
+                  }
                     .frame(maxWidth: 280, alignment: .leading)
-                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    // Glass card with an optional hero image (t217u #16).
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Link: \(metadata.title ?? MessagePreviewText.displayHost(url))")
@@ -126,13 +160,14 @@ struct MessageLinkPreview: View {
                         .font(.footnote.weight(.semibold))
                         .lineLimit(1)
                         .padding(.horizontal, 12).padding(.vertical, 9)
-                        .background(Color.primary.opacity(0.06), in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                 }
             }
         }
         .task(id: url) {
             if let cached = MessageLinkMetadataCache.shared.metadata(for: url) {
                 metadata = cached
+                await loadImages(cached)
                 return
             }
             let provider = LPMetadataProvider()
@@ -141,8 +176,25 @@ struct MessageLinkPreview: View {
                 let fetched = try await provider.startFetchingMetadata(for: url)
                 MessageLinkMetadataCache.shared.store(fetched, for: url)
                 metadata = fetched
+                await loadImages(fetched)
             } catch {
                 failed = true
+            }
+        }
+    }
+
+    private func loadImages(_ metadata: LPLinkMetadata) async {
+        let heroProvider = metadata.imageProvider
+        let iconProvider = metadata.iconProvider
+        if let heroProvider { hero = await Self.image(from: heroProvider) }
+        if let iconProvider, hero == nil || icon == nil { icon = await Self.image(from: iconProvider) }
+    }
+
+    private static func image(from provider: NSItemProvider) async -> UIImage? {
+        guard provider.canLoadObject(ofClass: UIImage.self) else { return nil }
+        return await withCheckedContinuation { cont in
+            _ = provider.loadObject(ofClass: UIImage.self) { object, _ in
+                cont.resume(returning: object as? UIImage)
             }
         }
     }
@@ -178,13 +230,26 @@ private struct LinkPreviewRepresentable: UIViewRepresentable {
 /// chat and again inside Chat info (a sheet can only present from its own level).
 private struct MessageLinkInspectorModifier: ViewModifier {
     @State private var target: MessageLinkTarget?
+    @Environment(\.modulaChatLinkContext) private var chatContext
     func body(content: Content) -> some View {
         content
             .environment(\.openURL, OpenURLAction { url in
-                target = MessageLinkTarget(url: url)
+                var context = chatContext ?? ModulaChatLinkContext()
+                context.senderName = ModulaChatLinkContext.lastSender ?? context.senderName
+                ModulaChatLinkContext.lastSender = nil
+                // t177u speed: a plain https link (or a Modula link) opens straight in the Modula
+                // browser; only links worth a second look (http, punycode, user@host, other apps)
+                // stop at the inspector first.
+                // Settings → Links → "Check chat links first" shows the inspector for every link.
+                if !UserDefaults.standard.bool(forKey: "settings.links.inspectChatLinks"),
+                   !MessageLinkInspectorSheet.needsInspection(url) {
+                    ModulaLinkRouter.open(url, source: nil, chat: context)
+                    return .handled
+                }
+                target = MessageLinkTarget(url: url, chat: context)
                 return .handled
             })
-            .sheet(item: $target) { MessageLinkInspectorSheet(url: $0.url) }
+            .sheet(item: $target) { MessageLinkInspectorSheet(url: $0.url, chat: $0.chat).modulaSheetStyle() }
     }
 }
 
@@ -194,6 +259,7 @@ extension View {
 
 struct MessageLinkTarget: Identifiable, Hashable {
     let url: URL
+    var chat: ModulaChatLinkContext? = nil
     var id: String { url.absoluteString }
 }
 
@@ -201,7 +267,16 @@ struct MessageLinkTarget: Identifiable, Hashable {
 /// URL in the message: no remote preview fetch, no reputation score, and no claim it is safe.
 struct MessageLinkInspectorSheet: View {
     let url: URL
+    var chat: ModulaChatLinkContext? = nil
     @Environment(\.dismiss) private var dismiss
+
+    /// Links that skip straight to the browser: https with a normal host, or Modula's own.
+    static func needsInspection(_ url: URL) -> Bool {
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme == "modula" { return false }
+        guard scheme == "https", let host = url.host(percentEncoded: false)?.lowercased() else { return true }
+        return host.contains("xn--") || url.user != nil
+    }
     @State private var copied = false
 
     private var host: String { url.host(percentEncoded: false) ?? url.absoluteString }
@@ -244,13 +319,19 @@ struct MessageLinkInspectorSheet: View {
                     VStack(spacing: 10) {
                         Button {
                             HapticEngine.shared.play(.navigation)
-                            UIApplication.shared.open(url)
+                            let target = url
+                            let context = chat
                             dismiss()
+                            // Web links open in the Modula browser (with the chat context) once
+                            // this sheet is gone; other schemes hand off to their app.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                ModulaLinkRouter.open(target, source: nil, chat: context)
+                            }
                         } label: {
                             Text("Open link").font(.headline).frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityIdentifier("messages.link.open")
 
                         HStack(spacing: 10) {
@@ -288,7 +369,7 @@ struct MessageLinkInspectorSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
     }
 }
 
@@ -473,8 +554,8 @@ enum MessagePreviewText {
         let split = MessageQuoteText.split(raw)
         let parsed = ModulaLocalSticker.extract(split.body)
         var text = parsed.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty, let first = parsed.stickers.first {
-            return "Sticker · \(first.label)"
+        if text.isEmpty, !parsed.stickers.isEmpty {
+            return parsed.stickers.count == 1 ? "Sticker" : "\(parsed.stickers.count) stickers"
         }
         if text.isEmpty, let quote = split.quote, !quote.isEmpty {
             return "Reply: " + plain(quote)

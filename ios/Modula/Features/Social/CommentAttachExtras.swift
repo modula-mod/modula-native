@@ -159,5 +159,6 @@ struct CommentEventSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
     }
 }

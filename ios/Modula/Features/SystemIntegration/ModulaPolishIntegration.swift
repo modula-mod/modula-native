@@ -101,10 +101,12 @@ struct ModulaPolishKeyboardCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Go") {
-            ForEach(Array(AppTab.allCases.enumerated()), id: \.element) { index, tab in
+            ForEach(Array(environment.navigation.visibleTabs.enumerated()), id: \.element) { index, tab in
                 Button(tab.title) { go { environment.navigation.select(tab) } }
                     .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
             }
+            Button("Profile") { go { environment.navigation.select(.profile) } }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             Divider()
             Button("Scroll to Top") { go { ModulaTabReselect.post(environment.navigation.selectedTab) } }
                 .keyboardShortcut(.upArrow, modifiers: .command)

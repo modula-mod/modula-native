@@ -16,6 +16,22 @@ final class MessagingRealtimeClient {
         case conversationUpdated(conversationID: ConversationID, reason: String)
         case presence(PresenceItem)
         case callUpdated(CallRealtimeUpdate)
+        /// My own "mark unread" from any of my devices.
+        case conversationUnread(conversationID: ConversationID, markedUnread: Bool)
+        /// Live comments: ids/counts only; listeners refetch over REST.
+        case postComments(postID: String)
+        case postEngagement(postID: String, likeCount: Int?, reactionCount: Int?, replyCount: Int?)
+        /// Server ack: this post's comments are live now (listeners may pause their poll).
+        case postSubscribed(postID: String)
+        /// Someone reacted to (or cleared a reaction on) one of my stories (`story.reaction`).
+        case storyReaction(itemID: String)
+        /// Messaging features 4.
+        case messagePinned(conversationID: ConversationID)
+        case messageSaved(messageID: MessageID, saved: Bool)
+        case messagesExpired(conversationID: ConversationID, messageIDs: [MessageID])
+        case scheduledUpdated(conversationID: ConversationID)
+        case foldersUpdated
+        case quickRepliesUpdated
         case error(String)
         case disconnected
     }
@@ -46,6 +62,19 @@ final class MessagingRealtimeClient {
         heart?.cancel(); heart = nil
         task?.cancel(); task = nil
         isConnected = false
+    }
+
+    /// Post topics to (re)subscribe on every `hello`, so reconnects keep live comments.
+    private var postTopics: [String: (subscribe: String, unsubscribe: String)] = [:]
+
+    func subscribePost(_ postID: String, frame: String, unsubscribeFrame: String) {
+        postTopics[postID] = (frame, unsubscribeFrame)
+        if isConnected { send(object: ["type": .string(frame), "postId": .string(postID)]) }
+    }
+
+    func unsubscribePost(_ postID: String) {
+        guard let topic = postTopics.removeValue(forKey: postID) else { return }
+        if isConnected { send(object: ["type": .string(topic.unsubscribe), "postId": .string(postID)]) }
     }
 
     func sendTyping(conversationID: ConversationID) {
@@ -101,6 +130,9 @@ final class MessagingRealtimeClient {
             isConnected = true
             if let ms = value["heartbeatMs"]?.int, ms > 0 { heartbeatMs = ms }
             startHeartbeat()
+            for (postID, topic) in postTopics {
+                send(object: ["type": .string(topic.subscribe), "postId": .string(postID)])
+            }
             onEvent?(.hello(actorId: value["actorId"]?.string ?? "", heartbeatMs: heartbeatMs))
         case "pong":
             break
@@ -130,6 +162,42 @@ final class MessagingRealtimeClient {
             onEvent?(.presence(PresenceItem(actorId: actor, status: PresenceStatus(parsing: value["status"]?.string), lastActiveAt: MessagingPayloadDecoder.decodeDate(value["lastActiveAt"]?.string))))
         case "call.updated":
             if let update = CallPayloadDecoder.realtimeUpdate(value) { onEvent?(.callUpdated(update)) }
+        case "conversation.unread":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.conversationUnread(conversationID: conversation, markedUnread: value["markedUnread"]?.bool ?? false))
+        case "post.comment.created", "post.comment.updated", "post.comment.deleted", "post.comment.reactions":
+            guard let post = value["postId"]?.string else { return }
+            onEvent?(.postComments(postID: post))
+        case "post.engagement":
+            guard let post = value["postId"]?.string else { return }
+            onEvent?(.postEngagement(postID: post, likeCount: value["likeCount"]?.int,
+                                     reactionCount: value["reactionCount"]?.int, replyCount: value["replyCount"]?.int))
+        case "post.subscribed":
+            // Only an ack makes a topic live; refusals (`not-found`, `too-many-posts`) carry no
+            // post id, so un-acked topics simply keep their REST poll.
+            guard let post = value["postId"]?.string, postTopics[post] != nil else { return }
+            onEvent?(.postSubscribed(postID: post))
+        case "post.unsubscribed":
+            break
+        case "message.pinned":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.messagePinned(conversationID: conversation))
+        case "message.saved":
+            guard let message = value["messageId"]?.string else { return }
+            onEvent?(.messageSaved(messageID: message, saved: value["saved"]?.bool ?? false))
+        case "message.expired":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.messagesExpired(conversationID: conversation, messageIDs: (value["messageIds"]?.array ?? []).compactMap(\.string)))
+        case "scheduled.updated":
+            guard let conversation = value["conversationId"]?.string else { return }
+            onEvent?(.scheduledUpdated(conversationID: conversation))
+        case "messaging.folders.updated":
+            onEvent?(.foldersUpdated)
+        case "messaging.quick-replies.updated":
+            onEvent?(.quickRepliesUpdated)
+        case "story.reaction":
+            guard let item = value["itemId"]?.string else { return }
+            onEvent?(.storyReaction(itemID: item))
         case "error":
             onEvent?(.error(value["reason"]?.string ?? "socket"))
         default:

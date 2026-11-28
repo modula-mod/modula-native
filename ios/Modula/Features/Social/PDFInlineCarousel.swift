@@ -248,6 +248,7 @@ struct ModulaPDFInlineCarousel: View {
                 }
                 .scrollTargetLayout()
             }
+            .modulaHorizontalRail()
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $slide)
             .scrollIndicators(.hidden)

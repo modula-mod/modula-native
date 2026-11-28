@@ -238,9 +238,7 @@ struct ModuleListing: Equatable, Sendable {
 
     static func date(_ value: String?) -> Date? {
         guard let value else { return nil }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        return ModulaISODate.parse(value)  // shared cached formatters (was two allocations per field)
     }
 
     var highRiskCount: Int { permissions.filter { ["high", "restricted"].contains($0.risk) }.count }

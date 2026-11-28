@@ -91,6 +91,7 @@ struct ProfileEditView: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .interactiveDismissDisabled(editing.isDirty)
+        .modulaBlocksSwipeBack(editing.isDirty)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { attemptDismiss() }
@@ -102,13 +103,16 @@ struct ProfileEditView: View {
                     save()
                 } label: {
                     if editing.status == .saving {
-                        ProgressView().controlSize(.small).tint(.white)
+                        ProgressView().controlSize(.small)
                     } else {
-                        Text("Save").fontWeight(.semibold)
+                        Text("Save")
+                            .fontWeight(.semibold)
+                            // Disabled stays legible on the glass (no grey slab).
+                            .foregroundStyle(canSave ? Color.primary : Color.primary.opacity(0.45))
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(accent)
+                // Plain toolbar button = system Liquid Glass, black/white like Cancel (never accent).
+                .tint(.primary)
                 .disabled(!canSave && editing.status != .saving)
                 .animation(spring, value: canSave)
                 .accessibilityIdentifier("profile.edit.save")
@@ -146,7 +150,7 @@ struct ProfileEditView: View {
         .sheet(isPresented: $showsAvatarOverlays) {
             ProfileAvatarOverlayEditor()
                 .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
         }
         .confirmationDialog("Unsaved changes", isPresented: $confirmsDiscard, titleVisibility: .visible) {
             Button("Save Changes") { save() }
@@ -255,7 +259,7 @@ struct ProfileEditView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false, specular: true)
         }
     }
 
@@ -337,12 +341,7 @@ struct ProfileEditView: View {
             Text("Who can see your profile")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Picker("Visibility", selection: visibilityBinding) {
-                ForEach([ProfileVisibility.public, .followers, .teams, .private], id: \.self) { value in
-                    Text(value.displayTitle).tag(value)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Visibility", selection: visibilityBinding, options: [ProfileVisibility.public, .followers, .teams, .private]) { $0.displayTitle }
             .accessibilityIdentifier("profile.edit.visibility")
         }
         .padding(.vertical, 10)

@@ -20,5 +20,25 @@ for p in (root/'ios/Modula').rglob('*'):
         violations.append(f'Optional package is bundled in Native source: {p}')
 assert json.loads((root/'runtime/package.json').read_text())['dependencies']['react-native'] == '0.87.1'
 assert not (root/'android').exists()
+# t169u component unification: one segmented control, one sheet style, no accent action buttons.
+SEGMENTED_HOME = 'ModulaTabsAndSpaces.swift'
+SHEET_HOMES = {'ModulaGlass.swift', 'ModulaSheet.swift'}
+unification_rules = [
+    (r'\.pickerStyle\(\.segmented\)', 'system segmented Picker (use ModulaSegmentedControl)', set()),
+    (r'\b(?:ModulaTabStrip|ModulaTabIndicator|ModulaEffectTabs|DiscoverScopeGlass|MessagesGlassScopeControl|ModulaMetricPicker)\b', 'removed bespoke segmented variant', set()),
+    (r'matchedGeometryEffect\(id:\s*"[^"]*(?:pill|tab|segment|chip|scope|filter|thumb|mode)', 'bespoke sliding selection indicator', {SEGMENTED_HOME}),
+    (r'modulaAccentCTA|\.borderedProminent\b', 'accent-filled action button (use .modulaPrimary / modulaPrimaryCTA)', set()),
+    (r'\.tint\((?:app|environment)\.appearance\.liveAccent\)', 'accent-tinted control', set()),
+    (r'modulaGlass\([^\n]*tint:\s*(?:app\.appearance\.liveAccent|accent)\b[^\n]*prominent:\s*true', 'accent-filled glass button', set()),
+    (r'\.presentationCornerRadius\(', 'bespoke sheet corner radius (use modulaSheetStyle)', set()),
+    (r'\.presentationDragIndicator\(', 'bespoke sheet grabber (use modulaSheetStyle)', SHEET_HOMES),
+]
+for p in (root / 'ios/Modula').rglob('*.swift'):
+    code = '\n'.join('' if line.lstrip().startswith('//') else line for line in p.read_text().split('\n'))
+    for pattern, label, allowed in unification_rules:
+        if p.name in allowed: continue
+        for m in re.finditer(pattern, code):
+            line = code.count('\n', 0, m.start()) + 1
+            violations.append(f'Component unification: {label}: {p.relative_to(root)}:{line}')
 assert not violations, '\n'.join(violations)
 print('Native/runtime ownership boundaries passed')

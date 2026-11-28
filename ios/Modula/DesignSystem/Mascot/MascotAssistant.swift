@@ -27,8 +27,7 @@ struct MascotUserContext: Codable, Equatable, Sendable {
         comps.day = day
         comps.year = 2000
         guard let date = Calendar.current.date(from: comps) else { return nil }
-        let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("MMM d")
-        return f.string(from: date)
+        return date.formatted(.dateTime.month(.abbreviated).day())
     }
 }
 
@@ -230,7 +229,7 @@ struct MascotAssistantDraftSheet: View {
                     onDiscard()
                     dismiss()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.modulaSecondary)
                 .buttonBorderShape(.capsule)
 
                 Spacer()
@@ -245,7 +244,7 @@ struct MascotAssistantDraftSheet: View {
                         .font(.headline)
                         .padding(.horizontal, 8)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .buttonBorderShape(.capsule)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -258,7 +257,8 @@ struct MascotAssistantDraftSheet: View {
             brain.burst(.sparkle)
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(.thinMaterial)
+        .modulaSheetStyle()
+        .modulaGlassPresentation()
     }
 
     @ViewBuilder private var mascotFace: some View {

@@ -208,6 +208,8 @@ struct SocialPost: Identifiable, Hashable, Sendable {
     var engagement: PostEngagement
     /// Place name when the API sends one (post `location` / `place`).
     var location: String? = nil
+    /// Pinned to the author's profile — only when the API says so (`pinned` / `isPinned` / `pinnedAt`).
+    var isPinned: Bool = false
 
     var liked: Bool {
         get { engagement.liked }
@@ -374,9 +376,9 @@ struct FeedSummary: Hashable, Sendable {
         var highlights: [String] = []
         if !posts.isEmpty { highlights.append(posts.count == 1 ? "1 post loaded" : "\(posts.count) posts loaded") }
         if likes > 0 { highlights.append(String(localized: "\(likes) likes")) }
-        if replies > 0 { highlights.append(String(localized: "\(replies) replies")) }
+        if replies > 0 { highlights.append(replies == 1 ? String(localized: "1 reply") : String(localized: "\(replies) replies")) }
         if media > 0 { highlights.append(media == 1 ? "1 post with media" : "\(media) posts with media") }
-        if modules > 0 { highlights.append(String(localized: "\(modules) module updates")) }
+        if modules > 0 { highlights.append(modules == 1 ? String(localized: "1 module update") : String(localized: "\(modules) module updates")) }
         return FeedSummary(
             source: .aggregate,
             postCount: posts.count,
@@ -511,7 +513,8 @@ enum SocialPayloadDecoder {
                 reactionCount: value["reactionCount"]?.int ?? value["reaction_count"]?.int ?? 0,
                 reactionSummary: ReactionSummary.decode(from: value["reactionSummary"] ?? value["reactions"] ?? value["reactionBreakdown"] ?? value["byType"])
             ),
-            location: emptyToNil(value["location"]?.string ?? value["location"]?["name"]?.string ?? value["place"]?["name"]?.string ?? value["place"]?.string)
+            location: emptyToNil(value["location"]?.string ?? value["location"]?["name"]?.string ?? value["place"]?["name"]?.string ?? value["place"]?.string),
+            isPinned: value["pinned"]?.bool ?? value["isPinned"]?.bool ?? (value["pinnedAt"]?.string != nil)
         )
     }
 

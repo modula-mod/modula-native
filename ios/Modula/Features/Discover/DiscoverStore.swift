@@ -222,6 +222,9 @@ final class DiscoverStore {
         let hasContent = !search.results.isEmpty
         search.loadState = hasContent ? .refreshing : .loading
         search.lastError = nil
+        // Instruments: "Search" interval (query typed → results in the store).
+        ModulaSignpost.begin("Search", "search")
+        defer { ModulaSignpost.end("Search", "search") }
         do {
             let page = try await repository.search(query: trimmed, entityType: Self.entityType(section), cursor: nil)
             search.results = page.results
@@ -256,6 +259,20 @@ final class DiscoverStore {
             search.loadState = .loaded
             actionError = (error as? APIError)?.userFacingMessage ?? "Could not load more results."
         }
+    }
+
+    /// Sign-out / account switch: drop the previous account's in-memory data so the next
+    /// account never sees it while its own first page loads (stores outlive the session).
+    func resetForAccountChange() {
+        trending = DiscoverTrendingState()
+        people = DiscoverPeopleState()
+        topics = DiscoverTopicsState()
+        posts = DiscoverPostsState()
+        modules = DiscoverModulesState()
+        search = DiscoverSearchState()
+        visitedScopes = [.trending]
+        followBusyID = nil
+        actionError = nil
     }
 
     func clearActionError() { actionError = nil }

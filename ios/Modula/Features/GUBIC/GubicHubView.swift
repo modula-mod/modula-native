@@ -33,7 +33,7 @@ struct GubicAccentButton: View {
                 if let symbol { Label(title, systemImage: symbol) } else { Text(title) }
             }
             .font(compact ? .subheadline.weight(.semibold) : .headline)
-            .foregroundStyle(app.appearance.liveAccent)
+            .foregroundStyle(.primary)
             .padding(.horizontal, compact ? ModulaSpacing.md : ModulaSpacing.lg)
             .frame(minHeight: ModulaLayout.minimumTouch)
             .contentShape(Capsule())
@@ -102,7 +102,7 @@ struct GubicProductHubEntry: View {
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.subheadline.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                 }
                 .padding(ModulaSpacing.md)
                 .contentShape(RoundedRectangle(cornerRadius: ModulaRadius.large, style: .continuous))
@@ -143,10 +143,7 @@ struct GubicHubView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: ModulaSpacing.lg) {
                 header
-                Picker("Section", selection: $tab) {
-                    ForEach(GubicTab.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                ModulaSegmentedControl("Section", selection: $tab, options: GubicTab.allCases) { $0.title }
                 .accessibilityIdentifier("gubic.tabs")
                 switch tab {
                 case .discover: discover
@@ -163,7 +160,7 @@ struct GubicHubView: View {
         .searchable(text: $query, prompt: "Search games")
         .refreshable { await reload() }
         .modulaCanvas()
-        .tint(app.appearance.liveAccent)
+        .tint(.primary)
         .animation(reduceMotion ? nil : .snappy, value: tab)
         .task { await reload() }
         .fullScreenCover(item: $playing) { source in
@@ -238,6 +235,7 @@ struct GubicHubView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
     }
 
     private var sampleCard: some View {
@@ -283,6 +281,7 @@ struct GubicShelf: View {
                         }
                     }
                 }
+                .modulaHorizontalRail()
             }
         }
     }
@@ -332,7 +331,7 @@ struct GubicGameRow: View {
                     .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(app.appearance.liveAccent)
+            Image(systemName: "chevron.right").foregroundStyle(.primary)
         }
         .padding(.vertical, ModulaSpacing.xs)
         .contentShape(Rectangle())

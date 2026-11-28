@@ -39,6 +39,8 @@ struct StoryItem: Identifiable, Hashable, Sendable {
     let seen: Bool
     let isOwn: Bool
     let viewerCount: Int?
+    /// My reaction on someone else's item (`reactions` capability; `GET /v1/stories/:groupId`).
+    var viewerReaction: String? = nil
 
     var ring: StoryRingState {
         if isOwn { return .own }
@@ -95,10 +97,30 @@ struct StoryBackendCapabilities: Sendable, Equatable {
     var react = false
     var privacy = false
     var video = false
+    /// Migration 092, advertised by `GET /v1/stories/capabilities` (all off until probed).
+    var highlights = false
+    var archive = false
+    var highlightTitleMax = 40
+    var highlightMaxItems = 100
 
     // Replies (into DMs) and deleting your own story item are live on GreenField
     // (`POST /v1/stories/:itemId/replies`, `DELETE /v1/stories/items/:itemId`).
     static let production = StoryBackendCapabilities(list: true, create: true, reply: true)
+
+    /// Merges `/v1/stories/capabilities` (version ≥ 2) over the known-live base. Missing or
+    /// malformed fields stay off.
+    static func probed(_ value: JSONValue, base: StoryBackendCapabilities = .production) -> StoryBackendCapabilities {
+        var caps = base
+        guard (value["version"]?.int ?? 0) >= 2 else { return caps }
+        caps.viewers = value["viewers"]?.bool ?? false
+        caps.react = value["reactions"]?["enabled"]?.bool ?? false
+        let highlights = value["highlights"]
+        caps.highlights = highlights?["enabled"]?.bool ?? false
+        caps.highlightTitleMax = highlights?["titleMaxLength"]?.int ?? 40
+        caps.highlightMaxItems = highlights?["maxItems"]?.int ?? 100
+        caps.archive = value["archive"]?.bool ?? false
+        return caps
+    }
 
     enum Paths {
         static let rail = "/v1/stories/rail"
@@ -107,6 +129,22 @@ struct StoryBackendCapabilities: Sendable, Equatable {
         static func viewed(_ id: String) -> String { "/v1/stories/items/\(escape(id))/viewed" }
         static func replies(_ id: String) -> String { "/v1/stories/\(escape(id))/replies" }
         static func item(_ id: String) -> String { "/v1/stories/items/\(escape(id))" }
+        static let capabilities = "/v1/stories/capabilities"
+        static func viewers(_ id: String, cursor: String?) -> String {
+            var path = "/v1/stories/items/\(escape(id))/viewers?limit=50"
+            if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .alphanumerics) { path += "&cursor=\(encoded)" }
+            return path
+        }
+        static func reaction(_ id: String) -> String { "/v1/stories/items/\(escape(id))/reaction" }
+        static func reactions(_ id: String) -> String { "/v1/stories/items/\(escape(id))/reactions" }
+        static func archive(cursor: String?) -> String {
+            var path = "/v1/stories/archive?limit=60"
+            if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .alphanumerics) { path += "&cursor=\(encoded)" }
+            return path
+        }
+        static let highlights = "/v1/stories/highlights"
+        static func highlight(_ id: String) -> String { "/v1/stories/highlights/\(escape(id))" }
+        static func profileHighlights(_ handle: String) -> String { "/v1/profiles/\(escape(handle))/highlights" }
 
         private static func escape(_ value: String) -> String {
             value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
@@ -183,7 +221,8 @@ enum StoryPayloadDecoder {
             background: value["background"]?.string ?? value["colour"]?.string,
             seen: value["viewed"]?.bool ?? value["seen"]?.bool ?? false,
             isOwn: value["isOwn"]?.bool ?? isOwn,
-            viewerCount: value["viewerCount"]?.int
+            viewerCount: value["viewerCount"]?.int,
+            viewerReaction: value["viewerReaction"]?.string
         )
     }
 
@@ -441,6 +480,59 @@ struct StoryBackendRepository: Sendable {
         _ = try await client.authenticatedJSON("DELETE", path: StoryBackendCapabilities.Paths.item(itemID))
     }
 
+    // MARK: Migration 092 (callers check the probed capabilities first)
+
+    func fetchCapabilities() async throws -> JSONValue {
+        try await client.authenticatedJSON("GET", path: StoryBackendCapabilities.Paths.capabilities)
+    }
+
+    func viewers(itemID: StoryID, cursor: String?) async throws -> StoryViewerPage {
+        StorySocialDecoder.viewerPage(try await client.authenticatedJSON("GET", path: StoryBackendCapabilities.Paths.viewers(itemID, cursor: cursor)))
+    }
+
+    func reactions(itemID: StoryID) async throws -> StoryReactionSummary {
+        StorySocialDecoder.reactions(try await client.authenticatedJSON("GET", path: StoryBackendCapabilities.Paths.reactions(itemID)))
+    }
+
+    func setReaction(itemID: StoryID, emoji: String?) async throws {
+        if let emoji {
+            _ = try await client.authenticatedJSON("PUT", path: StoryBackendCapabilities.Paths.reaction(itemID), body: .object(["emoji": .string(emoji)]))
+        } else {
+            _ = try await client.authenticatedJSON("DELETE", path: StoryBackendCapabilities.Paths.reaction(itemID))
+        }
+    }
+
+    func archive(cursor: String?) async throws -> (items: [StoryArchiveItem], next: String?) {
+        let value = try await client.authenticatedJSON("GET", path: StoryBackendCapabilities.Paths.archive(cursor: cursor))
+        let items = (value["items"]?.array ?? []).compactMap(StorySocialDecoder.archiveItem)
+        return (items, (value["hasMore"]?.bool ?? false) ? value["nextCursor"]?.string : nil)
+    }
+
+    func highlights(handle: String) async throws -> [StoryHighlight] {
+        let value = try await client.authenticatedJSON("GET", path: StoryBackendCapabilities.Paths.profileHighlights(handle))
+        return (value["items"]?.array ?? []).compactMap(StorySocialDecoder.highlight)
+    }
+
+    func highlight(id: String) async throws -> StoryHighlight? {
+        StorySocialDecoder.highlight(try await client.authenticatedJSON("GET", path: StoryBackendCapabilities.Paths.highlight(id)))
+    }
+
+    func saveHighlight(id: String?, title: String, itemIDs: [StoryID], coverItemID: StoryID?) async throws -> StoryHighlight? {
+        var body: [String: JSONValue] = ["title": .string(title), "itemIds": .array(itemIDs.map(JSONValue.string))]
+        if let coverItemID { body["coverItemId"] = .string(coverItemID) }
+        let value: JSONValue
+        if let id {
+            value = try await client.authenticatedJSON("PATCH", path: StoryBackendCapabilities.Paths.highlight(id), body: .object(body))
+        } else {
+            value = try await client.authenticatedJSON("POST", path: StoryBackendCapabilities.Paths.highlights, body: .object(body))
+        }
+        return StorySocialDecoder.highlight(value)
+    }
+
+    func deleteHighlight(id: String) async throws {
+        _ = try await client.authenticatedJSON("DELETE", path: StoryBackendCapabilities.Paths.highlight(id))
+    }
+
     func markViewed(itemID: StoryID) async throws {
         guard capabilities.list else { return }
         _ = try await client.authenticatedJSON(
@@ -453,8 +545,12 @@ struct StoryBackendRepository: Sendable {
 
 @MainActor @Observable
 final class StoryStore {
-    private let repository: StoryBackendRepository
-    let capabilities: StoryBackendCapabilities
+    private var repository: StoryBackendRepository
+    private let client: GreenfieldClient
+    private(set) var capabilities: StoryBackendCapabilities
+    @ObservationIgnored private var probed = false
+    /// Highlights per profile handle (lower-cased), only when `highlights` is advertised.
+    private(set) var highlightsByHandle: [String: [StoryHighlight]] = [:]
     private(set) var groups: [StoryGroup] = []
     private(set) var loadState: MessagingLoadState = .idle
     private(set) var actionError: String?
@@ -463,7 +559,98 @@ final class StoryStore {
 
     init(client: GreenfieldClient, capabilities: StoryBackendCapabilities = .production) {
         self.repository = StoryBackendRepository(client: client, capabilities: capabilities)
+        self.client = client
         self.capabilities = capabilities
+    }
+
+    /// One `GET /v1/stories/capabilities` per account; viewers / reactions / highlights / archive
+    /// stay hidden unless the server advertises them.
+    func probeCapabilities() async {
+        guard !probed else { return }
+        probed = true
+        guard let value = try? await repository.fetchCapabilities() else { return }
+        let merged = StoryBackendCapabilities.probed(value, base: capabilities)
+        guard merged != capabilities else { return }
+        capabilities = merged
+        repository = StoryBackendRepository(client: client, capabilities: merged)
+    }
+
+    /// Signed-out / switched account: capabilities re-probe and per-account highlights drop.
+    func resetForAccountChange() {
+        probed = false
+        highlightsByHandle = [:]
+        groups = []
+        loadState = .idle
+    }
+
+    func viewers(itemID: StoryID, cursor: String? = nil) async -> StoryViewerPage? {
+        guard capabilities.viewers else { return nil }
+        return try? await repository.viewers(itemID: itemID, cursor: cursor)
+    }
+
+    func reactions(itemID: StoryID) async -> StoryReactionSummary? {
+        guard capabilities.react else { return nil }
+        return try? await repository.reactions(itemID: itemID)
+    }
+
+    /// PUT (emoji) / DELETE (nil) my reaction. Returns false on failure (caller rolls back).
+    func setReaction(itemID: StoryID, emoji: String?) async -> Bool {
+        guard capabilities.react else { return false }
+        do {
+            try await repository.setReaction(itemID: itemID, emoji: emoji)
+            for g in groups.indices {
+                if let i = groups[g].items.firstIndex(where: { $0.id == itemID }) { groups[g].items[i].viewerReaction = emoji }
+            }
+            return true
+        } catch {
+            actionError = "Couldn’t react to this story."
+            return false
+        }
+    }
+
+    func highlights(for handle: String) -> [StoryHighlight] {
+        highlightsByHandle[handle.lowercased()] ?? []
+    }
+
+    func loadHighlights(handle: String) async {
+        await probeCapabilities()
+        guard capabilities.highlights, !handle.isEmpty,
+              let items = try? await repository.highlights(handle: handle) else { return }
+        if highlightsByHandle[handle.lowercased()] != items { highlightsByHandle[handle.lowercased()] = items }
+    }
+
+    func archive(cursor: String? = nil) async -> (items: [StoryArchiveItem], next: String?)? {
+        guard capabilities.archive else { return nil }
+        return try? await repository.archive(cursor: cursor)
+    }
+
+    func highlight(id: String) async -> StoryHighlight? {
+        guard capabilities.highlights else { return nil }
+        return try? await repository.highlight(id: id)
+    }
+
+    func saveHighlight(id: String?, title: String, itemIDs: [StoryID], coverItemID: StoryID?, ownerHandle: String) async -> Bool {
+        guard capabilities.highlights else { return false }
+        do {
+            _ = try await repository.saveHighlight(id: id, title: title, itemIDs: itemIDs, coverItemID: coverItemID)
+            await loadHighlights(handle: ownerHandle)
+            return true
+        } catch {
+            actionError = (error as? APIError)?.userFacingMessage ?? "Couldn’t save this highlight."
+            return false
+        }
+    }
+
+    func deleteHighlight(id: String, ownerHandle: String) async -> Bool {
+        guard capabilities.highlights else { return false }
+        do {
+            try await repository.deleteHighlight(id: id)
+            highlightsByHandle[ownerHandle.lowercased()]?.removeAll { $0.id == id }
+            return true
+        } catch {
+            actionError = "Couldn’t delete this highlight."
+            return false
+        }
     }
 
     var trayGroups: [StoryGroup] { groups }
@@ -484,6 +671,7 @@ final class StoryStore {
     }
 
     func refresh() async {
+        await probeCapabilities()
         guard capabilities.list else {
             loadState = .loaded
             return
@@ -690,5 +878,110 @@ enum StoryFixtures {
 
     static var groups: [StoryGroup] {
         StoryGrouping.groups(from: [own, unseen, seen])
+    }
+}
+
+// MARK: - Story social (migration 092): viewers, reactions, highlights
+
+/// One person who viewed/reacted to a story (renamed from `StoryViewer`, which clashed with the viewer View).
+struct StoryViewerEntry: Identifiable, Hashable, Sendable {
+    let person: ConversationParticipant
+    let viewedAt: Date?
+    let reaction: String?
+    var id: String { person.id }
+}
+
+struct StoryViewerPage: Hashable, Sendable {
+    var items: [StoryViewerEntry]
+    var viewerCount: Int
+    var nextCursor: String?
+    var hasMore: Bool
+}
+
+struct StoryEmojiCount: Hashable, Sendable {
+    let emoji: String
+    let count: Int
+}
+
+struct StoryReactionSummary: Hashable, Sendable {
+    var items: [StoryViewerEntry]
+    var summary: [StoryEmojiCount]
+}
+
+struct StoryArchiveItem: Identifiable, Hashable, Sendable {
+    let id: StoryID
+    let groupID: String
+    let isVideo: Bool
+    let mediaURL: URL?
+    let caption: String?
+    let createdAt: Date?
+}
+
+struct StoryHighlight: Identifiable, Hashable, Sendable {
+    let id: String
+    var title: String
+    var coverItemID: String?
+    var coverURL: URL?
+    var itemCount: Int
+    var isOwner: Bool
+    var items: [StoryArchiveItem] = []
+}
+
+enum StorySocialDecoder {
+    static func person(_ value: JSONValue) -> ConversationParticipant? {
+        guard let id = value["actorId"]?.string ?? value["profileId"]?.string else { return nil }
+        return ConversationParticipant(
+            id: id,
+            handle: value["handle"]?.string ?? "",
+            displayName: value["displayName"]?.string ?? value["handle"]?.string ?? "Member",
+            avatarURL: (value["avatarUrl"]?.string).flatMap(URL.init(string:))
+        )
+    }
+
+    static func viewer(_ value: JSONValue) -> StoryViewerEntry? {
+        guard let person = person(value) else { return nil }
+        let at = MessagingPayloadDecoder.decodeDate(value["viewedAt"]?.string ?? value["reactedAt"]?.string)
+        return StoryViewerEntry(person: person, viewedAt: at, reaction: value["reaction"]?.string ?? value["emoji"]?.string)
+    }
+
+    static func viewerPage(_ value: JSONValue) -> StoryViewerPage {
+        let items = (value["items"]?.array ?? []).compactMap(viewer)
+        let next = value["nextCursor"]?.string
+        return StoryViewerPage(items: items, viewerCount: value["viewerCount"]?.int ?? items.count,
+                               nextCursor: next, hasMore: value["hasMore"]?.bool ?? (next != nil))
+    }
+
+    static func reactions(_ value: JSONValue) -> StoryReactionSummary {
+        let items = (value["items"]?.array ?? []).compactMap(viewer)
+        let summary = (value["summary"]?.array ?? []).compactMap { entry -> StoryEmojiCount? in
+            guard let emoji = entry["emoji"]?.string else { return nil }
+            return StoryEmojiCount(emoji: emoji, count: entry["count"]?.int ?? 0)
+        }
+        return StoryReactionSummary(items: items, summary: summary)
+    }
+
+    static func archiveItem(_ value: JSONValue) -> StoryArchiveItem? {
+        guard let id = value["itemId"]?.string else { return nil }
+        return StoryArchiveItem(
+            id: id,
+            groupID: value["groupId"]?.string ?? "",
+            isVideo: value["mediaKind"]?.string == "video",
+            mediaURL: (value["mediaUrl"]?.string).flatMap(URL.init(string:)),
+            caption: value["caption"]?.string,
+            createdAt: MessagingPayloadDecoder.decodeDate(value["createdAt"]?.string)
+        )
+    }
+
+    static func highlight(_ value: JSONValue) -> StoryHighlight? {
+        guard let id = value["highlightId"]?.string else { return nil }
+        return StoryHighlight(
+            id: id,
+            title: value["title"]?.string ?? "",
+            coverItemID: value["coverItemId"]?.string,
+            coverURL: (value["coverMediaUrl"]?.string).flatMap(URL.init(string:)),
+            itemCount: value["itemCount"]?.int ?? 0,
+            isOwner: value["isOwner"]?.bool ?? false,
+            items: (value["items"]?.array ?? []).compactMap(archiveItem)
+        )
     }
 }

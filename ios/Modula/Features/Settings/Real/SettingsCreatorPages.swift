@@ -27,12 +27,7 @@ struct CreatorInsightsView: View {
 
     var body: some View {
         SettingsScrollCanvas {
-            Picker("Period", selection: $window) {
-                Text("7 days").tag(7)
-                Text("28 days").tag(28)
-                Text("90 days").tag(90)
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Period", selection: $window, segments: [(7, "7 days"), (28, "28 days"), (90, "90 days")])
             if let insights {
                 summary(insights)
                 chart(insights)

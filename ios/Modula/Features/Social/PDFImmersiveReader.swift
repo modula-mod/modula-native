@@ -230,10 +230,10 @@ struct ModulaPDFImmersiveReader: View {
         .sensoryFeedback(.impact(weight: .light), trigger: model.zoomTick)
         .sensoryFeedback(.success, trigger: model.bookmarkTick)
         .sensoryFeedback(.success, trigger: copiedTick)
-        .sheet(isPresented: $showsGrid) { PDFPageGridSheet(model: model) { showsGrid = false } }
-        .sheet(isPresented: $showsOutline) { PDFOutlineSheet(model: model) { showsOutline = false } }
+        .sheet(isPresented: $showsGrid) { PDFPageGridSheet(model: model) { showsGrid = false }.modulaSheetStyle() }
+        .sheet(isPresented: $showsOutline) { PDFOutlineSheet(model: model) { showsOutline = false }.modulaSheetStyle() }
         .sheet(isPresented: Binding(get: { shareItems != nil }, set: { if !$0 { shareItems = nil } })) {
-            ActivitySheet(items: shareItems ?? []).presentationDetents([.medium, .large])
+            ActivitySheet(items: shareItems ?? []).presentationDetents([.medium, .large]).modulaSheetStyle()
         }
     }
 
@@ -339,7 +339,7 @@ struct ModulaPDFImmersiveReader: View {
                                 }
                                 .overlay(alignment: .topTrailing) {
                                     if model.bookmarks.contains(index) {
-                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(app.appearance.liveAccent).padding(2)
+                                        Image(systemName: "bookmark.fill").font(.system(size: 8)).foregroundStyle(.primary).padding(2)
                                     }
                                 }
                         }
@@ -351,6 +351,7 @@ struct ModulaPDFImmersiveReader: View {
                 }
                 .padding(.horizontal, 10).padding(.vertical, 6)
             }
+            .modulaHorizontalRail()
             .scrollIndicators(.hidden)
             .frame(height: 60)
             .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)

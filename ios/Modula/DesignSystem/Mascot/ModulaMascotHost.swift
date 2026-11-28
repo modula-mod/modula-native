@@ -604,10 +604,16 @@ struct ModulaComposerMascot: View {
                     .presentationCompactAdaptation(.popover)
             }
             .sheet(item: $premiumKind) { k in
-                MascotPremiumSheet(kind: k)
+                Group {
+                    MascotPremiumSheet(kind: k)
+                }
+                .modulaSheetStyle()
             }
             .sheet(isPresented: $dressing) {
-                MascotDressUpSheet()
+                Group {
+                    MascotDressUpSheet()
+                }
+                .modulaSheetStyle()
             }
             .onReceive(NotificationCenter.default.publisher(for: .mascotOutfitDidChange)) { _ in
                 brain.outfitChanged()
@@ -976,14 +982,26 @@ struct MolibooPickerArt: View {
 
 struct MascotPremiumBadge: View {
     var locked = true
+    /// Grid tiles: a small corner glyph instead of the word (the word wrapped as "Premiu m").
+    var compact = false
     var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: locked ? "lock.fill" : "crown.fill").font(.system(size: 8, weight: .bold))
-            Text("Premium").font(.system(size: 10, weight: .bold))
+        Group {
+            if compact {
+                Image(systemName: locked ? "lock.fill" : "crown.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(Color.modulaPrimaryFill))
+            } else {
+                HStack(spacing: 3) {
+                    Image(systemName: locked ? "lock.fill" : "crown.fill").font(.system(size: 8, weight: .bold))
+                    Text("Premium").font(.system(size: 10, weight: .bold)).lineLimit(1)
+                }
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Capsule().fill(Color.modulaPrimaryFill))
+                .fixedSize()
+            }
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 6).padding(.vertical, 2)
-        .background(Capsule().fill(LinearGradient(colors: [.orange, .pink], startPoint: .leading, endPoint: .trailing)))
+        .foregroundStyle(Color.modulaOnPrimary)
         .accessibilityLabel(locked ? "Premium, locked" : "Premium")
     }
 }
@@ -1024,7 +1042,7 @@ struct MascotPremiumSheet: View {
                 Text(tapped ? "Premium is coming soon" : "Upgrade to Premium")
                     .font(.headline).frame(maxWidth: .infinity, minHeight: 50)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.modulaPrimary)
             .buttonBorderShape(.capsule)
             .animation(.snappy, value: tapped)
             Button("Not now") { dismiss() }.font(.subheadline.weight(.semibold))
@@ -1032,7 +1050,8 @@ struct MascotPremiumSheet: View {
         }
         .padding(.horizontal, 22)
         .presentationDetents([.medium, .large])
-        .presentationBackground(.thinMaterial)
+        .modulaSheetStyle()
+        .modulaGlassPresentation()
     }
 }
 
@@ -1278,7 +1297,7 @@ struct ComposerMascotSettingsSection: View {
         } footer: {
             Text("Short, quiet sounds that follow your silent switch.")
         }
-        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0).modulaSheetStyle() }
         .onAppear {
             MascotProgressStore.shared.touchDay()
             _ = MascotWardrobeStore.shared.applyOutfitOfTheDayIfNeeded()
@@ -1294,7 +1313,7 @@ struct ComposerMascotSettingsSection: View {
                 Spacer()
                 Button(previewBusy ? "Stop" : "Try thinking") { withAnimation(.snappy) { previewBusy.toggle() } }
                     .font(.caption.weight(.semibold))
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.modulaSecondary)
                     .controlSize(.small)
                     .disabled(kind == nil)
             }
@@ -1764,7 +1783,7 @@ private struct CelebrationMoment: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 46)
                         .background(Capsule().fill(accent.gradient))
-                        .modulaGlass(in: Capsule(), interactive: true, tint: accent.opacity(0.3))
+                        .modulaGlass(in: Capsule(), interactive: true, tint: nil)
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .selection))
                 .accessibilityIdentifier("celebration.dismiss")

@@ -204,7 +204,7 @@ struct SettingsDesignedUnavailableCanvas: View {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: "circle.dashed")
                             .font(.title2)
-                            .foregroundStyle(app.appearance.liveAccent)
+                            .foregroundStyle(.primary)
                             .symbolEffect(.rotate, options: .nonRepeating)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Not available in this version")
@@ -516,7 +516,7 @@ struct SettingsStatChip: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 28, height: 28)
                 .background(app.appearance.liveAccent.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 1) {
@@ -612,7 +612,7 @@ struct SettingsBadgesGraphic: View {
                         .fill(app.appearance.liveAccent.opacity(0.16 + Double(index) * 0.06))
                         .frame(width: 44, height: 44)
                     Image(systemName: symbol)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                 }
                 .offset(y: index.isMultiple(of: 2) ? -8 : 10)
             }
@@ -646,6 +646,7 @@ func settingsDisplayTitle(_ raw: String) -> String {
 struct SettingsIconTile: View {
     let symbol: String
     var size: CGFloat = 30
+    @Environment(\.colorScheme) private var scheme
 
     static func color(for symbol: String) -> Color {
         let map: [(String, Color)] = [
@@ -656,14 +657,23 @@ struct SettingsIconTile: View {
             ("questionmark", .blue), ("info", .gray), ("hammer", .gray), ("brain", .purple), ("slider", .gray),
             ("hand.draw", .teal), ("keyboard", .gray), ("magnifyingglass", .gray), ("square.and.arrow.up", .blue),
             ("nosign", .red), ("key", .gray), ("trash", .red), ("envelope", .blue), ("at", .teal), ("laptop", .gray),
+            ("eye", .indigo), ("timer", .orange), ("clock", .orange), ("circle.grid", .blue), ("number", .blue),
+            ("circle.circle", .purple), ("atom", .purple), ("scope", .purple), ("hand.tap", .pink), ("iphone.radiowaves", .pink),
+            ("waveform", .pink), ("arrow.triangle.2.circlepath", .teal), ("phone", .green), ("app", .blue), ("calendar", .red),
+            ("photo", .pink), ("wand", .purple), ("textformat", .gray), ("signature", .indigo), ("location", .blue),
+            ("heart", .pink), ("star", .orange), ("flag", .orange), ("link", .blue), ("qrcode", .gray), ("iphone", .gray),
         ]
-        return map.first { symbol.hasPrefix($0.0) || symbol.contains($0.0) }?.1 ?? .accentColor
+        if let hit = map.first(where: { symbol.hasPrefix($0.0) || symbol.contains($0.0) })?.1 { return hit }
+        // Never fall back to the tint (root `.tint(.primary)` made it a white tile under a white glyph).
+        let palette: [Color] = [.blue, .indigo, .purple, .teal, .orange, .green, .pink, .cyan]
+        let seed = symbol.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
+        return palette[abs(seed) % palette.count]
     }
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(SettingsTileContrast.glyph(on: Self.color(for: symbol), scheme: scheme))
             .frame(width: size, height: size)
             .background(Self.color(for: symbol).gradient, in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
             .accessibilityHidden(true)
@@ -722,7 +732,7 @@ struct SettingsTileToggle: View {
                 Text(title).lineLimit(2)
             }
         }
-        .toggleStyle(.switch)
+        .toggleStyle(SettingsHapticToggleStyle())
         .frame(minHeight: 52)
     }
 }
@@ -854,6 +864,7 @@ struct BatteryNetworkSettingsPage: View {
     @AppStorage("settings.battery.pauseAutoplayOnLowPower") private var pauseAutoplay = true
     @AppStorage("settings.network.preferWiFiUploads") private var preferWiFi = true
     @AppStorage("settings.network.preloadMedia") private var preload = true
+    @AppStorage("settings.network.autoplayCellular") private var autoplayCellular = true
 
     var body: some View {
         SettingsScrollCanvas {
@@ -868,6 +879,9 @@ struct BatteryNetworkSettingsPage: View {
                 SettingsTileToggle(title: "Prefer Wi‑Fi for large uploads", symbol: "network", isOn: $preferWiFi)
                 SettingsDivider()
                 SettingsTileToggle(title: "Preload feed media on Wi‑Fi", symbol: "arrow.down.circle.fill", isOn: $preload)
+                SettingsDivider()
+                SettingsTileToggle(title: "Autoplay videos on cellular", symbol: "play.rectangle.on.rectangle", isOn: $autoplayCellular)
+                    .settingsAnchor("network.autoplayCellular")
             }
         }
         .navigationTitle("Battery & Network")
@@ -933,12 +947,20 @@ struct PrivacySafetySettingsPage: View {
                     }
                     .frame(minHeight: 52)
                     SettingsDivider()
-                    HStack {
+                    HStack(spacing: 12) {
+                        SettingsIconTile(symbol: "photo.artframe")
                         Text("Lock Backdrop")
                         Spacer()
                         Picker("Lock Backdrop", selection: $lockBackdrop) {
                             Text("Aurora").tag("aurora")
                             Text("Spectral Drape").tag("drape")
+                            Section("Nature") {
+                                Text("Northern Lights").tag("nature.aurora")
+                                Text("Starry Night").tag("nature.starry")
+                                Text("Snow").tag("nature.snow")
+                                Text("Ocean Waves").tag("nature.waves")
+                                Text("Fireflies").tag("nature.fireflies")
+                            }
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
@@ -1008,7 +1030,9 @@ struct PrivacySafetySettingsPage: View {
             }
             if lock.enabled, !lock.isSlideOnly {
                 Button("Forgot Passcode? Sign Out and Reset App Lock", role: .destructive) { confirmSignOutReset = true }
-                    .font(.subheadline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(uiColor: .systemRed))
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
         }
@@ -1025,27 +1049,36 @@ struct PrivacySafetySettingsPage: View {
         .navigationTitle("Privacy & Safety")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showsSetup) {
-            NavigationStack {
-                PasscodeSetupView(title: "App Lock") { passcode in
-                    try app.appLock.setPasscode(passcode)
-                    try app.appLock.setEnabled(true)
-                    app.refreshLaunchState()
+            Group {
+                NavigationStack {
+                    PasscodeSetupView(title: "App Lock") { passcode in
+                        try app.appLock.setPasscode(passcode)
+                        try app.appLock.setEnabled(true)
+                        app.refreshLaunchState()
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showsChange) {
-            NavigationStack {
-                PasscodeSetupView(title: "Change Passcode") { passcode in
-                    try app.appLock.setPasscode(passcode)
+            Group {
+                NavigationStack {
+                    PasscodeSetupView(title: "Change Passcode") { passcode in
+                        try app.appLock.setPasscode(passcode)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .sheet(item: $setupMethod) { method in
-            NavigationStack {
-                LockSecretSetupView(method: method) { secret in
-                    try app.appLock.setAlternativeSecret(secret, for: method)
+            Group {
+                NavigationStack {
+                    LockSecretSetupView(method: method) { secret in
+                        try app.appLock.setAlternativeSecret(secret, for: method)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Sign out and reset App Lock?", isPresented: $confirmSignOutReset, titleVisibility: .visible) {
             Button("Sign Out and Reset", role: .destructive) {
@@ -1186,6 +1219,7 @@ struct TelegramDivider: View {
 struct TelegramRow: View {
     var title: String
     var symbol: String
+    @Environment(\.colorScheme) private var scheme
     var tint: Color
     var value: String? = nil
     var badge: Int? = nil
@@ -1200,7 +1234,7 @@ struct TelegramRow: View {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(SettingsTileContrast.glyph(on: tint, scheme: scheme))
                     .shadow(color: .black.opacity(0.18), radius: 0.5, y: 0.5)
                     .frame(width: 30, height: 30)
                     .background {
@@ -1263,5 +1297,18 @@ private struct TelegramRowPressStyle: ButtonStyle {
         configuration.label
             .background(Color.primary.opacity(configuration.isPressed ? 0.08 : 0))
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+
+/// Readable glyph on a coloured settings tile: white on saturated/dark tiles, black on light ones
+/// (e.g. a graphite or yellow accent), so no tile ever shows white-on-white.
+enum SettingsTileContrast {
+    static func glyph(on tile: Color, scheme: ColorScheme) -> Color {
+        let ui = UIColor(tile).resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a) else { return .white }
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return luminance > 0.72 ? .black : .white
     }
 }

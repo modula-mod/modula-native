@@ -190,9 +190,9 @@ struct StoryTray: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.modulaOnPrimary)
                                     .frame(width: 20, height: 20)
-                                    .background(app.appearance.liveAccent, in: Circle())
+                                    .background(Color.modulaPrimaryFill, in: Circle())
                                     .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2.5))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Circle())
@@ -224,11 +224,11 @@ struct StoryTray: View {
                                         )
                                     )
                                     .overlay(alignment: .bottomTrailing) {
-                                        Image(systemName: "person.badge.plus")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.white)
-                                            .frame(width: 22, height: 22)
-                                            .background(app.appearance.liveAccent, in: Circle())
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 9, weight: .heavy))
+                                            .foregroundStyle(Color.modulaOnPrimary)
+                                            .frame(width: 20, height: 20)
+                                            .background(Color.modulaPrimaryFill, in: Circle())
                                             .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 2))
                                     },
                                 title: author.displayName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? author.displayName,
@@ -244,6 +244,7 @@ struct StoryTray: View {
             .padding(.vertical, 4)
             .padding(.trailing, compact ? 0 : 24)
         }
+        .modulaHorizontalRail()
         // Soft trailing fade: the row reads as scrollable instead of a ring cut in half.
         .mask {
             if compact {
@@ -352,6 +353,7 @@ struct StoryRootPlaceholder: View {
                             }
                             .padding(.horizontal, ModulaLayout.contentInset)
                         }
+                        .modulaHorizontalRail()
                         .padding(.horizontal, -ModulaLayout.contentInset)
                     }
                 }
@@ -374,6 +376,7 @@ struct StoryRootPlaceholder: View {
         .modulaCanvas()
         .modulaSoftScrollEdge()
         .navigationTitle("Stories")
+        .navigationBarTitleDisplayMode(.inline)
         .task { await app.stories.loadIfNeeded() }
     }
 
@@ -665,7 +668,7 @@ struct StoryInsightsView: View {
                             .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityIdentifier("story.insights.view")
                     }
                     .padding(.top, 6)
@@ -785,6 +788,9 @@ struct StoryViewer: View {
     @State private var confirmReport = false
     @State private var confirmDelete = false
     @State private var showsInsights = false
+    @State private var showsViewers = false
+    /// Downward drag while dismissing: the story shrinks into a rounded card that follows the finger.
+    @State private var dismissDrag: CGFloat = 0
 
     private let teal = Color(hex: "#369CAA")
 
@@ -817,6 +823,14 @@ struct StoryViewer: View {
                     .contentShape(Rectangle())
                     .onTapGesture { goNext() }
             }
+            // Hold-to-pause lives on the media tap zones only. On the whole viewer it also
+            // claimed presses on the close/more/reaction buttons, which then needed a long or
+            // hard press before they fired.
+            .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
+                guard !replyFocused else { return }
+                holding = pressing
+                if pressing { engine.pause() } else { engine.resume() }
+            }, perform: {})
             .padding(.bottom, 96)
             .allowsHitTesting(
                 !replyFocused
@@ -826,7 +840,8 @@ struct StoryViewer: View {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle).accessibilityHidden(true)
                     Text("Couldn’t load this story")
-                    Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.bordered)
+                    Button("Retry") { failedItemID = nil; retryID += 1 }.buttonStyle(.modulaSecondary)
+                        .environment(\.colorScheme, .dark)  // story canvas is always dark
                 }
                 .foregroundStyle(.white)
                 .accessibilityElement(children: .contain)
@@ -834,6 +849,9 @@ struct StoryViewer: View {
             }
             chrome(item)
         }
+        .scaleEffect(1 - min(dismissDrag, 500) / 500 * 0.2)
+        .offset(y: dismissDrag * 0.5)
+        .clipShape(RoundedRectangle(cornerRadius: min(dismissDrag / 3, 40), style: .continuous))
         .statusBarHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
@@ -877,11 +895,12 @@ struct StoryViewer: View {
             Button("Something else", role: .destructive) { reportCurrent(category: "other") }
             Button("Cancel", role: .cancel) {}
         }
+        // Finger-following pull-down closes the viewer (scales + fades with the pull; the
+        // horizontal pager and swipe-up reply keep their own drags).
+        .modulaPullDownToDismiss { app.navigation.close() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 40).onEnded { value in
-                if value.translation.height > 80 {
-                    app.navigation.close()
-                } else if value.translation.height < -60, abs(value.translation.width) < 80 {
+                if value.translation.height < -60, abs(value.translation.width) < 80 {
                     // Swipe up → reply (and quick reactions).
                     if let item = currentItem, !item.isOwn {
                         replyFocused = true
@@ -890,11 +909,6 @@ struct StoryViewer: View {
                 }
             }
         )
-        .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
-            guard !replyFocused else { return }
-            holding = pressing
-            if pressing { engine.pause() } else { engine.resume() }
-        }, perform: {})
         .background {
             // Display-linked progress instead of a free-running 20 Hz Timer:
             // the timeline is paused (no wakeups) while held, backgrounded,
@@ -915,7 +929,7 @@ struct StoryViewer: View {
         }
         .onChange(of: engine.index) { _, _ in
             replyDraft = ""
-            reactedLocally = false
+            reactedLocally = currentItem?.viewerReaction != nil
             replyFocused = false
         }
         .onChange(of: replyFocused) { _, focused in
@@ -930,13 +944,37 @@ struct StoryViewer: View {
             engine.isAppActive = phase == .active
             if phase != .active { engine.pause() } else if !holding, !replyFocused { engine.resume() }
         }
-        .sheet(isPresented: $showsInsights) {
-            if let item = currentItem, item.isOwn {
-                StoryInsightsView(item: item, position: engine.index + 1, count: max(group.items.count, 1))
+        .sheet(isPresented: $showsViewers, onDismiss: {
+            if !holding, !replyFocused, scenePhase == .active { engine.resume() }
+        }) {
+            Group {
+                if let item = currentItem, item.isOwn {
+                    StoryViewersSheet(itemID: item.id)
+                }
             }
+            .modulaSheetStyle()
+        }
+        .sheet(isPresented: $showsInsights) {
+            Group {
+                if let item = currentItem, item.isOwn {
+                    StoryInsightsView(item: item, position: engine.index + 1, count: max(group.items.count, 1))
+                }
+            }
+            .modulaSheetStyle()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("story.viewer")
+        // Hardware keyboard: ←/→ previous/next, space pause, Esc close (not while typing a reply).
+        .focusable(!replyFocused)
+        .focusEffectDisabled()
+        .onKeyPress(.leftArrow) { guard !replyFocused else { return .ignored }; goPrevious(); return .handled }
+        .onKeyPress(.rightArrow) { guard !replyFocused else { return .ignored }; goNext(); return .handled }
+        .onKeyPress(.space) {
+            guard !replyFocused else { return .ignored }
+            if engine.isPaused { engine.resume() } else { engine.pause() }
+            return .handled
+        }
+        .onKeyPress(.escape) { guard !replyFocused else { return .ignored }; app.navigation.close(); return .handled }
         .accessibilityActions {
             Button("Previous") { goPrevious() }
             Button("Next") { goNext() }
@@ -1227,6 +1265,9 @@ struct StoryViewer: View {
                 Button {
                     LocalEmojiReactionStore.shared.set(emoji, for: "story:\(item.id)")
                     reactedLocally = true
+                    if app.stories.capabilities.react, !item.isOwn {
+                        Task { _ = await app.stories.setReaction(itemID: item.id, emoji: emoji) }
+                    }
                     replyFocused = false
                     // Instagram-style: a quick reaction is delivered to the author as a story reply.
                     if canReply, !item.isOwn {
@@ -1271,6 +1312,13 @@ struct StoryViewer: View {
             }
             reactedLocally.toggle()
             if !reduceMotion { HapticEngine.shared.play(.selection) }
+            // `PUT/DELETE /v1/stories/items/:id/reaction`; roll back if the server refuses.
+            let reacted = reactedLocally
+            Task {
+                if !(await app.stories.setReaction(itemID: item.id, emoji: reacted ? "❤️" : nil)) {
+                    reactedLocally = !reacted
+                }
+            }
         }
         .accessibilityIdentifier("story.react")
     }
@@ -1298,6 +1346,12 @@ struct StoryViewer: View {
                         Text(viewers == 1 ? "1 view" : "\(viewers) views")
                     } else if app.stories.capabilities.viewers {
                         Text("Views aren’t loaded yet")
+                    }
+                    if app.stories.capabilities.viewers {
+                        Button("Viewers", systemImage: "eye") {
+                            engine.pause()
+                            showsViewers = true
+                        }
                     }
                     Button("Story insights", systemImage: "chart.bar") { showsInsights = true }
                     Button("Share story", systemImage: "square.and.arrow.up") { share(item) }
@@ -1643,6 +1697,144 @@ enum StoryFilterEngine {
         color.brightness = 0.02
         color.saturation = 1.02
         return (color.outputImage ?? blended).cropped(to: ci.extent)
+    }
+}
+
+/// Stackable photo effects layered on top of the chosen filter (each 0...1).
+struct StoryFX: Equatable, Sendable {
+    enum Kind: String, CaseIterable, Identifiable, Sendable {
+        case grain, vignette, glow, leak, blur, sharpen
+        var id: Self { self }
+        var title: String {
+            switch self {
+            case .grain: "Grain"
+            case .vignette: "Vignette"
+            case .glow: "Glow"
+            case .leak: "Light leak"
+            case .blur: "Blur back"
+            case .sharpen: "Sharpen"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .grain: "circle.grid.3x3.fill"
+            case .vignette: "circle.dashed"
+            case .glow: "sun.haze.fill"
+            case .leak: "light.max"
+            case .blur: "person.and.background.dotted"
+            case .sharpen: "triangle.lefthalf.filled"
+            }
+        }
+        var defaultAmount: Double {
+            switch self {
+            case .grain: 0.35
+            case .vignette: 0.5
+            case .glow: 0.45
+            case .leak: 0.5
+            case .blur: 0.6
+            case .sharpen: 0.4
+            }
+        }
+    }
+
+    var values: [Kind: Double] = [:]
+    subscript(_ kind: Kind) -> Double {
+        get { values[kind] ?? 0 }
+        set { values[kind] = min(max(newValue, 0), 1) }
+    }
+    var isIdentity: Bool { values.values.allSatisfy { $0 < 0.01 } }
+}
+
+extension StoryFilterEngine {
+    nonisolated(unsafe) private static let fxContext = CIContext(options: [.useSoftwareRenderer: false])
+
+    /// Person mask for "Blur back", computed once per photo (segmentation is the slow step).
+    @MainActor private static var maskCache: (image: UIImage, mask: CIImage)?
+
+    @MainActor
+    private static func personMask(for source: UIImage?, fallback: CIImage) -> CIImage? {
+        if let source, let cached = maskCache, cached.image === source { return cached.mask }
+        let input = source?.cgImage.map { CIImage(cgImage: $0) } ?? fallback
+        let seg = CIFilter.personSegmentation()
+        seg.inputImage = input
+        seg.qualityLevel = 1
+        guard let raw = seg.outputImage,
+              let cg = fxContext.createCGImage(raw, from: raw.extent) else { return nil }
+        let mask = CIImage(cgImage: cg)
+        if let source { maskCache = (source, mask) }
+        return mask
+    }
+
+    @MainActor
+    static func applyFX(_ fx: StoryFX, to image: UIImage, maskSource: UIImage? = nil) -> UIImage {
+        guard !fx.isIdentity, let cg = image.cgImage else { return image }
+        let source = CIImage(cgImage: cg)
+        let extent = source.extent
+        var out = source
+
+        if fx[.blur] > 0.01 {
+            if let mask = personMask(for: maskSource, fallback: out) {
+                let scaled = mask.transformed(by: CGAffineTransform(scaleX: extent.width / mask.extent.width, y: extent.height / mask.extent.height))
+                let blurred = out.clampedToExtent().applyingGaussianBlur(sigma: 4 + 22 * fx[.blur]).cropped(to: extent)
+                let blend = CIFilter.blendWithMask()
+                blend.inputImage = out
+                blend.backgroundImage = blurred
+                blend.maskImage = scaled
+                out = blend.outputImage?.cropped(to: extent) ?? out
+            }
+        }
+        if fx[.sharpen] > 0.01 {
+            let f = CIFilter.sharpenLuminance()
+            f.inputImage = out
+            f.sharpness = Float(fx[.sharpen] * 1.6)
+            out = f.outputImage?.cropped(to: extent) ?? out
+        }
+        if fx[.glow] > 0.01 {
+            let f = CIFilter.bloom()
+            f.inputImage = out
+            f.radius = Float(6 + 16 * fx[.glow])
+            f.intensity = Float(fx[.glow] * 0.9)
+            out = f.outputImage?.cropped(to: extent) ?? out
+        }
+        if fx[.leak] > 0.01 {
+            let g = CIFilter.radialGradient()
+            g.center = CGPoint(x: extent.minX + extent.width * 0.12, y: extent.maxY - extent.height * 0.08)
+            g.radius0 = 0
+            g.radius1 = Float(max(extent.width, extent.height) * 0.75)
+            g.color0 = CIColor(red: 1, green: 0.5, blue: 0.22, alpha: CGFloat(0.85 * fx[.leak]))
+            g.color1 = CIColor(red: 1, green: 0.2, blue: 0.4, alpha: 0)
+            if let leak = g.outputImage?.cropped(to: extent) {
+                let screen = CIFilter.screenBlendMode()
+                screen.inputImage = leak
+                screen.backgroundImage = out
+                out = screen.outputImage?.cropped(to: extent) ?? out
+            }
+        }
+        if fx[.vignette] > 0.01 {
+            let f = CIFilter.vignette()
+            f.inputImage = out
+            f.intensity = Float(fx[.vignette] * 2)
+            f.radius = 1.6
+            out = f.outputImage?.cropped(to: extent) ?? out
+        }
+        if fx[.grain] > 0.01, let noise = CIFilter.randomGenerator().outputImage {
+            let mono = CIFilter.colorControls()
+            mono.inputImage = noise.cropped(to: extent)
+            mono.saturation = 0
+            mono.contrast = 1.1
+            let grain = (mono.outputImage ?? noise).cropped(to: extent)
+            let soft = CIFilter.softLightBlendMode()
+            soft.inputImage = grain
+            soft.backgroundImage = out
+            if let grained = soft.outputImage?.cropped(to: extent) {
+                out = out.applyingFilter("CIDissolveTransition", parameters: [
+                    kCIInputTargetImageKey: grained,
+                    kCIInputTimeKey: fx[.grain] * 0.8,
+                ]).cropped(to: extent)
+            }
+        }
+        guard let rendered = fxContext.createCGImage(out, from: extent) else { return image }
+        return UIImage(cgImage: rendered, scale: image.scale, orientation: image.imageOrientation)
     }
 }
 
@@ -2394,6 +2586,13 @@ struct StoryCreateView: View {
     @State private var committed = StoryEditSnapshot()
     @State private var restoringHistory = false
     @State private var filterIntensity: Double = 1
+    @State private var fx = StoryFX()
+    @State private var fxTab = "filters"
+    @State private var fxSelected: StoryFX.Kind = .grain
+    @State private var railExpanded = false
+    @State private var comparing = false
+    @State private var filterToast: String?
+    @State private var refilterTask: Task<Void, Never>?
     @State private var showsDrafts = false
     @State private var dragBase: [String: CGPoint] = [:]
     @State private var scaleBase: [String: CGFloat] = [:]
@@ -2411,7 +2610,6 @@ struct StoryCreateView: View {
     @State private var exporting = false
 
     // sticker sheet + forms
-    @State private var stickerTab: StickerTab = .emoji
     @State private var gifQuery = ""
     @State private var gifs: [ModulaGif] = []
     @State private var gifStatus: String?
@@ -2501,13 +2699,14 @@ struct StoryCreateView: View {
         .onChange(of: visibility) { _, _ in saveDraft() }
         .onChange(of: filter) { _, _ in filterIntensity = 1; refilter() }
         .onChange(of: filterIntensity) { _, _ in refilter() }
+        .onChange(of: fx) { _, _ in refilter() }
         .sheet(isPresented: $showsDrafts) {
             StoryDraftsGallery(currentID: draftID) { id in
                 showsDrafts = false
                 openDraft(id)
             }
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .onDisappear {
             bakeTask?.cancel()
@@ -2524,9 +2723,9 @@ struct StoryCreateView: View {
         .sheet(item: $sheet) { item in
             sheetContent(item)
                 .presentationDetents(item == .stickers ? [.medium, .large] : [.height(item == .poll || item == .countdown ? 340 : 240)])
-                .presentationDragIndicator(.visible)
+                .modulaSheetStyle()
                 .presentationContentInteraction(.resizes)
-                .presentationBackground(.ultraThinMaterial)
+                .modulaGlassPresentation(fallback: .ultraThinMaterial)
         }
         .accessibilityIdentifier("story.create")
         .accessibilityValue(RouteSerializer.serialize(.stories(.create)))
@@ -2648,7 +2847,7 @@ struct StoryCreateView: View {
                         }
                 } else {
                     StoryBackgroundView(
-                        image: filteredPreview ?? sourceImage,
+                        image: comparing ? sourceImage : (filteredPreview ?? sourceImage),
                         gradient: gradientBG,
                         collage: collageLayout,
                         collageImages: collageImages,
@@ -2725,11 +2924,22 @@ struct StoryCreateView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         .padding(.horizontal, 12)
                         .padding(.top, 8)
-                    toolRail
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                        .padding(.top, 64)
-                        .padding(.trailing, 10)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    if tool == nil || tool == .draw {
+                        toolRail
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .padding(.top, 64)
+                            .padding(.trailing, 10)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                if let filterToast {
+                    Text(filterToast)
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.45), radius: 8, y: 2)
+                        .transition(.scale(scale: 0.85).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                        .id(filterToast)
                 }
             }
             .coordinateSpace(name: Self.canvasSpace)
@@ -2834,42 +3044,60 @@ struct StoryCreateView: View {
         }
     }
 
+    /// Four primary tools, the rest behind "More" so the canvas isn't crowded.
     private var toolRail: some View {
         VStack(alignment: .trailing, spacing: 8) {
             railButton("textformat", label: "Text", active: false) { beginText() }
-            railButton("face.smiling", label: "Stickers", active: false) {
-                sheet = .stickers
-            }
-            railButton("scribble.variable", label: "Draw", active: tool == .draw) { toggle(.draw) }
-            railButton("music.note", label: "Music", active: tool == .music) { toggle(.music) }
+            railButton("face.smiling", label: "Stickers", active: false) { sheet = .stickers }
             railButton("camera.filters", label: "Effects", active: tool == .filters) { toggle(.filters) }
-            railButton("list.bullet", label: "Poll", active: sheet == .poll) {
-                noticeInteractive()
-                sheet = .poll
-            }
-            railButton("questionmark", label: "Question", active: sheet == .question) {
-                noticeInteractive()
-                sheet = .question
-            }
-            railButton("rectangle.split.2x2", label: "Layout", active: tool == .layout) {
-                if collageLayout == nil {
-                    withAnimation(spring) {
-                        if let image = sourceImage { collageImages = [image] }
-                        collageLayout = .twoRows
-                        gradientBG = nil
+            railButton("scribble.variable", label: "Draw", active: tool == .draw) { toggle(.draw) }
+            if railExpanded {
+                Group {
+                    railButton("music.note", label: "Music", active: tool == .music) { toggle(.music) }
+                    railButton("list.bullet", label: "Poll", active: sheet == .poll) {
+                        noticeInteractive()
+                        sheet = .poll
                     }
-                    scheduleBake()
+                    railButton("questionmark", label: "Question", active: sheet == .question) {
+                        noticeInteractive()
+                        sheet = .question
+                    }
+                    railButton("rectangle.split.2x2", label: "Layout", active: tool == .layout) {
+                        if collageLayout == nil {
+                            withAnimation(spring) {
+                                if let image = sourceImage { collageImages = [image] }
+                                collageLayout = .twoRows
+                                gradientBG = nil
+                            }
+                            scheduleBake()
+                        }
+                        toggle(.layout)
+                    }
+                    if videoURL != nil {
+                        railButton("captions.bubble", label: captions.isEmpty ? "Captions" : "Captions on", active: !captions.isEmpty) {
+                            if captions.isEmpty { Task { await makeCaptions() } } else { withAnimation(spring) { captions = [] } }
+                        }
+                    }
+                    railButton("arrow.down.to.line", label: "Save", active: false) {
+                        Task { await saveToPhotos() }
+                    }
                 }
-                toggle(.layout)
+                .transition(.move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.8, anchor: .topTrailing)))
             }
-            if videoURL != nil {
-                railButton("captions.bubble", label: captions.isEmpty ? "Captions" : "Captions on", active: !captions.isEmpty) {
-                    if captions.isEmpty { Task { await makeCaptions() } } else { withAnimation(spring) { captions = [] } }
-                }
+            Button {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) { railExpanded.toggle() }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(railExpanded ? 180 : 0))
+                    .frame(width: 42, height: 32)
+                    .modulaGlass(in: Capsule())
             }
-            railButton("arrow.down.to.line", label: "Save", active: false) {
-                Task { await saveToPhotos() }
-            }
+            .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+            .accessibilityLabel(railExpanded ? "Fewer tools" : "More tools")
+            .accessibilityIdentifier("story.rail.more")
         }
     }
 
@@ -2916,7 +3144,15 @@ struct StoryCreateView: View {
                     height: min(max(base.height + value.translation.height / max(size.height, 1), -limit), limit)
                 )
             }
-            .onEnded { _ in bgOffsetBase = nil; scheduleBake() }
+            .onEnded { value in
+                bgOffsetBase = nil
+                if bgScale <= 1.01, tool == nil || tool == .filters,
+                   abs(value.translation.width) > 60, abs(value.translation.width) > abs(value.translation.height) * 1.6 {
+                    stepFilter(value.translation.width < 0 ? 1 : -1)
+                    return
+                }
+                scheduleBake()
+            }
         return pinch.simultaneously(with: pan)
     }
 
@@ -3042,15 +3278,15 @@ struct StoryCreateView: View {
                     if textSpec.animation != .none {
                         Text(textSpec.animation.title)
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.modulaOnPrimary)
                     }
                     Spacer()
                     Button("Done") { commitText() }
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.modulaOnPrimary)
                         .padding(.horizontal, 16)
                         .frame(height: 40)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -3095,6 +3331,7 @@ struct StoryCreateView: View {
                     }
                     .padding(.horizontal, 16)
                 }
+                .modulaHorizontalRail()
                 colourRow(selection: textSpec.colorHex) { textSpec.colorHex = $0 }
             }
             .padding(.vertical, 14)
@@ -3147,6 +3384,7 @@ struct StoryCreateView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
+        .modulaHorizontalRail()
     }
 
     private func beginText() {
@@ -3177,6 +3415,21 @@ struct StoryCreateView: View {
         scheduleBake()
     }
 
+    /// Light backdrops (Peach, White, Yellow…) get dark text and vice versa, but only while the
+    /// text is still the default black/white: a colour the user picked is never overridden.
+    private func autoContrastText(on bg: StoryGradientBG) {
+        let darkVotes = bg.hexes.filter { StoryTextContrast.prefersDarkText(hex: $0) }.count
+        let wanted = darkVotes * 2 > bg.hexes.count ? "#111111" : "#FFFFFF"
+        let defaults: Set<String> = ["#FFFFFF", "#111111", "#000000"]
+        if defaults.contains(textSpec.colorHex.uppercased()) { textSpec.colorHex = wanted }
+        for i in layers.indices {
+            if case .text(var spec) = layers[i].content, defaults.contains(spec.colorHex.uppercased()), spec.colorHex != wanted {
+                spec.colorHex = wanted
+                layers[i].content = .text(spec)
+            }
+        }
+    }
+
     private func startTextStory() {
         withAnimation(spring) {
             clearMedia()
@@ -3184,6 +3437,7 @@ struct StoryCreateView: View {
             showsCamera = false
             tool = .filters
         }
+        if let gradientBG { autoContrastText(on: gradientBG) }
         HapticEngine.shared.play(.selection)
         beginText()
     }
@@ -3192,7 +3446,23 @@ struct StoryCreateView: View {
 
     @ViewBuilder
     private func toolChrome(_ tool: Tool) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
+            HStack {
+                Text(toolTitle(tool)).font(.headline).foregroundStyle(.white)
+                Spacer()
+                Button {
+                    withAnimation(spring) { self.tool = nil }
+                    HapticEngine.shared.play(.selection)
+                } label: {
+                    Text("Done").font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 16).frame(height: 34)
+                        .background(Capsule().fill(.white))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                .accessibilityIdentifier("story.tool.done")
+            }
+            .padding(.horizontal, 18)
             switch tool {
             case .draw: drawChrome
             case .music: musicChrome
@@ -3200,9 +3470,20 @@ struct StoryCreateView: View {
             case .layout: layoutChrome
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial.opacity(0.94))
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous), interactive: false)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 6)
+    }
+
+    private func toolTitle(_ tool: Tool) -> String {
+        switch tool {
+        case .draw: "Draw"
+        case .music: "Music"
+        case .filters: sourceImage != nil && collageLayout == nil ? "Filters & Effects" : "Background"
+        case .layout: "Layout"
+        }
     }
 
     private var drawChrome: some View {
@@ -3276,60 +3557,28 @@ struct StoryCreateView: View {
             }
             .padding(.horizontal, 16)
         }
+        .modulaHorizontalRail()
     }
 
     @ViewBuilder
     private var filtersChrome: some View {
         if sourceImage != nil && collageLayout == nil {
-            if filter.id != "none" {
-                HStack(spacing: 10) {
-                    Image(systemName: "circle.lefthalf.filled").foregroundStyle(.white.opacity(0.8))
-                    Slider(value: $filterIntensity, in: 0...1)
-                        .tint(.white)
-                        .accessibilityLabel("Filter intensity")
-                    Text("\(Int(filterIntensity * 100))")
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, alignment: .trailing)
-                }
+            ModulaSegmentedControl(segments: [.init(id: "filters", title: "Filters"), .init(id: "effects", title: "Effects")],
+                                   selection: Binding(get: { fxTab }, set: { v in withAnimation(spring) { fxTab = v } }),
+                                   accessibilityLabel: "Filters or effects", identifier: { "story.fx.tab.\($0)" })
+                .environment(\.colorScheme, .dark)
                 .padding(.horizontal, 18)
-                .padding(.bottom, 6)
+            if fxTab == "filters" {
+                filterStrip.transition(.opacity.combined(with: .move(edge: .leading)))
+                sliderRow(symbol: "circle.lefthalf.filled", value: $filterIntensity, label: "Filter intensity")
+                    .opacity(filter.id == "none" ? 0.35 : 1)
+                    .disabled(filter.id == "none")
+            } else {
+                effectChips.transition(.opacity.combined(with: .move(edge: .trailing)))
+                sliderRow(symbol: fxSelected.symbol, value: Binding(get: { fx[fxSelected] }, set: { fx[fxSelected] = $0 }),
+                          label: "\(fxSelected.title) amount")
             }
-            PhotoFilterDial(selection: $filter, accent: accent, reduceMotion: reduceMotion)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(StoryFilter.catalog.filter { !PhotoFilterDialLook.ids.contains($0.id) }) { item in
-                        Button {
-                            filter = item
-                            HapticEngine.shared.play(.selection)
-                        } label: {
-                            VStack(spacing: 6) {
-                                Group {
-                                    if let thumb = filterThumbs[item.id] {
-                                        Image(uiImage: thumb).resizable().scaledToFill()
-                                    } else {
-                                        Color.white.opacity(0.2)
-                                    }
-                                }
-                                .frame(width: 54, height: 54)
-                                .clipShape(Circle())
-                                .overlay {
-                                    Circle().strokeBorder(filter.id == item.id ? Color.white : Color.white.opacity(0.25), lineWidth: filter.id == item.id ? 2.5 : 1)
-                                }
-                                .scaleEffect(filter.id == item.id ? 1.06 : 1)
-                                Text(item.title)
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(filter.id == item.id ? Color.white : Color.white.opacity(0.7))
-                            }
-                            .animation(.snappy(duration: 0.18), value: filter)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(item.title)
-                        .accessibilityAddTraits(filter.id == item.id ? .isSelected : [])
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
+            fxActions
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -3339,6 +3588,7 @@ struct StoryCreateView: View {
                                 gradientBG = item
                                 collageLayout = nil
                             }
+                            autoContrastText(on: item)
                             scheduleBake()
                             HapticEngine.shared.play(.selection)
                         } label: {
@@ -3360,7 +3610,162 @@ struct StoryCreateView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
         }
+    }
+
+    /// Hold to see the original, a random look, and reset.
+    private var fxActions: some View {
+        HStack(spacing: 10) {
+            Label("Hold to compare", systemImage: comparing ? "eye.fill" : "eye")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(comparing ? Color.black : Color.white)
+                .padding(.horizontal, 12).frame(height: 34)
+                .background(Capsule().fill(comparing ? Color.white : Color.white.opacity(0.14)))
+                .contentShape(Capsule())
+                .onLongPressGesture(minimumDuration: 0.05, maximumDistance: 40, perform: {}, onPressingChanged: { pressing in
+                    withAnimation(.easeOut(duration: 0.12)) { comparing = pressing }
+                    if pressing { HapticEngine.shared.play(.selection) }
+                })
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { comparing.toggle() }
+            Spacer(minLength: 0)
+            Button {
+                let pool = Self.stripFilters.filter { $0.id != "none" && $0.id != filter.id }
+                if let pick = pool.randomElement() {
+                    withAnimation(spring) { filter = pick }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { filterToast = pick.title }
+                    let shown = pick.title
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(900))
+                        if filterToast == shown { withAnimation(.easeOut(duration: 0.3)) { filterToast = nil } }
+                    }
+                }
+                HapticEngine.shared.play(.success)
+            } label: {
+                Image(systemName: "dice.fill").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+            .accessibilityLabel("Surprise me")
+            Button {
+                withAnimation(spring) {
+                    filter = StoryFilter.catalog[0]
+                    fx = StoryFX()
+                }
+                HapticEngine.shared.play(.warning)
+            } label: {
+                Image(systemName: "arrow.counterclockwise").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.14)))
+            }
+            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+            .disabled(filter.id == "none" && fx.isIdentity)
+            .opacity(filter.id == "none" && fx.isIdentity ? 0.4 : 1)
+            .accessibilityLabel("Reset filters and effects")
+        }
+        .padding(.horizontal, 18)
+    }
+
+    private func sliderRow(symbol: String, value: Binding<Double>, label: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white.opacity(0.85)).frame(width: 22)
+            Slider(value: value, in: 0...1).tint(.white).accessibilityLabel(label)
+            Text("\(Int(value.wrappedValue * 100))")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 34, alignment: .trailing)
+                .contentTransition(.numericText())
+        }
+        .padding(.horizontal, 18)
+    }
+
+    /// Live thumbnails of the actual photo; auto-centres the current look.
+    private var filterStrip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Self.stripFilters) { item in
+                        let on = filter.id == item.id
+                        Button {
+                            withAnimation(spring) { filter = item }
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            VStack(spacing: 6) {
+                                Group {
+                                    if let thumb = filterThumbs[item.id] {
+                                        Image(uiImage: thumb).resizable().scaledToFill()
+                                    } else {
+                                        Color.white.opacity(0.18)
+                                    }
+                                }
+                                .frame(width: 62, height: 84)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(on ? Color.white : Color.white.opacity(0.18), lineWidth: on ? 2.5 : 1)
+                                }
+                                .scaleEffect(on ? 1.05 : 1)
+                                Text(item.title)
+                                    .font(.caption2.weight(on ? .bold : .semibold))
+                                    .foregroundStyle(on ? Color.white : Color.white.opacity(0.65))
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
+                            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: on)
+                        }
+                        .buttonStyle(.plain)
+                        .id(item.id)
+                        .accessibilityLabel(item.title)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 4)
+            }
+            .modulaHorizontalRail()
+            .onChange(of: filter) { _, next in withAnimation(spring) { proxy.scrollTo(next.id, anchor: .center) } }
+            .onAppear { proxy.scrollTo(filter.id, anchor: .center) }
+        }
+    }
+
+    private var effectChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(StoryFX.Kind.allCases) { kind in
+                    let selected = fxSelected == kind
+                    let active = fx[kind] > 0.01
+                    Button {
+                        withAnimation(spring) {
+                            fxSelected = kind
+                            if !active { fx[kind] = kind.defaultAmount }
+                        }
+                        HapticEngine.shared.play(.selection)
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: kind.symbol)
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundStyle(active ? Color.black : Color.white)
+                                .frame(width: 54, height: 54)
+                                .background(Circle().fill(active ? Color.white : Color.white.opacity(0.12)))
+                                .overlay(Circle().strokeBorder(Color.white.opacity(selected ? 0.9 : 0), lineWidth: 2).padding(-4))
+                                .symbolEffect(.bounce, value: active)
+                            Text(kind.title)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(selected ? Color.white : Color.white.opacity(0.65))
+                                .lineLimit(1)
+                                .fixedSize()
+                        }
+                    }
+                    .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
+                    .contextMenu { Button("Turn off", systemImage: "xmark") { fx[kind] = 0 } }
+                    .accessibilityLabel(kind.title)
+                    .accessibilityValue(active ? "\(Int(fx[kind] * 100)) percent" : "Off")
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 6)
+        }
+        .modulaHorizontalRail()
     }
 
     private var layoutChrome: some View {
@@ -3483,7 +3888,7 @@ struct StoryCreateView: View {
                 Text("Add to story").font(.headline).frame(maxWidth: .infinity).frame(height: 48)
             }
             .buttonStyle(.plain)
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .disabled(![.question, .countdown, .poll, .slider, .quiz, .addYours, .reply].contains(item) && formA.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .padding(20)
@@ -3524,6 +3929,7 @@ struct StoryCreateView: View {
                 }
                 .padding(.vertical, 2)
             }
+            .modulaHorizontalRail()
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .modulaHorizontalEdgeFade()
             .padding(.top, 14)
@@ -3689,101 +4095,130 @@ struct StoryCreateView: View {
 
     // MARK: Bottom bar
 
+    /// One glass tray: caption on top; media buttons, audience and a black/white Share below.
     private var bottomBar: some View {
         VStack(spacing: 10) {
             if hasMedia && !showsCamera {
-                HStack(spacing: 10) {
-                    TextField("Add a story…", text: $caption, axis: .vertical)
+                HStack(alignment: .bottom, spacing: 10) {
+                    TextField("Add a caption…", text: $caption, axis: .vertical)
                         .lineLimit(1...3)
                         .textFieldStyle(.plain)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
-                        .modulaGlass(in: Capsule(), interactive: true)
+                        .font(.body)
+                        .foregroundStyle(.white)
+                        .tint(.white)
                         .disabled(busy)
-
-                    Menu {
-                        Button { visibility = "public" } label: { Label("Everyone", systemImage: "globe") }
-                        Button { visibility = "followers" } label: { Label("Followers", systemImage: "person.2") }
-                        if app.stories.capabilities.privacy {
-                            Button { visibility = "close_friends" } label: { Label("Close Friends", systemImage: "star.circle.fill") }
-                        }
-                    } label: {
-                        Label(audienceTitle, systemImage: audienceSymbol)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 12)
-                            .frame(height: 44)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: visibility == "close_friends" ? Color.green : nil)
+                        .accessibilityIdentifier("story.create.caption")
+                    if !caption.isEmpty {
+                        Text("\(caption.count)")
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .contentTransition(.numericText())
+                            .padding(.bottom, 3)
+                            .transition(.opacity)
                     }
-                    .disabled(busy)
-                    .accessibilityLabel("Audience")
                 }
+                .padding(.horizontal, 6)
+                .padding(.top, 4)
+                Divider().overlay(Color.white.opacity(0.15))
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 if !showsCamera {
                     Button {
                         withAnimation(spring) { showsCamera = true }
                         HapticEngine.shared.play(.selection)
                     } label: {
                         Image(systemName: "camera.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 48, height: 48)
-                            .modulaGlass(in: Circle(), interactive: true)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white.opacity(0.14)))
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
                     .accessibilityLabel("Open camera")
 
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 1, matching: .images) {
                         Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            // PhotosPicker's label is nonisolated; modulaGlass is main-actor, so use material here.
-                            .background(.ultraThinMaterial, in: Circle())
-                            .overlay(Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.white.opacity(0.14)))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Photo library")
+
+                    Menu {
+                        Picker("Audience", selection: $visibility) {
+                            Label("Everyone", systemImage: "globe").tag("public")
+                            Label("Followers", systemImage: "person.2").tag("followers")
+                            if app.stories.capabilities.privacy {
+                                Label("Close Friends", systemImage: "star.circle.fill").tag("close_friends")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: audienceSymbol).font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(visibility == "close_friends" ? Color.green : .white)
+                            Text(audienceTitle).font(.subheadline.weight(.semibold)).lineLimit(1).fixedSize()
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).opacity(0.7)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                        .contentTransition(.interpolate)
+                    }
+                    .disabled(busy)
+                    .accessibilityLabel("Audience, \(audienceTitle)")
                 }
 
                 Spacer(minLength: 0)
 
-                // Hidden while the camera is up so it never collides with the mode picker
-                // (e.g. "Boomerang"); it appears once there is something to share.
+                // Hidden while the camera is up so it never collides with the mode picker.
                 if !showsCamera {
-                Button {
-                    Task { await publish() }
-                } label: {
-                    Group {
-                        if busy {
-                            ProgressView().tint(.white)
-                        } else {
-                            Label("Share", systemImage: "arrow.up.circle.fill")
-                                .font(.headline)
+                    Button {
+                        Task { await publish() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if busy {
+                                ProgressView().tint(.black)
+                            } else {
+                                Text("Share").font(.headline)
+                                Image(systemName: "arrow.up").font(.system(size: 14, weight: .bold))
+                            }
                         }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 20)
+                        .frame(height: 44)
+                        .background(Capsule().fill(.white))
+                        .contentShape(Capsule())
                     }
-                    .frame(minWidth: 120)
-                    .frame(height: 48)
-                    .padding(.horizontal, 10)
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                .modulaAccentCTA()
-                .disabled(!canShare || busy || showsCamera)
-                .opacity(!canShare || showsCamera ? 0.45 : 1)
-                .accessibilityIdentifier("story.create.share")
-                .transition(.opacity.combined(with: .scale(0.9)))
+                    .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: .success))
+                    .disabled(!canShare || busy)
+                    .opacity(!canShare ? 0.45 : 1)
+                    .accessibilityLabel("Share story")
+                    .accessibilityIdentifier("story.create.share")
+                    .transition(.opacity.combined(with: .scale(0.9)))
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 16)
+        .padding(.horizontal, showsCamera ? 0 : 12)
+        .padding(.vertical, showsCamera ? 0 : 10)
         .background {
-            LinearGradient(colors: [.clear, .black.opacity(0.55), .black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+            if !showsCamera {
+                Color.clear.modulaGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous), interactive: false)
+            }
+        }
+        .environment(\.colorScheme, .dark)
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background {
+            LinearGradient(colors: [.clear, .black.opacity(0.45), .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea(edges: .bottom)
                 .allowsHitTesting(false)
         }
+        .animation(spring, value: caption.isEmpty)
     }
 
     private var audienceTitle: String {
@@ -3822,6 +4257,7 @@ struct StoryCreateView: View {
         future = []
         committed = StoryEditSnapshot()
         filterIntensity = 1
+        fx = StoryFX()
         activeStroke = nil
         editingTextID = nil
         tool = nil
@@ -3832,11 +4268,36 @@ struct StoryCreateView: View {
         videoTime = 0
     }
 
+    /// Debounced so dragging an intensity / effect slider doesn't queue a render per tick.
     private func refilter() {
-        guard let sourceImage else { return }
-        filteredPreview = StoryFilterEngine.apply(filter, to: sourceImage, intensity: filterIntensity)
-        scheduleBake(delay: 0)
+        guard sourceImage != nil else { return }
+        refilterTask?.cancel()
+        refilterTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(40))
+            guard !Task.isCancelled, let sourceImage else { return }
+            let filtered = StoryFilterEngine.apply(filter, to: sourceImage, intensity: filterIntensity)
+            filteredPreview = fx.isIdentity ? filtered : StoryFilterEngine.applyFX(fx, to: filtered, maskSource: sourceImage)
+            scheduleBake(delay: 0)
+        }
     }
+
+    /// Swipe across the photo (like Instagram) to step through filters; the name flashes up.
+    private func stepFilter(_ delta: Int) {
+        let list = Self.stripFilters
+        let i = list.firstIndex(where: { $0.id == filter.id }) ?? 0
+        let next = list[(i + delta + list.count) % list.count]
+        withAnimation(spring) { filter = next }
+        HapticEngine.shared.play(.selection)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { filterToast = next.title }
+        let shown = next.title
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            if filterToast == shown { withAnimation(.easeOut(duration: 0.3)) { filterToast = nil } }
+        }
+    }
+
+    /// One strip of looks (the dial's B/W duplicates Mono).
+    private static let stripFilters: [StoryFilter] = StoryFilter.catalog.filter { $0.id != "bw" }
 
     /// Downsamples off the main thread so filters and baking stay instant.
     private func downsampled(_ image: UIImage, maxPixel: CGFloat = 2160) async -> UIImage {
@@ -4371,9 +4832,9 @@ private struct StoryDraftsGallery: View {
     private func tile(_ draft: StoryDraft) -> some View {
         ZStack(alignment: .bottomLeading) {
             Group {
-                if let media = draft.media,
-                   let image = UIImage(contentsOfFile: app.draftMedia.fileURL(media).path) {
-                    Image(uiImage: image).resizable().scaledToFill()
+                // Downsampled off the main thread (was a full-resolution decode per tile, per render).
+                if let media = draft.media, media.kind == .image {
+                    LocalMediaThumbnail(url: app.draftMedia.fileURL(media), pointSize: 220)
                 } else {
                     LinearGradient(colors: [Color(hex: "#667EEA"), Color(hex: "#764BA2")], startPoint: .topLeading, endPoint: .bottomTrailing)
                         .overlay(Image(systemName: "textformat").font(.title2).foregroundStyle(.white.opacity(0.8)))
@@ -4419,5 +4880,391 @@ extension AnyTransition {
             removal: .modifier(active: StoryGlassDissolve(blur: 14, scale: 0.98, opacity: 0),
                                identity: StoryGlassDissolve(blur: 0, scale: 1, opacity: 1))
         )
+    }
+}
+
+// MARK: - Story viewers (owner only, `viewers` capability; reactions merged when advertised)
+
+struct StoryViewersSheet: View {
+    let itemID: StoryID
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var viewers: [StoryViewerEntry] = []
+    @State private var total = 0
+    @State private var cursor: String?
+    @State private var loading = true
+    @State private var failed = false
+    @State private var summary: [StoryEmojiCount] = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !summary.isEmpty {
+                    Section {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(summary, id: \.emoji) { entry in
+                                    Text("\(entry.emoji) \(entry.count)")
+                                        .font(.subheadline.weight(.semibold))
+                                        .padding(.horizontal, 12)
+                                        .frame(minHeight: 34)
+                                        .background(Capsule().fill(Color(uiColor: .secondarySystemBackground)))
+                                }
+                            }
+                        }
+                        .modulaHorizontalRail()
+                    }
+                }
+                Section(total == 1 ? "1 viewer" : "\(total) viewers") {
+                    ForEach(viewers) { viewer in
+                        Button {
+                            dismiss()
+                            app.navigation.open(.profile(viewer.person.handle.isEmpty ? viewer.person.id : viewer.person.handle, .overview))
+                        } label: {
+                            HStack(spacing: 12) {
+                                ModulaAvatar(initials: viewer.person.initials, url: viewer.person.avatarURL, size: 40)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(viewer.person.displayName).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                                    if !viewer.person.handle.isEmpty {
+                                        Text("@\(viewer.person.handle)").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                                if let reaction = viewer.reaction { Text(reaction).font(.title3) }
+                            }
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityElement(children: .combine)
+                        .onAppear {
+                            if viewer.id == viewers.last?.id, cursor != nil { Task { await loadMore() } }
+                        }
+                    }
+                    if loading { ProgressView().frame(maxWidth: .infinity) }
+                    if failed, viewers.isEmpty { Text("Viewers aren’t available right now.").foregroundStyle(.secondary) }
+                    if !loading, !failed, viewers.isEmpty { Text("No views yet.").foregroundStyle(.secondary) }
+                }
+            }
+            .navigationTitle("Viewers")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close")
+                }
+            }
+            .task { await loadFirst() }
+            // Live: `story.reaction` over the messaging socket (when it's connected).
+            .task(id: app.messaging.storyReactionPulse[itemID] ?? 0) {
+                guard (app.messaging.storyReactionPulse[itemID] ?? 0) > 0 else { return }
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                await refreshLive()
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
+        .accessibilityIdentifier("story.viewers")
+    }
+
+    private func loadFirst() async {
+        loading = true
+        // Brings the messaging socket up (once per account) so `story.reaction` arrives live.
+        Task { await app.messaging.probeCapabilities() }
+        async let page = app.stories.viewers(itemID: itemID)
+        async let reactions = app.stories.reactions(itemID: itemID)
+        if let page = await page {
+            viewers = page.items
+            total = page.viewerCount
+            cursor = page.hasMore ? page.nextCursor : nil
+        } else {
+            failed = true
+        }
+        summary = (await reactions)?.summary ?? []
+        loading = false
+    }
+
+    /// Re-reads the first page + summary and merges reactions into the list in place.
+    private func refreshLive() async {
+        async let page = app.stories.viewers(itemID: itemID)
+        async let reactions = app.stories.reactions(itemID: itemID)
+        if let page = await page {
+            let fresh = Dictionary(page.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let known = Set(viewers.map(\.id))
+            viewers = page.items.filter { !known.contains($0.id) } + viewers.map { fresh[$0.id] ?? $0 }
+            total = page.viewerCount
+        }
+        if let summary = await reactions?.summary { self.summary = summary }
+    }
+
+    private func loadMore() async {
+        guard !loading, let next = cursor else { return }
+        loading = true
+        if let page = await app.stories.viewers(itemID: itemID, cursor: next) {
+            let known = Set(viewers.map(\.id))
+            viewers += page.items.filter { !known.contains($0.id) }
+            cursor = page.hasMore ? page.nextCursor : nil
+        } else {
+            cursor = nil
+        }
+        loading = false
+    }
+}
+
+// MARK: - Story highlights (`highlights` + `archive` capabilities)
+
+struct StoryHighlightRef: Identifiable, Hashable {
+    let id: String
+}
+
+/// One highlight: swipe through its items; the owner can edit or delete it.
+struct StoryHighlightSheet: View {
+    let highlightID: String
+    let ownerHandle: String
+    var onEdit: () -> Void
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var highlight: StoryHighlight?
+    @State private var loaded = false
+    @State private var page: StoryID?
+    @State private var confirmDelete = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let highlight, !highlight.items.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 0) {
+                            ForEach(highlight.items) { item in
+                                StoryArchiveTile(item: item, large: true)
+                                    .containerRelativeFrame(.horizontal)
+                                    .id(item.id)
+                            }
+                        }
+                        .scrollTargetLayout()
+                    }
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: $page)
+                    .modulaHorizontalRail()
+                } else if loaded {
+                    ModulaEmptyState(title: "Nothing here", message: "This highlight has no stories you can see.", symbol: "sparkles")
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .background(Color.black.opacity(0.94).ignoresSafeArea())
+            .navigationTitle(highlight?.title ?? "Highlight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close")
+                }
+                if highlight?.isOwner == true {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button("Edit Highlight", systemImage: "pencil") { dismiss(); onEdit() }
+                            Button("Delete Highlight", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                        } label: { Image(systemName: "ellipsis") }
+                        .accessibilityLabel("Highlight options")
+                    }
+                }
+            }
+            .confirmationDialog("Delete this highlight?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) {
+                    Task {
+                        if await app.stories.deleteHighlight(id: highlightID, ownerHandle: ownerHandle) { dismiss() }
+                    }
+                }
+            } message: {
+                Text("The stories stay in your archive.")
+            }
+            .task {
+                highlight = await app.stories.highlight(id: highlightID)
+                loaded = true
+            }
+        }
+        .preferredColorScheme(.dark)
+        .accessibilityIdentifier("story.highlight")
+    }
+}
+
+/// Create (nil id) or edit a highlight: title + items picked from `GET /v1/stories/archive`.
+struct StoryHighlightEditor: View {
+    let highlightID: String?
+    let ownerHandle: String
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var archive: [StoryArchiveItem] = []
+    @State private var cursor: String?
+    @State private var selected: [StoryID] = []
+    @State private var cover: StoryID?
+    @State private var loading = true
+    @State private var saving = false
+
+    private var maxTitle: Int { app.stories.capabilities.highlightTitleMax }
+    private var maxItems: Int { app.stories.capabilities.highlightMaxItems }
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !selected.isEmpty && !saving
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    TextField("Highlight name", text: $title)
+                        .font(.title3.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 48)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(uiColor: .secondarySystemBackground)))
+                        .onChange(of: title) { _, value in
+                            if value.count > maxTitle { title = String(value.prefix(maxTitle)) }
+                        }
+                    Text(selected.isEmpty ? "Pick stories from your archive" : "\(selected.count) selected · long-press to set the cover")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                        ForEach(archive) { item in
+                            let index = selected.firstIndex(of: item.id)
+                            Button { toggle(item.id) } label: {
+                                StoryArchiveTile(item: item, large: false)
+                                    .overlay(alignment: .topTrailing) {
+                                        ZStack {
+                                            Circle().fill(index == nil ? Color.black.opacity(0.35) : app.appearance.liveAccent)
+                                            if let index { Text("\(index + 1)").font(.caption2.bold()).foregroundStyle(.white) }
+                                        }
+                                        .frame(width: 24, height: 24)
+                                        .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                                        .padding(6)
+                                    }
+                                    .overlay(alignment: .bottomLeading) {
+                                        if cover == item.id || (cover == nil && selected.first == item.id) {
+                                            Text("Cover").font(.caption2.bold()).foregroundStyle(.white)
+                                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                                .background(Capsule().fill(.black.opacity(0.55)))
+                                                .padding(6)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Use as Cover", systemImage: "photo") {
+                                    if index == nil { toggle(item.id) }
+                                    cover = item.id
+                                }
+                            }
+                            .accessibilityLabel(item.caption ?? "Story")
+                            .accessibilityAddTraits(index == nil ? .isButton : [.isButton, .isSelected])
+                            .onAppear {
+                                if item.id == archive.last?.id, cursor != nil { Task { await loadMore() } }
+                            }
+                        }
+                    }
+                    if loading { ProgressView().frame(maxWidth: .infinity) }
+                    if !loading, archive.isEmpty {
+                        ModulaEmptyState(title: "No stories yet", message: "Stories you post are kept in your archive for highlights.", symbol: "clock.arrow.circlepath")
+                    }
+                }
+                .padding(ModulaLayout.contentInset)
+            }
+            .navigationTitle(highlightID == nil ? "New Highlight" : "Edit Highlight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "Saving…" : "Save") { Task { await save() } }
+                        .disabled(!canSave)
+                }
+            }
+            .task { await loadFirst() }
+        }
+        .interactiveDismissDisabled(saving)
+        .accessibilityIdentifier("story.highlight.editor")
+    }
+
+    private func toggle(_ id: StoryID) {
+        if let index = selected.firstIndex(of: id) {
+            selected.remove(at: index)
+            if cover == id { cover = nil }
+        } else if selected.count < maxItems {
+            selected.append(id)
+        }
+        HapticEngine.shared.play(.selection)
+    }
+
+    private func loadFirst() async {
+        if let highlightID, let existing = await app.stories.highlight(id: highlightID) {
+            title = existing.title
+            selected = existing.items.map(\.id)
+            cover = existing.coverItemID
+        }
+        if let page = await app.stories.archive() {
+            archive = page.items
+            cursor = page.next
+        }
+        loading = false
+    }
+
+    private func loadMore() async {
+        guard !loading, let next = cursor else { return }
+        loading = true
+        if let page = await app.stories.archive(cursor: next) {
+            let known = Set(archive.map(\.id))
+            archive += page.items.filter { !known.contains($0.id) }
+            cursor = page.next
+        } else {
+            cursor = nil
+        }
+        loading = false
+    }
+
+    private func save() async {
+        saving = true
+        let ok = await app.stories.saveHighlight(
+            id: highlightID,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            itemIDs: selected,
+            coverItemID: cover ?? selected.first,
+            ownerHandle: ownerHandle
+        )
+        saving = false
+        if ok {
+            HapticEngine.shared.play(.success)
+            dismiss()
+        } else {
+            HapticEngine.shared.play(.failure)
+        }
+    }
+}
+
+/// Archive / highlight item thumbnail (image or video poster via the media URL).
+struct StoryArchiveTile: View {
+    let item: StoryArchiveItem
+    var large: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color(uiColor: .secondarySystemBackground)
+            if let url = item.mediaURL, !item.isVideo {
+                ModulaAnimatedRemoteImage(url: url)
+                    .scaledToFill()
+            } else {
+                Image(systemName: item.isVideo ? "play.rectangle.fill" : "photo")
+                    .font(large ? .largeTitle : .title3)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if large, let caption = item.caption, !caption.isEmpty {
+                Text(caption)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(16)
+                    .shadow(radius: 6)
+            }
+        }
+        .aspectRatio(large ? nil : 9.0 / 16.0, contentMode: .fit)
+        .frame(maxHeight: large ? .infinity : nil)
+        .clipShape(RoundedRectangle(cornerRadius: large ? 0 : 12, style: .continuous))
+        .contentShape(Rectangle())
     }
 }

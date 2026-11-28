@@ -139,7 +139,8 @@ struct MolibooRoomBackdrop: View {
         VStack(spacing: 0) {
             HStack(alignment: .bottom, spacing: 4) {
                 ForEach(ids, id: \.self) { id in
-                    if let img = MolibooPortrait.image(for: id) {
+                    // Speed: 38 pt figurines use the cached 64 pt thumb, not a 180 pt portrait render each.
+                    if let img = MolibooPortrait.thumb(for: id, dressed: true) ?? MolibooPortrait.image(for: id) {
                         Image(uiImage: img).resizable().scaledToFit().frame(width: 38, height: 38)
                             .shadow(color: .black.opacity(0.25), radius: 2, y: 2)
                     }

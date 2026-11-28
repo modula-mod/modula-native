@@ -339,7 +339,8 @@ struct ModulaCodeView: View {
     @State private var appeared = false
     @State private var exportImage: UIImage?
     @State private var avatarImage: UIImage?
-    @Namespace private var switchNamespace
+    @AppStorage("modulaCode.brightnessBoost") private var brightnessBoost = true
+    @Environment(\.scenePhase) private var scenePhase
 
     private var accent: Color { app.appearance.liveAccent }
     private var style: ModulaCodeStyle { ModulaCodeStyle(rawValue: styleRaw) ?? .theme }
@@ -371,15 +372,38 @@ struct ModulaCodeView: View {
                     Button("Done", action: onDismiss)
                         .accessibilityIdentifier("modulaCode.done")
                 }
+                if mode == .myCode, subject != nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            brightnessBoost.toggle()
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Image(systemName: brightnessBoost ? "sun.max.fill" : "sun.max")
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                        .accessibilityLabel(brightnessBoost ? "Turn off brightness boost" : "Boost brightness for scanning")
+                        .accessibilityIdentifier("modulaCode.brightness")
+                    }
+                }
             }
         }
         .onAppear {
             mode = subject == nil ? .scan : initialMode
             withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.8)) { appeared = true }
+            syncBrightness()
         }
+        // Full brightness while your code is on screen (like a boarding pass); restored on leave.
+        .onChange(of: mode) { _, _ in syncBrightness() }
+        .onChange(of: brightnessBoost) { _, _ in syncBrightness() }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { syncBrightness() } else { ModulaBrightnessBoost.restore() } }
+        .onDisappear { ModulaBrightnessBoost.restore() }
         .task(id: subject?.avatarURL) { await loadAvatar() }
         .task(id: "\(styleRaw)-\(subject?.url.absoluteString ?? "")-\(avatarImage != nil)-\(scheme == .dark)") { renderExport() }
         .accessibilityIdentifier("modulaCode")
+    }
+
+    private func syncBrightness() {
+        if brightnessBoost, mode == .myCode, subject != nil { ModulaBrightnessBoost.boost() } else { ModulaBrightnessBoost.restore() }
     }
 
     // MARK: Chrome
@@ -394,36 +418,11 @@ struct ModulaCodeView: View {
     }
 
     private var modeSwitch: some View {
-        ModulaGlassGroup(spacing: 4) {
-            HStack(spacing: 2) {
-                ForEach(ModulaCodeMode.allCases) { item in
-                    let selected = item == mode
-                    Button {
-                        guard item != mode else { return }
-                        HapticEngine.shared.play(.selection)
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.32)) { mode = item }
-                    } label: {
-                        Label(item == .myCode ? "My Code" : "Scan", systemImage: item.symbol)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(selected ? Color.white : Color.primary)
-                            .padding(.horizontal, 18)
-                            .frame(height: 38)
-                            .background {
-                                if selected {
-                                    Capsule().fill(accent.gradient)
-                                        .matchedGeometryEffect(id: "code.mode", in: switchNamespace)
-                                }
-                            }
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
-                    .accessibilityIdentifier("modulaCode.mode.\(item.rawValue)")
-                }
-            }
-            .padding(4)
-            .modulaGlass(in: Capsule(), interactive: false, specular: true)
-        }
+        ModulaSegmentedControl(segments: ModulaCodeMode.allCases.map {
+            .init(id: $0, title: $0 == .myCode ? "My Code" : "Scan", systemImage: $0.symbol)
+        }, selection: $mode, accessibilityLabel: "Code mode",
+           identifier: { "modulaCode.mode.\($0.rawValue)" })
+        .frame(width: 260)
     }
 
     // MARK: My Code
@@ -464,9 +463,9 @@ struct ModulaCodeView: View {
                 Text(subject.kind.uppercased())
                     .font(.caption2.weight(.bold))
                     .tracking(1.2)
-                    .foregroundStyle(accent)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(accent.opacity(0.14), in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
             }
 
             ModulaBrandedQRCode(matrix: matrix, style: style, accent: accent) {
@@ -474,8 +473,9 @@ struct ModulaCodeView: View {
             }
             .padding(18)
             .background(Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.18), radius: 18, y: 8)
-            .frame(maxWidth: 300)
+            .shadow(color: .black.opacity(scheme == .dark ? 0.4 : 0.14), radius: 18, y: 8)
+            // Bigger code = faster, longer-range scans (fills the sheet width on phones).
+            .frame(maxWidth: 340)
             .accessibilityElement()
             .accessibilityLabel("Modula Code for \(subject.subtitle ?? subject.title)")
             .accessibilityHint("Scanning it opens \(subject.url.absoluteString)")
@@ -558,7 +558,7 @@ struct ModulaCodeView: View {
                         }
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded { HapticEngine.shared.play(.lightImpact) })
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityIdentifier("modulaCode.shareImage")
                     }
                     Button { copyLink(subject) } label: {
@@ -591,7 +591,8 @@ struct ModulaCodeView: View {
     private func actionLabel(_ title: String, symbol: String, prominent: Bool) -> some View {
         Label(title, systemImage: symbol)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(prominent ? Color.white : Color.primary)
+            // Bug fix: was white, which vanished on the white primary fill in dark mode.
+            .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
             .frame(maxWidth: .infinity)
@@ -814,20 +815,20 @@ struct ModulaCodeScanner: View {
                 .foregroundStyle(.white.opacity(0.9))
             Text(status == .denied || status == .restricted ? "Camera access is off" : "Camera scanning isn't available here")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.modulaOnPrimary)
                 .multilineTextAlignment(.center)
             Text(status == .denied || status == .restricted
                  ? "Turn on camera access for Modula in Settings, or pick a photo of a code."
                  : "You can still scan a code from a photo.")
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Color.modulaOnPrimary.opacity(0.75))
                 .multilineTextAlignment(.center)
             if status == .denied || status == .restricted, let url = URL(string: UIApplication.openSettingsURLString) {
                 Button("Open Settings") { openURL(url) }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .padding(.horizontal, 18).frame(height: 40)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .buttonStyle(.plain)
             }
         }
@@ -902,11 +903,11 @@ struct ModulaCodeScanner: View {
                         onOpen(code)
                         if case .text = code { withAnimation(.snappy) { result = nil } }
                     } label: {
-                        Text(action).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                        Text(action).font(.subheadline.weight(.semibold)).foregroundStyle(Color.modulaOnPrimary)
                             .frame(maxWidth: .infinity).frame(height: 44).contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .accessibilityIdentifier("modulaCode.result.open")
                 }
             }
@@ -1008,5 +1009,29 @@ private struct ModulaDataScanner: UIViewControllerRepresentable {
                 }
             }
         }
+    }
+}
+
+
+/// Temporarily raises screen brightness (Modula Code on screen) and puts it back exactly once.
+@MainActor
+enum ModulaBrightnessBoost {
+    private static var saved: CGFloat?
+
+    private static var screen: UIScreen? {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?.screen
+    }
+
+    static func boost() {
+        guard let screen, saved == nil else { return }
+        saved = screen.brightness
+        screen.brightness = 1
+    }
+
+    static func restore() {
+        guard let previous = saved else { return }
+        saved = nil
+        screen?.brightness = previous
     }
 }

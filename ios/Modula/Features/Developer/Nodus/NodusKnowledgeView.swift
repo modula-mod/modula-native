@@ -70,18 +70,21 @@ struct NodusKnowledgeView: View {
             allowsMultipleSelection: false
         ) { result in Task { await importFile(result) } }
         .sheet(isPresented: $showingTextEntry) {
-            NodusTextKnowledgeSheet(collections: snapshot.collections.filter { !$0.isReadOnly }) { title, text, collectionID in
-                Task {
-                    do {
-                        _ = try await app.nodusKnowledgeStore.add(
-                            title: title, sourceType: .pastedText, sourceName: "Pasted text",
-                            text: text, collectionID: collectionID
-                        )
-                        status = "Knowledge added locally"
-                        await refresh()
-                    } catch { status = error.localizedDescription }
+            Group {
+                NodusTextKnowledgeSheet(collections: snapshot.collections.filter { !$0.isReadOnly }) { title, text, collectionID in
+                    Task {
+                        do {
+                            _ = try await app.nodusKnowledgeStore.add(
+                                title: title, sourceType: .pastedText, sourceName: "Pasted text",
+                                text: text, collectionID: collectionID
+                            )
+                            status = "Knowledge added locally"
+                            await refresh()
+                        } catch { status = error.localizedDescription }
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .alert("New Collection", isPresented: $showingCollectionEntry) {
             TextField("Name", text: $collectionName)

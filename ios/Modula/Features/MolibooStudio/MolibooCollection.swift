@@ -234,25 +234,8 @@ struct MolibooCollectionView: View {
     }
 
     private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Filter.allCases) { f in
-                    let on = filter == f
-                    Button {
-                        withAnimation(reduceMotion ? nil : .snappy) { filter = f }
-                    } label: {
-                        Text(f.rawValue)
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(on ? .white : .primary)
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: on ? teal : nil, prominent: on)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("collection.filter.\(f.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))")
-                    .accessibilityAddTraits(on ? .isSelected : [])
-                }
-            }
-        }
+        ModulaSegmentedControl("Collection filter", selection: $filter, options: Filter.allCases,
+                               identifier: { "collection.filter.\($0.rawValue.lowercased().replacingOccurrences(of: " ", with: "-"))" }) { $0.rawValue }
     }
 
     @ViewBuilder private func tile(id: String, number: Int) -> some View {
@@ -303,11 +286,13 @@ struct MolibooCollectionView: View {
 
                     HStack(spacing: 4) {
                         if selected {
-                            Image(systemName: "checkmark.circle.fill")
+                            // Selection mark: black/white, readable on any family colour in light and dark.
+                            Image(systemName: "checkmark")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(5)
-                                .background(teal, in: Circle())
+                                .foregroundStyle(Color(uiColor: .systemBackground))
+                                .padding(6)
+                                .background(Color.primary, in: Circle())
+                                .transition(.scale.combined(with: .opacity))
                         }
                         statusBadge(has3D: has3D, kind: kind, unlocked: unlocked)
                     }

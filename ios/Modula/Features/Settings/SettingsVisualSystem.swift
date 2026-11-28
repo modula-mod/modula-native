@@ -93,7 +93,7 @@ struct SettingsCoverHeader: View {
                     .frame(minHeight: 44)
                     .padding(.horizontal, 18)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.modulaSecondary)
             .buttonBorderShape(.capsule)
             .accessibilityIdentifier("settings.identity.edit")
         }
@@ -364,7 +364,7 @@ struct FocusAdaptationGraphic: View {
                     Circle().stroke(app.appearance.liveAccent.opacity(0.55), lineWidth: 1.5).frame(width: 48, height: 48)
                     Image(systemName: "moon.stars.fill")
                         .font(.title2)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                 }
                 VStack(spacing: 16) {
                     node("Feed", "rectangle.stack", dimmed: hideBadges)
@@ -536,7 +536,7 @@ struct ChatsPrivacyGraphic: View {
                 bubble("You", leading: true)
                 Image(systemName: "lock.fill")
                     .font(.caption)
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(width: 36)
                 bubble(receipts ? "Seen" : "Private", leading: false)
             }
@@ -567,7 +567,7 @@ struct NotificationStackGraphic: View {
 
     private func card(_ title: String, _ body: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "bell.fill").foregroundStyle(app.appearance.liveAccent)
+            Image(systemName: "bell.fill").foregroundStyle(.primary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.caption.weight(.semibold))
                 Text(body).font(.caption).foregroundStyle(.secondary)
@@ -588,7 +588,7 @@ struct PrivacyLayersGraphic: View {
                 ForEach(Array(["Identity", "Permissions", "Local data", "Network"].enumerated()), id: \.offset) { index, title in
                     HStack(spacing: 10) {
                         Image(systemName: index == 0 ? "person" : (index == 3 ? "network" : "lock"))
-                            .foregroundStyle(app.appearance.liveAccent)
+                            .foregroundStyle(.primary)
                             .frame(width: 22)
                         Text(title).font(.subheadline.weight(.medium))
                         Spacer()

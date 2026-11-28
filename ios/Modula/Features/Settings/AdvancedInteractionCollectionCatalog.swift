@@ -27,12 +27,12 @@ struct TabsCatalogPage: View {
                 Toggle("Badges", isOn: $showsBadges)
             }
             Section("Text + icon + badge") {
-                ModulaTabStrip(items: items, selection: $selection, layout: layout, compact: compact)
+                ModulaSegmentedControl(items: items, selection: $selection, layout: layout, compact: compact)
                     .padding(.vertical, 8)
                 Text("Selected: \(selection.rawValue)").font(.caption).foregroundStyle(.secondary)
             }
             Section("Dynamic items") {
-                ModulaTabStrip(items: Array(items.prefix(3)), selection: $selection, layout: .equalWidth, compact: true)
+                ModulaSegmentedControl(items: Array(items.prefix(3)), selection: $selection, layout: .equalWidth, compact: true)
             }
         }
         .navigationTitle("Tabs")

@@ -175,7 +175,7 @@ struct MediaDownloadsView: View {
         HStack(spacing: 12) {
             Image(systemName: item.symbol)
                 .font(.title3)
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 36, height: 36)
                 .background(app.appearance.liveAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {

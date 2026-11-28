@@ -103,8 +103,8 @@ struct MolibooSettingsView: View {
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: cheer) { _, _ in haptics }
-        .sheet(isPresented: $showOnboarding) { MolibooWelcomeSheet { onboarded = true; showOnboarding = false } }
-        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .sheet(isPresented: $showOnboarding) { MolibooWelcomeSheet { onboarded = true; showOnboarding = false }.modulaSheetStyle() }
+        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0).modulaSheetStyle() }
         .onAppear {
             if !onboarded { showOnboarding = true }
             care.refresh(kindRaw)
@@ -222,37 +222,9 @@ struct MolibooSettingsView: View {
     // MARK: Segments
 
     private func segmentBar(_ proxy: ScrollViewProxy) -> some View {
-        ModulaGlassGroup(spacing: 6) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(MolibooHubSegment.allCases.filter { $0 != .studio }) { s in
-                        Button { pick(s, proxy) } label: {
-                            Label(s.title, systemImage: s.icon)
-                                .labelStyle(.titleAndIcon)
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .fixedSize()
-                                .foregroundStyle(segment == s ? Color.white : Color.primary)
-                                .padding(.horizontal, 14)
-                                .frame(minHeight: 40)
-                                .background {
-                                    if segment == s {
-                                        Capsule().fill(Color.clear)
-                                            .modulaAccentCTA()
-                                            .modulaGlassID("hub.segment", in: glassNS)
-                                    }
-                                }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("moliboo.hub.segment.\(s.rawValue)")
-                        .accessibilityAddTraits(segment == s ? .isSelected : [])
-                    }
-                }
-                .padding(4)
-            }
-            .modulaHorizontalEdgeFade(12)
-            .modulaGlass(in: Capsule(), interactive: false, specular: true)
-        }
+        ModulaSegmentedControl("Moliboo hub", selection: Binding(get: { segment }, set: { pick($0, proxy) }),
+                               options: MolibooHubSegment.allCases.filter { $0 != .studio }, symbol: { $0.icon },
+                               identifier: { "moliboo.hub.segment.\($0.rawValue)" }) { $0.title }
     }
 
     private func pick(_ s: MolibooHubSegment, _ proxy: ScrollViewProxy) {
@@ -500,7 +472,7 @@ struct MolibooSettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.primary.opacity(0.04)))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2.5))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(selected ? Color.primary : .clear, lineWidth: 2.5))
         }
         .buttonStyle(MolibooSpringPress(enabled: motionOn))
         .accessibilityIdentifier("moliboo.hub.off")
@@ -511,8 +483,9 @@ struct MolibooSettingsView: View {
     private var createCard: some View {
         Button { route = .studio(.custom) } label: {
             VStack(spacing: 6) {
-                Image(systemName: "plus").font(.headline).foregroundStyle(.white).frame(width: 30, height: 30).background(Circle().fill(Color.blue.opacity(0.85)))
-                Text("Create").font(.footnote.weight(.bold)).foregroundStyle(.blue)
+                // Black/white action (no blue accent).
+                Image(systemName: "plus").font(.headline).foregroundStyle(Color(uiColor: .systemBackground)).frame(width: 30, height: 30).background(Circle().fill(Color.primary))
+                Text("Create").font(.footnote.weight(.bold)).foregroundStyle(.primary)
                 Text("Custom").font(.caption2.weight(.medium)).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -552,6 +525,7 @@ struct MolibooSettingsView: View {
             }
             .padding(.vertical, 4)
         }
+        .modulaHorizontalRail()
     }
 }
 
@@ -618,11 +592,11 @@ struct MolibooWelcomeSheet: View {
                 .opacity(launching ? 0 : 1)
                 Spacer(minLength: 0)
                 Button(action: go) {
-                    Text(page < pages.count - 1 ? "Next" : "Let’s go").font(.headline).foregroundStyle(.white)
+                    Text(page < pages.count - 1 ? "Next" : "Let’s go").font(.headline).foregroundStyle(Color.modulaOnPrimary)
                         .frame(maxWidth: .infinity, minHeight: 54).contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .shadow(color: Color(red: 0.5, green: 0.4, blue: 1).opacity(0.6), radius: 18, y: 6)
                 .padding(.horizontal, 28)
                 .accessibilityIdentifier("moliboo.welcome.go")
@@ -635,6 +609,7 @@ struct MolibooWelcomeSheet: View {
         }
         .environment(\.colorScheme, .dark)
         .presentationDetents([.large])
+        .modulaSheetStyle()
         .presentationBackground(.clear)
         .onAppear {
             withAnimation(motionOn ? .spring(response: 0.7, dampingFraction: 0.75) : nil) { appear = true }

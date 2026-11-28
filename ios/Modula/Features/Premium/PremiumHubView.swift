@@ -56,10 +56,7 @@ struct PremiumHubView: View {
             PremiumPromiseMasthead()
             PremiumHeroCard(plan: store.plan, previewing: store.isPreviewing)
 
-            Picker("Audience", selection: $audience) {
-                ForEach(PremiumAudience.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Audience", selection: $audience, options: PremiumAudience.allCases) { $0.title }
             .accessibilityIdentifier("premium.audience")
             .onChange(of: audience) { _, value in
                 guard !value.plans.contains(store.selectedPlan) else { return }
@@ -97,6 +94,7 @@ struct PremiumHubView: View {
                 }
                 .padding(.vertical, 12)
             }
+            .modulaHorizontalRail()
             .scrollClipDisabled()
             .accessibilityIdentifier("premium.plans")
 
@@ -339,7 +337,7 @@ struct PremiumPrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            // No local foreground colour: `modulaAccentCTA` owns it (white on solid accent, accent
+            // No local foreground colour: `modulaPrimaryCTA` owns it (inverted label on the solid primary fill
             // text on the outline when disabled — previously white-on-pale read as washed out).
             Text(label)
                 .font(.body.weight(.semibold))
@@ -347,7 +345,7 @@ struct PremiumPrimaryButton: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.97))
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(currentPlan == plan || comingSoon)
         .accessibilityIdentifier(identifier)
     }
@@ -489,31 +487,12 @@ struct PremiumPromiseMasthead: View {
 
 struct PremiumBillingToggle: View {
     @Binding var selection: PremiumBilling
-    @Environment(AppEnvironment.self) private var app
-    @Namespace private var ns
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(PremiumBilling.allCases) { billing in
-                let on = selection == billing
-                Button {
-                    withAnimation(.snappy) { selection = billing }
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Text(billing == .monthly ? "Monthly" : "Yearly")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(on ? Color.white : Color.primary)
-                        .frame(width: 100, height: 40)
-                        .background {
-                            if on { Capsule().fill(app.appearance.liveAccent).matchedGeometryEffect(id: "pill", in: ns) }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
+        ModulaSegmentedControl("Billing", selection: $selection, options: PremiumBilling.allCases,
+                               identifier: { "premium.billing.\($0 == .monthly ? "monthly" : "yearly")" }) {
+            $0 == .monthly ? "Monthly" : "Yearly"
         }
-        .padding(3)
-        .modulaGlass(in: Capsule(), interactive: true)
+        .frame(width: 220)
     }
 }
 
@@ -568,7 +547,7 @@ struct PremiumPlanColumn: View {
                 Text(current ? "Current plan" : (selected ? "Selected" : "Choose"))
                     .font(.footnote.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 40)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .disabled(current || !selected)
             }
             .padding(12)
@@ -619,7 +598,7 @@ struct PremiumWhatYouGetGrid: View {
                 Button(action: onSeeAll) {
                     HStack(spacing: 4) { Text("See all features"); Image(systemName: "chevron.right") }
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 12).frame(height: 30)
                         .overlay(Capsule().strokeBorder(app.appearance.liveAccent.opacity(0.4)))
                         .frame(minHeight: 44)
@@ -672,7 +651,7 @@ struct PremiumStickyCTA: View {
             .contentShape(Capsule())
         }
         .buttonStyle(ModulaPressStyle(scale: 0.98))
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(currentPlan == plan)
         .padding(.horizontal, ModulaLayout.contentInset)
         .padding(.bottom, 8)

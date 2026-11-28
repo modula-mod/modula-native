@@ -33,7 +33,7 @@ struct MolibooCardCollectionView: View {
                         Button { inspecting = card } label: {
                             MolibooTradingCardV2(card: card, width: 156, outfit: outfit, interactive: false)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MolibooSpringPressStyle())
                         .accessibilityIdentifier("cards.collection.\(card.catalogueNumber)")
                     }
                 }
@@ -47,7 +47,10 @@ struct MolibooCardCollectionView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .sheet(item: $inspecting) { card in
-            MolibooGalleryInspectView(card: card, outfit: outfit) { inspecting = nil }
+            Group {
+                MolibooGalleryInspectView(card: card, outfit: outfit) { inspecting = nil }
+            }
+            .modulaSheetStyle()
         }
     }
 
@@ -74,6 +77,7 @@ struct MolibooCardCollectionView: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .modulaHorizontalEdgeFade()
         .accessibilityIdentifier("cards.collection.families")
     }
@@ -106,10 +110,7 @@ struct MolibooCardsHomeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Cards", selection: $tab) {
-                ForEach(MolibooCardsHomeTab.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Cards", selection: $tab, options: MolibooCardsHomeTab.allCases) { $0.title }
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
             .accessibilityIdentifier("cards.home.tab")

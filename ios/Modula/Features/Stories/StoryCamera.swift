@@ -492,7 +492,7 @@ struct StoryCaptureStage: View {
                 .overlay { if loadingLibrary { ProgressView() } }
             }
             .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: showsEffects)
         .animation(.snappy(duration: 0.2), value: engine.isRecording)
@@ -641,7 +641,7 @@ struct StoryCaptureStage: View {
         }
         .frame(height: 8)
         .accessibilityElement()
-        .accessibilityLabel("\(clips.count) clips recorded")
+        .accessibilityLabel(clips.count == 1 ? "1 clip recorded" : "\(clips.count) clips recorded")
     }
 
     private func undoClip() {
@@ -669,25 +669,11 @@ struct StoryCaptureStage: View {
     }
 
     private var speedRow: some View {
-        HStack(spacing: 4) {
-            ForEach(StoryClipSpeed.allCases) { item in
-                Button {
-                    speed = item
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Text(item.title)
-                        .font(.footnote.weight(.bold).monospacedDigit())
-                        .foregroundStyle(speed == item ? Color.black : Color.white)
-                        .padding(.horizontal, 10).frame(height: 30)
-                        .background { if speed == item { Capsule().fill(.white) } }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Speed \(item.title)\(item.rawValue < 1 ? ", slow motion" : "")")
-                .accessibilityAddTraits(speed == item ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .modulaGlass(in: Capsule())
+        ModulaSegmentedControl(segments: StoryClipSpeed.allCases.map { .init(id: $0, title: $0.title) },
+                               selection: $speed, compact: true, accessibilityLabel: "Clip speed",
+                               identifier: { "story.camera.speed.\($0.title)" })
+            .environment(\.colorScheme, .dark)
+            .fixedSize()
         .disabled(engine.isRecording)
     }
 
@@ -716,6 +702,7 @@ struct StoryCaptureStage: View {
                 }
                 .padding(.horizontal, 14)
             }
+            .modulaHorizontalRail()
             if ar.placed > 0 {
                 Button("Clear") { ar.clear(); HapticEngine.shared.play(.selection) }
                     .font(.footnote.weight(.semibold)).foregroundStyle(.white)
@@ -808,15 +795,17 @@ struct StoryCaptureStage: View {
                 }
                 .padding(.horizontal, 16)
             }
+            .modulaHorizontalRail()
             if effect == .greenScreen {
                 PhotosPicker(selection: $backdropItems, maxSelectionCount: 1, matching: .images) {
                     Label("Choose backdrop", systemImage: "photo")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14).frame(height: 34)
-                        .background(.ultraThinMaterial, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                // Glass on the picker itself: its label closure is nonisolated (Debug strict concurrency).
+                .modulaGlass(in: Capsule(), interactive: false)
             }
         }
         .padding(.bottom, 6)
@@ -862,15 +851,13 @@ struct StoryCaptureStage: View {
                 if mode == .video, !clips.isEmpty {
                     Button { finishClips() } label: {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+                            .font(.system(size: 17, weight: .bold))
                             .frame(width: 44, height: 44)
-                            .modulaGlass(in: Circle(), interactive: true, tint: accent, prominent: true)
+                            .modulaPrimaryCTA(in: Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(engine.isRecording || merging)
-                    .accessibilityLabel("Done, use \(clips.count) clips")
-                } else {
-                    Color.clear.frame(width: 44, height: 44)
+                    .accessibilityLabel(clips.count == 1 ? "Done, use 1 clip" : "Done, use \(clips.count) clips")
                 }
             }
             .padding(.horizontal, 14)
@@ -878,34 +865,46 @@ struct StoryCaptureStage: View {
         }
     }
 
+    /// Capture modes, iOS Camera style: full-word labels that scroll, the active one centred and
+    /// bold. Nothing is cut off; the edges fade instead.
     private var modePicker: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(modes) { item in
-                        Button {
-                            select(item)
-                            withAnimation(.snappy) { proxy.scrollTo(item.id, anchor: .center) }
-                        } label: {
-                            Text(item.rawValue)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(mode == item ? Color.black : Color.white)
-                                .padding(.horizontal, 12).frame(height: 32)
-                                .background { if mode == item { Capsule().fill(.white) } }
-                                .shadow(color: mode == item ? .clear : .black.opacity(0.5), radius: 2)
+                HStack(spacing: 18) {
+                    ForEach(modes, id: \.self) { item in
+                        let on = item == mode
+                        Button { select(item) } label: {
+                            Text(item.rawValue.uppercased())
+                                .font(.system(size: 13, weight: on ? .bold : .semibold))
+                                .kerning(0.6)
+                                .foregroundStyle(on ? Color.black : Color.white.opacity(0.75))
+                                .fixedSize()
+                                .padding(.horizontal, on ? 12 : 2)
+                                .frame(height: 30)
+                                .background { if on { Capsule().fill(.white) } }
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .id(item.id)
-                        .accessibilityAddTraits(mode == item ? .isSelected : [])
+                        .id(item)
+                        .accessibilityLabel(item.rawValue)
+                        .accessibilityAddTraits(on ? .isSelected : [])
                         .accessibilityIdentifier("story.camera.mode.\(item.rawValue)")
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 120)
+                .animation(.spring(response: 0.32, dampingFraction: 0.8), value: mode)
             }
-            .onAppear { proxy.scrollTo(mode.id, anchor: .center) }
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.16),
+                                         .init(color: .black, location: 0.84), .init(color: .clear, location: 1)],
+                                 startPoint: .leading, endPoint: .trailing))
+            .onAppear { proxy.scrollTo(mode, anchor: .center) }
+            .onChange(of: mode) { _, next in withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { proxy.scrollTo(next, anchor: .center) } }
         }
+        .frame(height: 40)
         .frame(maxWidth: .infinity)
         .disabled(engine.isRecording || countdown != nil || !clips.isEmpty)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Capture mode")
     }
 
     private func pickLibrary() {
@@ -940,7 +939,14 @@ struct StoryCaptureStage: View {
                     ForEach(StoryFilter.catalog) { item in
                         Circle()
                             .fill(filterTint(item.id))
-                            .overlay(Image(systemName: item.systemImage).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white))
+                            .overlay {
+                                // "None" sits inside the shutter ring: no glyph there.
+                                if item.id != "none" {
+                                    Image(systemName: item.systemImage).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                                }
+                            }
+                            .scaleEffect(filterID == item.id ? 1 : 0.86)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: filterID)
                             .frame(width: 58, height: 58)
                             .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 1))
                             .id(Optional(item.id))
@@ -950,6 +956,7 @@ struct StoryCaptureStage: View {
                 }
                 .scrollTargetLayout()
             }
+            .modulaHorizontalRail()
             .contentMargins(.horizontal, max((geo.size.width - 58) / 2, 0), for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $filterID, anchor: .center)
@@ -968,7 +975,8 @@ struct StoryCaptureStage: View {
     }
 
     private func filterTint(_ id: String) -> some ShapeStyle {
-        let hue = Double(abs(id.hashValue % 360)) / 360
+        // Stable per filter (String.hashValue is reseeded every launch, so colours jumped around).
+        let hue = Double(id.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 360 }) / 360
         return id == "none" ? AnyShapeStyle(Color.white.opacity(0.18)) : AnyShapeStyle(Color(hue: hue, saturation: 0.55, brightness: 0.7).opacity(0.8))
     }
 

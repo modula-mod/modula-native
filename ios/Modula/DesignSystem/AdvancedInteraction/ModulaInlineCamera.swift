@@ -22,6 +22,14 @@ struct ModulaInlineCamera: View {
     @State private var countdown: Int?
     @State private var countdownTask: Task<Void, Never>?
     @State private var mode: Mode = .photo
+
+    /// Mode switching is locked while recording or counting down.
+    private var inlineModeSelection: Binding<Mode> {
+        Binding(get: { mode }, set: { next in
+            guard !camera.isRecording, countdown == nil else { return }
+            mode = next
+        })
+    }
     @State private var flash: AVCaptureDevice.FlashMode = .off
     @State private var flashPulse = false
     @Environment(AppEnvironment.self) private var app
@@ -73,49 +81,21 @@ struct ModulaInlineCamera: View {
                 }
                 Spacer()
                 if modes.count > 2 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 2) {
-                            ForEach(modes, id: \.self) { item in
-                                Button {
-                                    guard !camera.isRecording, countdown == nil else { return }
-                                    withAnimation(.snappy(duration: 0.22)) { mode = item }
-                                    HapticEngine.shared.play(.selection)
-                                } label: {
-                                    Text(item.rawValue).font(.caption.weight(.bold))
-                                        .foregroundStyle(mode == item ? .black : .white)
-                                        .padding(.horizontal, 10).frame(height: 28)
-                                        .background { if mode == item { Capsule().fill(.white) } }
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityAddTraits(mode == item ? .isSelected : [])
-                            }
-                        }
-                        .padding(3)
-                        .background(.ultraThinMaterial, in: Capsule())
-                    }
+                    ModulaSegmentedControl(segments: modes.map { .init(id: $0, title: $0.rawValue) },
+                                           selection: inlineModeSelection, forceScroll: true, compact: true,
+                                           accessibilityLabel: "Camera mode",
+                                           identifier: { "inline.camera.mode.\($0.rawValue)" })
+                        .environment(\.colorScheme, .dark)
                     .fixedSize(horizontal: true, vertical: false)
                     .padding(.bottom, 8)
                 }
                 HStack {
                     if modes.count == 2 {
-                        HStack(spacing: 2) {
-                            ForEach(modes, id: \.self) { item in
-                                Button {
-                                    guard !camera.isRecording else { return }
-                                    withAnimation(.snappy) { mode = item }
-                                    HapticEngine.shared.play(.selection)
-                                } label: {
-                                    Text(item.rawValue).font(.caption.weight(.bold))
-                                        .foregroundStyle(mode == item ? .black : .white)
-                                        .padding(.horizontal, 10).frame(height: 28)
-                                        .background { if mode == item { Capsule().fill(.white) } }
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityAddTraits(mode == item ? .isSelected : [])
-                            }
-                        }
-                        .padding(3)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        ModulaSegmentedControl(segments: modes.map { .init(id: $0, title: $0.rawValue) },
+                                               selection: inlineModeSelection, compact: true,
+                                               accessibilityLabel: "Camera mode",
+                                               identifier: { "inline.camera.mode.\($0.rawValue)" })
+                            .environment(\.colorScheme, .dark)
                         .frame(width: 120, alignment: .leading)
                     } else {
                         Color.clear.frame(width: 120, height: 1)
@@ -258,7 +238,7 @@ struct ModulaInlineCamera: View {
                 .foregroundStyle(.white)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 36)
-                .background(.ultraThinMaterial, in: Circle())
+                .modulaGlass(in: Circle(), interactive: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

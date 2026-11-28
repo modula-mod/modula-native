@@ -462,10 +462,32 @@ protocol MolibooChatBackend: Sendable {
 struct MolibooChatUnavailable: Error, Equatable { let reason: String }
 
 /// Backed by `ModulaIntelligence` (`.generate`, local-only). The deterministic test provider is rejected.
+/// When a memory store is provided, the Moliboo recalls confirmed memories
+/// about the user before answering (global scope only — the Moliboo chat is
+/// not a Nodus conversation, so no other conversation's memories can leak
+/// in). Retrieval is keyword-overlap over confirmed items only; nothing is
+/// ever written from here.
 struct MolibooIntelligenceChatBackend: MolibooChatBackend {
     let service: any ModulaIntelligenceService
+    /// Memories the Moliboo can recall. Nil when the caller has no store (the
+    /// backend still works — it just answers without memory).
+    let memory: NodusMemoryStore?
+
+    init(service: any ModulaIntelligenceService, memory: NodusMemoryStore? = nil) {
+        self.service = service
+        self.memory = memory
+    }
+
     func reply(to text: String, as character: String) async throws -> (text: String, provider: String) {
-        let prompt = "You are \(character), a small friendly Moliboo companion. Reply in one or two short, warm sentences.\nUser: \(text)"
+        var memoryBlock = ""
+        if let memory {
+            let matches = await memory.retrieve(query: text, conversationID: nil, topK: 3)
+            if !matches.isEmpty {
+                let lines = matches.enumerated().map { "[MEMORY \($0.offset + 1)] \($0.element.item.kind.rawValue): \($0.element.item.text)" }
+                memoryBlock = "\nWhat you remember about the user:\n" + lines.joined(separator: "\n")
+            }
+        }
+        let prompt = "You are \(character), a small friendly Moliboo companion. Reply in one or two short, warm sentences.\(memoryBlock)\nUser: \(text)"
         let req = IntelligenceRequest(capability: .generate, input: .string(prompt), privacy: .localOnly, source: .nativeFeature)
         let res: IntelligenceResponse
         do { res = try await service.execute(req) } catch let e as IntelligenceError {
@@ -525,4 +547,115 @@ final class MolibooChatModel {
 
     func reset() { task?.cancel(); phase = .composing }
     func cancel() { task?.cancel(); task = nil; if phase == .awaiting || phase == .submitting { phase = .composing } }
+}
+
+// MARK: - Daily goals, week strip, mini-game rewards, feelings (2D, local only)
+
+struct MolibooDailyGoal: Identifiable, Equatable {
+    let action: MolibooCareAction
+    let done: Bool
+    var id: String { action.rawValue }
+}
+
+struct MolibooWeekDay: Identifiable, Equatable {
+    let date: Date
+    let checked: Bool
+    var id: Date { date }
+}
+
+extension MolibooLifeState {
+    static let goalActions: [MolibooCareAction] = [.feed, .play, .bath, .cuddle]
+
+    /// Today's four care goals, done when that action was used today.
+    func goals(on now: Date, calendar: Calendar = .current) -> [MolibooDailyGoal] {
+        Self.goalActions.map { a in
+            MolibooDailyGoal(action: a, done: lastUsed[a.rawValue].map { calendar.isDate($0, inSameDayAs: now) } ?? false)
+        }
+    }
+
+    /// The last seven days (oldest first). Exact: a streak is an unbroken run of days ending at `lastCheckIn`.
+    func week(ending now: Date, calendar: Calendar = .current) -> [MolibooWeekDay] {
+        let today = calendar.startOfDay(for: now)
+        let run = currentStreak(at: now, calendar: calendar)
+        let lastDay = lastCheckIn.map { calendar.startOfDay(for: $0) }
+        return (0..<7).reversed().compactMap { back -> MolibooWeekDay? in
+            guard let day = calendar.date(byAdding: .day, value: -back, to: today) else { return nil }
+            var checked = false
+            if let lastDay, run > 0, let gap = calendar.dateComponents([.day], from: day, to: lastDay).day {
+                checked = gap >= 0 && gap < run
+            }
+            return MolibooWeekDay(date: day, checked: checked)
+        }
+    }
+}
+
+/// How you feel today; Moliboo answers with a pose and a kind line. Logged as a moment only.
+enum MolibooFeeling: String, CaseIterable, Identifiable, Sendable {
+    case great, good, okay, low, stressed
+    var id: String { rawValue }
+    var emoji: String {
+        switch self { case .great: "🤩"; case .good: "😊"; case .okay: "😐"; case .low: "😔"; case .stressed: "😣" }
+    }
+    var label: String {
+        switch self { case .great: "Great"; case .good: "Good"; case .okay: "Okay"; case .low: "Low"; case .stressed: "Stressed" }
+    }
+    var reaction: MolibooEmotion {
+        switch self { case .great: .excited; case .good: .happy; case .okay: .curious; case .low: .sad; case .stressed: .calm }
+    }
+    var line: String {
+        switch self {
+        case .great: "Yay! Let's keep that going!"
+        case .good: "That makes me happy too."
+        case .okay: "Okay is okay. I'm here."
+        case .low: "Sending you a big hug."
+        case .stressed: "Deep breath with me… in… and out."
+        }
+    }
+}
+
+extension MolibooCareStore {
+    /// A finished mini-game: a small mood/bond lift scaled by score (max +10), and a moment in the log.
+    @discardableResult
+    func recordGame(_ id: String, name: String, game: String, score: Int, now: Date = Date()) -> Bool {
+        let gain = Double(min(max(score, 0), 10))
+        let ok = adjustState(id) { $0.adjust(mood: gain, energy: -3, bond: gain / 2, minEnergy: 5, at: now) }
+        var life = life(for: id)
+        life.log("gamecontroller.fill", "\(game) with \(name): \(score)", at: now)
+        saveLife(life, for: id)
+        return ok
+    }
+
+    func shareFeeling(_ feeling: MolibooFeeling, id: String, name: String, now: Date = Date()) {
+        _ = adjustState(id) { $0.adjust(mood: 2, energy: 0, bond: 2, at: now) || true }
+        var life = life(for: id)
+        life.log("face.smiling", "Told \(name) you feel \(feeling.label.lowercased())", at: now)
+        saveLife(life, for: id)
+        recordFeelingDay(feeling, now: now)
+    }
+
+    static let feelingsKey = "moliboo.feelings.v1"
+
+    /// One feeling per day (latest wins), last 14 days: "y-m-d|feeling;…".
+    private func recordFeelingDay(_ feeling: MolibooFeeling, now: Date) {
+        let day = MolibooFeeling.dayKey(now)
+        var entries = (defaults.string(forKey: Self.feelingsKey) ?? "").split(separator: ";").map(String.init)
+            .filter { !$0.hasPrefix("\(day)|") }
+        entries.append("\(day)|\(feeling.rawValue)")
+        defaults.set(entries.suffix(14).joined(separator: ";"), forKey: Self.feelingsKey)
+    }
+}
+
+extension MolibooFeeling {
+    static func dayKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+    static func parse(_ raw: String) -> [String: MolibooFeeling] {
+        var out: [String: MolibooFeeling] = [:]
+        for e in raw.split(separator: ";") {
+            let p = e.split(separator: "|")
+            if p.count == 2, let f = MolibooFeeling(rawValue: String(p[1])) { out[String(p[0])] = f }
+        }
+        return out
+    }
 }

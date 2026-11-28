@@ -427,11 +427,22 @@ enum ProfilePayloadDecoder {
 }
 
 enum ProfileCountFormatter {
-    static func compact(_ value: Int) -> String {
+    /// Cached (one NumberFormatter per call showed up on every profile header redraw).
+    nonisolated(unsafe) private static let compactFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = 1
         formatter.locale = .current
+        return formatter
+    }()
+    nonisolated(unsafe) private static let decimalFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
+
+    static func compact(_ value: Int) -> String {
+        let formatter = compactFormatter
         if value < 1_000 { return formatter.string(from: NSNumber(value: value)) ?? "\(value)" }
         if value < 1_000_000 {
             let scaled = Double(value) / 1_000
@@ -444,9 +455,7 @@ enum ProfileCountFormatter {
     }
 
     static func accessibility(_ value: Int, noun: String) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        let number = decimalFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
         return "\(number) \(noun)"
     }
 }

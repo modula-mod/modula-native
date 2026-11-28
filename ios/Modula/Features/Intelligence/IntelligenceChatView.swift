@@ -70,7 +70,7 @@ struct IntelligenceChatView: View {
                     .accessibilityIdentifier("intelligence.chat")
             }
             .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         case .some(.appleFallback):
             legacyAppleIntelligenceChat
         case .none:
@@ -81,7 +81,7 @@ struct IntelligenceChatView: View {
                     .accessibilityIdentifier("intelligence.chat.resolving")
             }
             .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
             .task { await resolveSurface() }
         }
     }
@@ -137,7 +137,7 @@ struct IntelligenceChatView: View {
             .accessibilityIdentifier("intelligence.chat")
         }
         .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
     }
 
     private var transcript: some View {

@@ -112,20 +112,23 @@ struct ModulaRecordingPill: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(.red).frame(width: 9, height: 9)
+            Circle().fill(Color.primary).frame(width: 8, height: 8)
                 .opacity(reduceMotion ? 1 : (Int(recorder.elapsed * 2) % 2 == 0 ? 1 : 0.35))
                 .animation(.easeInOut(duration: 0.4), value: Int(recorder.elapsed * 2))
             Text(Duration.seconds(recorder.elapsed).formatted(.time(pattern: .minuteSecond)))
                 .font(.subheadline.monospacedDigit().weight(.semibold))
-            ModulaWaveformView(levels: recorder.levels, tint: .red)
+            ModulaWaveformView(levels: recorder.levels, tint: .primary)
                 .frame(height: 26)
-            Label("Slide to cancel", systemImage: "chevron.left")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .labelStyle(.titleAndIcon)
-                .opacity(Double(1 - cancelProgress))
-                .offset(x: -cancelProgress * 30)
-                .fixedSize()
+            // Drops to an icon-only hint when the bar is narrow instead of overlapping the timer.
+            ViewThatFits(in: .horizontal) {
+                Label("Slide to cancel", systemImage: "chevron.left").labelStyle(.titleAndIcon).fixedSize()
+                Image(systemName: "chevron.left.2").accessibilityLabel("Slide to cancel")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .opacity(Double(1 - cancelProgress))
+            .offset(x: -cancelProgress * 30)
+            .layoutPriority(-1)
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 44)

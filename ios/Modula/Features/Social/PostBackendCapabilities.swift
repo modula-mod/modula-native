@@ -18,6 +18,8 @@ struct PostBackendCapabilities: Sendable, Equatable {
     var deleteOwnPost = false
     var likesList = false
     var reactionsList = false
+    /// GET /v1/posts/:id/reactions breakdown (counts by type, no identities). Live in greenfield.
+    var reactionsSummary = true
     var sharesList = false
     var reportPost = false
     var reportComment = false

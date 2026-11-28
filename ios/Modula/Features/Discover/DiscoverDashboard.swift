@@ -83,6 +83,7 @@ struct DiscoverDashboardView: View {
                             }
                         }
                     }
+                    .modulaEdgeToEdgeRail()
                 }
             }
         }
@@ -173,10 +174,9 @@ struct DiscoverHeroCarousel: View {
                             Image(systemName: "arrow.right")
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.black.opacity(0.85))
                         .padding(.horizontal, 16)
                         .frame(height: 40)
-                        .background(.white, in: Capsule())
+                        .modulaPrimaryCTA()
                         .padding(.top, 6)
                     }
                 }
@@ -354,7 +354,7 @@ struct DiscoverMosaic: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            if !topics.isEmpty, selected == nil { tagRow }
+            if !topics.isEmpty { tagRow }
             let items = visible
             if items.isEmpty, let selected {
                 VStack(alignment: .leading, spacing: 10) {
@@ -367,7 +367,7 @@ struct DiscoverMosaic: View {
                         Label("Open #\(selected.label) feed", systemImage: "arrow.up.right")
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 14).padding(.vertical, 9)
-                            .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.2))
+                            .modulaGlass(in: Capsule(), interactive: true, tint: nil)
                     }
                     .buttonStyle(ModulaPressStyle(scale: 0.95, haptic: .navigation))
                 }
@@ -393,8 +393,7 @@ struct DiscoverMosaic: View {
                         Image(systemName: "xmark.circle.fill").font(.subheadline).foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 14).padding(.vertical, 7)
-                    .modulaGlass(in: Capsule(), interactive: true, tint: app.appearance.liveAccent.opacity(0.22))
-                    .matchedGeometryEffect(id: "tag.\(selected.id)", in: tagSpace)
+                    .modulaGlass(in: Capsule(), interactive: true, tint: nil)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Filtered by \(selected.label). Clear filter")
@@ -408,25 +407,17 @@ struct DiscoverMosaic: View {
         }
     }
 
+    /// Tag filter — the shared segmented control ("All" + topics; scrolls past five, auto-centres the pick).
     private var tagRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(topics) { topic in
-                    Button {
-                        selected = topic
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        Text("#\(topic.label)")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 12).padding(.vertical, 7)
-                            .modulaGlass(in: Capsule(), interactive: true)
-                            .matchedGeometryEffect(id: "tag.\(topic.id)", in: tagSpace)
-                    }
-                    .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-                }
-            }
-            .padding(.vertical, 2)
-        }
+        let selection = Binding<DiscoverTopic.ID?>(
+            get: { selected?.id },
+            set: { id in selected = id.flatMap { id in topics.first { $0.id == id } } }
+        )
+        return ModulaSegmentedControl<DiscoverTopic.ID?>(
+            segments: [.init(id: nil, title: "All")] + topics.map { .init(id: $0.id, title: "#\($0.label)") },
+            selection: selection, compact: true, accessibilityLabel: "Mosaic tags",
+            identifier: { id in id.map { "discover.mosaic.tag.\($0)" } ?? "discover.mosaic.tag.all" }
+        )
         .transition(.opacity)
     }
 
@@ -503,7 +494,7 @@ private struct DiscoverMosaicTileView: View {
         ZStack(alignment: .bottomLeading) {
             switch item {
             case .post(let post):
-                Rectangle().fill(Color(hex: post.media?.colour ?? "#1F2933"))
+                ModulaMediaPlaceholder(hex: post.media?.colour, symbol: "photo.fill")
                 if let url = post.media?.url {
                     ModulaRemoteImage(url: url, cacheKey: "mosaic:\(post.id)", maximumPixelSize: 600) { phase in
                         if case .success(let image) = phase {
@@ -512,7 +503,7 @@ private struct DiscoverMosaicTileView: View {
                     }
                 }
             case .reel(let reel):
-                Rectangle().fill(Color(hex: reel.posterColor ?? "#222222"))
+                ModulaMediaPlaceholder(hex: reel.posterColor)
                 if let poster = reel.media?.posterURL {
                     ModulaRemoteImage(url: poster, cacheKey: "reel-poster:\(reel.id)", maximumPixelSize: 600) { phase in
                         if case .success(let image) = phase {
@@ -609,14 +600,14 @@ struct DiscoverRailHeader: View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.headline)
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
             Text(title).font(.title3.bold()).accessibilityAddTraits(.isHeader)
             Spacer()
             if let onSeeAll {
                 Button(action: onSeeAll) {
                     HStack(spacing: 4) { Text("See all"); Image(systemName: "arrow.right") }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -671,6 +662,7 @@ struct DiscoverTopicRail: View {
                     }
                 }
             }
+            .modulaEdgeToEdgeRail()
             .scrollClipDisabled()
         }
     }
@@ -702,7 +694,7 @@ struct DiscoverFeaturedModulesRail: View {
                                     .font(.caption.weight(.bold))
                                     .padding(.horizontal, 12)
                                     .frame(height: 30)
-                                    .modulaAccentCTA()
+                                    .modulaPrimaryCTA()
                             }
                             .padding(12)
                             .frame(width: 270, alignment: .leading)
@@ -714,6 +706,7 @@ struct DiscoverFeaturedModulesRail: View {
                     }
                 }
             }
+            .modulaEdgeToEdgeRail()
             .scrollClipDisabled()
         }
     }

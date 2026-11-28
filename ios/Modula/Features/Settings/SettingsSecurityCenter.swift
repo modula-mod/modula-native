@@ -145,7 +145,7 @@ struct SettingsSecurityCenter: View {
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .modulaPrimaryCTA(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .disabled(busy != nil)
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             } header: {
@@ -200,10 +200,16 @@ struct SettingsSecurityCenter: View {
             Text("You can still sign in with your password or other passkeys.")
         }
         .sheet(isPresented: $showTOTPSetup) {
-            TOTPSetupSheet { totpMessage = "Authenticator app is on for this account." }
+            Group {
+                TOTPSetupSheet { totpMessage = "Authenticator app is on for this account." }
+            }
+            .modulaSheetStyle()
         }
         .sheet(item: $stepUpRetry) { retry in
-            PasswordStepUpSheet(reason: retry.reason) { Task { await retry.action() } }
+            Group {
+                PasswordStepUpSheet(reason: retry.reason) { Task { await retry.action() } }
+            }
+            .modulaSheetStyle()
         }
         .confirmationDialog("Turn off two-factor authentication?", isPresented: $confirmDisableTOTP, titleVisibility: .visible) {
             Button("Turn Off", role: .destructive) { Task { await disableTOTP() } }
@@ -360,8 +366,7 @@ struct SettingsSecurityCenter: View {
     }
 
     private static func day(_ iso: String) -> String {
-        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        let date = ModulaISODate.parse(iso)
         return date.map { $0.formatted(date: .abbreviated, time: .omitted) } ?? iso.prefix(10).description
     }
 }

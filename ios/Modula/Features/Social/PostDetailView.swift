@@ -31,7 +31,8 @@ struct PostDetailView: View {
             case .likes, .shares:
                 PostPeopleListView(postID: postID, section: section)
             case .reactions:
-                ReactionPeopleView(postID: postID)
+                // Bug fix: the summary was never passed, so the breakdown never showed.
+                ReactionPeopleView(postID: postID, summary: app.postActions.cachedPost(id: postID)?.engagement.reactionSummary)
             case .edit:
                 editDestination
             case .root:
@@ -43,11 +44,14 @@ struct PostDetailView: View {
         .toolbar(.hidden, for: .tabBar)
         .task(id: postID) { await load() }
         .sheet(isPresented: $showsShareSheet) {
-            if let post {
-                PostShareSheet(post: post) {
-                    showsShareSheet = false
+            Group {
+                if let post {
+                    PostShareSheet(post: post) {
+                        showsShareSheet = false
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .fullScreenCover(item: $attachmentViewerItem) { item in
             AttachmentViewerRouter(attachment: item, imageGallery: postImageGallery) { attachmentViewerItem = nil }
@@ -87,7 +91,9 @@ struct PostDetailView: View {
                         header: AnyView(
                             VStack(alignment: .leading, spacing: 14) {
                                 detailChrome(resolved)
+                                    .modulaAppear()
                                 engagementSummary(resolved)
+                                    .modulaAppear(delay: 0.08)
                                 Divider().opacity(0.45)
                             }
                         ),
@@ -95,6 +101,8 @@ struct PostDetailView: View {
                     )
                 }
         }
+        // Skeleton → post crossfades instead of snapping.
+        .animation(.smooth(duration: 0.3), value: post == nil)
         .modulaSoftScrollEdge()
         .navigationTitle(navigationTitle)
         .toolbar { toolbarContent }
@@ -162,10 +170,10 @@ struct PostDetailView: View {
             },
             onShare: {
                 ModulaMascotEvent.post(.share)
-                if PostSharing.method() == .modulaSheet {
+                if PostSharing.method(copyAsLink: false) == .modulaSheet {
                     showsShareSheet = true
                 } else {
-                    PostSharing.share(post, app: app)
+                    PostSharing.send(post, app: app)
                 }
             },
             onContextAction: { handleContext($0, post: post) },
@@ -351,7 +359,6 @@ struct PostShareSheet: View {
     let post: SocialPost
     var onDismiss: () -> Void
     @Environment(AppEnvironment.self) private var app
-    @State private var showsSystemShare = false
 
     var body: some View {
         NavigationStack {
@@ -412,6 +419,7 @@ struct PostShareSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .modulaSheetStyle()
         .accessibilityIdentifier("post.share.sheet")
     }
 }
@@ -439,7 +447,7 @@ struct PostEditView: View {
         .modulaSoftScrollEdge()
         .safeAreaInset(edge: .bottom) {
             Button("Save", action: onSave)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .frame(maxWidth: .infinity)
                 .padding()
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -489,7 +497,7 @@ struct PostPeopleListView: View {
                 ? "People who liked this post."
                 : "Who liked this isn’t available yet."
         case .reactions:
-            return app.postActions.capabilities.reactionsList
+            return (app.postActions.capabilities.reactionsList || app.postActions.capabilities.reactionsSummary)
                 ? "People grouped by reaction."
                 : "A breakdown of reactions isn’t available yet."
         case .shares:

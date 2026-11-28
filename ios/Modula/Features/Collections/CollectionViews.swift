@@ -34,6 +34,17 @@ struct CollectionsView: View {
                     .accessibilityLabel("\(collection.name), \(collection.itemCount) saved items")
                 }
                 .onDelete(perform: delete)
+                // First-run nudge instead of an empty section.
+                if app.collections.userCollections.isEmpty {
+                    Button {
+                        showCreate = true
+                        HapticEngine.shared.play(.contextOpen)
+                    } label: {
+                        Label("Create your first collection", systemImage: "folder.badge.plus")
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityIdentifier("collections.createFirst")
+                }
             } footer: {
                 Text(app.collections.capabilities.serverCollections
                      ? "Collections sync with your account."
@@ -51,6 +62,8 @@ struct CollectionsView: View {
             await app.saved.load()
         }
         .navigationTitle("Collections")
+        // Inline like the rest of the app: an inherited large title stuck over the first row.
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -99,14 +112,14 @@ struct CollectionsView: View {
                             showCreate = false
                             HapticEngine.shared.play(.confirmation)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.modulaPrimary)
                         .tint(Color(hex: "#D66056"))
                         .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
             .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
+            .modulaSheetStyle()
         }
         .confirmationDialog(
             pendingDelete.map { "Delete “\($0.name)”?" } ?? "Delete collection?",
@@ -204,7 +217,7 @@ struct CollectionDetailView: View {
                 .task(id: collection.itemIDs) { await loadPosts(collection.itemIDs) }
                 // Enhancements-50: pull to re-fetch every saved post from Greenfield.
                 .modulaRefreshable {
-                    if app.collections.capabilities.serverCollections {
+                    if await app.collections.capabilities.serverCollections {
                         await app.collections.refresh()
                     }
                     await MainActor.run {
@@ -369,7 +382,7 @@ struct CollectionCard: View {
             return collection.storage == .local ? "On This Device" : "On your account"
         }
         if collection.isDefault { return "Saved" }
-        switch collection.syncState {
+        return switch collection.syncState {
         case .synced: "Synced"
         case .pending: "Waiting to sync"
         case .conflict: "Conflict"

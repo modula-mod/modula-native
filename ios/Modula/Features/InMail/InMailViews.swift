@@ -23,6 +23,7 @@ struct InMailInboxView: View {
         }
         .modulaSoftScrollEdge()
         .navigationTitle("In-Mail")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -253,7 +254,7 @@ struct InMailComposer: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.modulaPrimary)
                 .disabled(mail.sendState == .sending || !mail.capabilities.send)
             }
             .padding(.horizontal, ModulaLayout.contentInset)
@@ -276,7 +277,7 @@ struct InMailComposer: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.regularMaterial, in: Capsule())
+                    .modulaGlass(in: Capsule(), interactive: false)
                     .padding(.top, 8)
                     .accessibilityLabel("Draft saved")
             }

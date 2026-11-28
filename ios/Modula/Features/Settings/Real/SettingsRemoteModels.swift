@@ -153,9 +153,7 @@ enum SettingsMoney {
 enum SettingsISODate {
     nonisolated static func parse(_ value: String?) -> Date? {
         guard let value else { return nil }
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        return ModulaISODate.parse(value)  // shared cached formatters
     }
 }
 

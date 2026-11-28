@@ -68,14 +68,20 @@ struct NodusLibraryBrowser: View {
                 }
             }
             .sheet(item: $naming) { draft in
-                NodusLibraryEditor(draft: draft) { name, symbol, brief in
-                    Task { await save(draft, name: name, symbol: symbol, brief: brief) }
+                Group {
+                    NodusLibraryEditor(draft: draft) { name, symbol, brief in
+                        Task { await save(draft, name: name, symbol: symbol, brief: brief) }
+                    }
                 }
+                .modulaSheetStyle()
             }
             .sheet(item: $moveTarget) { conversation in
-                NodusMoveChatSheet(library: model.library, conversation: conversation) { projectID, folderID in
-                    Task { await model.place(conversation.id, projectID: projectID, folderID: folderID) }
+                Group {
+                    NodusMoveChatSheet(library: model.library, conversation: conversation) { projectID, folderID in
+                        Task { await model.place(conversation.id, projectID: projectID, folderID: folderID) }
+                    }
                 }
+                .modulaSheetStyle()
             }
             .alert("Chat note", isPresented: notePresented) {
                 TextField("Only on this iPhone", text: $noteText)
@@ -135,12 +141,7 @@ struct NodusLibraryBrowser: View {
 
     private var scopePicker: some View {
         Section {
-            Picker("Library", selection: $scope) {
-                ForEach(NodusLibraryScope.allCases) { item in
-                    Text(item.title).tag(item)
-                }
-            }
-            .pickerStyle(.segmented)
+            ModulaSegmentedControl("Library", selection: $scope, options: NodusLibraryScope.allCases) { $0.title }
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             Text("Swipe sideways to move between Chats, Important, Favorites, and Archive.")
                 .font(.caption2)
@@ -183,7 +184,7 @@ struct NodusLibraryBrowser: View {
                         Label(project.name, systemImage: project.symbol)
                         Spacer()
                         if selectedProjectID == project.id {
-                            Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent)
+                            Image(systemName: "checkmark").foregroundStyle(.primary)
                         }
                     }
                 }
@@ -227,7 +228,7 @@ struct NodusLibraryBrowser: View {
                         Label(folder.name, systemImage: folder.symbol)
                         Spacer()
                         if selectedFolderID == folder.id {
-                            Image(systemName: "checkmark").foregroundStyle(app.appearance.liveAccent)
+                            Image(systemName: "checkmark").foregroundStyle(.primary)
                         }
                     }
                 }
@@ -490,8 +491,6 @@ struct NodusChatSettingsSheet: View {
     @Bindable var model: NodusChatViewModel
     @State private var instructions = ""
     @State private var projectInstructions = ""
-    @State private var promptTitle = ""
-    @State private var promptBody = ""
 
     private var conversation: NodusConversation? { model.activeConversation }
     private var placement: NodusChatPlacement? {
@@ -544,7 +543,7 @@ struct NodusChatSettingsSheet: View {
                         in: 1...5,
                         step: 1
                     )
-                    .tint(app.appearance.liveAccent)
+                    .tint(.primary)
                     Text("Short, Standard, and Fuller are one draft. Review adds a revision. Deep adds a review and a final pass.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

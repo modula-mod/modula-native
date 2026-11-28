@@ -57,7 +57,7 @@ struct CommentPollView: View {
                     HapticEngine.shared.play(.selection)
                 } label: {
                     HStack {
-                        if poll.viewerVote == index { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor) }
+                        if poll.viewerVote == index { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.primary) }
                         Text(option).font(.subheadline).lineLimit(2)
                         Spacer()
                         if showsResults { Text("\(Int((fraction * 100).rounded()))%").font(.caption.monospacedDigit().weight(.semibold)) }
@@ -238,7 +238,7 @@ struct CommentVoicePlayer: View {
         }
         .padding(8)
         .frame(maxWidth: 280)
-        .background(Color.primary.opacity(0.05), in: Capsule())
+        .modulaGlass(in: Capsule(), interactive: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("comment.voice")
     }
@@ -394,8 +394,9 @@ struct CommentReactionChips: View {
                         }
                         .padding(.horizontal, 9)
                         .frame(minHeight: 30)
-                        .background(mine ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.06), in: Capsule())
-                        .overlay(Capsule().stroke(mine ? Color.accentColor : .clear, lineWidth: 1))
+                        // Glass chip; yours gets a quiet primary ring (never accent).
+                        .modulaGlass(in: Capsule(), interactive: true)
+                        .overlay(Capsule().strokeBorder(Color.primary.opacity(mine ? 0.5 : 0), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(reaction.type), \(reaction.count)")
@@ -403,6 +404,7 @@ struct CommentReactionChips: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("comment.reactions")
     }
 }
@@ -418,63 +420,88 @@ struct CommentActionOverlay<Actions: View>: View {
     @ViewBuilder var actions: () -> Actions
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
+        let local = ModulaLocalSticker.extract(comment.text)
         ZStack {
-            Rectangle().fill(.black.opacity(0.35)).ignoresSafeArea()
-                .onTapGesture(perform: onDismiss)
-                .accessibilityAddTraits(.isButton)
-                .accessibilityLabel("Close menu")
-            VStack(spacing: 10) {
-                ModulaGlassGroup(spacing: 4) {
-                    HStack(spacing: 2) {
-                        ForEach(Array(CommentReactionCount.allTypes.enumerated()), id: \.element) { index, type in
-                            Button {
-                                onReact(type)
-                                HapticEngine.shared.play(.selection)
-                                onDismiss()
-                            } label: {
-                                Text(CommentReactionCount(type: type, count: 0).emoji)
-                                    .font(.system(size: 28))
-                                    .frame(width: 40, height: 44)
-                                    .background(viewerReaction == type ? Color.accentColor.opacity(0.25) : .clear, in: Circle())
-                                    .scaleEffect(appeared || reduceMotion ? 1 : 0.3)
-                                    .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.6).delay(Double(index) * 0.025), value: appeared)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(type.capitalized)
-                        }
+            // Full blur + dim: rows behind never compete with the menu.
+            Group {
+                if reduceTransparency { Color.black.opacity(0.6) } else { Rectangle().fill(.ultraThinMaterial).overlay(Color.black.opacity(0.3)) }
+            }
+            .ignoresSafeArea()
+            .onTapGesture(perform: onDismiss)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Close menu")
+
+            VStack(alignment: .leading, spacing: 8) {
+                // Shared glass emoji strip (same component as posts and Reels), server reaction set.
+                ModulaEmojiReactionStrip(
+                    options: CommentReactionCount.allTypes.map {
+                        ModulaEmojiReactionOption(id: $0, emoji: CommentReactionCount(type: $0, count: 0).emoji, title: $0.capitalized)
+                    },
+                    selectedID: viewerReaction,
+                    emojiSize: 24,
+                    slotWidth: 38,
+                    onPick: { option in
+                        onReact(option.id)
+                        onDismiss()
                     }
-                    .padding(.horizontal, 6)
-                    .modulaGlass(in: Capsule())
-                }
-                VStack(alignment: .leading, spacing: 6) {
+                )
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("comment.reaction.strip")
+
+                // One preview card: avatar + name + time on one line, then the content (text,
+                // or the sticker itself; never a name-only card).
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        ModulaAvatar(initials: comment.author?.initials ?? "?", url: comment.author?.avatarURL, size: 26)
-                        Text(comment.author?.displayName ?? "Comment").font(.subheadline.weight(.semibold))
+                        ModulaAvatar(initials: comment.author?.initials ?? "?", url: comment.author?.avatarURL, size: 24)
+                        Text(comment.author?.displayName ?? "Comment")
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                        Text(ActivityRelativeTime.string(from: comment.createdAt))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    if !comment.text.isEmpty {
-                        Text(ModulaRichText.attributed(ModulaLocalSticker.extract(comment.text).text, revealSpoilers: false)).font(.body).lineLimit(6)
+                    if !local.text.isEmpty {
+                        Text(CommentRichTextCache.attributed(local.text, reveal: false))
+                            .font(.body)
+                            .lineLimit(8)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if !local.stickers.isEmpty {
+                        HStack(spacing: 8) {
+                            ForEach(Array(local.stickers.prefix(3).enumerated()), id: \.offset) { _, sticker in
+                                ModulaLocalStickerView(sticker: sticker, size: 64)
+                            }
+                        }
+                    } else if !comment.media.isEmpty {
+                        Label("Attachment", systemImage: "paperclip").font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .scaleEffect(appeared || reduceMotion ? 1 : 0.96)
+                .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
+                .scaleEffect(appeared || reduceMotion ? 1 : 0.97)
+
                 VStack(alignment: .leading, spacing: 0) {
                     actions()
                         .labelStyle(CommentMenuLabelStyle())
                         .buttonStyle(.plain)
                 }
                 .padding(.vertical, 6)
-                .frame(width: 250, alignment: .leading)
+                .frame(width: 260, alignment: .leading)
                 .modulaGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous), interactive: false)
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(.horizontal, 20)
-            .offset(y: appeared || reduceMotion ? 0 : 16)
+            .frame(maxHeight: .infinity, alignment: .center)
+            .offset(y: appeared || reduceMotion ? 0 : 12)
+            .opacity(appeared || reduceMotion ? 1 : 0)
         }
-        .onAppear { withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { appeared = true } }
+        .onAppear {
+            HapticEngine.shared.play(.contextOpen)
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { appeared = true }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityAction(.escape, onDismiss)
         .accessibilityIdentifier("comment.menu")

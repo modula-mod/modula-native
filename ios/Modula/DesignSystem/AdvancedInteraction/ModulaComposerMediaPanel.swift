@@ -633,13 +633,14 @@ struct ModulaStickerPicker: View {
                             HapticEngine.shared.play(.selection)
                         } label: {
                             Group {
-                                if section.isSymbol { Image(systemName: section.icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(selected == section.id ? Color.white : Color.primary) }
+                                if section.isSymbol { Image(systemName: section.icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(selected == section.id ? Color.modulaOnPrimary : Color.primary) }
                                 else { Text(section.icon).font(.title2) }
                             }
                             .frame(width: 44, height: 38)
                         }
                         .buttonStyle(.plain)
-                        .modulaGlass(in: Capsule(), tint: selected == section.id ? .accentColor : nil)
+                        .background { if selected == section.id { Capsule().fill(Color.modulaPrimaryFill) } }
+                        .modulaGlass(in: Capsule(), interactive: true)
                         .accessibilityLabel(section.title)
                         .accessibilityAddTraits(selected == section.id ? .isSelected : [])
                     }
@@ -661,9 +662,9 @@ struct ModulaStickerPicker: View {
         }
         .task { await load() }
         .onAppear { if let initialSection { selected = initialSection } }
-        .sheet(isPresented: $creatingPack) { ModulaCustomPackEditor(pack: nil) }
-        .sheet(item: $editingPack) { ModulaCustomPackEditor(pack: $0) }
-        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0) }
+        .sheet(isPresented: $creatingPack) { ModulaCustomPackEditor(pack: nil).modulaSheetStyle() }
+        .sheet(item: $editingPack) { ModulaCustomPackEditor(pack: $0).modulaSheetStyle() }
+        .sheet(item: $premiumKind) { MascotPremiumSheet(kind: $0).modulaSheetStyle() }
         .accessibilityIdentifier("composer.panel.stickers.grid")
     }
 
@@ -726,7 +727,7 @@ struct ModulaStickerPicker: View {
                         ModulaMascotSticker(kind: kind, size: 70)
                             .opacity(locked ? 0.55 : 1)
                             .overlay(alignment: .topTrailing) {
-                                if kind.isPremium { MascotPremiumBadge(locked: locked) }
+                                if kind.isPremium { MascotPremiumBadge(locked: locked, compact: true).offset(x: 4, y: -4) }
                             }
                     }
                     .buttonStyle(.plain)
@@ -743,13 +744,14 @@ struct ModulaStickerPicker: View {
                         .padding(.horizontal, 16).frame(height: 44).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
-                .modulaGlass(in: Capsule(), tint: .accentColor)
+                .foregroundStyle(Color.modulaOnPrimary)
+                .background(Capsule().fill(Color.modulaPrimaryFill))
                 ForEach(custom.packs) { pack in
                     HStack {
                         Text(pack.emoji.prefix(5).joined()).font(.title3)
                         VStack(alignment: .leading) {
                             Text(pack.title).font(.subheadline.weight(.semibold))
-                            Text("\(pack.emoji.count) stickers").font(.caption).foregroundStyle(.secondary)
+                            Text(pack.emoji.count == 1 ? "1 sticker" : "\(pack.emoji.count) stickers").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         Button { editingPack = pack } label: { Image(systemName: "pencil").frame(width: 36, height: 36) }
@@ -819,7 +821,7 @@ struct ModulaStickerView: View {
             .shadow(color: .white, radius: 0, x: -1.5, y: -1.5)
             .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
             .frame(width: size, height: size)
-            .background(Circle().fill(Color.primary.opacity(0.04)))
+            // No circle: big-emoji comments render as just the emoji.
     }
 }
 

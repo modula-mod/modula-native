@@ -13,6 +13,8 @@ struct ModuleDetailV2View: View {
     @State private var confirmInstall = false
     @State private var confirmRedownload = false
     @State private var confirmUninstall = false
+    @State private var stepUp: ModuleUninstallStepUpContext?
+    @State private var uninstallNotice: String?
     @State private var expandedDescription = false
     @State private var zoomedShot: ModuleScreenshot?
     @State private var showAllPermissions = false
@@ -83,21 +85,24 @@ struct ModuleDetailV2View: View {
             }
         }
         .sheet(isPresented: $confirmInstall) {
-            ModulePermissionReviewSheet(
-                moduleID: moduleID,
-                localDevelopment: product?.betaClassification == "local-development",
-                moduleName: product?.name ?? "Module",
-                operation: isInstalled ? .update : .install,
-                fromVersion: installedVersion,
-                toVersion: app.catalogue.product(moduleID)?.latestVersion ?? installedVersion,
-                permissions: reviewedPermissions,
-                previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
-                onConfirm: { plan in
-                    confirmInstall = false
-                    Task { await runInstall(approvedPlan: plan) }
-                },
-                onCancel: { confirmInstall = false }
-            )
+            Group {
+                ModulePermissionReviewSheet(
+                    moduleID: moduleID,
+                    localDevelopment: product?.betaClassification == "local-development",
+                    moduleName: product?.name ?? "Module",
+                    operation: isInstalled ? .update : .install,
+                    fromVersion: installedVersion,
+                    toVersion: app.catalogue.product(moduleID)?.latestVersion ?? installedVersion,
+                    permissions: reviewedPermissions,
+                    previouslyGranted: Set(app.catalogue.reviewedGrants[moduleID] ?? []),
+                    onConfirm: { plan in
+                        confirmInstall = false
+                        Task { await runInstall(approvedPlan: plan) }
+                    },
+                    onCancel: { confirmInstall = false }
+                )
+            }
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $confirmRedownload) {
             ModulePermissionReviewSheet(
@@ -117,31 +122,64 @@ struct ModuleDetailV2View: View {
             )
         }
         .confirmationDialog("Uninstall \(product?.name ?? "module")?", isPresented: $confirmUninstall, titleVisibility: .visible) {
-            Button("Uninstall", role: .destructive) { Task { await runUninstall() } }
+            Button("Uninstall", role: .destructive) { Task { await runUninstall(choice: .keepData) } }
                 .accessibilityIdentifier("module.uninstall.confirm")
+            Button("Uninstall and Delete Data", role: .destructive) { Task { await runUninstall(choice: .deleteData) } }
+                .accessibilityIdentifier("module.uninstall.confirmDelete")
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your data is kept on your account, so reinstalling brings it back.")
+            Text("Uninstall keeps this module’s data on your account, so reinstalling brings it back. Deleting data removes those records permanently and may ask you to confirm your password.")
+        }
+        .sheet(item: $stepUp) { context in
+            ModuleUninstallStepUpSheet(
+                email: app.auth.account?.email ?? "",
+                moduleName: product?.name ?? "this module",
+                submit: { credential, isReprompt in
+                    await app.catalogue.completeDeleteDataAfterStepUp(
+                        moduleID,
+                        credential: credential,
+                        idempotencyKey: context.idempotencyKey,
+                        isReprompt: isReprompt
+                    )
+                },
+                onCancel: {
+                    uninstallNotice = ModuleUninstallFlow.cancelledNotice
+                    stepUp = nil
+                },
+                onSignInAgain: {
+                    uninstallNotice = ModuleUninstallFlow.signInAgainNotice
+                    stepUp = nil
+                    Task { await app.performSignOut() }
+                },
+                onFinished: { outcome in
+                    handleUninstallOutcome(outcome, name: product?.name ?? "Module")
+                }
+            )
         }
         .sheet(item: $versionTarget) { option in
-            ModuleVersionSwitchSheet(
-                moduleName: product?.name ?? "Module",
-                option: option,
-                phase: versionPhase,
-                packagePlan: versionPackagePlan,
-                onConfirm: { preview in
-                    versionTarget = nil
-                    Task { await runVersionSwitch(preview, approvedPlan: versionPackagePlan) }
-                },
-                onCancel: { versionTarget = nil }
-            )
-            .task(id: option.version) { await prepareVersionSwitch(option) }
+            Group {
+                ModuleVersionSwitchSheet(
+                    moduleName: product?.name ?? "Module",
+                    option: option,
+                    phase: versionPhase,
+                    packagePlan: versionPackagePlan,
+                    onConfirm: { preview in
+                        versionTarget = nil
+                        Task { await runVersionSwitch(preview, approvedPlan: versionPackagePlan) }
+                    },
+                    onCancel: { versionTarget = nil }
+                )
+                .task(id: option.version) { await prepareVersionSwitch(option) }
+            }
+            .modulaSheetStyle()
         }
         .sheet(item: $zoomedShot) { shot in
-            ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
-                .padding()
-                .presentationDragIndicator(.visible)
-                .accessibilityLabel(shot.alt)
+            Group {
+                ModuleArtImage(source: shot.source, contentMode: .fit) { Color.clear }
+                    .padding()
+                    .accessibilityLabel(shot.alt)
+            }
+            .modulaSheetStyle()
         }
         .accessibilityIdentifier("module-detail.\(moduleID)")
     }
@@ -194,7 +232,9 @@ struct ModuleDetailV2View: View {
             .ignoresSafeArea(edges: .top)
             .modulaSoftScrollEdge()
             .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
-                headerProgress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 140)
+                // Saturates at 140 pt: no per-frame body passes once the header is collapsed.
+                let progress = ModulaScrollProgress.progress(offsetY: max(0, offset), collapseDistance: 140)
+                if progress != headerProgress { headerProgress = progress }
             }
             .refreshable {
                 await app.catalogue.load()
@@ -276,6 +316,12 @@ struct ModuleDetailV2View: View {
                         .foregroundStyle(ModulaColor.accent)
                         .accessibilityIdentifier("module.install.notice")
                 }
+                if let uninstallNotice {
+                    Text(uninstallNotice)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("module.uninstall.notice")
+                }
             }
         }
         .accessibilitySortPriority(90)
@@ -287,7 +333,7 @@ struct ModuleDetailV2View: View {
             perform(action)
         } label: {
             HStack(spacing: 8) {
-                if action.isBusy { ProgressView().controlSize(.small).tint(.white) }
+                if action.isBusy { ProgressView().controlSize(.small).tint(Color.modulaOnPrimary) }
                 Text(action.title)
                     .font(.subheadline.weight(.bold))
             }
@@ -296,7 +342,7 @@ struct ModuleDetailV2View: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .modulaAccentCTA()
+        .modulaPrimaryCTA()
         .disabled(!action.isEnabled)
         .animation(.snappy, value: action)
         .accessibilityLabel(action.title)
@@ -370,6 +416,7 @@ struct ModuleDetailV2View: View {
                 }
             }
         }
+        .modulaHorizontalRail()
         .accessibilityIdentifier("module.stats")
     }
 
@@ -449,6 +496,7 @@ struct ModuleDetailV2View: View {
                     }
                     .scrollTargetLayout()
                 }
+                .modulaHorizontalRail()
                 .scrollTargetBehavior(.viewAligned)
                 .accessibilityIdentifier("module.screenshots")
             }
@@ -476,11 +524,11 @@ struct ModuleDetailV2View: View {
                     Text(String(format: "%.1f", average)).font(.system(size: 52, weight: .bold, design: .rounded))
                     VStack(alignment: .leading) {
                         Text(stars(average)).foregroundStyle(.orange)
-                        Text("\(listing.ratingCount) ratings").font(.caption).foregroundStyle(.secondary)
+                        Text(listing.ratingCount == 1 ? "1 rating" : "\(listing.ratingCount) ratings").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Rated \(String(format: "%.1f", average)) out of 5 from \(listing.ratingCount) ratings")
+                .accessibilityLabel("Rated \(String(format: "%.1f", average)) out of 5 from \(listing.ratingCount) \(listing.ratingCount == 1 ? "rating" : "ratings")")
             } else {
                 Text("This module hasn’t received enough ratings yet.").foregroundStyle(.secondary)
             }
@@ -550,11 +598,11 @@ struct ModuleDetailV2View: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .disabled(allowingPermissions)
                 .accessibilityIdentifier("module.permissions.allow-remaining")
             } else if installationGrants != nil, !declared.isEmpty {
-                Text("All \(declared.count) permissions are granted.")
+                Text(declared.count == 1 ? "The 1 permission is granted." : "All \(declared.count) permissions are granted.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -660,7 +708,7 @@ struct ModuleDetailV2View: View {
             Label("Uninstall \(product?.name ?? "Module")", systemImage: "trash")
                 .frame(maxWidth: .infinity, minHeight: ModulaLayout.minimumTouch)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.modulaSecondary)
         .tint(.red)
         .accessibilityIdentifier("module.uninstall")
     }
@@ -832,12 +880,37 @@ struct ModuleDetailV2View: View {
         }
     }
 
-    private func runUninstall() async {
-        if await app.catalogue.uninstall(moduleID) {
+    private func runUninstall(choice: ModuleUninstallChoice) async {
+        uninstallNotice = nil
+        let confirmDelete = choice == .deleteData
+        let result = await app.catalogue.uninstall(moduleID, choice: choice, confirmDelete: confirmDelete)
+        switch result {
+        case .removed:
             HapticEngine.shared.play(.success)
             installFeedback = "\(product?.name ?? "Module") removed"
-        } else {
+        case .needsStepUp(let key):
+            stepUp = ModuleUninstallStepUpContext(idempotencyKey: key)
+        case .failed:
             HapticEngine.shared.play(.failure)
+        }
+    }
+
+    private func handleUninstallOutcome(_ outcome: ModuleUninstallOutcome, name: String) {
+        stepUp = nil
+        switch outcome {
+        case .succeeded:
+            HapticEngine.shared.play(.success)
+            installFeedback = "\(name) removed"
+            uninstallNotice = nil
+        case .cancelled:
+            uninstallNotice = ModuleUninstallFlow.cancelledNotice
+        case .stillRequiresStepUp(let message), .failed(let message):
+            HapticEngine.shared.play(.failure)
+            uninstallNotice = message
+        case .needsPasswordStepUp, .passwordRejected, .rateLimited, .unavailable, .needsTOTP:
+            break
+        case .needsSignInAgain:
+            uninstallNotice = ModuleUninstallFlow.signInAgainNotice
         }
     }
 }
@@ -972,7 +1045,7 @@ private struct ModulePermissionReviewSheet: View {
                         .contentShape(Capsule())
                 }
                     .buttonStyle(.plain)
-                    .modulaAccentCTA()
+                    .modulaPrimaryCTA()
                     .padding(.horizontal, ModulaLayout.contentInset)
                     .padding(.vertical, ModulaSpacing.xs)
                     .background(.bar)
@@ -990,7 +1063,7 @@ private struct ModulePermissionReviewSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .accessibilityIdentifier("module.permission-review")
     }
 
@@ -1077,4 +1150,11 @@ private struct FlowLayout: Layout {
             rowHeight = max(rowHeight, size.height)
         }
     }
+}
+
+
+/// Holds the idempotency key for a delete-data uninstall that is waiting on password step-up.
+struct ModuleUninstallStepUpContext: Identifiable, Equatable {
+    let idempotencyKey: String
+    var id: String { idempotencyKey }
 }

@@ -33,7 +33,7 @@ struct ModulaCameraCaptureView: View {
                     Text(ModulaPreferences.cameraPrefersHEIC && camera.supportsHEIC ? "HEIC" : "JPEG")
                         .font(.caption2.weight(.bold).monospaced())
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                         .accessibilityLabel("Format \(ModulaPreferences.cameraPrefersHEIC && camera.supportsHEIC ? "HEIC" : "JPEG")")
                     Spacer()
                     control("arrow.triangle.2.circlepath.camera", label: "Flip camera") { camera.flip() }
@@ -44,7 +44,7 @@ struct ModulaCameraCaptureView: View {
                     Text(saveNotice)
                         .font(.footnote.weight(.semibold))
                         .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .modulaGlass(in: Capsule(), interactive: false)
                         .padding(.bottom, 8)
                 }
                 Button(action: shoot) {
@@ -104,7 +104,7 @@ struct ModulaCameraCaptureView: View {
             Text(text).font(.callout).multilineTextAlignment(.center)
             if openSettings, let url = URL(string: UIApplication.openSettingsURLString) {
                 Button("Open iOS Settings") { UIApplication.shared.open(url) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.modulaPrimary)
             }
         }
         .foregroundStyle(.white)

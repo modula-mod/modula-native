@@ -164,6 +164,15 @@ final class CallManager {
             bridge.reportEnded(uuid: throwaway, reason: .failed)
             return
         }
+        // Local screening (Settings › Calls): blocked callers and quiet hours never ring. PushKit
+        // still needs a CallKit report, so it's reported and ended at once (shows as missed).
+        if session == nil, CallsPersonalStore.shared.silences(handle: push.caller.handle, id: push.caller.id,
+                                                              conversationID: push.conversationID,
+                                                              isFavourite: isFavourite(push.conversationID)) {
+            bridge.reportIncoming(uuid: uuid, name: push.caller.name, handle: push.caller.handle, video: push.mediaKind == .video)
+            bridge.reportEnded(uuid: uuid, reason: .unanswered)
+            return
+        }
         if let current = session {
             // Already ringing from the messaging socket: re-reporting satisfies PushKit.
             bridge.reportIncoming(uuid: uuid, name: push.caller.name, handle: push.caller.handle, video: push.mediaKind == .video)
@@ -202,6 +211,8 @@ final class CallManager {
     private func presentIncoming(callID: CallID) async {
         guard let repository, let record = try? await repository.call(callID),
               record.direction == .incoming, record.state == .ringing, session == nil, let uuid = record.uuid else { return }
+        if CallsPersonalStore.shared.silences(handle: record.other.handle, id: record.other.id,
+                                              conversationID: record.conversationID, isFavourite: isFavourite(record.conversationID)) { return }
         CallMediaEngine.prepareAudioSessionForCallKit()
         session = Session(record: record, phase: .incomingRinging)
         isMinimized = false
@@ -285,6 +296,70 @@ final class CallManager {
     // MARK: History
 
     func history(for conversationID: String) -> [CallRecord] { historyByConversation[conversationID] ?? [] }
+
+    // MARK: Calls tab (Recents / Favourites / call IDs)
+
+    /// Account-wide history (`GET /v1/me/calls`), minus rows deleted on this device.
+    private(set) var recents: [CallRecord] = []
+    private(set) var recentsLoading = false
+    /// Device-local favourites: conversation ids of 1:1 chats.
+    private(set) var favourites: [String] = UserDefaults.standard.stringArray(forKey: "calls.favourites.v1") ?? []
+    private(set) var myCallID: String?
+    @ObservationIgnored private var hiddenRecents: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "calls.recents.hidden.v1") ?? [])
+
+    func loadRecents() async {
+        guard capabilities.enabled, let repository else { return }
+        recentsLoading = true
+        defer { recentsLoading = false }
+        guard let page = try? await repository.history(conversationID: nil) else { return }
+        recents = page.items.filter { !hiddenRecents.contains($0.id) }
+    }
+
+    /// Swipe-to-delete in Recents: hides the row on this device (no server delete endpoint).
+    func hideRecent(_ id: CallID) {
+        hiddenRecents.insert(id)
+        defaults.set(Array(hiddenRecents), forKey: "calls.recents.hidden.v1")
+        recents.removeAll { $0.id == id }
+    }
+
+    func isFavourite(_ conversationID: String) -> Bool { favourites.contains(conversationID) }
+
+    /// Favourites › Edit: drag to reorder.
+    func moveFavourites(fromOffsets source: IndexSet, toOffset destination: Int) {
+        favourites.move(fromOffsets: source, toOffset: destination)
+        defaults.set(favourites, forKey: "calls.favourites.v1")
+    }
+
+    func toggleFavourite(_ conversationID: String) {
+        if let index = favourites.firstIndex(of: conversationID) { favourites.remove(at: index) } else { favourites.append(conversationID) }
+        defaults.set(favourites, forKey: "calls.favourites.v1")
+    }
+
+    func loadMyCallID() async {
+        guard capabilities.callIDs, let repository else { return }
+        myCallID = try? await repository.myCallID()
+    }
+
+    /// Returns an error message, or nil on success.
+    func claimCallID(_ id: String) async -> String? {
+        guard capabilities.callIDs, let repository else { return "Modula call IDs are coming soon." }
+        guard CallIDFormat.isValid(id, caps: capabilities) else {
+            return "Use \(capabilities.callIDMinLength)–\(capabilities.callIDMaxLength) digits."
+        }
+        do {
+            myCallID = try await repository.claimCallID(id) ?? id
+            return nil
+        } catch APIError.rejected(_, "CONFLICT") {
+            return "That ID is taken. Try another."
+        } catch {
+            return CallCopy.errorMessage(error)
+        }
+    }
+
+    func lookupCallID(_ id: String) async -> CallIDLookup? {
+        guard capabilities.callIDs, let repository else { return nil }
+        return try? await repository.lookupCallID(id)
+    }
 
     func loadHistory(_ conversationID: String, force: Bool = false) async {
         guard capabilities.enabled, let repository else { return }

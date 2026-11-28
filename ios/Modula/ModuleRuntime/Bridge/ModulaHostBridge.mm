@@ -2,6 +2,9 @@
 // The generated Swift header declares the CallKit/PushKit delegate bridges.
 #import <CallKit/CallKit.h>
 #import <PushKit/PushKit.h>
+// …and the AVKit PiP / AVFoundation speech delegate bridges.
+#import <AVKit/AVKit.h>
+#import <AVFoundation/AVFoundation.h>
 #import "Modula-Swift.h"
 
 // Host events are no longer broadcast through the shared `onHostEvent` emitter: every

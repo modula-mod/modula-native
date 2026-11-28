@@ -34,40 +34,13 @@ enum ProfilePostLayout: String, CaseIterable, Identifiable, Hashable {
 struct ProfilePostLayoutToggle: View {
     @Binding var layout: ProfilePostLayout
     var tint: Color
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Namespace private var pill
 
     var body: some View {
-        let reduce = ModulaEffectGate.reduceMotion(systemReduceMotion)
-        HStack(spacing: 2) {
-            ForEach(ProfilePostLayout.allCases) { option in
-                let selected = option == layout
-                Button {
-                    withAnimation(reduce ? nil : .spring(response: 0.32, dampingFraction: 0.8)) { layout = option }
-                    HapticEngine.shared.play(.selection)
-                } label: {
-                    Image(systemName: option.symbol)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(selected ? tint : .secondary)
-                        .symbolEffect(.bounce, value: selected && !reduce)
-                        .frame(width: 38, height: 30)
-                        .background {
-                            if selected {
-                                Capsule().fill(tint.opacity(0.16))
-                                    .matchedGeometryEffect(id: "layout.pill", in: pill)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(ModulaPressStyle(scale: 0.92, haptic: nil))
-                .accessibilityLabel(option.title)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(2)
-        .background(Color.primary.opacity(0.05), in: Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Post layout")
+        ModulaSegmentedControl(segments: ProfilePostLayout.allCases.map {
+            .init(id: $0, title: $0.title, systemImage: $0.symbol)
+        }, selection: $layout, compact: true, accessibilityLabel: "Post layout",
+           identifier: { "profile.posts.layout.\($0.title)" })
+        .frame(width: CGFloat(ProfilePostLayout.allCases.count) * 46)
         .accessibilityIdentifier("profile.posts.layout")
     }
 }
@@ -79,12 +52,30 @@ struct ProfilePostGrid: View {
     var onOpen: (SocialPost) -> Void
     var onReachEnd: (() -> Void)? = nil
     @Environment(AppEnvironment.self) private var app
+    @Environment(\.modulaHeroScope) private var heroScope
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
             ForEach(posts) { post in
-                Button { onOpen(post) } label: {
+                Button {
+                    // Grid → post: the detail zooms out of this tile (RouteView consumes the arm;
+                    // no-op without a namespace, e.g. in the profile side sheet, or with Reduce Motion).
+                    ModulaHeroMorph.arm(ModulaHeroMorph.sourceID(scope: heroScope, kind: "post", key: post.id), for: .post(post.id, .root))
+                    onOpen(post)
+                } label: {
                     ProfilePostTile(post: post, tint: tint)
+                        .modulaHeroSource("post", key: post.id)
+                        .overlay(alignment: .topTrailing) {
+                            if post.isPinned {
+                                Image(systemName: "pin.fill")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .padding(5)
+                                    .background(.black.opacity(0.45), in: Circle())
+                                    .padding(5)
+                                    .accessibilityLabel("Pinned")
+                            }
+                        }
                 }
                 .buttonStyle(ModulaPressStyle(scale: 0.95))
                 // Long-press peek: large preview + quick actions without leaving the grid.
@@ -199,7 +190,7 @@ struct ProfilePostTile: View {
         var parts: [String] = []
         if isVideo { parts.append("Video post") } else if media != nil { parts.append("Photo post") } else { parts.append("Post") }
         if let text = post.text, !text.isEmpty { parts.append(text) }
-        if post.likeCount > 0 { parts.append("\(post.likeCount) likes") }
+        if post.likeCount > 0 { parts.append(String(localized: "\(post.likeCount) likes")) }  // plural variant in Localizable.xcstrings
         return parts.joined(separator: ", ")
     }
 }
@@ -263,5 +254,14 @@ struct ProfilePostPeek: View {
         }
         .frame(width: 320)
         .background(Color(uiColor: .systemBackground))
+    }
+}
+
+
+/// Pinned posts (server-flagged) lead the profile's posts, in their original order.
+enum ProfilePinnedOrdering {
+    static func pinnedFirst(_ posts: [SocialPost]) -> [SocialPost] {
+        guard posts.contains(where: \.isPinned) else { return posts }
+        return posts.filter(\.isPinned) + posts.filter { !$0.isPinned }
     }
 }

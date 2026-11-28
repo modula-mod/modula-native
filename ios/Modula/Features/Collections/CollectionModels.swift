@@ -101,7 +101,7 @@ struct CollectionItemRef: Hashable, Sendable, Codable {
 }
 
 struct CollectionBackendCapabilities: Sendable, Equatable {
-    var serverCollections = false
+    var serverCollections = true
     var serverReorder = false
     var localCollections = true
 
@@ -153,3 +153,4 @@ struct CollectionMutation: Codable, Sendable, Equatable, Identifiable {
         self.expectedVersion = expectedVersion
     }
 }
+

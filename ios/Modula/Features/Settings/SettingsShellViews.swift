@@ -156,6 +156,7 @@ struct MediaSettingsHost: View {
     @Environment(AppEnvironment.self) private var app
     @AppStorage("settings.media.videoQuality") private var videoQuality = "auto"
     @AppStorage("settings.media.muteStart") private var muteStart = true
+    @AppStorage("modula.video.autoPiP") private var autoPiP = true
     @AppStorage("settings.media.highResUploads") private var highResUploads = true
     @AppStorage("settings.media.saveOriginals") private var saveOriginals = false
 
@@ -211,6 +212,13 @@ struct MediaSettingsHost: View {
                     Toggle("Start muted", isOn: $muteStart)
                 } footer: {
                     Text("Auto downloads feed videos ahead of time on Wi‑Fi only. Data saver waits until you tap Load video. High always downloads ahead.")
+                }
+                if ModulaPiP.isSupported {
+                    Section {
+                        Toggle("Picture in Picture when leaving the app", isOn: $autoPiP)
+                    } footer: {
+                        Text("A video playing with sound keeps playing in a floating window when you go to another app. Long-press a reel or use a video's Keep watching menu for the in-app mini player.")
+                    }
                 }
             }
             .modulaSoftScrollEdge()
@@ -287,7 +295,7 @@ struct FeedSettingsHost: View {
                 }
                 Spacer()
                 if defaultMode == tag {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(app.appearance.liveAccent)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
                 }
             }
             .padding(.vertical, 8)
@@ -366,7 +374,8 @@ struct SafetySettingsHost: View {
         case .reporting:
             MyReportsView()
         case .muted:
-            RelationshipListView(kind: .muted)
+            // "Words and accounts": words were missing. Words editor on top, accounts below.
+            MutedWordsAndAccountsView()
         case .sensitive:
             SettingsScrollCanvas {
                 SettingsHeroBanner(title: "Sensitive content", subtitle: "Warnings before opening media.", symbol: "eye.trianglebadge.exclamationmark")
@@ -499,8 +508,13 @@ struct ChatsSettingsHost: View {
     @AppStorage("settings.chats.previewMedia") private var previewMedia = true
     @AppStorage("settings.chats.linkPreviews") private var linkPreviews = true
     @AppStorage("settings.links.openInApp") private var openLinksInApp = true
+    @AppStorage("settings.links.blockTrackers") private var blockTrackers = true
+    @AppStorage("settings.links.inspectChatLinks") private var inspectChatLinks = false
     @AppStorage("settings.chats.spellCheck") private var spellCheck = true
     @AppStorage("settings.chats.readReceiptsDisplay") private var readReceiptsDisplay = true
+    @State private var showsQuickReplies = false
+    @State private var browserExtensions = ModulaBrowserExtensions.shared
+    @State private var showsBrowserExtensions = false
 
     var body: some View {
         switch route {
@@ -525,8 +539,16 @@ struct ChatsSettingsHost: View {
                         SettingsNavigationRow(title: "Chat privacy", subtitle: app.messaging.capabilities.privacyControls ? "Receipts, typing, last seen, lock screen" : "Receipts on this device", symbol: "lock.rectangle.on.rectangle") {
                             app.navigation.open(.settings(.chats(.privacy)))
                         }
+                        if app.messaging.capabilities.features4.quickReplies {
+                            SettingsDivider()
+                            SettingsNavigationRow(title: "Quick replies", subtitle: "Type / in a chat to use them", symbol: "text.bubble") {
+                                showsQuickReplies = true
+                            }
+                            .accessibilityIdentifier("settings.chats.quickReplies")
+                        }
                     }
                 }
+                .sheet(isPresented: $showsQuickReplies) { QuickRepliesManageSheet().modulaSheetStyle() }
                 SettingsAPIFootnote(text: "These change how chats look and behave on this iPhone.")
             }
             .navigationTitle("Chats")
@@ -552,12 +574,45 @@ struct ChatsSettingsHost: View {
                     Text("Image links in messages show as images. Other links show a preview card. Post and comment previews are fetched through Modula’s link preview service. Data saver turns link previews off.")
                 }
                 Section {
-                    Toggle("Open links in app", isOn: $openLinksInApp)
+                    Toggle("Open links in Modula", isOn: $openLinksInApp)
                         .accessibilityIdentifier("settings.links.openInApp")
+                        // Browser extensions: hidden unless the server advertises them.
+                        .task { await ModulaBrowserExtensions.shared.probeIfNeeded(client: app.client) }
+                    if openLinksInApp {
+                        Toggle("Block trackers", isOn: $blockTrackers)
+                            .accessibilityIdentifier("settings.links.blockTrackers")
+                        Toggle("Check chat links first", isOn: $inspectChatLinks)
+                            .accessibilityIdentifier("settings.links.inspectChatLinks")
+                        if browserExtensions.enabled {
+                            Button("Browser extensions") { showsBrowserExtensions = true }
+                                .accessibilityIdentifier("settings.links.extensions")
+                                .sheet(isPresented: $showsBrowserExtensions) {
+                                    ModulaBrowserExtensionsView()
+                                        .presentationDetents([.medium, .large])
+                                        .modulaSheetStyle()
+                                }
+                        }
+                        Button("Clear browsing data", role: .destructive) {
+                            Task {
+                                await ModulaBrowserWarmup.clearBrowsingData()
+                                HapticEngine.shared.play(.success)
+                                ModulaToastCenter.shared.show("Browsing data cleared", symbol: "checkmark.circle")
+                            }
+                        }
+                        .accessibilityIdentifier("settings.links.clearData")
+                        Button("Reset reader settings") {
+                            for key in ["browser.reader.theme", "browser.reader.font", "browser.reader.size", "browser.reader.autoDomains"] {
+                                UserDefaults.standard.removeObject(forKey: key)
+                            }
+                            HapticEngine.shared.play(.success)
+                            ModulaToastCenter.shared.show("Reader settings reset", symbol: "checkmark.circle")
+                        }
+                        .accessibilityIdentifier("settings.links.resetReader")
+                    }
                 } header: {
                     Text("Links")
                 } footer: {
-                    Text("Web links open in Modula’s browser with the post kept at hand. Links that belong to an installed app, like YouTube or Maps, still open in that app. Turn off to use your default browser.")
+                    Text("Web links from posts, chats, bios, comments and notifications open in Modula’s browser, with the post or chat kept at hand. Modula links open right in the app, and links that belong to an installed app, like YouTube or Maps, still open in that app. Block trackers stops a short list of well-known ad and tracking services from loading. Check chat links first shows where every chat link goes before opening it (unusual links always get this check). Turn off Open links in Modula to use Safari.")
                 }
             }
             .modulaSoftScrollEdge()
@@ -715,5 +770,71 @@ private struct AudioWaveGraphic: View {
                 .fill(app.appearance.liveAccent.opacity(0.08))
         }
         .accessibilityHidden(true)
+    }
+}
+
+
+struct MutedWordsAndAccountsView: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var tab = Tab.words
+    enum Tab: String, CaseIterable, Identifiable { case words = "Words", accounts = "Accounts"; var id: String { rawValue } }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ModulaSegmentedControl("Muted", selection: $tab, options: Tab.allCases, symbol: { $0 == .words ? "textformat" : "person.crop.circle.badge.xmark" }, identifier: { "safety.muted.\($0.rawValue.lowercased())" }) { $0.rawValue }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+            switch tab {
+            case .words: MutedWordsEditor()
+            case .accounts: RelationshipListView(kind: .muted)
+            }
+        }
+        .navigationTitle("Muted")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct MutedWordsEditor: View {
+    @Environment(AppEnvironment.self) private var app
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    TextField("Add a word, phrase or #tag", text: $draft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit(add)
+                    Button("Add", action: add)
+                        .disabled(draft.trimmingCharacters(in: .whitespaces).count < 2)
+                }
+            } footer: {
+                Text("Posts containing these are hidden from Home. Saved on this device only.")
+            }
+            if !app.home.mutedWords.isEmpty {
+                Section("\(app.home.mutedWords.count) muted") {
+                    ForEach(app.home.mutedWords, id: \.self) { word in
+                        Label(word, systemImage: "speaker.slash")
+                    }
+                    .onDelete { offsets in
+                        var words = app.home.mutedWords
+                        words.remove(atOffsets: offsets)
+                        app.home.setMutedWords(words)
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    private func add() {
+        let word = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard word.count >= 2 else { return }
+        app.home.setMutedWords([word] + app.home.mutedWords)
+        draft = ""
+        HapticEngine.shared.play(.selection)
     }
 }

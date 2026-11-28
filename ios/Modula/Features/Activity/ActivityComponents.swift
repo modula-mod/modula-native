@@ -162,7 +162,7 @@ struct ActivityRequestActions: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .disabled(busy)
             .accessibilityIdentifier("activity.request.accept")
             // Secondary action stays quiet (glass, no fill) so Accept is the one obvious choice.
@@ -328,7 +328,7 @@ struct ActivityTimeline: View {
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if !event.isRead {
                             Button("Read") { onMarkRead(event) }
-                                .tint(app.appearance.liveAccent)
+                                .tint(.primary)
                         }
                     }
                     Divider().opacity(0.22).padding(.leading, 62)
@@ -340,13 +340,13 @@ struct ActivityTimeline: View {
                     onLoadMore()
                 } label: {
                     HStack(spacing: ModulaSpacing.xs) {
-                        if loadingMore { ProgressView().tint(.white) } else { Text("Load more").font(.subheadline.weight(.semibold)) }
+                        if loadingMore { ProgressView().tint(Color.modulaOnPrimary) } else { Text("Load more").font(.subheadline.weight(.semibold)) }
                     }
                     .padding(.horizontal, ModulaSpacing.lg)
                     .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .disabled(loadingMore)

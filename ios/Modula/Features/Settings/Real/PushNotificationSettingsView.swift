@@ -113,7 +113,7 @@ struct PushNotificationSettingsView: View {
                 HStack(spacing: ModulaSpacing.sm) {
                     Image(systemName: statusSymbol)
                         .font(.title3)
-                        .foregroundStyle(app.appearance.liveAccent)
+                        .foregroundStyle(.primary)
                         .symbolEffect(.bounce, value: reduceMotion ? 0 : statusSymbol.hashValue)
                         .frame(width: 32)
                     VStack(alignment: .leading, spacing: 2) {
@@ -161,7 +161,7 @@ struct PushNotificationSettingsView: View {
                 ForEach(readiness.rows, id: \.label) { row in
                     HStack(alignment: .firstTextBaseline, spacing: ModulaSpacing.sm) {
                         Image(systemName: row.ok ? "checkmark.circle.fill" : "circle.dashed")
-                            .foregroundStyle(row.ok ? AnyShapeStyle(app.appearance.liveAccent) : AnyShapeStyle(.secondary))
+                            .foregroundStyle(row.ok ? AnyShapeStyle(Color(uiColor: .systemGreen)) : AnyShapeStyle(.secondary))
                             .accessibilityHidden(true)
                         Text(row.label).font(.subheadline)
                         Spacer(minLength: 12)
@@ -275,7 +275,7 @@ struct PushNotificationSettingsView: View {
     private func rowLabel(_ title: String, _ detail: String, _ symbol: String) -> some View {
         HStack(spacing: ModulaSpacing.sm) {
             Image(systemName: symbol)
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -335,9 +335,9 @@ struct PushPrePromptSheet: View {
         VStack(spacing: ModulaSpacing.lg) {
             Image(systemName: "bell.badge.fill")
                 .font(.system(size: 44, weight: .semibold))
-                .foregroundStyle(app.appearance.liveAccent)
+                .foregroundStyle(.primary)
                 .frame(width: 88, height: 88)
-                .modulaGlass(in: Circle(), interactive: false, tint: app.appearance.liveAccent.opacity(0.18))
+                .modulaGlass(in: Circle(), interactive: false, tint: nil)
                 .scaleEffect(appeared || reduceMotion ? 1 : 0.85)
                 .accessibilityHidden(true)
             VStack(spacing: ModulaSpacing.xs) {
@@ -352,7 +352,7 @@ struct PushPrePromptSheet: View {
                 ForEach(reasons, id: \.1) { symbol, title, detail in
                     HStack(alignment: .top, spacing: ModulaSpacing.sm) {
                         Image(systemName: symbol)
-                            .foregroundStyle(app.appearance.liveAccent)
+                            .foregroundStyle(.primary)
                             .frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(title).font(.body.weight(.semibold))
@@ -372,7 +372,7 @@ struct PushPrePromptSheet: View {
                 .accessibilityIdentifier("push.prePrompt.allow")
                 Button("Not Now") { app.push.dismissPrePrompt() }
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .frame(minHeight: ModulaLayout.minimumTouch)
                     .accessibilityIdentifier("push.prePrompt.notNow")
             }
@@ -381,7 +381,7 @@ struct PushPrePromptSheet: View {
         .padding(.top, ModulaSpacing.xl)
         .padding(.bottom, ModulaSpacing.md)
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .modulaSheetStyle()
         .interactiveDismissDisabled(false)
         .onAppear {
             withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.7)) { appeared = true }

@@ -31,6 +31,8 @@ struct CreationStudioView: View {
     @State private var appeared = false
     @State private var publishTask: Task<Void, Never>?
     @State private var publishMorph = false
+    @State private var showsAltPrompt = false
+    @AppStorage("compose.altTextPrompt.off") private var altPromptOff = false
     @StateObject private var photoLibrary = ModulaPhotoLibraryModel(includeVideos: true)
     @State private var showsFullCamera = false
     @State private var cameraLibraryItems: [PhotosPickerItem] = []
@@ -111,6 +113,16 @@ struct CreationStudioView: View {
             }
             Button("Continue Editing", role: .cancel) {}
         }
+        .confirmationDialog("Add alt text?", isPresented: $showsAltPrompt, titleVisibility: .visible) {
+            Button("Add Alt Text") {
+                store.altTextMediaID = store.draft.media.first { $0.kind == .image && $0.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }?.id
+            }
+            Button("Post Without") { startPublishing(store) }
+            Button("Don't Ask Again") { altPromptOff = true; startPublishing(store) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Some photos have no description. Alt text helps people who use VoiceOver.")
+        }
         .sheet(item: altTextBinding(store)) { media in
             NavigationStack {
                 AltTextEditor(text: media.altText) { value in
@@ -118,30 +130,34 @@ struct CreationStudioView: View {
                 }
             }
             .presentationDetents([.medium, .large])
+            .modulaSheetStyle()
         }
         .sheet(isPresented: $showMoreOptions) {
-            CreationMoreOptionsSheet(
-                capabilities: store.capabilities,
-                accent: app.appearance.liveAccent,
-                onFiles: { showFileImporter = true },
-                onLink: {
-                    localLinkURL = "https://"
-                    store.showsLocalLinkEditor = true
-                    store.showsLocalPollEditor = false
-                },
-                onPoll: {
-                    store.showsLocalPollEditor = true
-                    store.showsLocalLinkEditor = false
-                },
-                onMentionsTip: {
-                    store.composerTip = "Type @ followed by a name."
-                    editorFocused = true
-                },
-                onHashtagsTip: {
-                    store.composerTip = "Type # to add a topic."
-                    editorFocused = true
-                }
-            )
+            Group {
+                CreationMoreOptionsSheet(
+                    capabilities: store.capabilities,
+                    accent: app.appearance.liveAccent,
+                    onFiles: { showFileImporter = true },
+                    onLink: {
+                        localLinkURL = "https://"
+                        store.showsLocalLinkEditor = true
+                        store.showsLocalPollEditor = false
+                    },
+                    onPoll: {
+                        store.showsLocalPollEditor = true
+                        store.showsLocalLinkEditor = false
+                    },
+                    onMentionsTip: {
+                        store.composerTip = "Type @ followed by a name."
+                        editorFocused = true
+                    },
+                    onHashtagsTip: {
+                        store.composerTip = "Type # to add a topic."
+                        editorFocused = true
+                    }
+                )
+            }
+            .modulaSheetStyle()
         }
         .onChange(of: videoPickerItems) { _, items in
             guard !items.isEmpty else { return }
@@ -199,7 +215,11 @@ struct CreationStudioView: View {
             }
 
             Button {
-                startPublishing(store)
+                if !altPromptOff, store.draft.media.contains(where: { $0.kind == .image && $0.altText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                    showsAltPrompt = true
+                } else {
+                    startPublishing(store)
+                }
             } label: {
                 Text(store.draft.kind.publishLabel)
                     .font(.body.weight(.semibold))
@@ -337,7 +357,7 @@ struct CreationStudioView: View {
                     if let tip = store.composerTip {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "lightbulb.fill")
-                                .foregroundStyle(accent)
+                                .foregroundStyle(.primary)
                             Text(tip)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
@@ -468,12 +488,15 @@ struct CreationStudioView: View {
         .animation(stageMotion, value: mediaPanelActive)
         .animation(stageMotion, value: recorder.isRecording)
         .sheet(item: Binding(get: { linkSheet.map { ComposerLinkSheetItem(mode: $0) } }, set: { linkSheet = $0?.mode })) { item in
-            ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
-                switch item.mode {
-                case .link: rich.insertLink(text: label, url: value)
-                case .abbr: rich.insertAbbreviation(label, title: value)
+            Group {
+                ModulaLinkInsertSheet(mode: item.mode, initialText: rich.selectedText) { label, value in
+                    switch item.mode {
+                    case .link: rich.insertLink(text: label, url: value)
+                    case .abbr: rich.insertAbbreviation(label, title: value)
+                    }
                 }
             }
+            .modulaSheetStyle()
         }
         .onChange(of: editorFocused) { _, focused in
             if focused { mediaPanelActive = false }
@@ -677,6 +700,7 @@ struct CreationStudioView: View {
                     }
                     .padding(.horizontal, 6)
                 }
+                .modulaHorizontalRail()
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barScrollWidth = $0 }
                 // Keep icons inside the pill: clip to the capsule and feather both edges.
                 .clipShape(Capsule())
@@ -703,6 +727,15 @@ struct CreationStudioView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .modulaGlass(in: Capsule(), interactive: false, specular: true)
+            // Emoji suggestions for the word you just typed float above the bar (layout-neutral overlay).
+            .overlay(alignment: .topLeading) {
+                ComposerEmojiSuggestions(text: store.draft.text) { emoji in
+                    let t = store.draft.text
+                    store.handlePaste(t + ((t.last?.isWhitespace ?? true) ? "" : " ") + emoji + " ")
+                }
+                .alignmentGuide(.top) { $0[.bottom] + 8 }
+                .padding(.leading, 8)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
@@ -806,7 +839,17 @@ struct CreationStudioView: View {
         switch store.draft.kind {
         case .story: "Add text"
         case .reel: "Caption"
-        default: "What's happening?"
+        default: Self.timelyPrompt
+        }
+    }
+
+    /// A gentle prompt that follows the time of day.
+    private static var timelyPrompt: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: "Good morning. What's on today?"
+        case 12..<17: "What's happening?"
+        case 17..<22: "How did today go?"
+        default: "Up late? Share what's on your mind."
         }
     }
 
@@ -832,6 +875,10 @@ struct CreationStudioView: View {
             created.publishError = "Sign in to compose. Drafts stay with your account."
         }
         created.start()
+        // Reels → Create: Reels only lists public posts, so start the draft public.
+        if postsToReels, created.draft.audience != .everyone, created.draft.media.isEmpty, created.draft.trimmedText.isEmpty {
+            created.draft.audience = .everyone
+        }
         store = created
         editorFocused = !created.kindUnavailable
     }
@@ -849,8 +896,22 @@ struct CreationStudioView: View {
         app.postActions.ingest(post)
         app.home.ingestPublished(post)
         app.profile.ingestPublished(post)
+        let isReel = post.media.contains(where: \.isVideo)
+            && (post.audience ?? store.draft.audience.greenfieldValue) == AudienceSelection.everyone.greenfieldValue
+        if isReel { app.reels.ingestPublished(post) }
+        let routeToReels = postsToReels && isReel
         close()
-        if ModulaPreferences.creatorShowsInsightsHint {
+        if routeToReels {
+            // Already on Reels (Create opened the composer over it): just focus the new reel.
+            if case .reels = app.navigation.currentRoute {
+                app.reels.activate(post.id)
+            } else {
+                app.navigation.push(.reels(.reel(post.id)))
+            }
+            app.navigation.flash("Posted to Reels. It plays for everyone once processing finishes.", symbol: "play.rectangle")
+        } else if postsToReels, post.media.contains(where: \.isVideo) {
+            app.navigation.flash("Posted. Only public videos appear in Reels.", symbol: "play.rectangle")
+        } else if ModulaPreferences.creatorShowsInsightsHint {
             app.navigation.flash("Posted. See how it does in Settings → Creator → Insights.", symbol: "chart.line.uptrend.xyaxis")
         }
     }
@@ -870,8 +931,12 @@ struct CreationStudioView: View {
         }
     }
 
+    /// Launched from Reels → Create.
+    private var postsToReels: Bool { app.navigation.composeOrigin == .reels }
+
     private func close() {
         store?.flush()
+        app.navigation.composeOrigin = nil
         if app.navigation.presented != nil {
             app.navigation.presented = nil
         } else {
@@ -927,11 +992,15 @@ private struct CharacterRing: View {
                     .monospacedDigit()
                     .foregroundStyle(color)
                     .minimumScaleFactor(0.6)
+                    .contentTransition(.numericText(value: Double(remaining)))
             }
         }
         .frame(width: remaining <= 20 ? 28 : 22, height: remaining <= 20 ? 28 : 22)
         .animation(.easeOut(duration: 0.15), value: progress)
-        .accessibilityLabel("\(max(remaining, 0)) characters left")
+        .animation(.snappy(duration: 0.2), value: remaining <= 20)
+        // A tap of feedback when crossing the limit either way.
+        .sensoryFeedback(.warning, trigger: remaining < 0)
+        .accessibilityLabel(remaining < 0 ? "\(-remaining) characters over the limit" : "\(remaining) characters left")
         .opacity(count == 0 ? 0 : 1)
     }
 }
@@ -1028,11 +1097,62 @@ struct ComposerReadingChip: View {
             Text("\(words) words · \(minutes) min")
                 .font(.caption2.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.secondary)
+                // Count rolls as you type instead of snapping.
+                .contentTransition(.numericText(value: Double(words)))
+                .animation(.snappy(duration: 0.2), value: words)
                 .padding(.horizontal, 8)
                 .frame(height: 24)
                 .modulaGlass(in: Capsule(), interactive: false)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 .accessibilityLabel("\(words) words, about \(minutes) minute read")
         }
+    }
+}
+
+
+/// Suggests emoji for the last word typed ("love" → ❤️ 😍 🥰). Tap inserts after the word. Local word list only.
+struct ComposerEmojiSuggestions: View {
+    let text: String
+    let insert: (String) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let table: [String: [String]] = [
+        "love": ["❤️", "😍", "🥰"], "heart": ["❤️", "💖", "🫶"], "happy": ["😊", "😄", "🥳"], "sad": ["😢", "🥺", "😞"],
+        "lol": ["😂", "🤣", "😆"], "haha": ["😂", "🤣", "😆"], "funny": ["😂", "🤣"], "fire": ["🔥", "💥"], "lit": ["🔥", "✨"],
+        "party": ["🥳", "🎉", "🎊"], "birthday": ["🎂", "🥳", "🎉"], "congrats": ["🎉", "👏", "🥂"], "thanks": ["🙏", "🫶", "😊"],
+        "thank": ["🙏", "🫶"], "coffee": ["☕️", "🥐"], "tea": ["🍵", "☕️"], "pizza": ["🍕"], "food": ["😋", "🍽️"],
+        "music": ["🎵", "🎧", "🎶"], "sun": ["☀️", "😎"], "sunny": ["☀️", "😎"], "rain": ["🌧️", "☔️"], "snow": ["❄️", "☃️"],
+        "cool": ["😎", "🆒"], "wow": ["😮", "🤯"], "omg": ["😱", "🤯"], "yes": ["✅", "🙌"], "no": ["❌", "🙅"],
+        "ok": ["👌", "👍"], "okay": ["👌", "👍"], "good": ["👍", "😊"], "great": ["🙌", "💯"], "win": ["🏆", "🥇"],
+        "sleep": ["😴", "💤"], "tired": ["🥱", "😴"], "work": ["💼", "💻"], "code": ["💻", "👩‍💻"], "travel": ["✈️", "🌍"],
+        "beach": ["🏖️", "🌊"], "dog": ["🐶"], "cat": ["🐱"], "money": ["💸", "💰"], "gym": ["💪", "🏋️"], "run": ["🏃", "👟"],
+        "morning": ["🌅", "☕️"], "night": ["🌙", "✨"], "christmas": ["🎄", "🎅"], "football": ["⚽️"], "game": ["🎮"],
+        "idea": ["💡"], "think": ["🤔"], "cry": ["😭"], "angry": ["😠"], "kiss": ["😘"], "hug": ["🤗"], "pray": ["🙏"],
+    ]
+
+    private var suggestions: [String] {
+        guard let last = text.last, !last.isWhitespace else { return [] }
+        let word = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).last.map {
+            String($0).lowercased().trimmingCharacters(in: .punctuationCharacters)
+        } ?? ""
+        return Self.table[word] ?? []
+    }
+
+    var body: some View {
+        let list = suggestions
+        HStack(spacing: 4) {
+            ForEach(list, id: \.self) { e in
+                Button { insert(e); HapticEngine.shared.play(.selection) } label: {
+                    Text(e).font(.system(size: 24)).frame(width: 40, height: 40)
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.85))
+                .accessibilityLabel("Insert \(e)")
+                .transition(.scale(scale: 0.4).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, list.isEmpty ? 0 : 6)
+        .background { if !list.isEmpty { Capsule().fill(.clear).modulaGlass(in: Capsule(), interactive: false) } }
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: list)
+        .accessibilityIdentifier("composer.emojiSuggestions")
     }
 }

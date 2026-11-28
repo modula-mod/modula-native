@@ -344,6 +344,9 @@ enum ModulaFormatTool: String, CaseIterable, Identifiable {
         ("", [.clear]),
     ]
 
+    /// What the composer's "Aa" bar shows (no HTML group).
+    static var barGroups: [(String, [ModulaFormatTool])] { groups.filter { $0.0 != "HTML" } }
+
     var inlineMarkers: (String, String)? {
         switch self {
         case .bold: ("**", "**"); case .italic: ("_", "_"); case .underline: ("++", "++"); case .strike: ("~~", "~~"); case .highlight: ("==", "==")
@@ -702,12 +705,10 @@ struct ModulaRichFormattingBar: View {
         HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
-                    ForEach(Array(ModulaFormatTool.groups.enumerated()), id: \.offset) { index, group in
+                    // The HTML tag tools stay supported when received, but aren't offered in the bar.
+                    ForEach(Array(ModulaFormatTool.barGroups.enumerated()), id: \.offset) { index, group in
                         if index > 0 {
                             Capsule().fill(Color.primary.opacity(0.12)).frame(width: 1, height: 20).padding(.horizontal, 4)
-                        }
-                        if !group.0.isEmpty && group.0 == "HTML" {
-                            Text("HTML").font(.system(size: 9, weight: .heavy, design: .rounded)).foregroundStyle(.secondary).padding(.trailing, 2)
                         }
                         ForEach(group.1) { tool in toolButton(tool) }
                     }
@@ -841,6 +842,7 @@ struct ModulaLinkInsertSheet: View {
         }
         .padding(20)
         .presentationDetents([.height(250)])
+        .modulaSheetStyle()
         .presentationBackground(.clear)
         .onAppear {
             label = initialText

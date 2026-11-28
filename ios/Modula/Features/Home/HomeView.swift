@@ -29,6 +29,20 @@ struct HomeView: View {
     @State private var editingQuickActions = false
     @State private var showsBackToTop = false
     @AppStorage(HomeQuickAction.storageKey) private var quickActionsRaw = HomeQuickAction.defaultRaw
+    @AppStorage(HomeSectionLayout.storageKey) private var homeSectionsRaw = HomeSectionLayout.defaultRaw
+    @State private var editingHome = false
+    /// Header bottom edge in global space: the scroll view's top + its top safe-area inset (the
+    /// nav bar with search/bell/chat). Passed to post cards so their action rail stays below it.
+    @State private var topChromeBottom: CGFloat = 0
+    /// Bottom safe-area inset the system reserves for the scroll view (tab bar etc.).
+    @State private var scrollBottomSafeArea: CGFloat = 0
+    /// Clock tick for the hero (refreshed once a minute by the .task on
+    /// greetingHero) so the greeting, the Moliboo's mood and the briefing
+    /// follow the day instead of freezing at first render.
+    @State private var heroTick = Date()
+    /// The equipped Moliboo's kind (same UserDefaults key the Home companion
+    /// reads). Nil when the mascot is off or the value is unknown.
+    @AppStorage(ModulaMascotSettings.kindKey) private var mascotKindRaw = ModulaMascotKind.pip.rawValue
 
     var body: some View {
         let state = app.home.state(for: mode)
@@ -38,71 +52,27 @@ struct HomeView: View {
                     // Vertical rhythm on the spacing scale: sections 12pt apart, a section's own
                     // header and content 8pt apart (Gestalt proximity), matching the Home reference.
                     LazyVStack(alignment: .leading, spacing: ModulaSpacing.sm) {
-                        VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
-                            if !showsStoryTray { modeCaption }
-                            if showsStoryTray {
-                                let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
-                                HStack(alignment: .center, spacing: 10) {
-                                    // One header row: Stories + the feed caption ("Following").
-                                    Text("Stories")
-                                        .font(.headline)
-                                    Text(mode.heroSubtitle)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color.primary.opacity(0.72))
-                                        .lineLimit(1)
-                                        .accessibilityIdentifier("home.hero")
-                                        .accessibilityLabel(mode.heroTitle)
-                                    Spacer(minLength: 8)
-                                    Button {
-                                        app.navigation.push(.reels(.feed))
-                                        HapticEngine.shared.play(.navigation)
-                                    } label: {
-                                        Label("Reels", systemImage: "play.rectangle.fill")
-                                            .font(.caption2.weight(.bold))
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, 10)
-                                            .frame(height: 26)
-                                            .background(app.appearance.liveAccent.gradient, in: Capsule())
-                                            .contentShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .shadow(color: app.appearance.liveAccent.opacity(0.25), radius: 5, y: 2)
-                                    // 44pt hit area without shifting the pill off the content edge.
-                                    .padding(.vertical, 9)
-                                    .contentShape(Rectangle())
-                                    .accessibilityLabel("Watch Reels")
-                                    .accessibilityIdentifier("home.open-reels")
-                                }
-                                StoryTray(
-                                    groups: trayGroups,
-                                    compact: false,
-                                    onSelect: { group in Task { await openStory(group) } },
-                                    onCreate: {
-                                        app.navigation.push(.stories(.create))
-                                        HapticEngine.shared.play(.navigation)
-                                    }
-                                )
-                                // Edge to edge: bleed past both content insets so rings scroll off-screen
-                                // under the trailing fade instead of being clipped mid-ring.
-                                .padding(.leading, -(ModulaLayout.contentInset + leadingInteractionInset))
-                                .padding(.trailing, -(ModulaLayout.contentInset + trailingInteractionInset))
-                                .contentMargins(.leading, ModulaLayout.contentInset + leadingInteractionInset, for: .scrollContent)
-                                .transition(.opacity)
-                            }
-                            if app.home.isOfflineHint && !state.items.isEmpty {
-                                offlineBanner
-                            }
+                        // Sections in the order (and visibility) chosen in Edit Home; the feed stays last.
+                        ForEach(HomeSectionLayout.visible(homeSectionsRaw)) { section in
+                            homeSection(section, state: state)
                         }
+
+                        Button {
+                            editingHome = true
+                            HapticEngine.shared.play(.selection)
+                        } label: {
+                            Label("Edit Home", systemImage: "slider.horizontal.3")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                         .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                        .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+                        .accessibilityIdentifier("home.edit")
 
-                        greetingHero
-                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
-                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
-                            .padding(.bottom, ModulaSpacing.xxs)
-
-                        if HomeTodayFlags.isEnabled {
-                            HomeTodayCard()
+                        if MolibooSaysFlags.isEnabled {
+                            MolibooSaysCard()
                                 .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
                                 .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
                         }
@@ -119,6 +89,12 @@ struct HomeView: View {
                 }
             }
             .modulaSoftScrollEdge()
+            .modulaFreezesScrollDuringReactions()
+            .environment(\.modulaTopChromeBottom, topChromeBottom)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                (proxy.frame(in: .global).minY + proxy.safeAreaInsets.top).rounded()
+            } action: { topChromeBottom = $0 }
+            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom.rounded() } action: { scrollBottomSafeArea = $0 }
             .onScrollGeometryChange(for: Bool.self) { [storyTrayFolded] geometry in
                 // Bool output keeps this cheap: the action only runs when the
                 // fold state flips. Hysteresis stops the toolbar swap flickering
@@ -157,10 +133,19 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            HomeMascotCompanion()
-                .padding(.horizontal, 8)
-                .frame(height: 260)
-                .frame(maxHeight: .infinity, alignment: .bottom)
+            if HomeSectionLayout.isVisible(.moliboo, in: homeSectionsRaw) {
+                HomeMascotCompanion()
+                    .padding(.horizontal, 8)
+                    .frame(height: 260)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+        .sheet(isPresented: $editingHome) { HomeSectionEditor(raw: $homeSectionsRaw).modulaSheetStyle() }
+        // Back online: a feed that failed (or is showing the offline warm page) refreshes itself.
+        .onReceive(NotificationCenter.default.publisher(for: .modulaConnectivityRestored)) { _ in
+            let failed: Bool = { if case .failed = app.home.state(for: mode).loadState { return true }; return false }()
+            guard failed || app.home.isOfflineHint else { return }
+            Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
         }
         .background { HomeAmbientLayer(model: ambient, update: updateAmbient) }
         .modulaCanvas()
@@ -186,13 +171,29 @@ struct HomeView: View {
                     .accessibilityAddTraits(.isHeader)
                 }
             }
-            // Create + Messages share one glass capsule instead of two mismatched pills.
+            // Search + Activity + Messages share one glass capsule (Create moved to the
+            // "What's on your mind?" composer card on the page).
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("Create", systemImage: "plus") {
-                    app.navigation.open(.compose(.post))
+                Button("Search", systemImage: "magnifyingglass") {
+                    app.navigation.open(.search(.root(nil)))
                     HapticEngine.shared.play(.navigation)
                 }
-                .accessibilityIdentifier("home.create")
+                .accessibilityIdentifier("home.search")
+                Button {
+                    app.navigation.select(.activity)
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    Image(systemName: "bell")
+                        .overlay(alignment: .topTrailing) {
+                            if let count = app.activity.state(for: .all).unreadCount, count > 0 {
+                                UnreadBadge(count: count)
+                                    .scaleEffect(0.7)
+                                    .offset(x: 6, y: -6)
+                            }
+                        }
+                }
+                .accessibilityLabel("Activity")
+                .accessibilityIdentifier("home.activity")
                 Button {
                     app.navigation.push(.messages(.inbox))
                     HapticEngine.shared.play(.navigation)
@@ -227,7 +228,10 @@ struct HomeView: View {
             }
         }
         .sheet(item: $commentsPost, onDismiss: collapseCommentsToBubble) { post in
-            PostCommentsSheet(postID: post.id, commentCount: post.replyCount, postAuthorID: post.author?.id)
+            Group {
+                PostCommentsSheet(postID: post.id, commentCount: post.replyCount, postAuthorID: post.author?.id)
+            }
+            .modulaSheetStyle()
         }
         .overlay(alignment: .bottomTrailing) {
             if let bubble = commentsBubble {
@@ -277,16 +281,127 @@ struct HomeView: View {
         return "Messages"
     }
 
+    // MARK: Customisable sections (Edit Home)
+
+    @ViewBuilder
+    private func homeSection(_ section: HomeSection, state: HomeModeState) -> some View {
+        let leading = ModulaLayout.contentInset + leadingInteractionInset
+        let trailing = ModulaLayout.contentInset + trailingInteractionInset
+        switch section {
+        case .stories:
+                            VStack(alignment: .leading, spacing: ModulaSpacing.xs) {
+                                if !showsStoryTray { modeCaption }
+                                if showsStoryTray {
+                                    let trayGroups = StoryStore.homeTrayGroups(app.stories.trayGroups)
+                                    HStack(alignment: .center, spacing: 10) {
+                                        // One header row: Stories + the feed caption ("Following").
+                                        Text("Stories")
+                                            .font(.headline)
+                                        Text(mode.heroSubtitle)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(Color.primary.opacity(0.72))
+                                            .lineLimit(1)
+                                            .accessibilityIdentifier("home.hero")
+                                            .accessibilityLabel(mode.heroTitle)
+                                        Spacer(minLength: 8)
+                                        Button {
+                                            app.navigation.push(.reels(.feed))
+                                            HapticEngine.shared.play(.navigation)
+                                        } label: {
+                                            Label("Reels", systemImage: "play.rectangle.fill")
+                                                .font(.caption2.weight(.bold))
+                                                .foregroundStyle(Color.modulaOnPrimary)
+                                                .padding(.horizontal, 10)
+                                                .frame(height: 26)
+                                                .background(Color.modulaPrimaryFill, in: Capsule())
+                                                .contentShape(Capsule())
+                                        }
+                                        .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                                        .shadow(color: .black.opacity(0.18), radius: 5, y: 2)
+                                        // 44pt hit area without shifting the pill off the content edge.
+                                        .padding(.vertical, 9)
+                                        .contentShape(Rectangle())
+                                        .accessibilityLabel("Watch Reels")
+                                        .accessibilityIdentifier("home.open-reels")
+                                    }
+                                    StoryTray(
+                                        groups: trayGroups,
+                                        compact: false,
+                                        onSelect: { group in Task { await openStory(group) } },
+                                        onCreate: {
+                                            app.navigation.push(.stories(.create))
+                                            HapticEngine.shared.play(.navigation)
+                                        }
+                                    )
+                                    // Edge to edge: bleed past both content insets so rings scroll off-screen
+                                    // under the trailing fade instead of being clipped mid-ring.
+                                    .padding(.leading, -(ModulaLayout.contentInset + leadingInteractionInset))
+                                    .padding(.trailing, -(ModulaLayout.contentInset + trailingInteractionInset))
+                                    .contentMargins(.leading, ModulaLayout.contentInset + leadingInteractionInset, for: .scrollContent)
+                                    .transition(.opacity)
+                                }
+                                if app.home.isOfflineHint && !state.items.isEmpty {
+                                    offlineBanner
+                                }
+                            }
+                            .padding(.leading, ModulaLayout.contentInset + leadingInteractionInset)
+                            .padding(.trailing, ModulaLayout.contentInset + trailingInteractionInset)
+        case .greeting:
+            greetingHero
+                .padding(.leading, leading)
+                .padding(.trailing, trailing)
+                .padding(.bottom, ModulaSpacing.xxs)
+        case .quickActions:
+            // Quick actions sit on the page (not on the photo): primary text on glass
+            // reads in light mode, where white-on-light-glass tiles were unreadable.
+            greetingActions
+                .padding(.leading, leading)
+                .padding(.trailing, trailing)
+        case .composer:
+            if app.auth.isSignedIn {
+                HomeComposerPrompt()
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+            }
+        case .modules:
+            if app.auth.isSignedIn {
+                HomeModulesBanner()
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+            }
+        case .today:
+            if HomeTodayFlags.isEnabled {
+                HomeTodayCard()
+                    .padding(.leading, leading)
+                    .padding(.trailing, trailing)
+            }
+        case .moliboo:
+            // Moliboo is the floating companion overlay; this slot only controls visibility.
+            EmptyView()
+        case .board, .pinnedModules, .connect, .favourites, .recentChats, .reels, .quote:
+            HomeExtraSection(section: section)
+                .padding(.leading, leading)
+                .padding(.trailing, trailing)
+                .modulaAppear()
+        }
+    }
+
     /// Greeting hero (reference: scenic card, name in display type, glass quick actions inside the card).
     /// Name comes from the signed-in profile, the scene/greeting from the device clock.
     private var greetingHero: some View {
-        let now = Date()
+        // heroTick refreshes once a minute (see the .task at the end of this
+        // view) so the greeting, the Moliboo's mood and the briefing follow
+        // the day instead of freezing at first render.
+        let now = heroTick
         let name = HomeGreeting.name(
             displayName: app.profile.ownProfile?.displayName,
             handle: app.profile.ownProfile?.handle ?? app.auth.account?.primaryHandle
         )
         let hour = Calendar.current.component(.hour, from: now)
         let scene = (hour >= 20 || hour < 6) ? "SceneMoonLake" : "SceneMountainLake"
+        let kind = ModulaMascotKind(rawValue: mascotKindRaw)
+        let dayMood = MolibooDayMood.resolve(now: now, kind: kind, streak: MascotProgressStore.shared.streak)
+        let briefing = MolibooBriefing.snapshot(app: app, kind: kind, now: now)
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .center) {
@@ -302,15 +417,29 @@ struct HomeView: View {
                         .frame(height: 26)
                         .modulaGlass(in: Capsule(), interactive: false)
                 }
-                Text(name)
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                Button {
+                    HapticEngine.shared.play(.navigation)
+                    app.navigation.open(app.navigation.root(for: .profile))
+                } label: {
+                    Text(name)
+                        .font(.system(size: 40, weight: .heavy, design: .rounded))
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+                .accessibilityHint("Opens your profile")
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
                     .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-                Text(HomeMolibooGreeting.mood(hour: hour, streak: MascotProgressStore.shared.streak))
+                Text(dayMood.line)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
+                    .accessibilityIdentifier("home.greeting.molibooMood")
+                if let briefingLine = MolibooBriefing.line(for: briefing, kind: kind) {
+                    Text(briefingLine)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .accessibilityIdentifier("home.greeting.briefing")
+                }
                 if MascotProgressStore.shared.streak > 1 {
                     Label("\(MascotProgressStore.shared.streak)-day streak", systemImage: "flame.fill")
                         .font(.caption.weight(.bold))
@@ -321,9 +450,7 @@ struct HomeView: View {
                         .accessibilityIdentifier("home.greeting.streak")
                 }
                 HomeGlanceChips()
-                Text("Your space. Your people. Your modules.")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.85))
+                HomeBriefingCard()
                 Button {
                     app.navigation.open(.settings(.whatsNew(.root)))
                     HapticEngine.shared.play(.navigation)
@@ -347,14 +474,10 @@ struct HomeView: View {
             }
             .padding(.horizontal, ModulaLayout.contentInset)
             .padding(.top, ModulaLayout.contentInset)
+            .padding(.bottom, ModulaLayout.contentInset)
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 14)
-            greetingActions
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .topLeading)
         .background {
             ZStack {
                 LinearGradient(colors: [app.appearance.liveAccent, Color(hex: "#1B3A4B")], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -383,22 +506,34 @@ struct HomeView: View {
         .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.greeting")
+        .task {
+            // One-minute tick so the greeting, the Moliboo's mood and the
+            // briefing follow the day. The task is tied to the hero's
+            // lifetime; it restarts if the hero leaves and re-enters the
+            // hierarchy, and it never touches scroll or feed state.
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(60)) } catch { break }
+                heroTick = Date()
+            }
+        }
     }
 
     private var greetingActions: some View {
-        ModulaGlassGroup(spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach(HomeQuickAction.decode(quickActionsRaw)) { item in
-                    greetingAction(item.title, item.symbol, "home.greeting.\(item.rawValue)") { run(item) }
-                        .contextMenu {
-                            Button("Customise quick actions", systemImage: "slider.horizontal.3") { editingQuickActions = true }
-                        }
-                }
+        HStack(spacing: 4) {
+            ForEach(HomeQuickAction.decode(quickActionsRaw)) { item in
+                greetingAction(item.title, item.symbol, "home.greeting.\(item.rawValue)") { run(item) }
+                    .contextMenu {
+                        Button("Customise quick actions", systemImage: "slider.horizontal.3") { editingQuickActions = true }
+                    }
             }
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 8)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
         .sheet(isPresented: $editingQuickActions) {
             HomeQuickActionEditor(raw: $quickActionsRaw)
                 .presentationDetents([.medium, .large])
+                .modulaSheetStyle()
         }
     }
 
@@ -429,75 +564,54 @@ struct HomeView: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: symbol)
-                    .font(.title3.weight(.semibold))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .background(app.appearance.liveAccent.opacity(colorScheme == .dark ? 0.22 : 0.13), in: Circle())
                 Text(title)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.75)
             }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, minHeight: 64)
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 72)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .modulaGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true, tint: .white.opacity(0.08), specular: true)
+        .buttonStyle(ModulaPressStyle(scale: 0.93, haptic: nil))
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
     }
 
     /// Reference filter chips; each filters the loaded feed by real post fields.
     private var feedFilterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(HomeFeedFilter.allCases) { filter in
-                    let selected = feedFilter == filter
-                    Button {
-                        withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) {
-                            feedFilter = filter
-                        }
-                        HapticEngine.shared.play(.selection)
-                    } label: {
-                        Label(filter.title, systemImage: filter.symbol)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(selected ? app.appearance.liveAccent : Color.primary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 36)
-                            .background(selected ? app.appearance.liveAccent.opacity(0.14) : .clear, in: Capsule())
-                            .overlay(Capsule().strokeBorder(selected ? app.appearance.liveAccent.opacity(0.45) : .clear, lineWidth: 1))
-                            .modulaGlass(in: Capsule(), interactive: true)
-                            .frame(minHeight: 44)
-                            .contentShape(Capsule())
+        // Shared segmented control; long-press the row to make the current filter Home's default.
+        ModulaSegmentedControl("Feed filter", selection: Binding(get: { feedFilter }, set: { filter in
+            withAnimation(ModulaMotion.animation(.reveal, personality: app.appearance.motion, reduceMotion: reduceMotion)) { feedFilter = filter }
+        }), options: HomeFeedFilter.allCases, symbol: { $0.symbol }, identifier: { "home.filter.\($0.rawValue)" }) { $0.title }
+            // Full-bleed rail: when the chips scroll they run to the screen edges with an inset,
+            // instead of being clipped at the right padding.
+            .scrollInset(ModulaLayout.contentInset + leadingInteractionInset)
+            .contextMenu {
+                let count = app.home.visiblePosts(for: mode).filter(feedFilter.matches).count
+                Text("\(count) loaded \(count == 1 ? "post" : "posts")")
+                if defaultFeedFilterRaw == feedFilter.rawValue {
+                    Button("Default filter", systemImage: "checkmark") {}
+                        .disabled(true)
+                } else {
+                    Button("Open Home with \(feedFilter.title)", systemImage: "pin") {
+                        defaultFeedFilterRaw = feedFilter.rawValue
+                        app.navigation.flash("Home opens with \(feedFilter.title)", symbol: feedFilter.symbol)
                     }
-                    .buttonStyle(.plain)
-                    // Long-press: make this the filter Home opens with.
-                    .contextMenu {
-                        let count = app.home.visiblePosts(for: mode).filter(filter.matches).count
-                        Text("\(count) loaded \(count == 1 ? "post" : "posts")")
-                        if defaultFeedFilterRaw == filter.rawValue {
-                            Button("Default filter", systemImage: "checkmark") {}
-                                .disabled(true)
-                        } else {
-                            Button("Open Home with \(filter.title)", systemImage: "pin") {
-                                defaultFeedFilterRaw = filter.rawValue
-                                feedFilter = filter
-                                app.navigation.flash("Home opens with \(filter.title)", symbol: filter.symbol)
-                            }
-                        }
-                        if defaultFeedFilterRaw != HomeFeedFilter.all.rawValue {
-                            Button("Reset to All", systemImage: "arrow.uturn.backward") {
-                                defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
-                                feedFilter = .all
-                            }
-                        }
+                }
+                if defaultFeedFilterRaw != HomeFeedFilter.all.rawValue {
+                    Button("Reset to All", systemImage: "arrow.uturn.backward") {
+                        defaultFeedFilterRaw = HomeFeedFilter.all.rawValue
+                        feedFilter = .all
                     }
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityHint("Long-press to make this the default")
-                    .accessibilityIdentifier("home.filter.\(filter.rawValue)")
                 }
             }
-            .padding(.horizontal, ModulaLayout.contentInset + leadingInteractionInset)
-        }
-        .scrollClipDisabled()
+            .accessibilityHint("Long-press to make the selected filter the default")
+
     }
 
     private var modeCaption: some View {
@@ -596,7 +710,7 @@ struct HomeView: View {
                 // Perf: filter + resolve the feed once per body pass instead of three times.
                 let visiblePosts = HomeFeedOrdering.friendsFirst(
                     app.home.visiblePosts(for: mode).filter(feedFilter.matches),
-                    friendIDs: mode == .following ? [] : Set(app.home.state(for: .following).items.compactMap { $0.author?.id }),
+                    friendIDs: mode == .following ? [] : app.home.followingAuthorIDs(),
                     ownID: app.auth.account?.accountId
                 )
                 if visiblePosts.isEmpty {
@@ -606,45 +720,50 @@ struct HomeView: View {
                 }
                 ForEach(visiblePosts) { post in
                     let resolved = app.posts.resolved(post)
-                    PostCard(
-                        post: resolved,
-                        showsActionRail: ModulaPostMapper.map(resolved).isMediaFirst,
-                        isOwnPost: resolved.author?.id == app.auth.account?.accountId,
-                        onOpenPost: { openPost(resolved) },
-                        onOpenAuthor: { openAuthor(resolved) },
-                        onLike: {
-                            if !resolved.liked { ModulaMascotEvent.post(.like) }
-                            Task { await app.home.toggleLike(resolved, mode: mode) }
-                        },
-                        onComment: {
-                            openComments(resolved)
-                        },
-                        onRepost: {
-                            ModulaMascotEvent.post(.repost)
-                            Task { await app.home.toggleRepost(resolved, mode: mode) }
-                        },
-                        onSave: {
-                            if !resolved.saved { ModulaMascotEvent.post(.save) }
-                            Task { await app.home.toggleSave(resolved, mode: mode) }
-                        },
-                        onShare: {
-                            // Settings → Sharing decides copy / iOS sheet / Modula sheet.
-                            ModulaMascotEvent.post(.share)
-                            PostSharing.share(resolved, app: app)
-                        },
-                        onContextAction: { action in
-                            handlePostContext(action, post: resolved)
-                        },
-                        onOpenMedia: { _ in
-                            app.navigation.open(.post(resolved.id, .root))
-                        },
-                        onOpenModule: { module in
-                            app.navigation.push(.productHub(.module(module.id, .overview)))
-                            HapticEngine.shared.play(.navigation)
-                        },
-                        videoCoordinator: videoCoordinator,
-                        style: .immersive
-                    )
+                    // Speed: the card's body only re-runs when this row's inputs change (post state,
+                    // ownership, mode) — not on every unrelated feed body pass (ambient, chips, pills).
+                    ModulaEquatableRow(key: HomeFeedRowKey(post: resolved, mode: mode, ownID: app.auth.account?.accountId)) {
+                        PostCard(
+                            post: resolved,
+                            showsActionRail: ModulaPostMapper.map(resolved).isMediaFirst,
+                            isOwnPost: resolved.author?.id == app.auth.account?.accountId,
+                            onOpenPost: { openPost(resolved) },
+                            onOpenAuthor: { openAuthor(resolved) },
+                            onLike: {
+                                if !resolved.liked { ModulaMascotEvent.post(.like) }
+                                Task { await app.home.toggleLike(resolved, mode: mode) }
+                            },
+                            onComment: {
+                                openComments(resolved)
+                            },
+                            onRepost: {
+                                ModulaMascotEvent.post(.repost)
+                                Task { await app.home.toggleRepost(resolved, mode: mode) }
+                            },
+                            onSave: {
+                                if !resolved.saved { ModulaMascotEvent.post(.save) }
+                                Task { await app.home.toggleSave(resolved, mode: mode) }
+                            },
+                            onShare: {
+                                // Send button: always a sheet (Settings → Sharing picks Modula or iOS).
+                                ModulaMascotEvent.post(.share)
+                                PostSharing.send(resolved, app: app)
+                            },
+                            onContextAction: { action in
+                                handlePostContext(action, post: resolved)
+                            },
+                            onOpenMedia: { _ in
+                                app.navigation.open(.post(resolved.id, .root))
+                            },
+                            onOpenModule: { module in
+                                app.navigation.push(.productHub(.module(module.id, .overview)))
+                                HapticEngine.shared.play(.navigation)
+                            },
+                            videoCoordinator: videoCoordinator,
+                            style: .immersive
+                        )
+                    }
+                    .equatable()
                     // Swipe left = share, right = save. Nested PDF/media carousels keep paging.
                     .modifier(PostSwipeActions(
                         enabled: resolved.media.count <= 1,
@@ -688,7 +807,10 @@ struct HomeView: View {
                         Task { await app.home.refresh(mode, signedIn: app.auth.isSignedIn) }
                     }
                     .padding(.horizontal, ModulaLayout.contentInset)
-                    .padding(.vertical, 20)
+                    .padding(.top, 20)
+                    // End of feed sits fully above the tab bar + Following/For You accessory: add
+                    // whatever the bottom safe area doesn't already reserve for that chrome.
+                    .padding(.bottom, 20 + max(0, shellChromeMetrics.occupiedBottomHeight - scrollBottomSafeArea))
                 }
                 if state.loadState == .loadingMore {
                     // Enhancements-50: a post-shaped skeleton holds the slot the next page fills.
@@ -714,7 +836,7 @@ struct HomeView: View {
                                 .padding(.horizontal, ModulaSpacing.lg).frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
-                        .modulaAccentCTA()
+                        .modulaPrimaryCTA()
                         .accessibilityLabel("Retry loading more posts")
                         .accessibilityIdentifier("home.load-more-retry")
                     }
@@ -735,8 +857,8 @@ struct HomeView: View {
                 app.navigation.requestAuthentication(returningTo: .home(.following))
                 HapticEngine.shared.play(.navigation)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(app.appearance.liveAccent)
+            .buttonStyle(.modulaPrimary)
+            .tint(.primary)
             .accessibilityIdentifier("home.sign-in")
         }
         .padding(.horizontal, ModulaLayout.contentInset)
@@ -755,8 +877,8 @@ struct HomeView: View {
                         app.navigation.open(.discover(.people))
                         HapticEngine.shared.play(.navigation)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(app.appearance.liveAccent)
+                    .buttonStyle(.modulaPrimary)
+                    .tint(.primary)
                     .accessibilityIdentifier("home.empty.discover")
                 }
             } else {
@@ -1042,6 +1164,11 @@ extension HomeView {
     fileprivate func prefetchAhead(after post: SocialPost, in items: [SocialPost]) {
         guard let index = items.firstIndex(where: { $0.id == post.id }) else { return }
         for next in items.dropFirst(index + 1).prefix(4) {
+            // Speed: author avatars too (160 px matches ModulaAvatar's minimum decode), so the
+            // header of the next card is ready before it scrolls in.
+            if let url = next.author?.avatarURL {
+                ModulaImagePrefetcher.prefetch(url: url, cacheKey: "avatar:\(url.path)", maximumPixelSize: 160, client: app.client)
+            }
             for media in next.media.prefix(2) {
                 let attachment = ModulaPostMapper.attachment(media)
                 guard attachment.kind == .image else { continue }
@@ -1232,7 +1359,7 @@ struct CommentsFloatingBubble: View {
                     .foregroundStyle(.white)
                     .frame(width: 56, height: 56)
                     .background(Circle().fill(accent.gradient))
-                    .modulaGlass(in: Circle(), interactive: true, tint: accent.opacity(0.25))
+                    .modulaGlass(in: Circle(), interactive: true, tint: nil)
                     .shadow(color: accent.opacity(0.45), radius: 14, y: 6)
                 if post.replyCount > 0 {
                     Text(post.replyCount > 99 ? "99+" : "\(post.replyCount)")
@@ -1574,7 +1701,7 @@ struct HomeTodayCard: View {
                 ForEach(snapshot.quests) { quest in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(quest.title).font(.subheadline.weight(.semibold))
-                        ProgressView(value: Double(quest.progress), total: Double(max(quest.goal, 1))).tint(app.appearance.liveAccent)
+                        ProgressView(value: Double(quest.progress), total: Double(max(quest.goal, 1))).tint(.primary)
                     }
                 }
                 ForEach(snapshot.buffs) { buff in
@@ -1606,7 +1733,7 @@ struct HomeCaughtUpMarker: View {
                 Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(app.appearance.liveAccent)
+                    .foregroundStyle(.primary)
                     .accessibilityHidden(true)
                 Capsule().fill(Color.primary.opacity(0.12)).frame(height: 1)
             }
@@ -1635,6 +1762,10 @@ struct HomeCaughtUpMarker: View {
             .accessibilityIdentifier("home.caughtup.refresh")
         }
         .frame(maxWidth: .infinity)
+        // Its own glass card, so it never reads as ghost text drifting under the bottom bars.
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous), interactive: false)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.caughtup")
     }
@@ -1673,5 +1804,1113 @@ struct HomeGlanceChips: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.glance.\(id)")
+    }
+}
+
+
+/// "What's on your mind?" entry: one tap to the composer, or straight to photo / video.
+private struct HomeComposerPrompt: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        HStack(spacing: 10) {
+            avatar
+            Button {
+                open(.post)
+            } label: {
+                Text("What’s on your mind?")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.composer.prompt")
+            icon("photo.on.rectangle", "Photo", .photo)
+            icon("video", "Video", .video)
+            icon("plus", "More ways to post", .post, prominent: true)
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.composer")
+    }
+
+    @ViewBuilder
+    private var avatar: some View {
+        if let image = app.profile.tabBarAvatar {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 36, height: 36)
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "person.crop.circle.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, height: 36)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func icon(_ symbol: String, _ label: String, _ route: ComposeRoute, prominent: Bool = false) -> some View {
+        Button {
+            open(route)
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(prominent ? Color.modulaOnPrimary : Color.primary)
+                .frame(width: 36, height: 36)
+                .background {
+                    if prominent { Circle().fill(Color.modulaPrimaryFill) }
+                }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+        .accessibilityLabel(label)
+    }
+
+    private func open(_ route: ComposeRoute) {
+        app.navigation.open(.compose(route))
+        HapticEngine.shared.play(.navigation)
+    }
+}
+
+/// Modules hero banner: installed count + one tap to the Modules sheet (same as swipe-up).
+private struct HomeModulesBanner: View {
+    @Environment(AppEnvironment.self) private var app
+
+    var body: some View {
+        let accent = app.appearance.liveAccent
+        let count = app.catalogue.installedIDs.count
+        Button {
+            HapticEngine.shared.play(.contextOpen)
+            app.navigation.openModulesDock()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your modules")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(count == 0 ? "Explore what you can add to Modula" : (count == 1 ? "1 installed · swipe up on the bar anytime" : "\(count) installed · swipe up on the bar anytime"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(colors: [accent.opacity(0.14), accent.opacity(0.03)], startPoint: .leading, endPoint: .trailing),
+                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+        .accessibilityIdentifier("home.modules.banner")
+    }
+}
+
+// MARK: - Home sections (Edit Home)
+
+enum HomeSection: String, CaseIterable, Identifiable {
+    case stories, greeting, quickActions, composer, modules, today, moliboo
+    // t240u: richer Home. New sections arrive hidden (except Board) so upgrades don't reshuffle Home.
+    case board, pinnedModules, connect, favourites, recentChats, reels, quote
+    var id: String { rawValue }
+
+    var isDefaultVisible: Bool {
+        switch self {
+        case .pinnedModules, .connect, .favourites, .recentChats, .reels, .quote: false
+        default: true
+        }
+    }
+
+    /// Sections with per-section density / style options in Edit Home.
+    var hasOptions: Bool {
+        switch self {
+        case .pinnedModules, .favourites, .recentChats, .reels, .quote: true
+        default: false
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .stories: "Story rings and Reels"
+        case .greeting: "Scene, name and streak"
+        case .quickActions: "Write, Create, Vault…"
+        case .composer: "Start a post"
+        case .modules: "Installed modules"
+        case .today: "Your day at a glance"
+        case .moliboo: "Floating companion"
+        case .board: "Widgets from your Board"
+        case .pinnedModules: "Modules pinned in the dock"
+        case .connect: "Your Modula Number"
+        case .favourites: "One-tap calls"
+        case .recentChats: "Latest conversations"
+        case .reels: "Jump into Reels"
+        case .quote: "Quote and on this day"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .stories: "Stories"
+        case .greeting: "Greeting"
+        case .quickActions: "Quick actions"
+        case .composer: "What’s on your mind?"
+        case .modules: "Recently opened modules"
+        case .today: "Today"
+        case .moliboo: "Moliboo"
+        case .board: "Board widgets"
+        case .pinnedModules: "Pinned modules"
+        case .connect: "Modula Connect"
+        case .favourites: "Calls favourites"
+        case .recentChats: "Recent chats"
+        case .reels: "Reels"
+        case .quote: "Quote · On this day"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .stories: "circle.dashed"
+        case .greeting: "sun.max"
+        case .quickActions: "square.grid.2x2"
+        case .composer: "square.and.pencil"
+        case .modules: "shippingbox"
+        case .today: "calendar"
+        case .moliboo: "sparkles"
+        case .board: "square.grid.2x2.fill"
+        case .pinnedModules: "pin"
+        case .connect: "antenna.radiowaves.left.and.right"
+        case .favourites: "star"
+        case .recentChats: "bubble.left.and.bubble.right"
+        case .reels: "play.rectangle"
+        case .quote: "quote.opening"
+        }
+    }
+}
+
+/// Persisted as one string: section ids in order, hidden ones prefixed with "-".
+/// Unknown ids are dropped; sections added in later versions append visible.
+enum HomeSectionLayout {
+    static let storageKey = "home.sections.v1"
+    static let defaultRaw = HomeSection.allCases.map { ($0.isDefaultVisible ? "" : "-") + $0.rawValue }.joined(separator: ",")
+
+    struct Entry: Identifiable, Equatable {
+        let section: HomeSection
+        var visible: Bool
+        var id: String { section.rawValue }
+    }
+
+    static func decode(_ raw: String) -> [Entry] {
+        var seen = Set<HomeSection>()
+        var entries: [Entry] = []
+        for token in raw.split(separator: ",") {
+            let hidden = token.hasPrefix("-")
+            guard let section = HomeSection(rawValue: String(hidden ? token.dropFirst() : token)),
+                  seen.insert(section).inserted else { continue }
+            entries.append(Entry(section: section, visible: !hidden))
+        }
+        for section in HomeSection.allCases where !seen.contains(section) {
+            entries.append(Entry(section: section, visible: section.isDefaultVisible))
+        }
+        return entries
+    }
+
+    static func encode(_ entries: [Entry]) -> String {
+        entries.map { ($0.visible ? "" : "-") + $0.section.rawValue }.joined(separator: ",")
+    }
+
+    static func visible(_ raw: String) -> [HomeSection] {
+        decode(raw).filter(\.visible).map(\.section)
+    }
+
+    static func isVisible(_ section: HomeSection, in raw: String) -> Bool {
+        decode(raw).first { $0.section == section }?.visible ?? true
+    }
+}
+
+/// Per-section display options (Edit Home). Stored as "section=density.style" pairs.
+enum HomeSectionOptions {
+    static let storageKey = "home.sections.options.v1"
+
+    enum Density: String, CaseIterable, Identifiable { case compact, regular, large; var id: Self { self }
+        var title: String { switch self { case .compact: "Compact"; case .regular: "Regular"; case .large: "Large" } }
+    }
+    enum Style: String, CaseIterable, Identifiable { case card, plain; var id: Self { self }
+        var title: String { switch self { case .card: "Glass card"; case .plain: "Plain" } }
+    }
+    struct Value: Equatable { var density: Density = .regular; var style: Style = .card }
+
+    static func decode(_ raw: String) -> [HomeSection: Value] {
+        var out: [HomeSection: Value] = [:]
+        for pair in raw.split(separator: ";") {
+            let kv = pair.split(separator: "=", maxSplits: 1)
+            guard kv.count == 2, let section = HomeSection(rawValue: String(kv[0])) else { continue }
+            let parts = kv[1].split(separator: ".")
+            var v = Value()
+            if let d = parts.first.flatMap({ Density(rawValue: String($0)) }) { v.density = d }
+            if parts.count > 1, let st = Style(rawValue: String(parts[1])) { v.style = st }
+            out[section] = v
+        }
+        return out
+    }
+
+    static func encode(_ map: [HomeSection: Value]) -> String {
+        map.filter { $0.value != Value() }
+            .sorted { $0.key.rawValue < $1.key.rawValue }
+            .map { "\($0.key.rawValue)=\($0.value.density.rawValue).\($0.value.style.rawValue)" }
+            .joined(separator: ";")
+    }
+
+    static func value(_ section: HomeSection, in raw: String) -> Value { decode(raw)[section] ?? Value() }
+}
+
+/// One-tap Home layouts.
+enum HomePreset: String, CaseIterable, Identifiable {
+    case classic, minimal, social, console, everything
+    var id: Self { self }
+    var title: String {
+        switch self {
+        case .classic: "Classic"
+        case .minimal: "Minimal"
+        case .social: "Social"
+        case .console: "Console"
+        case .everything: "Everything"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .classic: "house"
+        case .minimal: "circle.dotted"
+        case .social: "person.2"
+        case .console: "square.grid.2x2"
+        case .everything: "sparkles"
+        }
+    }
+    var sections: [HomeSection] {
+        switch self {
+        case .classic: [.greeting, .quickActions, .stories, .composer, .modules, .today, .moliboo, .board]
+        case .minimal: [.stories, .composer]
+        case .social: [.stories, .recentChats, .favourites, .composer, .reels, .moliboo]
+        case .console: [.greeting, .board, .pinnedModules, .connect, .today, .quote]
+        case .everything: HomeSection.allCases
+        }
+    }
+    var raw: String {
+        let visible = sections
+        let rest = HomeSection.allCases.filter { !visible.contains($0) }
+        return (visible.map(\.rawValue) + rest.map { "-" + $0.rawValue }).joined(separator: ",")
+    }
+}
+
+/// Edit Home: presets, a live miniature preview, show / hide, drag to reorder (with haptics),
+/// and per-section density / style. Persists immediately; Reset restores defaults.
+struct HomeSectionEditor: View {
+    @Binding var raw: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage(HomeSectionOptions.storageKey) private var optionsRaw = ""
+    @State private var entries: [HomeSectionLayout.Entry] = []
+    @State private var expanded: HomeSection?
+
+    private var visibleSections: [HomeSection] { entries.filter(\.visible).map(\.section) }
+    private var activePreset: HomePreset? { HomePreset.allCases.first { HomeSectionLayout.encode(entries) == $0.raw } }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    preview
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                }
+                Section("Presets") {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(HomePreset.allCases) { preset in
+                                let on = activePreset == preset
+                                Button {
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        entries = HomeSectionLayout.decode(preset.raw)
+                                    }
+                                    HapticEngine.shared.play(.success)
+                                } label: {
+                                    Label(preset.title, systemImage: preset.symbol)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(on ? Color.modulaOnPrimary : .primary)
+                                        .padding(.horizontal, 14).frame(height: 36)
+                                        .background { if on { Capsule().fill(Color.modulaPrimaryFill) } }
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(ModulaPressStyle(scale: 0.94, haptic: nil))
+                                .modulaGlass(in: Capsule(), interactive: true)
+                                .accessibilityAddTraits(on ? .isSelected : [])
+                                .accessibilityIdentifier("home.edit.preset.\(preset.rawValue)")
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .scrollIndicators(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                }
+                Section {
+                    ForEach($entries) { $entry in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                Image(systemName: entry.section.symbol)
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 28)
+                                    .symbolEffect(.bounce, value: entry.visible)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(entry.section.title).font(.body)
+                                    Text(entry.section.blurb).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 8)
+                                if entry.section.hasOptions && entry.visible {
+                                    Button {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                            expanded = expanded == entry.section ? nil : entry.section
+                                        }
+                                        HapticEngine.shared.play(.selection)
+                                    } label: {
+                                        Image(systemName: "slider.horizontal.3")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(expanded == entry.section ? Color.modulaOnPrimary : .primary)
+                                            .frame(width: 32, height: 32)
+                                            .background(Circle().fill(expanded == entry.section ? Color.modulaPrimaryFill : Color.primary.opacity(0.08)))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("\(entry.section.title) options")
+                                }
+                                Toggle(entry.section.title, isOn: $entry.visible)
+                                    .labelsHidden()
+                            }
+                            if expanded == entry.section && entry.visible {
+                                options(for: entry.section)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                        .accessibilityIdentifier("home.edit.\(entry.section.rawValue)")
+                    }
+                    .onMove { from, to in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { entries.move(fromOffsets: from, toOffset: to) }
+                        HapticEngine.shared.play(.success)
+                    }
+                } header: {
+                    Text("Sections")
+                } footer: {
+                    Text("Drag to reorder. Your feed always stays at the bottom. Weather arrives when the server offers it.")
+                }
+            }
+            .toggleStyle(SettingsHapticToggleStyle())
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Edit Home")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Reset") {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            entries = HomeSectionLayout.decode(HomeSectionLayout.defaultRaw)
+                        }
+                        optionsRaw = ""
+                        HapticEngine.shared.play(.warning)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    MessagesDoneButton { dismiss() }
+                }
+            }
+            .onAppear { entries = HomeSectionLayout.decode(raw) }
+            .onChange(of: entries) { _, value in
+                raw = HomeSectionLayout.encode(value)
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .modulaSheetStyle()
+        .accessibilityIdentifier("home.edit.sheet")
+    }
+
+    /// Miniature Home: a bar per visible section in order, springing as you edit.
+    private var preview: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 4) {
+                Capsule().fill(Color.primary.opacity(0.25)).frame(width: 28, height: 4).padding(.bottom, 4)
+                ForEach(visibleSections.prefix(9)) { section in
+                    let opt = HomeSectionOptions.value(section, in: optionsRaw)
+                    HStack(spacing: 4) {
+                        Image(systemName: section.symbol).font(.system(size: 7, weight: .bold))
+                        RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.35)).frame(height: 3)
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(height: previewHeight(section, opt))
+                    .frame(maxWidth: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(opt.style == .card ? 0.12 : 0.04)))
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                }
+                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.06)).frame(height: 26)
+                    .overlay(Text("Feed").font(.system(size: 7, weight: .bold)).foregroundStyle(.secondary))
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .frame(width: 96, height: 190, alignment: .top)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.primary.opacity(0.25), lineWidth: 1.5))
+            .clipped()
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Live preview").font(.headline)
+                Text("\(visibleSections.count) of \(HomeSection.allCases.count) sections on")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+                if let activePreset {
+                    Label(activePreset.title, systemImage: activePreset.symbol)
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(Color.primary.opacity(0.1)))
+                        .transition(.scale.combined(with: .opacity))
+                } else {
+                    Text("Custom").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: entries)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: optionsRaw)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Preview: \(visibleSections.map(\.title).joined(separator: ", "))")
+    }
+
+    private func previewHeight(_ section: HomeSection, _ opt: HomeSectionOptions.Value) -> CGFloat {
+        let base: CGFloat = switch section {
+        case .greeting: 30
+        case .board, .reels: 22
+        case .stories, .favourites, .recentChats: 16
+        default: 12
+        }
+        return base * (opt.density == .compact ? 0.75 : opt.density == .large ? 1.3 : 1)
+    }
+
+    @ViewBuilder
+    private func options(for section: HomeSection) -> some View {
+        let binding = Binding<HomeSectionOptions.Value>(
+            get: { HomeSectionOptions.value(section, in: optionsRaw) },
+            set: { value in
+                var map = HomeSectionOptions.decode(optionsRaw)
+                map[section] = value
+                optionsRaw = HomeSectionOptions.encode(map)
+                HapticEngine.shared.play(.selection)
+            }
+        )
+        VStack(alignment: .leading, spacing: 8) {
+            ModulaSegmentedControl(segments: HomeSectionOptions.Density.allCases.map { .init(id: $0, title: $0.title) },
+                                   selection: binding.density, accessibilityLabel: "Density",
+                                   identifier: { "home.edit.\(section.rawValue).density.\($0.rawValue)" })
+            ModulaSegmentedControl(segments: HomeSectionOptions.Style.allCases.map { .init(id: $0, title: $0.title) },
+                                   selection: binding.style, accessibilityLabel: "Style",
+                                   identifier: { "home.edit.\(section.rawValue).style.\($0.rawValue)" })
+        }
+        .padding(.leading, 40)
+    }
+}
+
+// MARK: - New Home sections (t240u)
+
+struct HomeExtraSection: View {
+    let section: HomeSection
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage(HomeSectionOptions.storageKey) private var optionsRaw = ""
+    @AppStorage(ModulesDockPrefs.pinnedKey) private var pinnedRaw = ""
+
+    private var opt: HomeSectionOptions.Value { HomeSectionOptions.value(section, in: optionsRaw) }
+    private var scale: CGFloat { opt.density == .compact ? 0.8 : opt.density == .large ? 1.2 : 1 }
+
+    var body: some View {
+        Group {
+            switch section {
+            case .board: HomeBoardRail()
+            case .pinnedModules: pinnedModules
+            case .connect: ConnectPromoCard()
+            case .favourites: favourites
+            case .recentChats: recentChats
+            case .reels: reels
+            case .quote: HomeQuoteCard(compact: opt.density == .compact)
+            default: EmptyView()
+            }
+        }
+        .padding(opt.style == .card && section != .connect && section != .board ? 14 : 0)
+        .background {
+            if opt.style == .card && section != .connect && section != .board {
+                Color.clear.modulaGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            }
+        }
+    }
+
+    private func header(_ title: String, action: String, route: AppRoute) -> some View {
+        HStack {
+            Text(title).font(.headline)
+            Spacer()
+            Button(action) {
+                app.navigation.push(route)
+                HapticEngine.shared.play(.navigation)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+        }
+    }
+
+    private var pinnedModules: some View {
+        let installed = app.catalogue.installedIDs
+        let pinned = ModulesDockPrefs.decode(pinnedRaw)
+        let ids = pinned.isEmpty ? Array(installed).sorted() : pinned
+        let products = ids.compactMap { id in app.catalogue.products.first { $0.moduleId == id } }
+        return VStack(alignment: .leading, spacing: 10) {
+            header(pinned.isEmpty ? "Your modules" : "Pinned modules", action: "All", route: .productHub(.collection(.installed)))
+            if products.isEmpty {
+                Text("Pin modules from the Modules dock to keep them here.").font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 14) {
+                        ForEach(products) { product in
+                            Button {
+                                app.navigation.open(.module(product.moduleId, localPath: nil))
+                                HapticEngine.shared.play(.navigation)
+                            } label: {
+                                VStack(spacing: 6) {
+                                    ProductArtwork(product: product, size: 52 * scale)
+                                    Text(product.name).font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                                        .lineLimit(2).multilineTextAlignment(.center)
+                                        .frame(width: 72 * scale)
+                                }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: nil))
+                            .modulaCarouselReveal()
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .modulaHorizontalRail()
+            }
+        }
+    }
+
+    private var favourites: some View {
+        let favs = app.calls.favourites.compactMap { CallsDirectory.contact(forConversation: $0, app: app) }
+        return VStack(alignment: .leading, spacing: 10) {
+            header("Favourites", action: "Calls", route: .messages(.calls))
+            if favs.isEmpty {
+                Text("Star people in Calls to call them from Home.").font(.footnote).foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 14) {
+                        ForEach(favs) { c in
+                            Button {
+                                if let id = c.conversationID { CallsActions.call(id, kind: .audio, app: app) }
+                            } label: {
+                                VStack(spacing: 6) {
+                                    ModulaAvatar(initials: c.initials, url: c.avatarURL, size: 52 * scale, name: c.name)
+                                        .overlay(alignment: .bottomTrailing) {
+                                            Image(systemName: "phone.fill").font(.system(size: 9, weight: .bold))
+                                                .foregroundStyle(.white).frame(width: 20, height: 20)
+                                                .background(Circle().fill(Color.green))
+                                        }
+                                    Text(c.name).font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                                        .lineLimit(2).multilineTextAlignment(.center).frame(width: 70 * scale)
+                                }
+                            }
+                            .buttonStyle(ModulaPressStyle(scale: 0.9, haptic: .selection))
+                            .accessibilityLabel("Call \(c.name)")
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.hidden)
+                .modulaHorizontalRail()
+            }
+        }
+    }
+
+    private var recentChats: some View {
+        let count = opt.density == .compact ? 3 : opt.density == .large ? 6 : 4
+        let recent = Array(app.messaging.visibleConversations.prefix(count))
+        return VStack(alignment: .leading, spacing: 10) {
+            header("Recent chats", action: "Messages", route: .messages(.inbox))
+            if recent.isEmpty {
+                Text("Your latest conversations show up here.").font(.footnote).foregroundStyle(.secondary)
+            }
+            ForEach(recent) { c in
+                Button {
+                    app.navigation.push(.messages(.conversation(c.id)))
+                    HapticEngine.shared.play(.navigation)
+                } label: {
+                    HStack(spacing: 12) {
+                        let p = c.participants.first
+                        ModulaAvatar(initials: p?.initials ?? "?", url: p?.avatarURL, size: 36 * scale, name: c.title)
+                        Text(c.title).font(.subheadline.weight(c.isUnread ? .bold : .regular)).foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        if c.isUnread { Circle().fill(Color.primary).frame(width: 8, height: 8).transition(.scale) }
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(ModulaPressStyle(scale: 0.98, haptic: nil))
+            }
+        }
+    }
+
+    private var reels: some View {
+        Button {
+            app.navigation.push(.reels(.feed))
+            HapticEngine.shared.play(.navigation)
+        } label: {
+            HStack(spacing: 10) {
+                ForEach(0..<3, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LinearGradient(colors: [Color.primary.opacity(0.22 - Double(i) * 0.05), Color.primary.opacity(0.06)],
+                                             startPoint: .top, endPoint: .bottom))
+                        .frame(width: 64 * scale, height: 100 * scale)
+                        .overlay(Image(systemName: "play.fill").font(.title3).foregroundStyle(.primary.opacity(0.6)))
+                        .rotationEffect(.degrees(Double(i - 1) * 4))
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Reels").font(.headline).foregroundStyle(.primary)
+                    Text("Short videos from people you follow").font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Label("Watch", systemImage: "play.fill").font(.caption.weight(.bold))
+                        .foregroundStyle(Color.modulaOnPrimary)
+                        .padding(.horizontal, 12).frame(height: 28)
+                        .background(Capsule().fill(Color.modulaPrimaryFill))
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(ModulaPressStyle(scale: 0.97, haptic: nil))
+        .accessibilityLabel("Watch Reels")
+        .accessibilityIdentifier("home.section.reels")
+    }
+}
+
+/// On-device quote of the day plus a date fact; changes at midnight.
+struct HomeQuoteCard: View {
+    var compact = false
+    static let quotes: [(String, String)] = [
+        ("Simplicity is the ultimate sophistication.", "Leonardo da Vinci"),
+        ("Make it work, make it right, make it fast.", "Kent Beck"),
+        ("The best way to predict the future is to invent it.", "Alan Kay"),
+        ("Stay hungry, stay foolish.", "Whole Earth Catalog"),
+        ("Small steps every day.", "Unknown"),
+        ("Done is better than perfect.", "Sheryl Sandberg"),
+        ("What we think, we become.", "Buddha"),
+        ("Creativity is intelligence having fun.", "Albert Einstein"),
+        ("Well begun is half done.", "Aristotle"),
+        ("Do one thing every day that scares you.", "Eleanor Roosevelt"),
+        ("The details are not the details. They make the design.", "Charles Eames"),
+        ("Be so good they can't ignore you.", "Steve Martin")
+    ]
+
+    var body: some View {
+        let now = Date()
+        let cal = Calendar.current
+        let day = cal.ordinality(of: .day, in: .year, for: now) ?? 1
+        let total = cal.range(of: .day, in: .year, for: now)?.count ?? 365
+        let q = Self.quotes[day % Self.quotes.count]
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "quote.opening").font(.title3.weight(.bold)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(q.0).font(compact ? .subheadline.weight(.semibold) : .title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(q.1).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if !compact {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("On this day", systemImage: "calendar").font(.caption.weight(.bold))
+                        Spacer()
+                        Text("Day \(day) · \(total - day) to go").font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                    ProgressView(value: Double(day), total: Double(total)).tint(.primary)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.section.quote")
+    }
+}
+
+
+/// Identity of one feed row's rendered state.
+struct HomeFeedRowKey: Equatable, Sendable {
+    let post: SocialPost
+    let mode: HomeMode
+    let ownID: String?
+}
+
+
+// MARK: - Briefing (local data only)
+
+/// "Morning / Afternoon / Evening briefing" in the greeting card: nearest Board countdown, today's habits and
+/// water, and whether you've checked in with your Moliboo. Everything is read from this phone; collapsed by
+/// default to one summary line, expands in place.
+struct HomeBriefingCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("home.briefing.expanded") private var expanded = false
+    @AppStorage("board.habit.v1") private var habitRaw = ""
+    @AppStorage("board.water.v1") private var waterRaw = ""
+    @AppStorage(ModulaMascotSettings.kindKey) private var kindRaw = ModulaMascotKind.pip.rawValue
+
+    private struct Item: Identifiable { let id: String; let symbol: String; let text: String; var action: (() -> Void)? = nil }
+
+    private static func dayKey(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    private func items(now: Date) -> [Item] {
+        let widgets = BoardStore.shared.layout.pages.flatMap(\.widgets)
+        let cal = Calendar.current
+        let today = Self.dayKey(now)
+        var out: [Item] = []
+        // Nearest upcoming countdown.
+        let countdowns = widgets.filter { $0.kinds.contains(.countdown) }.compactMap { w -> (String, Int)? in
+            guard let d = BoardISO.date(w.setting("date", "")) else { return nil }
+            let days = cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cal.startOfDay(for: d)).day ?? -1
+            return days >= 0 ? (w.setting("title", "Countdown"), days) : nil
+        }.sorted { $0.1 < $1.1 }
+        if let c = countdowns.first {
+            out.append(Item(id: "countdown", symbol: "calendar.badge.clock",
+                            text: c.1 == 0 ? "\(c.0) is today" : "\(c.1) day\(c.1 == 1 ? "" : "s") until \(c.0)"))
+        }
+        // Habits ticked today.
+        let habits = widgets.filter { $0.kinds.contains(.habit) }
+        if !habits.isEmpty {
+            let done = habits.filter { h in
+                habitRaw.split(separator: ";").contains { $0.hasPrefix("\(h.id)|") && $0.split(separator: "|").last?.split(separator: ",").contains(Substring(today)) == true }
+            }.count
+            out.append(Item(id: "habits", symbol: "checkmark.seal",
+                            text: done == habits.count ? "All \(habits.count) habit\(habits.count == 1 ? "" : "s") done" : "\(done) of \(habits.count) habit\(habits.count == 1 ? "" : "s") done today"))
+        }
+        // Water.
+        if let w = widgets.first(where: { $0.kinds.contains(.water) }) {
+            let goal = Int(w.setting("goal", "8")) ?? 8
+            let n = waterRaw.split(separator: ";").compactMap { e -> Int? in
+                let p = e.split(separator: "|"); return p.count == 3 && p[0] == w.id && p[1] == today ? Int(p[2]) : nil
+            }.first ?? 0
+            out.append(Item(id: "water", symbol: "drop", text: n >= goal ? "Water goal met (\(n))" : "\(n) of \(goal) glasses of water"))
+        }
+        // Moliboo check-in.
+        let name = MolibooRegistry.descriptor(for: kindRaw)?.displayName ?? "Moliboo"
+        let life = MolibooCareStore.shared.life(for: kindRaw)
+        let streak = life.currentStreak(at: now)
+        out.append(Item(id: "moliboo", symbol: life.checkedIn(on: now) ? "flame.fill" : "flame",
+                        text: life.checkedIn(on: now) ? "Checked in with \(name) · \(streak)-day streak" : (streak > 0 ? "Check in with \(name) to keep your \(streak)-day streak" : "Say hi to \(name) today"),
+                        action: { app.navigation.push(.settings(.moliboo)) }))
+        return out
+    }
+
+    private func title(_ now: Date) -> String {
+        let h = Calendar.current.component(.hour, from: now)
+        return h < 12 ? "Morning briefing" : (h < 18 ? "Afternoon briefing" : "Evening briefing")
+    }
+
+    var body: some View {
+        let now = Date()
+        let list = items(now: now)
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82)) { expanded.toggle() }
+                HapticEngine.shared.play(.selection)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.horizon.fill").symbolRenderingMode(.multicolor)
+                    Text(title(now)).font(.caption.weight(.bold))
+                    if !expanded, let first = list.first {
+                        Text("· \(first.text)").font(.caption).lineLimit(1).opacity(0.9)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(expanded ? 180 : 0))
+                }
+                .foregroundStyle(.white)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title(now))
+            .accessibilityValue(expanded ? "Expanded" : (list.first?.text ?? ""))
+            if expanded {
+                ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
+                    Button { item.action?() } label: {
+                        Label(item.text, systemImage: item.symbol)
+                            .font(.caption.weight(.semibold)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(item.action == nil)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: -6)))
+                    .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82).delay(Double(index) * 0.04), value: expanded)
+                }
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .modulaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.briefing")
+    }
+}
+
+// MARK: - Moliboo day mood (feature 4)
+//
+// The Moliboo reacts to the user's actual day, built only on the persisted
+// care state, the streak and the clock — no new state store. Gentle, never
+// nagging: a late-night nudge to rest, a celebration on a streak milestone, a
+// quiet "I missed you" after a missed day, and a named care request when the
+// stats say so. When no Moliboo is equipped it falls back to the legacy
+// mood line, so the hero never reads differently for lack of a character.
+
+struct MolibooDayMood {
+    enum Tone: Equatable { case celebrate, sleepy, missedYou, needsCare, happy, calm }
+    let tone: Tone
+    /// One short line in the Moliboo's voice, for the hero and the "Moliboo says" card.
+    let line: String
+    /// The care emotion this mood is grounded in (drives the figure's expression).
+    let emotion: MolibooEmotion
+    /// The 2D figure mood to render alongside the line.
+    var mascotMood: MascotMood {
+        switch tone {
+        case .celebrate: .celebrate
+        case .sleepy: .sleepy
+        case .missedYou: .pleased
+        case .needsCare: emotion == .sad ? .sad : .sleepy
+        case .happy: .happy
+        case .calm: .idle
+        }
+    }
+
+    @MainActor
+    static func resolve(now: Date, kind: ModulaMascotKind?, streak: Int, calendar: Calendar = .current) -> MolibooDayMood {
+        let hour = calendar.component(.hour, from: now)
+        guard let kind else {
+            return MolibooDayMood(tone: .calm, line: HomeMolibooGreeting.mood(hour: hour, streak: streak), emotion: .calm)
+        }
+        let name = kind.name
+        let care = MolibooCareStore.shared.state(for: kind.rawValue)
+        let life = MolibooCareStore.shared.life(for: kind.rawValue)
+        if care.asleep {
+            return MolibooDayMood(tone: .sleepy, line: "Zzz…", emotion: .sleepy)
+        }
+        // Late at night and still here: a gentle nudge to rest, not a lecture.
+        if hour >= 23 || hour < 5 {
+            return MolibooDayMood(tone: .sleepy, line: "\(name) is getting sleepy — it's late. Shall we rest soon?", emotion: .sleepy)
+        }
+        // The Moliboo needs something: name the need, don't just say "sad".
+        if care.emotion == .sad || care.emotion == .tired {
+            let line: String
+            if care.hunger > 80 { line = "\(name) is a bit peckish…" }
+            else if care.energy < 25 { line = "\(name) is running low on energy…" }
+            else if care.cleanliness < 25 { line = "\(name) could use a bath…" }
+            else { line = "\(name) could use a little company." }
+            return MolibooDayMood(tone: .needsCare, line: line, emotion: care.emotion)
+        }
+        // A missed day: the streak broke. Warm, not guilty.
+        if life.lastCheckIn != nil && life.currentStreak(at: now, calendar: calendar) == 0 {
+            return MolibooDayMood(tone: .missedYou, line: "\(name) missed you — glad you're back.", emotion: .calm)
+        }
+        if streak >= 7 {
+            return MolibooDayMood(tone: .celebrate, line: "A whole week together. Your Moliboo is glowing.", emotion: .happy)
+        }
+        if streak >= 3 {
+            return MolibooDayMood(tone: .happy, line: "\(streak) days in a row. Keep it going.", emotion: .happy)
+        }
+        return MolibooDayMood(tone: .calm, line: HomeMolibooGreeting.mood(hour: hour, streak: streak), emotion: care.emotion)
+    }
+}
+
+// MARK: - Moliboo briefing (feature 1)
+//
+// A real briefing the Moliboo composes from what's already on the device:
+// what you missed (unread chats, alerts, unseen stories) and the one thing
+// worth focusing on (the Moliboo's care need, a streak milestone, or the
+// unread queue). Deterministic text in the Moliboo's voice — it never invents
+// facts. Calendar events are NOT included: the app has no EventKit access
+// (see the manifest for the follow-up).
+
+struct MolibooBriefing {
+    var unreadChats: Int = 0
+    var unreadAlerts: Int = 0
+    var unseenStories: Int = 0
+    var streak: Int = 0
+    var careEmotion: MolibooEmotion = .calm
+    var careNeedsAttention: Bool = false
+    var timeOfDay: MolibooTimeOfDay = .morning
+
+    var missedCount: Int { unreadChats + unreadAlerts + unseenStories }
+
+    @MainActor
+    static func snapshot(app: AppEnvironment, kind: ModulaMascotKind?, now: Date = Date()) -> MolibooBriefing {
+        let chats = app.messaging.accountUnreadCount ?? 0
+        let alerts = app.activity.state(for: .all).unreadCount ?? 0
+        let stories = app.stories.trayGroups.reduce(0) { $0 + ((!$1.isOwn && $1.hasStories && $1.ring == .unseen) ? 1 : 0) }
+        var careEmotion: MolibooEmotion = .calm
+        var needsCare = false
+        if let kind {
+            let care = MolibooCareStore.shared.state(for: kind.rawValue)
+            careEmotion = care.emotion
+            needsCare = care.emotion == .sad || care.emotion == .tired
+        }
+        return MolibooBriefing(
+            unreadChats: chats, unreadAlerts: alerts, unseenStories: stories,
+            streak: MascotProgressStore.shared.streak,
+            careEmotion: careEmotion, careNeedsAttention: needsCare,
+            timeOfDay: MolibooTimeOfDay.at(now)
+        )
+    }
+
+    /// One composed line, or nil when there is nothing real to report (the mood
+    /// line already covers the quiet case, so the hero stays uncluttered).
+    static func line(for briefing: MolibooBriefing, kind: ModulaMascotKind?) -> String? {
+        var missed: [String] = []
+        if briefing.unreadChats > 0 { missed.append("\(briefing.unreadChats) chat\(briefing.unreadChats == 1 ? "" : "s")") }
+        if briefing.unreadAlerts > 0 { missed.append("\(briefing.unreadAlerts) alert\(briefing.unreadAlerts == 1 ? "" : "s")") }
+        if briefing.unseenStories > 0 { missed.append("\(briefing.unseenStories) new stor\(briefing.unseenStories == 1 ? "y" : "ies")") }
+        let missedText = missed.isEmpty ? nil : "\(missed.joined(separator: " and ")) waiting."
+        let name = kind?.name
+        let focus: String?
+        if briefing.careNeedsAttention, let name {
+            focus = "\(name) could use a little care today."
+        } else if briefing.streak >= 7 {
+            focus = "A whole week — keep the streak going."
+        } else if briefing.missedCount > 0 {
+            focus = "Catch up when you're ready."
+        } else {
+            focus = nil
+        }
+        switch (missedText, focus) {
+        case (let m?, let f?): return "\(m) \(f)"
+        case (let m?, nil): return m
+        case (nil, let f?): return f
+        case (nil, nil): return nil
+        }
+    }
+}
+
+// MARK: - "Moliboo says" (feature 2)
+//
+// A daily note from the Moliboo, on Home under the Today card. One note per
+// day, picked deterministically from the day + the equipped Moliboo + what's
+// actually true (care, streak, latest moment), so it feels alive instead of
+// generic. There is no Board widget system in this tree (see the manifest),
+// so this is built as a Home card in the HomeTodayCard pattern — a
+// self-contained view that can move into the Board's widget slot unchanged
+// when the Board code lands. Tap it to open the Moliboo world.
+
+enum MolibooSaysFlags {
+    static let key = "moliboo.says.enabled"
+    /// On by default: the note is real on-device data, not a stub.
+    static var isEnabled: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+}
+
+struct MolibooSaysCard: View {
+    @Environment(AppEnvironment.self) private var app
+    @AppStorage(ModulaMascotSettings.kindKey) private var mascotKindRaw = ModulaMascotKind.pip.rawValue
+
+    var body: some View {
+        let kind = ModulaMascotKind(rawValue: mascotKindRaw)
+        let now = Date()
+        let dayMood = MolibooDayMood.resolve(now: now, kind: kind, streak: MascotProgressStore.shared.streak)
+        let note = MolibooSaysNote.today(kind: kind, dayMood: dayMood, now: now)
+        Button {
+            HapticEngine.shared.play(.navigation)
+            app.navigation.open(.settings(.moliboo))
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                if let kind {
+                    ModulaMascotFigure(kind: kind, pose: .still(dayMood.mascotMood), size: 40)
+                        .accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(kind.map { "\($0.name) says" } ?? "Your Moliboo says")
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: dayMood.emotion.symbol)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    Text(note)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modulaGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true, specular: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.molibooSays")
+    }
+}
+
+enum MolibooSaysNote {
+    /// The note for today. Deterministic for the day (same note all day, a new
+    /// one tomorrow) and grounded in what's actually true right now — the
+    /// day's mood first, then the latest care moment, then the streak and
+    /// bond, then a small daily rotation of warm lines.
+    @MainActor
+    static func today(kind: ModulaMascotKind?, dayMood: MolibooDayMood, now: Date = Date()) -> String {
+        guard let kind else { return "Your Moliboo is waiting to meet you." }
+        let care = MolibooCareStore.shared.state(for: kind.rawValue)
+        let life = MolibooCareStore.shared.life(for: kind.rawValue)
+        let streak = MascotProgressStore.shared.streak
+        switch dayMood.tone {
+        case .needsCare, .sleepy, .missedYou, .celebrate: return dayMood.line
+        case .happy, .calm: break
+        }
+        if let moment = life.moments.first {
+            return moment.text
+        }
+        if streak >= 3 { return "Day \(streak) together — \(kind.name) is proud of the streak." }
+        if care.bondLevel > 1 { return "\(kind.name) is growing with you — bond level \(care.bondLevel)." }
+        let lines = [
+            "\(kind.name) is here whenever you need a hand.",
+            "A quiet day is a good day for building something small.",
+            "\(kind.name) saved you a sunny spot for later.",
+        ]
+        return lines[Self.dayIndex(for: now, kind: kind, count: lines.count)]
+    }
+
+    /// Stable day index: the same (day, Moliboo) always picks the same line.
+    private static func dayIndex(for now: Date, kind: ModulaMascotKind, count: Int) -> Int {
+        let key = Self.dayKey(now) + kind.rawValue
+        var hash = 0
+        for scalar in key.unicodeScalars { hash = (hash &* 31) &+ Int(scalar.value) }
+        return abs(hash) % max(count, 1)
+    }
+
+    private static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 }

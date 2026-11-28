@@ -38,13 +38,14 @@ struct MolibooStyleSheet: View {
                                         .frame(height: 88)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                                .strokeBorder(environment == e.rawValue ? Color.accentColor : Color.primary.opacity(0.06),
+                                                .strokeBorder(environment == e.rawValue ? Color.primary : Color.primary.opacity(0.06),
                                                               lineWidth: environment == e.rawValue ? 2 : 0.5)
                                         )
                                     Text(e.title).font(.subheadline.weight(.semibold))
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(MolibooSpringPressStyle())
+                            .accessibilityAddTraits(environment == e.rawValue ? .isSelected : [])
                             .accessibilityIdentifier("studio.env.\(e.rawValue)")
                             .accessibilityAddTraits(environment == e.rawValue ? .isSelected : [])
                         }

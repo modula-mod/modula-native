@@ -199,8 +199,8 @@ final class PremiumStoreKitController {
     }
 
     private func acceptAndFinish(
-        _ verification: VerificationResult<Transaction>,
-        transaction: Transaction,
+        _ verification: VerificationResult<StoreKit.Transaction>,
+        transaction: StoreKit.Transaction,
         mapping: PremiumAppleProductMapping
     ) async throws -> PremiumAppleTransactionResult {
         let accepted = try await PremiumRemote.submitAppleTransaction(verification.jwsRepresentation, client: client)
@@ -214,7 +214,7 @@ final class PremiumStoreKitController {
     }
 
     private func completePurchase(
-        _ verification: VerificationResult<Transaction>,
+        _ verification: VerificationResult<StoreKit.Transaction>,
         mapping: PremiumAppleProductMapping,
         accountToken: UUID
     ) async throws -> PremiumAppleTransactionResult {
@@ -306,11 +306,11 @@ struct PremiumPurchaseView: View {
             } label: {
                 Text(purchaseTitle)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .disabled(app.premiumPurchases.phase.busy || !store.selectedPlan.isPaid)
             .accessibilityIdentifier("premium.purchase.confirm")
             Button("Restore purchases") {
@@ -378,11 +378,11 @@ struct PremiumWelcomeView: View {
             } label: {
                 Text("Your Premium profile")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             Button("Premium settings") { app.navigation.open(.settings(.premium(.settings))) }
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -514,7 +514,8 @@ struct PremiumMemberSettingsView: View {
                     app.navigation.open(.settings(.premium(.manage)))
                 }
                 TelegramDivider()
-                TelegramRow(title: "Payment method", symbol: "creditcard", tint: .secondary, value: "Coming soon") {}
+                TelegramRow(title: "Payment method", symbol: "creditcard", tint: .gray, value: "Coming soon") {}
+                    .disabled(true)
             }
             Text("Payment method is coming soon. Hiding the badge never removes features.")
                 .font(.footnote)
@@ -574,11 +575,11 @@ struct PremiumUpsellView: View {
             } label: {
                 Text("Preview \(target.shortTitle) in sandbox")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.modulaOnPrimary)
                     .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(ModulaPressStyle(scale: 0.97))
-            .modulaAccentCTA()
+            .modulaPrimaryCTA()
             .accessibilityIdentifier("premium.upsell.preview")
             Button("Maybe later") { app.navigation.close() }
                 .font(.body.weight(.semibold))

@@ -92,7 +92,7 @@ struct CreationCapabilities: Sendable, Equatable {
             .audio: "Audio posts aren’t available yet.",
             .movie: "Movie is a distinct future kind — not ordinary video upload.",
             .story: "Story publishing is not enabled on this client.",
-            .reel: "Reel publishing waits on a verified Reels write path."
+            .reel: "Post reels from Reels → Create: a public video post, which GET /v1/reels lists once processed."
         ]
     }
 }

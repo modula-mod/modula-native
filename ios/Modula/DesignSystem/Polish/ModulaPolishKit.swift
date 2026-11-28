@@ -4,7 +4,7 @@ import UIKit
 // Enhancements-50: shared micro-interaction / state primitives. Kept in their own file so
 // feature streams only touch one-line call sites. Every primitive honours Reduce Motion
 // (system + Modula's extra reduction) and Reduce Transparency, uses design tokens, and
-// renders buttons through `modulaAccentCTA`.
+// renders buttons through `modulaPrimaryCTA`.
 
 // MARK: - Skeleton loader
 
@@ -142,7 +142,7 @@ struct ModulaRetryState: View {
                     .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .accessibilityIdentifier("recovery.signIn")
             } else if let retry {
                 Button {
@@ -152,7 +152,7 @@ struct ModulaRetryState: View {
                     Task { try? await Task.sleep(for: .seconds(1.2)); retrying = false }
                 } label: {
                     HStack(spacing: ModulaSpacing.xs) {
-                        if retrying { ProgressView().tint(.white) } else { Image(systemName: "arrow.clockwise") }
+                        if retrying { ProgressView().tint(Color.modulaOnPrimary) } else { Image(systemName: "arrow.clockwise") }
                         Text("Try Again")
                     }
                     .font(.body.weight(.semibold))
@@ -160,7 +160,7 @@ struct ModulaRetryState: View {
                     .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .modulaAccentCTA()
+                .modulaPrimaryCTA()
                 .disabled(retrying)
                 .accessibilityHint("Reloads this content")
             }
@@ -310,7 +310,7 @@ struct ModulaAccentChip: View {
         var selected: Bool
         func body(content: Content) -> some View {
             if selected {
-                content.modulaAccentCTA()
+                content.modulaPrimaryCTA()
             } else {
                 content.foregroundStyle(.primary).modulaGlass(in: Capsule(), interactive: true)
             }
@@ -376,7 +376,7 @@ private struct FollowCTA: ViewModifier {
         if isFollowing {
             content.foregroundStyle(.primary).modulaGlass(in: Capsule(), interactive: true)
         } else {
-            content.modulaAccentCTA()
+            content.modulaPrimaryCTA()
         }
     }
 }
@@ -404,4 +404,16 @@ extension View {
             }
         }
     }
+}
+
+
+/// Skips body re-evaluation while `key` is unchanged (`.equatable()`); closures in `content` are
+/// treated as equivalent when the key is equal, so put everything they depend on into the key.
+struct ModulaEquatableRow<Key: Equatable & Sendable, Content: View>: View, Equatable {
+    let key: Key
+    @ViewBuilder let content: () -> Content
+
+    var body: some View { content() }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
 }
