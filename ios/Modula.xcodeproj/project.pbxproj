@@ -172,6 +172,8 @@
 		A03200000000000000000005 /* PostContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000005 /* PostContentRenderer.swift */; };
 		A03200000000000000000006 /* ContentPostCatalogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A03100000000000000000006 /* ContentPostCatalogView.swift */; };
 		001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */; };
+		P201B000000000000000001 /* ModuleUninstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = P201A000000000000000001 /* ModuleUninstall.swift */; };
+		P201B000000000000000002 /* ModuleUninstallStepUpSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = P201A000000000000000002 /* ModuleUninstallStepUpSheet.swift */; };
 		R3B100000000000000000001 /* StructuredDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000001 /* StructuredDocument.swift */; };
 		R3B100000000000000000002 /* ModuleReleaseTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000002 /* ModuleReleaseTrust.swift */; };
 		R3B100000000000000000003 /* ModulaAppNetworkIsolation.swift in Sources */ = {isa = PBXBuildFile; fileRef = R3A100000000000000000003 /* ModulaAppNetworkIsolation.swift */; };
@@ -499,6 +501,7 @@
 		EE84C2D615FD8B38CF506921 /* ModuleCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */; };
 		6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */; };
 		T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T80100000000000000000001 /* ModuleHostEcosystemTests.swift */; };
+		P201B000000000000000003 /* ModuleUninstallStepUpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P201A000000000000000003 /* ModuleUninstallStepUpTests.swift */; };
 		8847C56025B5FF23E6A2F4CB /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 6D9171C8595DD0F57E983884 /* Localizable.xcstrings */; };
 		5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */; };
 		F70200000000000000000003 /* ProfileContentTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70100000000000000000003 /* ProfileContentTabs.swift */; };
@@ -974,6 +977,8 @@
 		E4D8BFFECC9B4F51FB6DADE9 /* NodusWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NodusWorkspaceView.swift; path = Features/Developer/Nodus/NodusWorkspaceView.swift; sourceTree = "<group>"; };
 		A02A10000000000000000002 /* Nodus02A1PhysicalAcceptanceRunner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Nodus02A1PhysicalAcceptanceRunner.swift; path = Features/Developer/Nodus/Nodus02A1PhysicalAcceptanceRunner.swift; sourceTree = "<group>"; };
 		E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleHost.swift; path = ModuleRuntime/ModuleHost.swift; sourceTree = "<group>"; };
+		P201A000000000000000001 /* ModuleUninstall.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleUninstall.swift; path = ModuleRuntime/ModuleUninstall.swift; sourceTree = "<group>"; };
+		P201A000000000000000002 /* ModuleUninstallStepUpSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleUninstallStepUpSheet.swift; path = ModuleRuntime/ModuleUninstallStepUpSheet.swift; sourceTree = "<group>"; };
 		R3A100000000000000000001 /* StructuredDocument.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StructuredDocument.swift; path = ModuleRuntime/StructuredDocument.swift; sourceTree = "<group>"; };
 		R3A100000000000000000002 /* ModuleReleaseTrust.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleReleaseTrust.swift; path = ModuleRuntime/ModuleReleaseTrust.swift; sourceTree = "<group>"; };
 		R3A100000000000000000003 /* ModulaAppNetworkIsolation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModulaAppNetworkIsolation.swift; path = Core/Networking/ModulaAppNetworkIsolation.swift; sourceTree = "<group>"; };
@@ -1049,6 +1054,7 @@
 		736C8CEB3F723FE3824B717E /* ModuleCompatibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModuleCompatibility.swift; path = ModuleRuntime/ModuleCompatibility.swift; sourceTree = "<group>"; };
 		BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleSecurityTests.swift; sourceTree = "<group>"; };
 		T80100000000000000000001 /* ModuleHostEcosystemTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleHostEcosystemTests.swift; sourceTree = "<group>"; };
+		P201A000000000000000003 /* ModuleUninstallStepUpTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModuleUninstallStepUpTests.swift; sourceTree = "<group>"; };
 		6D9171C8595DD0F57E983884 /* Localizable.xcstrings */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalizationCatalogTests.swift; sourceTree = "<group>"; };
 		F70100000000000000000003 /* ProfileContentTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProfileContentTabs.swift; path = Features/Profile/ProfileContentTabs.swift; sourceTree = "<group>"; };
@@ -1191,6 +1197,7 @@
 				04756B524E52AA56A61D2E0D /* LocalizationCatalogTests.swift */,
 				BFC9EF1CC67951AB29E6F94B /* ModuleSecurityTests.swift */,
 				T80100000000000000000001 /* ModuleHostEcosystemTests.swift */,
+				P201A000000000000000003 /* ModuleUninstallStepUpTests.swift */,
 				R3A100000000000000000005 /* Ecosystem01R3Tests.swift */,
 				F57B2A43C30D9E11DB0A81E8 /* NodusReleaseTests.swift */,
 				61D2937B9B9CC1B7AFB8EA18 /* ActivityAuthTests.swift */,
@@ -1570,6 +1577,8 @@
 				11C7225BC261899B6AA2414A /* ModulaHostBridge.mm */,
 				435419F8D75EB3FA37353703 /* ModuleEnvironment.swift */,
 				E7D08D63F0EFB0004F0E9A0F /* ModuleHost.swift */,
+				P201A000000000000000001 /* ModuleUninstall.swift */,
+				P201A000000000000000002 /* ModuleUninstallStepUpSheet.swift */,
 				R3A100000000000000000001 /* StructuredDocument.swift */,
 				R3A100000000000000000002 /* ModuleReleaseTrust.swift */,
 				R3A100000000000000000004 /* ModuleLifecycleLab.swift */,
@@ -2055,6 +2064,7 @@
 				5900B968FE1D07B3EE4DAEA0 /* LocalizationCatalogTests.swift in Sources */,
 				6ACC1709897F66B0E80839F2 /* ModuleSecurityTests.swift in Sources */,
 				T90100000000000000000001 /* ModuleHostEcosystemTests.swift in Sources */,
+				P201B000000000000000003 /* ModuleUninstallStepUpTests.swift in Sources */,
 				R3B100000000000000000005 /* Ecosystem01R3Tests.swift in Sources */,
 				7BAF35FDD6A2DF05EC5CC919 /* NodusReleaseTests.swift in Sources */,
 				FF6331D9D3CC375EF0B825BF /* ActivityAuthTests.swift in Sources */,
@@ -2358,6 +2368,8 @@
 				2EB8E6563046CB7FD4D651AD /* ModulaHostBridge.mm in Sources */,
 				7D7AABC4EB1C0A2313444D79 /* ModuleEnvironment.swift in Sources */,
 				001526FE43E0E8C9671B4E84 /* ModuleHost.swift in Sources */,
+				P201B000000000000000001 /* ModuleUninstall.swift in Sources */,
+				P201B000000000000000002 /* ModuleUninstallStepUpSheet.swift in Sources */,
 				R3B100000000000000000001 /* StructuredDocument.swift in Sources */,
 				R3B100000000000000000002 /* ModuleReleaseTrust.swift in Sources */,
 				R3B100000000000000000003 /* ModulaAppNetworkIsolation.swift in Sources */,

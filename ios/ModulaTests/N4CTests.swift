@@ -2907,7 +2907,7 @@ final class GreenfieldSessionRecoveryTests: XCTestCase {
             _ = try await client.authenticatedJSON("DELETE", path: "/v1/modules/modula.example/install", body: .object(["choice": .string("deleteData")]))
             XCTFail("expected STEP_UP_REQUIRED")
         } catch let api as APIError {
-            XCTAssertTrue(api.requiresStepUp)
+            XCTAssertNotNil(api.requiresStepUp)
             XCTAssertEqual(api.code, "STEP_UP_REQUIRED")
         }
         XCTAssertTrue(SessionRouterProtocol.log.filter { $0.hasPrefix("POST /v1/sessions/refresh") }.isEmpty)
