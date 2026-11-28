@@ -51,12 +51,12 @@ enum APIError: Error, LocalizedError, Equatable {
 
     var diagnosticDescription: String {
         switch self {
-        case .rejected(let status, let code): "Greenfield request failed (\(status), \(code))."
+        case .rejected(let status, let code): return "Greenfield request failed (\(status), \(code))."
         case .stepUpRequired(let requirement):
             let action = requirement.action ?? "unspecified"
             let age = requirement.maxAgeSeconds.map(String.init) ?? "unspecified"
             return "Greenfield request failed (401, STEP_UP_REQUIRED, action=\(action), maxAgeSeconds=\(age))."
-        default: userFacingMessage
+        default: return userFacingMessage
         }
     }
 
@@ -1245,7 +1245,7 @@ actor GreenfieldClient {
                     "Greenfield \(method, privacy: .public) \(path, privacy: .public) failed \(http.statusCode, privacy: .public) \(safeCode, privacy: .public)"
                 )
             }
-            if Self.isStepUpCode(safeCode) {
+            if APIError.isStepUpCode(safeCode) {
                 throw APIError.stepUpRequired(StepUpRequirement(
                     action: envelope.error?.details?.action,
                     maxAgeSeconds: envelope.error?.details?.maxAgeSeconds

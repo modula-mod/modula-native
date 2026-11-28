@@ -198,7 +198,8 @@ struct ModuleUninstallStepUpSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(emailRowBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(emailRowBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Email, \(displayedEmail)")
         .accessibilityHint("This is the signed-in email and can’t be changed.")
